@@ -30,8 +30,7 @@ build:
 		--cmake-args -DCMAKE_BUILD_TYPE=Release
 
 launch:
-	source install/setup.bash && \
-	ros2 launch autosdv_launch autosdv.launch.yaml
+	./launch.sh
 
 clean:
 	@while true; do \
