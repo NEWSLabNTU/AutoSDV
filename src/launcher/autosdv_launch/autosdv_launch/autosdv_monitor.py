@@ -357,21 +357,22 @@ class AutoSDVMonitor(Node):
     def process_diagnostics(self, msg, stats):
         """Process diagnostic array for device health status"""
         diag_entries = []
-        
         for status in msg.status:
+            level = status.level[0]
+
             level_name = "OK"
-            if status.level == 1:
+            if level == 1:
                 level_name = "WARNING"
-            elif status.level == 2:
+            elif level == 2:
                 level_name = "ERROR"
                 stats.status = 'ERROR'  # Update topic status to reflect error
-            elif status.level == 3:
+            elif level == 3:
                 level_name = "STALE"
                 stats.status = 'STALE'  # Update topic status to reflect stale
                 
             entry = {
                 'name': status.name,
-                'level': status.level,
+                'level': level,
                 'level_name': level_name,
                 'message': status.message,
                 'hardware_id': status.hardware_id,
@@ -383,8 +384,8 @@ class AutoSDVMonitor(Node):
             key = f"{status.hardware_id}/{status.name}"
             self.diagnostics[key] = entry
             
-            if status.level > 0:  # Anything above 0 indicates a warning or error
-                self.get_logger().warn(f'Diagnostic {level_name} for {status.name}: {status.message}')
+            # if level > 0:  # Anything above 0 indicates a warning or error
+            #     self.get_logger().warn(f'Diagnostic {level_name} for {status.name}: {status.message}')
         
         stats.details['diagnostic_entries'] = diag_entries
     
