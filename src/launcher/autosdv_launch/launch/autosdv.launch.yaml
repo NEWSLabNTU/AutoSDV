@@ -16,7 +16,7 @@ launch:
       value: "true"
     -
       name: launch_system
-      value: "false"
+      value: "true"
     -
       name: launch_map
       value: "true"
@@ -31,7 +31,7 @@ launch:
       value: "true"
     -
       name: launch_perception
-      value: "false"
+      value: "true"
     -
       name: launch_planning
       value: "false"
@@ -43,10 +43,10 @@ launch:
       value: "false"
     -
       name: pose_source
-      value: eagleye
-    -
-      name: twist_source
-      value: eagleye
+      value: ndt
+    # -
+      # name: twist_source
+      # value: eagleye
     # -
     #   name: pose_source
     #   value: ndt
@@ -59,25 +59,30 @@ launch:
     param:
     -
       name: monitor_lidar
-      value: "true"
+      value: true
     -
       name: monitor_camera
-      value: "true"
+      value: true
     -
       name: monitor_imu
-      value: "true"
+      value: true
     -
       name: monitor_gps
-      value: "true"
+      value: true
     -
       name: monitor_vehicle
-      value: "true"
+      value: true
     -
       name: monitor_diagnostics
-      value: "true"
+      value: true
     -
       name: report_interval_sec
-      value: "5.0"
+      value: 5.0
     -
       name: web_server_port
-      value: "8080"
+      value: 8080
+
+- node:
+    pkg: rqt_runtime_monitor
+    exec: rqt_runtime_monitor
+    name: rqt_runtime_monitor
