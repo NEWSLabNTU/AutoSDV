@@ -1,0 +1,25 @@
+- name: Create blickfeld-scanner-lib directory inside {{ data_dir }}
+  ansible.builtin.file:
+    path: "{{ data_dir }}/blickfeld-scanner-lib"
+    mode: "755"
+    state: directory
+
+- name: Download the blickfeld-scanner-lib Debian package for x86 architecture.
+  when: ansible_architecture == "x86_64"
+  ansible.builtin.get_url:
+    url: https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_amd64.deb
+    dest: "{{ data_dir }}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
+- name: Install the blickfeld-scanner-lib Debian package on x86 architecture.
+  when: ansible_architecture == "x86_64"
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
+
+- name: Download the blickfeld-scanner-lib Debian package for ARM64 architecture.
+  when: ansible_architecture == "arm64"
+  ansible.builtin.get_url:
+    url: https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_arm64.deb
+    dest: "{{ data_dir }}/blickfeld-scanner-lib/ blickfeld-scanner-lib_2.20.6-1_amd64.deb"
+- name: Install the blickfeld-scanner-lib Debian package on ARM64 architecture.
+  when: ansible_architecture == "arm64"
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/blickfeld-scanner-lib_2.20.6-1_arm64.deb"

@@ -1,0 +1,8 @@
+- name: Include the playbook to set up Autoware Universe
+  ansible.builtin.import_playbook: universe.yaml
+
+- name: Set up source development environments for F1EIGHTH Autoware.
+  hosts: localhost
+  connection: local
+  roles:
+    - role: autoware.dev_env.blickfeld_scanner_lib
