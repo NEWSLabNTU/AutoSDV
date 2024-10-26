@@ -4,7 +4,7 @@ The Autoware perception stack uses models for inference. These models are automa
 
 The models are hosted by Web.Auto.
 
-Default `data_dir` location is `~/autoware_data`.
+Default `data_dir` location is `$repo/data`.
 
 ## Download instructions
 

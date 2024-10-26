@@ -14,7 +14,7 @@ print_help() {
     echo "  -y              Use non-interactive mode"
     echo "  -v              Enable debug outputs"
     echo "  --runtime       Disable installation dev package of role 'cuda' and 'tensorrt'"
-    echo "  --data-dir      Set data directory (default: $HOME/autoware_data)"
+    echo "  --data-dir      Set data directory (default: $repo/data)"
     echo "  --download-artifacts"
     echo "                  Download artifacts"
     echo "  --module        Specify the module (default: all)"
@@ -26,7 +26,7 @@ cd "$SCRIPT_DIR"
 
 # Parse arguments
 args=()
-option_data_dir="$HOME/autoware_data"
+option_data_dir="$SCRIPT_DIR/../../data"
 
 while [ "$1" != "" ]; do
     case "$1" in
