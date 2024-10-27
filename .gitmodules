@@ -113,6 +113,3 @@
 [submodule "F1EIGHTH-book"]
 	path = book
 	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
-[submodule "src/autoware/sensor_component/external/ros2_mpu6050_driver"]
-	path = src/autoware/sensor_component/external/ros2_mpu6050_driver
-	url = https://github.com/hiwad-aziz/ros2_mpu6050_driver.git
