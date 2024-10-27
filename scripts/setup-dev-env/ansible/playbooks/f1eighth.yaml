@@ -6,3 +6,4 @@
   connection: local
   roles:
     - role: autoware.dev_env.blickfeld_scanner_lib
+    - role: autoware.dev_env.zed_sdk

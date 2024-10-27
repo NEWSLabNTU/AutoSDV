@@ -1,0 +1,27 @@
+- name: Create blickfeld-scanner-lib directory inside {{ data_dir }}
+  ansible.builtin.file:
+    path: "{{ data_dir }}/zed-sdk"
+    mode: "755"
+    state: directory
+
+- name: Download the ZED SDK run file for x86 architecture.
+  when: ansible_architecture == "x86_64"
+  ansible.builtin.get_url:
+    url: "https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run"
+    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run"
+- name: Install ZED SDK.
+  when: ansible_architecture == "x86_64"
+  become: true
+  ansible.builtin.script:
+    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run -- --silent"
+
+- name: Download the ZED SDK run file for ARM64 architecture.
+  when: ansible_architecture == "arm64"
+  ansible.builtin.get_url:
+    url: "https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run"
+    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run"
+- name: Install ZED SDK.
+  when: ansible_architecture == "arm64"
+  become: true
+  ansible.builtin.script:
+    cmd: "{{ data_dir }}/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run -- --silent"
