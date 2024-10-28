@@ -31,7 +31,7 @@ build:
 
 launch:
 	source install/setup.bash && \
-	ros2 launch launch/f1eighth.launch.yaml
+	ros2 launch f1eighth_launch f1eighth.launch.yaml
 
 clean:
 	@while true; do \
