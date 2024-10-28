@@ -12,7 +12,31 @@ launch:
       name: map_path
       value: ./data/COSS-map-planning
     -
+      name: launch_vehicle
+      value: "true"
+    -
+      name: launch_system
+      value: "false"
+    -
+      name: launch_map
+      value: "false"
+    -
+      name: launch_sensing
+      value: "true"
+    -
+      name: launch_sensing_driver
+      value: "true"
+    -
       name: launch_localization
+      value: "false"
+    -
+      name: launch_perception
+      value: "false"
+    -
+      name: launch_planning
+      value: "false"
+    -
+      name: launch_control
       value: "true"
     -
       name: pose_source
