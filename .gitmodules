@@ -1,5 +1,5 @@
 [submodule "src/autoware_manual_control"]
-	path = src/autoware_manual_control
+	path = src/autoware/vehicle/external/autoware_manual_control
 	url = https://github.com/evshary/autoware_manual_control.git
 [submodule "src/autoware/core/autoware_msgs"]
 	path = src/autoware/core/autoware_msgs
