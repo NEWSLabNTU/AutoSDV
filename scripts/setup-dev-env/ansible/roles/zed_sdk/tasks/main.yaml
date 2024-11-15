@@ -11,7 +11,6 @@
     dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run"
 - name: Install ZED SDK.
   when: ansible_architecture == "x86_64"
-  become: true
   ansible.builtin.script:
     cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run -- --silent"
 
@@ -22,6 +21,5 @@
     dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run"
 - name: Install ZED SDK.
   when: ansible_architecture == "aarch64"
-  become: true
   ansible.builtin.script:
     cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run -- --silent"
