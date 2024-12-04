@@ -19,7 +19,7 @@ launch:
       value: "false"
     -
       name: launch_map
-      value: "false"
+      value: "true"
     -
       name: launch_sensing
       value: "true"
