@@ -115,4 +115,4 @@
 	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
 [submodule "src/autoware/sensor_component/external/ros2_mpu9250_driver"]
 	path = src/autoware/sensor_component/external/ros2_mpu9250_driver
-	url = https://github.com/hiwad-aziz/ros2_mpu9250_driver.git
+	url = git@github.com:NEWSLabNTU/ros2_mpu9250_driver.git
