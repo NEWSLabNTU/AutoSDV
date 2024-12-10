@@ -39,5 +39,15 @@ launch:
       name: launch_control
       value: "true"
     -
+      name: use_sim_time
+      value: "false"
+    -
       name: pose_source
-      value: "eagleye"
+      value: eagleye
+    -
+      name: twist_source
+      value: eagleye
+    # -
+    #   name: pose_source
+    #   value: ndt
+
