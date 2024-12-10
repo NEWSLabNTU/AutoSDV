@@ -119,3 +119,6 @@
 [submodule "src/autoware/sensor_component/external/ros-nmea-reader"]
 	path = src/autoware/sensor_component/external/ros-nmea-reader
 	url = https://github.com/jerry73204/ros-nmea-reader.git
+[submodule "src/autoware/sensor_component/external/nmea_navsat_driver"]
+	path = src/autoware/sensor_component/external/nmea_navsat_driver
+	url = git@github.com:NEWSLabNTU/nmea_navsat_driver.git
