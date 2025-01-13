@@ -1,4 +1,4 @@
-# F1EIGHTH Project
+# 1/EIGHTH Racing Project
 
 This project hosts the Autoware variant for F1EIGHTH vehicle, a
 small-scale autonomous driving platform intended for
