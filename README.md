@@ -10,7 +10,7 @@ This project is the home to the 1/th Race Vehicle for Autoware, a autonomous dri
 
 This project is released based on avaialble Autoware releases.
 
-- [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11)
+- [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11) (In progress)
 - [2024.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.02)
 
 Please download and checkout to the release branch using this command.
