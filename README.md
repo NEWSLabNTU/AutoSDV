@@ -1,5 +1,7 @@
 # The 1/8th Race Vehicle Project for Autoware
 
+![the project logo](logo.png)
+
 This project is the home to the 1/th Race Vehicle for Autoware, a autonomous driving platform designed to be affordable for R&D and educational purposes.
 
 ## [Read the book](https://github.com/NEWSLabNTU/F1EIGHTH-book/blob/main/src/SUMMARY.md) to learn more about this project.
