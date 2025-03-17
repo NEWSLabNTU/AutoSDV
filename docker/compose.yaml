@@ -1,0 +1,15 @@
+services:
+  builder:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: builder
+    volumes:
+      - ..:/mount
+  packager:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: packager
+    volumes:
+      - ..:/mount

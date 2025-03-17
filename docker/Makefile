@@ -25,19 +25,21 @@ prepare:
 
 build:
 	# ./scripts/resolve_deps.sh
-	docker build . \
-		-t $(IMAGE_NAME) \
-		--platform linux/arm64
+	# docker build . \
+	# 	-t $(IMAGE_NAME) \
+	# 	--platform linux/arm64
+	docker-compose build
 
-run: build
-	dockre run \
-		-it --rm \
-		--net=host \
-		--runtime nvidia \
-		-e DISPLAY=$$DISPLAY \
-		-v /tmp/.X11-unix/:/tmp/.X11-unix \
-		-v $$PWD/..:/home/jetson/F1EIGHTH \
-		$(IMAGE_NAME)
+run:
+	# docker run \
+	# 	-it --rm \
+	# 	--net=host \
+	# 	--runtime nvidia \
+	# 	-e DISPLAY=$$DISPLAY \
+	# 	-v /tmp/.X11-unix/:/tmp/.X11-unix \
+	# 	-v $$PWD/..:/home/jetson/F1EIGHTH \
+	# 	$(IMAGE_NAME)
+	docker compose up
 
 save: build
 	docker save $(IMAGE_NAME) | zstd -T0 -o $(IMAGE_NAME).tar.zstd
