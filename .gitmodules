@@ -1,20 +1,20 @@
 [submodule "src/autoware_manual_control"]
-	path = src/autoware/vehicle/external/autoware_manual_control
+	path = src/vehicle/external/autoware_manual_control
 	url = https://github.com/evshary/autoware_manual_control.git
 [submodule "src/autoware/sensor_kit/f1eighth_sensor_kit_launch"]
-	path = src/autoware/sensor_kit/f1eighth_sensor_kit_launch
+	path = src/sensor_kit/f1eighth_sensor_kit_launch
 	url = git@github.com:NEWSLabNTU/f1eighth_sensor_kit_launch.git
 [submodule "src/autoware/vehicle/f1eighth_vehicle_launch"]
-	path = src/autoware/vehicle/f1eighth_vehicle_launch
+	path = src/vehicle/f1eighth_vehicle_launch
 	url = git@github.com:NEWSLabNTU/f1eighth_vehicle_launch.git
 [submodule "src/gnss_locator"]
-	path = src/autoware/sensor_component/external/gnss_locator
+	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
 [submodule "src/zed-ros2-examples"]
-	path = src/autoware/sensor_component/external/zed-ros2-examples
+	path = src/sensor_component/external/zed-ros2-examples
 	url = git@github.com:NEWSLabNTU/F1EIGHT-zed-ros2-examples.git
 [submodule "src/zed-ros2-wrapper"]
-	path = src/autoware/sensor_component/external/zed-ros2-wrapper
+	path = src/sensor_component/external/zed-ros2-wrapper
 	url = git@github.com:NEWSLabNTU/F1EIGHT_zed-ros2-wrapper.git
 [submodule "src/autoware/calibration_tools"]
 	path = src/calibration/calibration_tools
@@ -23,14 +23,14 @@
 	path = book
 	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
 [submodule "src/autoware/sensor_component/external/ros2_mpu9250_driver"]
-	path = src/autoware/sensor_component/external/ros2_mpu9250_driver
+	path = src/sensor_component/external/ros2_mpu9250_driver
 	url = git@github.com:NEWSLabNTU/ros2_mpu9250_driver.git
 [submodule "src/autoware/sensor_component/external/ros-nmea-reader"]
-	path = src/autoware/sensor_component/external/ros-nmea-reader
+	path = src/sensor_component/external/ros-nmea-reader
 	url = https://github.com/jerry73204/ros-nmea-reader.git
 [submodule "src/autoware/sensor_component/external/nmea_navsat_driver"]
-	path = src/autoware/sensor_component/external/nmea_navsat_driver
+	path = src/sensor_component/external/nmea_navsat_driver
 	url = git@github.com:NEWSLabNTU/nmea_navsat_driver.git
 [submodule "src/autoware/param/autoware_individual_params"]
-	path = src/autoware/param/autoware_individual_params
+	path = src/param/autoware_individual_params
 	url = git@github.com:NEWSLabNTU/autoware_individual_params.git
