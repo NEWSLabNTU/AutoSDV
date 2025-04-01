@@ -18,8 +18,7 @@
 	url = git@github.com:NEWSLabNTU/F1EIGHT_zed-ros2-wrapper.git
 [submodule "src/autoware/calibration_tools"]
 	path = src/calibration/calibration_tools
-	url = git@github.com:NEWSLabNTU/F1EIGHT_CalibrationTools.git
-	branch = Lab1
+	url = git@github.com:NEWSLabNTU/CalibrationTools.git
 [submodule "F1EIGHTH-book"]
 	path = book
 	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
