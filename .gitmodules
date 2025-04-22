@@ -10,9 +10,6 @@
 [submodule "src/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
-[submodule "src/zed-ros2-examples"]
-	path = src/sensor_component/external/zed-ros2-examples
-	url = git@github.com:NEWSLabNTU/F1EIGHT-zed-ros2-examples.git
 [submodule "src/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
 	url = git@github.com:NEWSLabNTU/F1EIGHT_zed-ros2-wrapper.git
