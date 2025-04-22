@@ -25,7 +25,6 @@ prepare:
 build:
 	source /opt/ros/humble/setup.bash && \
 	colcon build \
-		--merge-install \
 		--symlink-install \
 		--cmake-args -DCMAKE_BUILD_TYPE=Release
 
