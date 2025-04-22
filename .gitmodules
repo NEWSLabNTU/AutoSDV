@@ -12,7 +12,7 @@
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
 [submodule "src/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
-	url = git@github.com:NEWSLabNTU/F1EIGHT_zed-ros2-wrapper.git
+	url = https://github.com/stereolabs/zed-ros2-wrapper.git
 [submodule "F1EIGHTH-book"]
 	path = book
 	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
