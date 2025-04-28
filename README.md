@@ -18,13 +18,13 @@ technologies.
 <table align="center" border="0">
   <tr>
     <td align="center" valign="bottom">
-      <img src="figures/model_robin-w.png" alt="Vehicle 1" width="80%"/>
+      <img src="figures/model_robin-w.webp" alt="Robin-W Solid-State LiDAR Kit" width="80%"/>
     </td>
     <td align="center" valign="bottom">
-      <img src="figures/model_velodyne_32c.png" alt="Vehicle 2" width="80%"/>
+      <img src="figures/model_velodyne_32c.webp" alt="Velodyne 32C LiDAR Kit" width="80%"/>
     </td>
     <td align="center" valign="bottom">
-      <img src="figures/model_cube1_moxa-5g.png" alt="Vehicle 3" width="80%"/>
+      <img src="figures/model_cube1_moxa-5g.webp" alt="Blickfeld Cube1 + MOXA 5G Kit" width="80%"/>
     </td>
   </tr>
   <tr>
@@ -35,7 +35,7 @@ technologies.
       <b>Velodyne 32C LiDAR Kit</b>
     </td>
     <td align="center">
-      <b>Blickfeld Cube1 + MOXA 5G Kit</b>
+      <b>Cube1 LiDAR + MOXA 5G Kit</b>
     </td>
   </tr>
 </table>
