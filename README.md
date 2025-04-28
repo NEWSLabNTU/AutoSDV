@@ -1,5 +1,4 @@
-# The 1/8th Race Vehicle Project for Autoware
-
+# AutoSDV: Software-Defined Vehicle Project for Autoware
 ![the project logo](logo/logo_gray.png)
 
 This project is the home to the 1/th Race Vehicle for Autoware, a autonomous driving platform designed to be affordable for R&D and educational purposes.
