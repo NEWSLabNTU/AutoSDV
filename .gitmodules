@@ -13,9 +13,9 @@
 [submodule "src/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
 	url = https://github.com/NEWSLabNTU/zed-ros2-wrapper.git
-[submodule "F1EIGHTH-book"]
+[submodule "AutoSDV-book"]
 	path = book
-	url = git@github.com:NEWSLabNTU/F1EIGHTH-book.git
+	url = git@github.com:NEWSLabNTU/AutoSDV-book.git
 [submodule "src/autoware/sensor_component/external/ros2_mpu9250_driver"]
 	path = src/sensor_component/external/ros2_mpu9250_driver
 	url = git@github.com:NEWSLabNTU/ros2_mpu9250_driver.git
