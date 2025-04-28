@@ -1,17 +1,44 @@
-# AutoSDV: Small Software-Defined Vehicle for Autoware
 
 <p align="center">
-<img src="logo/logo_brand_gray.png"/>
+  <img src="logo/logo_brand_gray.png" width=""/>
+  <br>
+  <a href="https://github.com/NEWSLabNTU/F1EIGHTH-book/blob/main/src/SUMMARY.md">
+    <strong>Read the Book »</strong>
+  </a>
 </p>
 
-This project provides a recommended build for a small-scale autonomous
-vehicle, equipped with practical, industry-standard sensors and
-running Autoware, the leading open-source autonomous driving platform.
-Designed for research, development, and education, the platform offers
-an affordable, modular solution that enables realistic experimentation
-and rapid prototyping in autonomous driving technologies.
+AutoSDV project provides a recommended build for a small-scale
+autonomous vehicle, equipped with practical, industry-standard sensors
+and running Autoware, the leading open-source autonomous driving
+platform. Designed for research, development, and education, the
+platform offers an affordable, modular solution that enables realistic
+experimentation and rapid prototyping in autonomous driving
+technologies.
 
-## [Read the book](https://github.com/NEWSLabNTU/F1EIGHTH-book/blob/main/src/SUMMARY.md) to learn more about this project.
+<table align="center" border="0">
+  <tr>
+    <td align="center" valign="bottom">
+      <img src="figures/model_robin-w.png" alt="Vehicle 1" width="80%"/>
+    </td>
+    <td align="center" valign="bottom">
+      <img src="figures/model_velodyne_32c.png" alt="Vehicle 2" width="80%"/>
+    </td>
+    <td align="center" valign="bottom">
+      <img src="figures/model_cube1_moxa-5g.png" alt="Vehicle 3" width="80%"/>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <b>Robin-W Solid-State LiDAR Kit</b>
+    </td>
+    <td align="center">
+      <b>Velodyne 32C LiDAR Kit</b>
+    </td>
+    <td align="center">
+      <b>Blickfeld Cube1 + MOXA 5G Kit</b>
+    </td>
+  </tr>
+</table>
 
 ## Releases
 
@@ -24,7 +51,7 @@ This project is released based on avaialble Autoware releases.
 Please download and checkout to the release branch using this command.
 
 ```sh
-git clone -b 2024.11 --recurse-submodules git@github.com:NEWSLabNTU/F1EIGHTH.git
+git clone -b 2025.02 --recurse-submodules git@github.com:NEWSLabNTU/F1EIGHTH.git
 ```
 
 ## License
