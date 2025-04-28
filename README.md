@@ -1,7 +1,15 @@
-# AutoSDV: Software-Defined Vehicle Project for Autoware
-![the project logo](logo/logo_gray.png)
+# AutoSDV: Small Software-Defined Vehicle for Autoware
 
-This project is the home to the 1/th Race Vehicle for Autoware, a autonomous driving platform designed to be affordable for R&D and educational purposes.
+<p align="center">
+<img src="logo/logo_brand_gray.png"/>
+</p>
+
+This project provides a recommended build for a small-scale autonomous
+vehicle, equipped with practical, industry-standard sensors and
+running Autoware, the leading open-source autonomous driving platform.
+Designed for research, development, and education, the platform offers
+an affordable, modular solution that enables realistic experimentation
+and rapid prototyping in autonomous driving technologies.
 
 ## [Read the book](https://github.com/NEWSLabNTU/F1EIGHTH-book/blob/main/src/SUMMARY.md) to learn more about this project.
 
@@ -9,7 +17,8 @@ This project is the home to the 1/th Race Vehicle for Autoware, a autonomous dri
 
 This project is released based on avaialble Autoware releases.
 
-- [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11) (In progress)
+- [2025.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2025.02)
+- [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11)
 - [2024.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.02)
 
 Please download and checkout to the release branch using this command.
