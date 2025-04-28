@@ -56,4 +56,16 @@ git clone -b 2025.02 --recurse-submodules git@github.com:NEWSLabNTU/F1EIGHTH.git
 
 ## License
 
-This project is distributed under Apache 2.0 license with several exceptions. You can read the [license file](LICENSE.txt).
+This project is distributed under Apache 2.0 license in the [license
+file](LICENSE.txt). If you use this project in your work, please cite
+it as follows:
+
+```latex
+@misc{autosdv2025,
+  author = {Hsiang-Jui Lin, Chi-Sheng Shih},
+  title = {AutoSDV: A Software-Defined Vehicle Platform for Research and Education},
+  year = {2025},
+  institution = {National Taiwan University},
+  url = {https://github.com/yourusername/autosdv},
+  note = {Accessed: 2025-04-28}
+}
