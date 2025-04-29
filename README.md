@@ -2,7 +2,7 @@
 <p align="center">
   <img src="logo/logo_brand_gray.png" width=""/>
   <br>
-  <a href="https://github.com/NEWSLabNTU/F1EIGHTH-book/blob/main/src/SUMMARY.md">
+  <a href="https://newslabntu.github.io/autosdv-book/">
     <strong>Read the Book »</strong>
   </a>
 </p>
