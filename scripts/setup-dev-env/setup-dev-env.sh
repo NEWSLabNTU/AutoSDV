@@ -67,7 +67,7 @@ while [ "$1" != "" ]; do
 done
 
 # Select installation type
-target_playbook="autoware.dev_env.f1eighth" # default
+target_playbook="autoware.dev_env.autosdv" # default
 
 if [ ${#args[@]} -ge 1 ]; then
     target_playbook="autoware.dev_env.${args[0]}"
