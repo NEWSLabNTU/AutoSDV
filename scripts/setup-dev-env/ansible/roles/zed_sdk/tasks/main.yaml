@@ -1,25 +1,35 @@
-- name: Create blickfeld-scanner-lib directory inside {{ data_dir }}
+- name: Create ZED SDK directory inside {{ data_dir }}
   ansible.builtin.file:
     path: "{{ data_dir }}/zed-sdk"
     mode: "755"
     state: directory
 
-- name: Download the ZED SDK run file for x86 architecture.
+- name: Download the ZED SDK run file for x86 architecture (Ubuntu 22.04)
   when: ansible_architecture == "x86_64"
   ansible.builtin.get_url:
-    url: "https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run"
-    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run"
-- name: Install ZED SDK.
-  when: ansible_architecture == "x86_64"
-  ansible.builtin.script:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12.1_v4.2.1.zstd.run -- --silent"
+    url: "https://download.stereolabs.com/zedsdk/4.2/cu12/ubuntu22"
+    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run"
+    mode: "755"
 
-- name: Download the ZED SDK run file for ARM64 architecture.
+- name: Install ZED SDK for x86 architecture
+  when: ansible_architecture == "x86_64"
+  ansible.builtin.shell:
+    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run -- --silent"
+  become: true
+  args:
+    creates: "/usr/local/zed"
+
+- name: Download the ZED SDK run file for ARM64 architecture (JetPack 6.0)
   when: ansible_architecture == "aarch64"
   ansible.builtin.get_url:
-    url: "https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/4.2/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run"
-    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run"
-- name: Install ZED SDK.
+    url: "https://download.stereolabs.com/zedsdk/4.2/l4t36.3/jetsons"
+    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run"
+    mode: "755"
+
+- name: Install ZED SDK for ARM64 architecture
   when: ansible_architecture == "aarch64"
-  ansible.builtin.script:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run -- --silent"
+  ansible.builtin.shell:
+    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run -- --silent"
+  become: true
+  args:
+    creates: "/usr/local/zed"

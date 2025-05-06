@@ -1,0 +1,5 @@
+---
+# ZED SDK version information
+zed_sdk_version: "4.2"
+zed_sdk_cuda_version: "12"    # For x86_64
+zed_sdk_l4t_version: "36.3"   # For ARM64/Jetson
