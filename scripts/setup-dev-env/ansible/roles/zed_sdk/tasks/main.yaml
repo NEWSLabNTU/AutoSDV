@@ -1,3 +1,22 @@
+- name: Install zstd
+  become: true
+  ansible.builtin.apt:
+    name: zstd
+    state: latest
+    update_cache: true
+
+# Install required Python packages via apt to prevent pip installation during ZED SDK installation
+- name: Install required Python packages via apt
+  become: true
+  ansible.builtin.apt:
+    name:
+      - python3-numpy
+      - python3-requests
+      - python3-opencv
+      - python3-pyqt5
+    state: present
+    update_cache: true
+
 - name: Create ZED SDK directory inside {{ data_dir }}
   ansible.builtin.file:
     path: "{{ data_dir }}/zed-sdk"
@@ -14,7 +33,7 @@
 - name: Install ZED SDK for x86 architecture
   when: ansible_architecture == "x86_64"
   ansible.builtin.shell:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run -- --silent"
+    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run -- --silent --skip_python_pip"
   become: true
   args:
     creates: "/usr/local/zed"
@@ -29,7 +48,17 @@
 - name: Install ZED SDK for ARM64 architecture
   when: ansible_architecture == "aarch64"
   ansible.builtin.shell:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run -- --silent"
+    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run -- --silent --skip_python_pip"
   become: true
   args:
     creates: "/usr/local/zed"
+
+# Fix permissions on the ZED SDK directory
+- name: Fix permissions on ZED SDK directory
+  become: true
+  ansible.builtin.file:
+    path: "/usr/local/zed"
+    mode: "0755"
+    recurse: yes
+    state: directory
+  when: ansible_architecture == "x86_64" or ansible_architecture == "aarch64"
