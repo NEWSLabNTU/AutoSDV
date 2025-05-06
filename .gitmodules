@@ -1,12 +1,12 @@
 [submodule "src/autoware_manual_control"]
 	path = src/vehicle/external/autoware_manual_control
 	url = https://github.com/evshary/autoware_manual_control.git
-[submodule "src/autoware/sensor_kit/f1eighth_sensor_kit_launch"]
+[submodule "src/autoware/sensor_kit/autosdv_sensor_kit_launch"]
 	path = src/sensor_kit/autosdv_sensor_kit_launch
-	url = git@github.com:NEWSLabNTU/f1eighth_sensor_kit_launch.git
-[submodule "src/autoware/vehicle/f1eighth_vehicle_launch"]
+	url = git@github.com:NEWSLabNTU/autosdv_sensor_kit_launch.git
+[submodule "src/autoware/vehicle/autosdv_vehicle_launch"]
 	path = src/vehicle/autosdv_vehicle_launch
-	url = git@github.com:NEWSLabNTU/f1eighth_vehicle_launch.git
+	url = git@github.com:NEWSLabNTU/autosdv_vehicle_launch.git
 [submodule "src/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
