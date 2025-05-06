@@ -3,7 +3,7 @@ from glob import glob
 from setuptools import find_packages, setup
 
 
-package_name = "f1eighth_launch"
+package_name = "autosdv_launch"
 
 setup(
     name=package_name,

@@ -4,10 +4,10 @@ launch:
     arg:
     -
       name: vehicle_model
-      value: f1eighth_vehicle
+      value: autosdv_vehicle
     -
       name: sensor_model
-      value: f1eighth_sensor_kit
+      value: autosdv_sensor_kit
     -
       name: map_path
       value: ./data/COSS-map-planning
