@@ -1,11 +1,11 @@
-.PHONY: default prepare build save
+.PHONY: default bootstrap build save
 
-IMAGE_NAME = f1eighth
+IMAGE_NAME = autosdv
 
 default:
 	@echo 'Usage:'
 	@echo
-	@echo 'make prepare'
+	@echo 'make bootstrap'
 	@echo '    Install dependent pakcages and configure the'
 	@echo '    environment to build the container image.'
 	@echo
@@ -18,28 +18,23 @@ default:
 	@echo 'make save'
 	@echo '    Save a Docker image file.'
 
-prepare:
+bootstrap:
 	sudo apt-get install qemu binfmt-support qemu-user-static
-	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes --credential yes
+	docker run --privileged --rm tonistiigi/binfmt --install all
 	sudo systemctl restart docker.service
 
 build:
-	# ./scripts/resolve_deps.sh
-	# docker build . \
-	# 	-t $(IMAGE_NAME) \
-	# 	--platform linux/arm64
-	docker-compose build
+	docker build . \
+		-t $(IMAGE_NAME) \
+		--platform linux/arm64
 
 run:
-	# docker run \
-	# 	-it --rm \
-	# 	--net=host \
-	# 	--runtime nvidia \
-	# 	-e DISPLAY=$$DISPLAY \
-	# 	-v /tmp/.X11-unix/:/tmp/.X11-unix \
-	# 	-v $$PWD/..:/home/jetson/F1EIGHTH \
-	# 	$(IMAGE_NAME)
-	docker compose up
+	rocker \
+		--x11 \
+		--nvidia \
+		--user \
+		--home \
+		$(IMAGE_NAME)
 
 save: build
 	docker save $(IMAGE_NAME) | zstd -T0 -o $(IMAGE_NAME).tar.zstd
