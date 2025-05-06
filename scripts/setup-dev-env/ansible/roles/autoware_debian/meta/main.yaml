@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  role_name: autoware_debian
+  description: Installs Autoware from NEWSLab NTU Debian packages version 2025.02
+  license: Apache-2.0
+  min_ansible_version: 2.9
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy  # Ubuntu 22.04
+  galaxy_tags:
+    - autoware
+    - ros
+    - autonomous
+    - debian
+    - packages
+  dependencies: []

@@ -1,0 +1,96 @@
+---
+- name: Create Autoware directory inside {{ data_dir }}
+  ansible.builtin.file:
+    path: "{{ data_dir }}/autoware-debian"
+    mode: "755"
+    state: directory
+
+# Check if system is Jetson Linux 36.3
+- name: Check if Jetson Linux 36.3 release file exists
+  ansible.builtin.stat:
+    path: /etc/nv_tegra_release
+  register: tegra_release_file
+
+- name: Read Tegra release file if it exists
+  ansible.builtin.shell: "grep -o 'R36 (release), REVISION: 3\\.' /etc/nv_tegra_release"
+  register: tegra_release_version
+  changed_when: false
+  failed_when: false
+  when: tegra_release_file.stat.exists
+
+- name: Set is_jetpack_6_0 fact
+  ansible.builtin.set_fact:
+    is_jetpack_6_0: "{{ tegra_release_file.stat.exists and tegra_release_version.rc == 0 }}"
+
+# For x86_64 architecture
+- name: Download Autoware local repository for x86_64 architecture
+  when: ansible_architecture == "x86_64"
+  ansible.builtin.get_url:
+    url: "https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_amd64.deb"
+    dest: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_amd64.deb"
+    mode: "644"
+
+- name: Install Autoware local repository for x86_64 architecture
+  when: ansible_architecture == "x86_64"
+  become: true
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_amd64.deb"
+    state: present
+
+# For ARM64 architecture with JetPack 6.0
+- name: Download Autoware local repository for Jetson with JetPack 6.0
+  when: ansible_architecture == "aarch64" and is_jetpack_6_0
+  ansible.builtin.get_url:
+    url: "https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_jetpack6.0.deb"
+    dest: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_jetpack6.0.deb"
+    mode: "644"
+
+- name: Install Autoware local repository for Jetson with JetPack 6.0
+  when: ansible_architecture == "aarch64" and is_jetpack_6_0
+  become: true
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_jetpack6.0.deb"
+    state: present
+
+# For regular ARM64 architecture (non-Jetson or different Jetson version)
+- name: Download Autoware local repository for standard ARM64 architecture
+  when: ansible_architecture == "aarch64" and not is_jetpack_6_0
+  ansible.builtin.get_url:
+    url: "https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_arm64.deb"
+    dest: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_arm64.deb"
+    mode: "644"
+
+- name: Install Autoware local repository for standard ARM64 architecture
+  when: ansible_architecture == "aarch64" and not is_jetpack_6_0
+  become: true
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/autoware-debian/autoware-localrepo_2025.2-1_arm64.deb"
+    state: present
+
+# Common tasks for all architectures
+- name: Update apt repositories
+  become: true
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Autoware full package
+  become: true
+  ansible.builtin.apt:
+    name: "autoware-full"
+    state: present
+
+- name: Run Autoware setup
+  become: true
+  ansible.builtin.command:
+    cmd: autoware-setup
+  register: autoware_setup
+  failed_when: autoware_setup.rc != 0 and autoware_setup.rc != 130
+  # Note: RC 130 is what happens when the user cancels the setup with Ctrl+C
+  # We don't want to fail the playbook in this case
+
+- name: Add Autoware environment to bashrc
+  ansible.builtin.lineinfile:
+    path: "{{ ansible_env.HOME }}/.bashrc"
+    line: "source /opt/autoware/autoware-env"
+    state: present
+    create: no
