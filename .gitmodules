@@ -2,7 +2,7 @@
 	path = src/vehicle/external/autoware_manual_control
 	url = https://github.com/evshary/autoware_manual_control.git
 [submodule "src/autoware/sensor_kit/f1eighth_sensor_kit_launch"]
-	path = src/sensor_kit/f1eighth_sensor_kit_launch
+	path = src/sensor_kit/autosdv_sensor_kit_launch
 	url = git@github.com:NEWSLabNTU/f1eighth_sensor_kit_launch.git
 [submodule "src/autoware/vehicle/f1eighth_vehicle_launch"]
 	path = src/vehicle/f1eighth_vehicle_launch
