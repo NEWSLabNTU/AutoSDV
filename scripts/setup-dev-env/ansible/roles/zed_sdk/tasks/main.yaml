@@ -1,64 +1,52 @@
-- name: Install zstd
-  become: true
-  ansible.builtin.apt:
-    name: zstd
-    state: latest
-    update_cache: true
-
-# Install required Python packages via apt to prevent pip installation during ZED SDK installation
-- name: Install required Python packages via apt
-  become: true
-  ansible.builtin.apt:
-    name:
-      - python3-numpy
-      - python3-requests
-      - python3-opencv
-      - python3-pyqt5
-    state: present
-    update_cache: true
-
 - name: Create ZED SDK directory inside {{ data_dir }}
   ansible.builtin.file:
     path: "{{ data_dir }}/zed-sdk"
     mode: "755"
     state: directory
 
-- name: Download the ZED SDK run file for x86 architecture (Ubuntu 22.04)
+# Download Debian package for x86_64 architecture
+- name: Download the ZED SDK Debian package for x86_64 architecture
   when: ansible_architecture == "x86_64"
   ansible.builtin.get_url:
-    url: "https://download.stereolabs.com/zedsdk/4.2/cu12/ubuntu22"
-    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run"
-    mode: "755"
+    url: "https://github.com/jerry73204/zed-sdk-debian-package/releases/download/4.2-1/zed-sdk_4.2-1_amd64.deb"
+    dest: "{{ data_dir }}/zed-sdk/zed-sdk_4.2-1_amd64.deb"
+    mode: "644"
 
-- name: Install ZED SDK for x86 architecture
+# Install Debian package for x86_64 architecture
+- name: Install ZED SDK Debian package for x86_64 architecture
   when: ansible_architecture == "x86_64"
-  ansible.builtin.shell:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Ubuntu22_cuda12_v4.2.run -- --silent --skip_python_pip"
   become: true
-  args:
-    creates: "/usr/local/zed"
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/zed-sdk/zed-sdk_4.2-1_amd64.deb"
+    state: present
 
-- name: Download the ZED SDK run file for ARM64 architecture (JetPack 6.0)
+# Download Debian package for ARM64 architecture
+- name: Download the ZED SDK Debian package for ARM64 architecture
   when: ansible_architecture == "aarch64"
   ansible.builtin.get_url:
-    url: "https://download.stereolabs.com/zedsdk/4.2/l4t36.3/jetsons"
-    dest: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run"
-    mode: "755"
+    url: "https://github.com/jerry73204/zed-sdk-debian-package/releases/download/4.2-1/zed-sdk_4.2-1_arm64.deb"
+    dest: "{{ data_dir }}/zed-sdk/zed-sdk_4.2-1_arm64.deb"
+    mode: "644"
 
-- name: Install ZED SDK for ARM64 architecture
+# Install Debian package for ARM64 architecture
+- name: Install ZED SDK Debian package for ARM64 architecture
   when: ansible_architecture == "aarch64"
-  ansible.builtin.shell:
-    cmd: "{{ data_dir }}/zed-sdk/ZED_SDK_Tegra_L4T36.3_v4.2.run -- --silent --skip_python_pip"
   become: true
-  args:
-    creates: "/usr/local/zed"
+  ansible.builtin.apt:
+    deb: "{{ data_dir }}/zed-sdk/zed-sdk_4.2-1_arm64.deb"
+    state: present
 
-# Fix permissions on the ZED SDK directory
-- name: Fix permissions on ZED SDK directory
+# Download AI models for both architectures
+- name: Download ZED AI models
   become: true
-  ansible.builtin.file:
+  ansible.builtin.command:
+    cmd: zed_download_ai_models
+  register: zed_ai_models_result
+  changed_when: zed_ai_models_result.rc == 0
+  failed_when: zed_ai_models_result.rc != 0
+
+# Fix permissions on the ZED SDK directory if it exists
+- name: Check if ZED SDK directory exists
+  ansible.builtin.stat:
     path: "/usr/local/zed"
-    mode: "0755"
-    recurse: yes
-    state: directory
-  when: ansible_architecture == "x86_64" or ansible_architecture == "aarch64"
+  register: zed_dir_exists
