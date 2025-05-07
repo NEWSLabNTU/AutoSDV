@@ -3,10 +3,10 @@
 	url = https://github.com/evshary/autoware_manual_control.git
 [submodule "src/autoware/sensor_kit/autosdv_sensor_kit_launch"]
 	path = src/sensor_kit/autosdv_sensor_kit_launch
-	url = git@github.com:NEWSLabNTU/autosdv_sensor_kit_launch.git
+	url = https://github.com/NEWSLabNTU/autosdv_sensor_kit_launch.git
 [submodule "src/autoware/vehicle/autosdv_vehicle_launch"]
 	path = src/vehicle/autosdv_vehicle_launch
-	url = git@github.com:NEWSLabNTU/autosdv_vehicle_launch.git
+	url = https://github.com/NEWSLabNTU/autosdv_vehicle_launch.git
 [submodule "src/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
@@ -15,13 +15,13 @@
 	url = https://github.com/NEWSLabNTU/zed-ros2-wrapper.git
 [submodule "AutoSDV-book"]
 	path = book
-	url = git@github.com:NEWSLabNTU/AutoSDV-book.git
+	url = https://github.com/NEWSLabNTU/AutoSDV-book.git
 [submodule "src/autoware/sensor_component/external/ros2_mpu9250_driver"]
 	path = src/sensor_component/external/ros2_mpu9250_driver
-	url = git@github.com:NEWSLabNTU/ros2_mpu9250_driver.git
+	url = https://github.com/NEWSLabNTU/ros2_mpu9250_driver.git
 [submodule "src/autoware/sensor_component/external/ros-nmea-reader"]
 	path = src/sensor_component/external/ros-nmea-reader
 	url = https://github.com/jerry73204/ros-nmea-reader.git
 [submodule "src/autoware/param/autoware_individual_params"]
 	path = src/param/autoware_individual_params
-	url = git@github.com:NEWSLabNTU/autoware_individual_params.git
+	url = https://github.com/NEWSLabNTU/autoware_individual_params.git
