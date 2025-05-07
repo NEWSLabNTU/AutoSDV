@@ -66,6 +66,6 @@ it as follows:
   title = {AutoSDV: A Software-Defined Vehicle Platform for Research and Education},
   year = {2025},
   institution = {National Taiwan University},
-  url = {https://github.com/yourusername/autosdv},
+  url = {https://github.com/NEWSLabNTU/AutoSDV},
   note = {Accessed: 2025-04-28}
 }
