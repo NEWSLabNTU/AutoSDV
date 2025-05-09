@@ -1,0 +1,29 @@
+/zed-sdk/
+/blickfeld-scanner-lib/
+/autoware-debian/
+/yabloc_pose_initializer/
+/image_projection_based_fusion/
+/lidar_apollo_instance_segmentation/
+/lidar_centerpoint/
+/lidar_transfusion/
+/tensorrt_yolox/
+/traffic_light_classifier/
+/traffic_light_fine_detector/
+/tvm_utility/
+
+# Avoid accidentally committing large binaries
+*.bin
+*.onnx
+*.deb
+*.run
+*.so
+*.a
+*.isp
+*.dfu
+*.tflite
+*.blob
+*.pb
+*.pcd
+
+# Temporary files
+*.tmp
