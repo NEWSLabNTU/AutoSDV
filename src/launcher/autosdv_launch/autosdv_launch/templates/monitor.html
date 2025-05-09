@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 {
+            margin: 0;
+        }
+        .status-info {
+            font-size: 0.9em;
+        }
+        .card {
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .card-header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            font-weight: bold;
+        }
+        .card-content {
+            padding: 20px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .details-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .details-btn:hover {
+            background-color: #45a049;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 5% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover, .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .status-OK {
+            color: #4CAF50;
+        }
+        .status-ERROR {
+            color: #f44336;
+        }
+        .status-WARNING {
+            color: #ff9800;
+        }
+        .status-STALE {
+            color: #9e9e9e;
+        }
+        .status-NO-DATA {
+            color: #9e9e9e;
+        }
+        .status-UNKNOWN {
+            color: #2196F3;
+        }
+        .refresh-btn {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .refresh-btn:hover {
+            background-color: #0b7dda;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .refresh-container {
+            text-align: right;
+            margin-bottom: 10px;
+        }
+        #clock {
+            font-size: 0.9em;
+            color: #757575;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ title }}</h1>
+            <div class="status-info">
+                <div>Node: <span id="node-name">{{ node_name }}</span></div>
+                <div>Time: <span id="clock">...</span></div>
+            </div>
+        </header>
+        
+        <div class="refresh-container">
+            <button id="refresh-btn" class="refresh-btn">Refresh Data</button>
+            <span id="auto-refresh-label">Auto-refresh: </span>
+            <select id="refresh-interval">
+                <option value="0">Off</option>
+                <option value="1">1 second</option>
+                <option value="2">2 seconds</option>
+                <option value="5" selected>5 seconds</option>
+                <option value="10">10 seconds</option>
+                <option value="30">30 seconds</option>
+            </select>
+        </div>
+        
+        <div id="status-container">
+            <!-- Status cards will be inserted here -->
+            <div class="card">
+                <div class="card-header">Loading...</div>
+                <div class="card-content">
+                    <p>Please wait while we fetch the status data...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal for displaying details -->
+    <div id="details-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modal-title">Details</h2>
+            <pre id="modal-content"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Initial data fetch
+        fetchData();
+        
+        // Setup auto-refresh
+        let refreshInterval;
+        const refreshSelect = document.getElementById('refresh-interval');
+        
+        refreshSelect.addEventListener('change', function() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+            
+            const seconds = parseInt(this.value);
+            if (seconds > 0) {
+                refreshInterval = setInterval(fetchData, seconds * 1000);
+            }
+        });
+        
+        // Set initial refresh interval
+        const initialRefresh = parseInt(refreshSelect.value);
+        if (initialRefresh > 0) {
+            refreshInterval = setInterval(fetchData, initialRefresh * 1000);
+        }
+        
+        // Refresh button
+        document.getElementById('refresh-btn').addEventListener('click', fetchData);
+        
+        // Modal handling
+        const modal = document.getElementById('details-modal');
+        const closeBtn = document.querySelector('.close');
+        
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // Clock update
+        setInterval(updateClock, 1000);
+        
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleString();
+        }
+        
+        // Function to fetch data from the API
+        function fetchData() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => updateUI(data))
+                .catch(error => console.error('Error fetching data:', error));
+        }
+        
+        // Function to update the UI with the fetched data
+        function updateUI(data) {
+            const container = document.getElementById('status-container');
+            container.innerHTML = ''; // Clear existing content
+            
+            // Update system info
+            document.getElementById('node-name').textContent = data.system_info.node_name;
+            document.getElementById('clock').textContent = data.system_info.timestamp;
+            
+            // Create cards for each topic group
+            for (const [groupName, topics] of Object.entries(data.topic_groups)) {
+                // Skip empty groups
+                if (topics.length === 0) continue;
+                
+                // Create card
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                // Create card header
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'card-header';
+                cardHeader.textContent = groupName;
+                
+                // Create card content
+                const cardContent = document.createElement('div');
+                cardContent.className = 'card-content';
+                
+                // Create table
+                const table = document.createElement('table');
+                
+                // Create table header
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                ['Sensor', 'Status', 'Rate (Hz)', 'Last Update', 'Msg Count', 'Details'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Create table body
+                const tbody = document.createElement('tbody');
+                
+                // Add rows for each topic
+                topics.forEach(topic => {
+                    const row = document.createElement('tr');
+                    
+                    // Sensor name
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = topic.display_name;
+                    row.appendChild(nameCell);
+                    
+                    // Status
+                    const statusCell = document.createElement('td');
+                    const statusClass = 'status-' + (topic.status.replace(' ', '-'));
+                    statusCell.innerHTML = `<span class="${statusClass}">${topic.status}</span>`;
+                    row.appendChild(statusCell);
+                    
+                    // Rate
+                    const rateCell = document.createElement('td');
+                    rateCell.textContent = topic.rate ? topic.rate.toFixed(1) : '0.0';
+                    row.appendChild(rateCell);
+                    
+                    // Last update
+                    const lastCell = document.createElement('td');
+                    lastCell.textContent = topic.time_since_last;
+                    row.appendChild(lastCell);
+                    
+                    // Message count
+                    const countCell = document.createElement('td');
+                    countCell.textContent = topic.count;
+                    row.appendChild(countCell);
+                    
+                    // Details button
+                    const detailsCell = document.createElement('td');
+                    const detailsBtn = document.createElement('button');
+                    detailsBtn.className = 'details-btn';
+                    detailsBtn.textContent = 'Details';
+                    detailsBtn.onclick = function() {
+                        const modalTitle = document.getElementById('modal-title');
+                        const modalContent = document.getElementById('modal-content');
+                        
+                        modalTitle.textContent = topic.display_name + ' Details';
+                        modalContent.textContent = JSON.stringify(topic.details, null, 2);
+                        
+                        modal.style.display = 'block';
+                    };
+                    detailsCell.appendChild(detailsBtn);
+                    row.appendChild(detailsCell);
+                    
+                    tbody.appendChild(row);
+                });
+                
+                table.appendChild(tbody);
+                cardContent.appendChild(table);
+                
+                card.appendChild(cardHeader);
+                card.appendChild(cardContent);
+                container.appendChild(card);
+            }
+            
+            // Add diagnostics card if there are any
+            if (Object.keys(data.diagnostics).length > 0) {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                const cardHeader = document.createElement('div');
+                cardHeader.className = 'card-header';
+                cardHeader.textContent = 'System Diagnostics';
+                
+                const cardContent = document.createElement('div');
+                cardContent.className = 'card-content';
+                
+                const table = document.createElement('table');
+                
+                // Create table header
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                
+                ['Device', 'Status', 'Hardware ID', 'Message', 'Details'].forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    headerRow.appendChild(th);
+                });
+                
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+                
+                // Create table body
+                const tbody = document.createElement('tbody');
+                
+                // Add rows for each diagnostic
+                for (const [key, diag] of Object.entries(data.diagnostics)) {
+                    const row = document.createElement('tr');
+                    
+                    // Device name
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = diag.name;
+                    row.appendChild(nameCell);
+                    
+                    // Status
+                    const statusCell = document.createElement('td');
+                    const statusClass = 'status-' + diag.level_name;
+                    statusCell.innerHTML = `<span class="${statusClass}">${diag.level_name}</span>`;
+                    row.appendChild(statusCell);
+                    
+                    // Hardware ID
+                    const hwCell = document.createElement('td');
+                    hwCell.textContent = diag.hardware_id;
+                    row.appendChild(hwCell);
+                    
+                    // Message
+                    const msgCell = document.createElement('td');
+                    msgCell.textContent = diag.message;
+                    row.appendChild(msgCell);
+                    
+                    // Details button
+                    const detailsCell = document.createElement('td');
+                    const detailsBtn = document.createElement('button');
+                    detailsBtn.className = 'details-btn';
+                    detailsBtn.textContent = 'Details';
+                    detailsBtn.onclick = function() {
+                        const modalTitle = document.getElementById('modal-title');
+                        const modalContent = document.getElementById('modal-content');
+                        
+                        modalTitle.textContent = diag.name + ' Diagnostic Details';
+                        modalContent.textContent = JSON.stringify(diag.values, null, 2);
+                        
+                        modal.style.display = 'block';
+                    };
+                    detailsCell.appendChild(detailsBtn);
+                    row.appendChild(detailsCell);
+                    
+                    tbody.appendChild(row);
+                }
+                
+                table.appendChild(tbody);
+                cardContent.appendChild(table);
+                
+                card.appendChild(cardHeader);
+                card.appendChild(cardContent);
+                container.appendChild(card);
+            }
+        }
+    </script>
+</body>
+</html>

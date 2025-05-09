@@ -16,15 +16,22 @@ setup(
             os.path.join("share", package_name, "launch"),
             glob(os.path.join("launch", "*launch.[pxy][ymal]*")),
         ),
+        # Include the HTML templates
+        (
+            os.path.join("share", package_name, "autosdv_launch", "templates"),
+            glob(os.path.join("autosdv_launch", "templates", "*.html")),
+        ),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="aeon",
     maintainer_email="jerry73204@gmail.com",
-    description="TODO: Package description",
+    description="AutoSDV launch and utility package",
     license="TODO: License declaration",
     tests_require=["pytest"],
     entry_points={
-        "console_scripts": [],
+        "console_scripts": [
+            "autosdv_monitor = autosdv_launch.autosdv_monitor:main",
+        ],
     },
 )
