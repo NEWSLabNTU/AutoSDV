@@ -9,17 +9,18 @@ The Docker environment is configured to:
 - Use NVIDIA L4T (Linux for Tegra) as the base image
 - Include TensorRT for deep learning acceleration
 - Configure necessary NVIDIA repositories and dependencies
-- Set up a complete environment for AutoSDV development and deployment
+- Clone the AutoSDV repository and check out the **exact same commit** as your local repository
+- Provide a ready-to-use environment that matches your current code state
 
 ## Requirements
 
-It build script was tested on Ubuntu 22.04 operating system.
+The build script was tested on Ubuntu 22.04 operating system.
 
 - Docker with NVIDIA container toolkit installed. You may read
   - the [installation guide](https://docs.docker.com/engine/install/ubuntu/) to install Docker engine, and
   - the [installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to install NVIDIA Container Toolkit.
 
-- `rocker` for container management with GUI and NVIDIA support. You can read the installatoin instructions in the [README](https://github.com/osrf/rocker?tab=readme-ov-file#installation).
+- `rocker` for container management with GUI and NVIDIA support. You can read the installation instructions in the [README](https://github.com/osrf/rocker?tab=readme-ov-file#installation).
 - QEMU for ARM64 emulation (if building on x86_64).
 
 ## Usage
@@ -42,7 +43,14 @@ Build the AutoSDV Docker image with:
 make build
 ```
 
-This creates a Docker image named `autosdv` configured for ARM64 architecture, suitable for Jetson devices.
+This creates a Docker image named `autosdv` configured for ARM64 architecture, suitable for Jetson devices. The image will:
+
+1. Use the **current commit** of your local repository
+2. Clone the repository and check out that same commit inside the container
+3. Build with all necessary dependencies and artifacts
+4. Create two tags:
+   - `autosdv:<short-hash>` (e.g., `autosdv:a05519`)
+   - `autosdv:<full-hash>` (e.g., `autosdv:a0551926248c75aac9411d53...")
 
 ### Running the Container
 
@@ -60,7 +68,19 @@ To save the built Docker image as a compressed file for transfer to other system
 make save
 ```
 
-This exports the image to `autosdv.tar.zstd` using zstd compression.
+This exports the image to `autosdv-<short-hash>.tar.zstd` using zstd compression.
+
+## Other Commands
+
+### Cleaning Up
+
+To remove the Docker image:
+
+```bash
+make clean
+```
+
+This removes both the short hash tag and the full hash tag of the image.
 
 ## Customization
 
@@ -70,17 +90,9 @@ To customize the Docker environment:
 2. Update version numbers in `nvidia-l4t-apt-source.list` if using a different L4T version
 3. Edit the `Makefile` to adjust container runtime settings
 
-## Integration with AutoSDV
+## Important Notes
 
-Once inside the container, you can build and run AutoSDV using the following process inside the container:
-
-```bash
-# Build AutoSDV
-cd /path/to/mounted/autosdv
-make setup
-make build
-
-# Run AutoSDV
-source install/setup.bash
-ros2 launch autosdv_launch autosdv.launch.yaml
-```
+- Each Docker image is tagged with both the short commit hash and the full commit hash
+- Changes to your local repository will not automatically update existing Docker images
+- Use `make build` after committing changes to create a new image with the updated code
+- Remember to push your commits to the remote repository before building

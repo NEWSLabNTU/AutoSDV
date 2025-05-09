@@ -1,5 +1,8 @@
 FROM nvcr.io/nvidia/l4t-tensorrt:r8.6.2-devel
 
+# Accept commit hash as build arg
+ARG COMMIT_HASH=2025.02
+
 # Update system packages
 RUN apt update -y
 RUN apt upgrade -y
@@ -21,6 +24,8 @@ RUN apt install -y python3-pip
 RUN apt install -y sudo
 RUN apt install -y openssh-client
 RUN apt install -y openssh-server
+RUN apt install -y git
+RUN apt install -y make
 
 # Remove cmake
 RUN rm -f /usr/local/bin/cmake /usr/local/bin/cpack /usr/local/bin/ctest
@@ -33,5 +38,24 @@ RUN touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 RUN apt update
 RUN apt install -o DPkg::Options::="--force-confold" -y nvidia-l4t-dla-compiler
 
-WORKDIR /
+# Create a non-root user with sudo privileges
+RUN useradd -m -s /bin/bash -G sudo developer && \
+    echo 'developer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/developer
+
+# Set work directory and switch to non-root user
+USER developer
+WORKDIR /home/developer
+
+# Clone AutoSDV repository and checkout specific commit
+RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
+    cd AutoSDV && \
+    git fetch --all && \
+    (git checkout ${COMMIT_HASH} || \
+    (echo "Error: Failed to checkout commit ${COMMIT_HASH}. Please ensure this commit is pushed to the remote repository." && exit 1))
+
+# Run setup with non-interactive mode and download artifacts
+WORKDIR /home/developer/AutoSDV
+RUN ./scripts/setup-dev-env/setup-dev-env.sh --download-artifacts -y
+
+# Default command
 CMD ["/bin/bash"]
