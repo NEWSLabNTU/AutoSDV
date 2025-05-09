@@ -52,33 +52,32 @@ launch:
     #   value: ndt
 
   # Launch the AutoSDV monitor node
-  - node:
-      pkg: autosdv_launch
-      exec: autosdv_monitor
-      name: autosdv_monitor
-      param:
-        -
-          name: monitor_lidar
-          value: "true"
-        -
-          name: monitor_camera
-          value: "true"
-        -
-          name: monitor_imu
-          value: "true"
-        -
-          name: monitor_gps
-          value: "true"
-        -
-          name: monitor_vehicle
-          value: "true"
-        -
-          name: monitor_diagnostics
-          value: "true"
-        -
-          name: report_interval_sec
-          value: "5.0"
-        -
-          name: web_server_port
-          value: "8080"
-
+- node:
+    pkg: autosdv_launch
+    exec: autosdv_monitor
+    name: autosdv_monitor
+    param:
+    -
+      name: monitor_lidar
+      value: "true"
+    -
+      name: monitor_camera
+      value: "true"
+    -
+      name: monitor_imu
+      value: "true"
+    -
+      name: monitor_gps
+      value: "true"
+    -
+      name: monitor_vehicle
+      value: "true"
+    -
+      name: monitor_diagnostics
+      value: "true"
+    -
+      name: report_interval_sec
+      value: "5.0"
+    -
+      name: web_server_port
+      value: "8080"
