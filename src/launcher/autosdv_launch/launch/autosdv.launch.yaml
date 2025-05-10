@@ -44,12 +44,12 @@ launch:
     -
       name: pose_source
       value: ndt
-    # -
-      # name: twist_source
-      # value: eagleye
-    # -
-    #   name: pose_source
-    #   value: ndt
+    -
+      name: twist_source
+      value: gyro_odom  # gyro_odom, eagleye
+    -
+      name: lidar_model
+      value: vlp32c  # cube1, robin-w, or vlp32c
 
   # Launch the AutoSDV monitor node
 - node:
