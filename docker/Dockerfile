@@ -38,14 +38,6 @@ RUN touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 RUN apt update
 RUN apt install -o DPkg::Options::="--force-confold" -y nvidia-l4t-dla-compiler
 
-# Create a non-root user with sudo privileges
-RUN useradd -m -s /bin/bash -G sudo developer && \
-    echo 'developer ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/developer
-
-# Set work directory and switch to non-root user
-USER developer
-WORKDIR /home/developer
-
 # Clone AutoSDV repository and checkout specific commit
 RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
     cd AutoSDV && \
@@ -54,8 +46,11 @@ RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
     (echo "Error: Failed to checkout commit ${COMMIT_HASH}. Please ensure this commit is pushed to the remote repository." && exit 1))
 
 # Run setup with non-interactive mode and download artifacts
-WORKDIR /home/developer/AutoSDV
-RUN ./scripts/setup-dev-env/setup-dev-env.sh --download-artifacts -y
+WORKDIR /AutoSDV
+RUN ./scripts/setup-dev-env/setup-dev-env.sh -y
+
+WORKDIR /
+RUN rm -rf /AutoSDV
 
 # Default command
 CMD ["/bin/bash"]
