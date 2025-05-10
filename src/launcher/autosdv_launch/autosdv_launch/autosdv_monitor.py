@@ -84,7 +84,7 @@ class WebServerThread(threading.Thread):
         def index():
             """Serve the main HTML page."""
             return render_template('monitor.html', 
-                                 title="AutoSDV Sensor Monitor",
+                                 title="AutoSDV System Monitor",
                                  node_name=self.node.get_name())
         
         @self.app.route('/api/status')
@@ -126,11 +126,10 @@ class AutoSDVMonitor(Node):
         # Each entry format: [message_type, topic_name, display_name, category_param_name]
         self.monitor_topics = {
             'lidar': [
-                [PointCloud2, '/lidar/points_raw', 'Main LiDAR Raw Points', 'monitor_lidar'],
                 [PointCloud2, '/sensing/lidar/concatenated/pointcloud', 'Concatenated LiDAR', 'monitor_lidar'],
-                [PointCloud2, '/points', 'Blickfeld Cube1 Points', 'monitor_lidar'],
-                [PointCloud2, '/lidar_front/points_raw', 'Robin-W Points', 'monitor_lidar'],
-                [PointCloud2, '/velodyne_points', 'Velodyne Points', 'monitor_lidar'],
+                [PointCloud2, '/sensing/lidar/bf_lidar/points_raw', 'Blickfeld Cube1 Points', 'monitor_lidar'],
+                [PointCloud2, '/sensing/lidar/iv_points', 'Robin-W Points', 'monitor_lidar'],
+                [PointCloud2, '/sensing/lidar/velodyne_points', 'Velodyne Points', 'monitor_lidar'],
             ],
             'camera': [
                 [Image, '/camera/zedxm/rgb/image_rect_color', 'ZED RGB Image', 'monitor_camera'],
@@ -140,14 +139,13 @@ class AutoSDVMonitor(Node):
             ],
             'imu': [
                 [Imu, '/sensing/imu/imu_data', 'Main IMU Data', 'monitor_imu'],
-                [Imu, '/imu/data_raw', 'MPU9250 Raw Data', 'monitor_imu'],
-                [Imu, '/imu/data', 'MPU9250 Processed Data', 'monitor_imu'],
+                [Imu, '/sensing/imu/mpu9250/imu_raw', 'MPU9250 Raw Data', 'monitor_imu'],
             ],
             'gnss': [
                 [PoseStamped, '/sensing/gnss/pose', 'GNSS Pose', 'monitor_gps'],
                 [PoseWithCovarianceStamped, '/sensing/gnss/pose_with_covariance', 'GNSS Pose with Covariance', 'monitor_gps'],
                 [NavSatFix, '/sensing/gnss/ublox/nav_sat_fix', 'u-blox NavSatFix', 'monitor_gps'],
-                [NavSatFix, '/sensing/gnss/garmin/nav_sat_fix', 'Garmin NavSatFix', 'monitor_gps'],
+                [NavSatFix, '/sensing/gnss/garmin/fix', 'Garmin NavSatFix', 'monitor_gps'],
                 [NavSatFix, '/sensing/gnss/septentrio/nav_sat_fix', 'Septentrio NavSatFix', 'monitor_gps'],
             ],
             'vehicle': [
