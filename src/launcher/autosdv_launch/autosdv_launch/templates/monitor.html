@@ -12,6 +12,16 @@
             background-color: #f4f4f4;
             color: #333;
         }
+        .topic-name {
+            display: none;
+            font-size: 0.8em;
+            color: #666;
+            font-style: italic;
+            margin-top: 3px;
+        }
+        .show-topic-name .topic-name {
+            display: block;
+        }
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -173,6 +183,9 @@
                 <option value="10">10 seconds</option>
                 <option value="30">30 seconds</option>
             </select>
+            <label style="margin-left: 20px;">
+                <input type="checkbox" id="show-topic-names"> Show Topic Names
+            </label>
         </div>
         
         <div id="status-container">
@@ -198,7 +211,18 @@
     <script>
         // Initial data fetch
         fetchData();
-        
+
+        // Setup topic name toggle
+        const showTopicNamesCheckbox = document.getElementById('show-topic-names');
+        showTopicNamesCheckbox.addEventListener('change', function() {
+            const container = document.getElementById('status-container');
+            if (this.checked) {
+                container.classList.add('show-topic-name');
+            } else {
+                container.classList.remove('show-topic-name');
+            }
+        });
+
         // Setup auto-refresh
         let refreshInterval;
         const refreshSelect = document.getElementById('refresh-interval');
@@ -323,9 +347,20 @@
                 topics.forEach(topic => {
                     const row = document.createElement('tr');
                     
-                    // Sensor name
+                    // Sensor name with hidden topic path
                     const nameCell = document.createElement('td');
-                    nameCell.textContent = topic.display_name;
+                    const nameWrapper = document.createElement('div');
+                    nameWrapper.textContent = topic.display_name;
+
+                    // Add the topic name as a hidden element that can be toggled
+                    if (topic.topic_name) {
+                        const topicNameElem = document.createElement('div');
+                        topicNameElem.className = 'topic-name';
+                        topicNameElem.textContent = topic.topic_name;
+                        nameWrapper.appendChild(topicNameElem);
+                    }
+
+                    nameCell.appendChild(nameWrapper);
                     row.appendChild(nameCell);
                     
                     // Status

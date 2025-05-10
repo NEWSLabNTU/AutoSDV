@@ -39,6 +39,7 @@ class TopicStats:
     """Data class for storing topic statistics"""
     display_name: str
     topic_type: str
+    topic_name: str = ""
     count: int = 0
     frequency: float = 0.0
     last_time: Optional[float] = None
@@ -58,7 +59,8 @@ class TopicStats:
             'rate': self.rate,
             'time_since_last': self.time_since_last_str,
             'status': self.status,
-            'details': self.details
+            'details': self.details,
+            'topic_name': getattr(self, 'topic_name', '')
         }
 
 
@@ -217,6 +219,7 @@ class AutoSDVMonitor(Node):
         self.topics_stats[topic] = TopicStats(
             display_name=display_name,
             topic_type=topic_type,
+            topic_name=topic,
             last_report_time=time.time()
         )
 
