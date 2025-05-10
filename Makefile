@@ -30,7 +30,7 @@ build:
 		--cmake-args -DCMAKE_BUILD_TYPE=Release
 
 launch:
-	./launch.sh
+	@./launch.sh
 
 clean:
 	@while true; do \
