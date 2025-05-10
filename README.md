@@ -69,3 +69,4 @@ it as follows:
   url = {https://github.com/NEWSLabNTU/AutoSDV},
   note = {Accessed: 2025-04-28}
 }
+```
