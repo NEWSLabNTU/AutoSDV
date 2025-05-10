@@ -16,6 +16,10 @@ setup(
             os.path.join("share", package_name, "launch"),
             glob(os.path.join("launch", "*launch.[pxy][ymal]*")),
         ),
+        (
+            os.path.join("share", package_name, "config"),
+            glob(os.path.join("config", "*.yaml")),
+        ),
         # Include the HTML templates
         (
             os.path.join("share", package_name, "autosdv_launch", "templates"),

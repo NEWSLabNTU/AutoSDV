@@ -5,6 +5,7 @@ import time
 import json
 import threading
 import os
+import yaml
 from functools import partial
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
@@ -121,47 +122,7 @@ class AutoSDVMonitor(Node):
         
         # Dictionary to track diagnostics
         self.diagnostics: Dict[str, Dict[str, Any]] = {}
-        
-        # Define all possible topics to monitor, organized by category
-        # Each entry format: [message_type, topic_name, display_name, category_param_name]
-        self.monitor_topics = {
-            'lidar': [
-                [PointCloud2, '/sensing/lidar/concatenated/pointcloud', 'Concatenated LiDAR', 'monitor_lidar'],
-                [PointCloud2, '/sensing/lidar/bf_lidar/points_raw', 'Blickfeld Cube1 Points', 'monitor_lidar'],
-                [PointCloud2, '/sensing/lidar/iv_points', 'Robin-W Points', 'monitor_lidar'],
-                [PointCloud2, '/sensing/lidar/velodyne_points', 'Velodyne Points', 'monitor_lidar'],
-            ],
-            'camera': [
-                [Image, '/camera/zedxm/rgb/image_rect_color', 'ZED RGB Image', 'monitor_camera'],
-                [Image, '/camera/zedxm/depth/depth_registered', 'ZED Depth Image', 'monitor_camera'],
-                [Image, '/sensing/camera/traffic_light/image_raw', 'Traffic Light Camera', 'monitor_camera'],
-                [CompressedImage, '/sensing/camera/traffic_light/image_raw/compressed', 'Traffic Light Camera (Compressed)', 'monitor_camera'],
-            ],
-            'imu': [
-                [Imu, '/sensing/imu/imu_data', 'Main IMU Data', 'monitor_imu'],
-                [Imu, '/sensing/imu/mpu9250/imu_raw', 'MPU9250 Raw Data', 'monitor_imu'],
-            ],
-            'gnss': [
-                [PoseStamped, '/sensing/gnss/pose', 'GNSS Pose', 'monitor_gps'],
-                [PoseWithCovarianceStamped, '/sensing/gnss/pose_with_covariance', 'GNSS Pose with Covariance', 'monitor_gps'],
-                [NavSatFix, '/sensing/gnss/ublox/nav_sat_fix', 'u-blox NavSatFix', 'monitor_gps'],
-                [NavSatFix, '/sensing/gnss/garmin/fix', 'Garmin NavSatFix', 'monitor_gps'],
-                [NavSatFix, '/sensing/gnss/septentrio/nav_sat_fix', 'Septentrio NavSatFix', 'monitor_gps'],
-            ],
-            'vehicle': [
-                [VelocityReport, '/vehicle/status/velocity_status', 'Vehicle Velocity', 'monitor_vehicle'],
-                [Control, '/control/trajectory_follower/control_cmd', 'Control Command', 'monitor_vehicle'],
-                [Odometry, '/vehicle/odometry', 'Vehicle Odometry', 'monitor_vehicle'],
-            ],
-            'diagnostics': [
-                [DiagnosticArray, '/diagnostics', 'System Diagnostics', 'monitor_diagnostics'],
-                [DiagnosticArray, '/diagnostics_agg', 'Aggregated Diagnostics', 'monitor_diagnostics'],
-            ],
-            'system': [
-                [Log, '/rosout', 'System Log', ''],  # Empty string means no parameter control, always enabled
-            ]
-        }
-        
+
         # Create parameters for which topics to monitor
         self.declare_parameter('monitor_lidar', True)
         self.declare_parameter('monitor_camera', True)
@@ -171,6 +132,10 @@ class AutoSDVMonitor(Node):
         self.declare_parameter('monitor_diagnostics', True)
         self.declare_parameter('report_interval_sec', 5.0)
         self.declare_parameter('web_server_port', 8080)
+        self.declare_parameter('topics_config_file', '')
+
+        # Load topics to monitor from config file
+        self.monitor_topics = self._load_monitor_topics()
         
         # Subscribe to topics based on parameters
         self._setup_subscriptions()
@@ -231,6 +196,78 @@ class AutoSDVMonitor(Node):
             callback_group=callback_group
         )
     
+    def _load_monitor_topics(self):
+        """Load monitor topics from the config file specified by ROS parameter."""
+        # Check if a config file path is provided as a parameter
+        config_file_param = self.get_parameter('topics_config_file').value
+
+        if config_file_param:
+            # Use the parameter-defined path
+            config_file = config_file_param
+        else:
+            # Fall back to default path
+            pkg_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            config_file = os.path.join(pkg_dir, 'config', 'monitor_topics.yaml')
+
+        self.get_logger().info(f"Loading monitor topics from: {config_file}")
+
+        if not os.path.exists(config_file):
+            self.get_logger().error(f"Config file not found: {config_file}")
+            self.get_logger().error("Cannot continue without monitor topics configuration")
+            # Exit the program with an error code
+            sys.exit(1)
+
+        try:
+            with open(config_file, 'r') as f:
+                config = yaml.safe_load(f)
+
+            # Process the YAML data to convert string message types to actual classes
+            topics_config = config.get('monitor_topics', {})
+            processed_topics = {}
+
+            # Map from string names to actual message classes
+            msg_type_map = {
+                'sensor_msgs/msg/Imu': Imu,
+                'sensor_msgs/msg/PointCloud2': PointCloud2,
+                'sensor_msgs/msg/Image': Image,
+                'sensor_msgs/msg/CompressedImage': CompressedImage,
+                'sensor_msgs/msg/NavSatFix': NavSatFix,
+                'geometry_msgs/msg/PoseStamped': PoseStamped,
+                'geometry_msgs/msg/PoseWithCovarianceStamped': PoseWithCovarianceStamped,
+                'nav_msgs/msg/Odometry': Odometry,
+                'diagnostic_msgs/msg/DiagnosticArray': DiagnosticArray,
+                'autoware_vehicle_msgs/msg/VelocityReport': VelocityReport,
+                'autoware_control_msgs/msg/Control': Control,
+                'rcl_interfaces/msg/Log': Log
+            }
+
+            for category, topics in topics_config.items():
+                processed_topics[category] = []
+                for topic_info in topics:
+                    # Convert string message type to actual class
+                    msg_type_str = topic_info[0]
+                    msg_type = msg_type_map.get(msg_type_str)
+                    if msg_type is None:
+                        self.get_logger().warn(f"Unknown message type: {msg_type_str}")
+                        continue
+
+                    # Replace message type string with actual class
+                    processed_topics[category].append([
+                        msg_type,
+                        topic_info[1],  # topic_name
+                        topic_info[2],  # display_name
+                        topic_info[3],  # category_param_name
+                    ])
+
+            self.get_logger().info(f"Loaded {sum(len(topics) for topics in processed_topics.values())} topics from config")
+            return processed_topics
+
+        except Exception as e:
+            self.get_logger().error(f"Error loading monitor topics from config: {str(e)}")
+            self.get_logger().error("Cannot continue with invalid monitor topics configuration")
+            # Exit the program with an error code
+            sys.exit(1)
+
     def _get_topic_type(self, topic, display_name):
         """Determine the topic type based on its name or display name."""
         if 'points' in topic or 'lidar' in topic:

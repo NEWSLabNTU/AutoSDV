@@ -1,0 +1,29 @@
+monitor_topics:
+  lidar:
+    - [sensor_msgs/msg/PointCloud2, /sensing/lidar/concatenated/pointcloud, Concatenated LiDAR, monitor_lidar]
+    - [sensor_msgs/msg/PointCloud2, /sensing/lidar/bf_lidar/points_raw, Blickfeld Cube1 Points, monitor_lidar]
+    - [sensor_msgs/msg/PointCloud2, /sensing/lidar/iv_points, Robin-W Points, monitor_lidar]
+    - [sensor_msgs/msg/PointCloud2, /sensing/lidar/velodyne_points, Velodyne Points, monitor_lidar]
+  camera:
+    - [sensor_msgs/msg/Image, /camera/zedxm/rgb/image_rect_color, ZED RGB Image, monitor_camera]
+    - [sensor_msgs/msg/Image, /camera/zedxm/depth/depth_registered, ZED Depth Image, monitor_camera]
+    - [sensor_msgs/msg/Image, /sensing/camera/traffic_light/image_raw, Traffic Light Camera, monitor_camera]
+    - [sensor_msgs/msg/CompressedImage, /sensing/camera/traffic_light/image_raw/compressed, Traffic Light Camera (Compressed), monitor_camera]
+  imu:
+    - [sensor_msgs/msg/Imu, /sensing/imu/imu_data, Main IMU Data, monitor_imu]
+    - [sensor_msgs/msg/Imu, /sensing/imu/mpu9250/imu_raw, MPU9250 Raw Data, monitor_imu]
+  gnss:
+    - [geometry_msgs/msg/PoseStamped, /sensing/gnss/pose, GNSS Pose, monitor_gps]
+    - [geometry_msgs/msg/PoseWithCovarianceStamped, /sensing/gnss/pose_with_covariance, GNSS Pose with Covariance, monitor_gps]
+    - [sensor_msgs/msg/NavSatFix, /sensing/gnss/ublox/nav_sat_fix, u-blox NavSatFix, monitor_gps]
+    - [sensor_msgs/msg/NavSatFix, /sensing/gnss/garmin/fix, Garmin NavSatFix, monitor_gps]
+    - [sensor_msgs/msg/NavSatFix, /sensing/gnss/septentrio/nav_sat_fix, Septentrio NavSatFix, monitor_gps]
+  vehicle:
+    - [autoware_vehicle_msgs/msg/VelocityReport, /vehicle/status/velocity_status, Vehicle Velocity, monitor_vehicle]
+    - [autoware_control_msgs/msg/Control, /control/trajectory_follower/control_cmd, Control Command, monitor_vehicle]
+    - [nav_msgs/msg/Odometry, /vehicle/odometry, Vehicle Odometry, monitor_vehicle]
+  diagnostics:
+    - [diagnostic_msgs/msg/DiagnosticArray, /diagnostics, System Diagnostics, monitor_diagnostics]
+    - [diagnostic_msgs/msg/DiagnosticArray, /diagnostics_agg, Aggregated Diagnostics, monitor_diagnostics]
+  system:
+    - [rcl_interfaces/msg/Log, /rosout, System Log, ""]  # Empty string means no parameter control, always enabled
