@@ -257,10 +257,30 @@
         function updateUI(data) {
             const container = document.getElementById('status-container');
             container.innerHTML = ''; // Clear existing content
-            
+
             // Update system info
             document.getElementById('node-name').textContent = data.system_info.node_name;
             document.getElementById('clock').textContent = data.system_info.timestamp;
+
+            // Display configuration error if there is one
+            if (data.system_info.config_error) {
+                const errorCard = document.createElement('div');
+                errorCard.className = 'card';
+
+                const errorHeader = document.createElement('div');
+                errorHeader.className = 'card-header';
+                errorHeader.style.backgroundColor = '#f44336'; // Red for error
+                errorHeader.textContent = 'Configuration Error';
+
+                const errorContent = document.createElement('div');
+                errorContent.className = 'card-content';
+                errorContent.innerHTML = `<p style="color: #f44336; font-weight: bold;">${data.system_info.config_error}</p>
+                                          <p>The monitor will continue to run, but no topics will be monitored until the configuration issue is resolved.</p>`;
+
+                errorCard.appendChild(errorHeader);
+                errorCard.appendChild(errorContent);
+                container.appendChild(errorCard);
+            }
             
             // Create cards for each topic group
             for (const [groupName, topics] of Object.entries(data.topic_groups)) {
