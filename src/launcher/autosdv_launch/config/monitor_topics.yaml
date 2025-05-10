@@ -20,8 +20,9 @@ monitor_topics:
     - [sensor_msgs/msg/NavSatFix, /sensing/gnss/septentrio/nav_sat_fix, Septentrio NavSatFix, monitor_gps]
   vehicle:
     - [autoware_vehicle_msgs/msg/VelocityReport, /vehicle/status/velocity_status, Vehicle Velocity, monitor_vehicle]
-    - [autoware_control_msgs/msg/Control, /control/trajectory_follower/control_cmd, Control Command, monitor_vehicle]
-    - [nav_msgs/msg/Odometry, /vehicle/odometry, Vehicle Odometry, monitor_vehicle]
+    - [autoware_control_msgs/msg/Control, /control/command/control_cmd, Control Command, monitor_vehicle]
+    - [autoware_control_msgs/msg/Control, /control/trajectory_follower/control_cmd, Trajectory Follower Command, monitor_vehicle]
+    # - [nav_msgs/msg/Odometry, /vehicle/odometry, Vehicle Odometry, monitor_vehicle]
   diagnostics:
     - [diagnostic_msgs/msg/DiagnosticArray, /diagnostics, System Diagnostics, monitor_diagnostics]
     - [diagnostic_msgs/msg/DiagnosticArray, /diagnostics_agg, Aggregated Diagnostics, monitor_diagnostics]
