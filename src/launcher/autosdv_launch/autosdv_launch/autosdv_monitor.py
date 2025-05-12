@@ -18,6 +18,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.time import Time
+from rclpy.qos import QoSProfile, QoSReliabilityPolicy
 from rcl_interfaces.msg import Log
 
 # Sensor imports
@@ -40,6 +41,7 @@ class TopicStats:
     display_name: str
     topic_type: str
     topic_name: str = ""
+    qos_reliability: str = "reliable"
     count: int = 0
     frequency: float = 0.0
     last_time: Optional[float] = None
@@ -60,7 +62,8 @@ class TopicStats:
             'time_since_last': self.time_since_last_str,
             'status': self.status,
             'details': self.details,
-            'topic_name': getattr(self, 'topic_name', '')
+            'topic_name': getattr(self, 'topic_name', ''),
+            'qos_reliability': self.qos_reliability
         }
 
 
@@ -196,7 +199,7 @@ class AutoSDVMonitor(Node):
         # Iterate through all topic categories and topics
         for category, topics in self.monitor_topics.items():
             for topic_info in topics:
-                msg_type, topic_name, display_name, param_name = topic_info
+                msg_type, topic_name, display_name, param_name, qos_reliability = topic_info if len(topic_info) >= 5 else (*topic_info, "reliable")
 
                 # Check if this topic should be monitored
                 # Empty param_name means always monitor (e.g., system topics)
@@ -209,25 +212,34 @@ class AutoSDVMonitor(Node):
                         msg_type,
                         topic_name,
                         display_name,
-                        self.callback_group
+                        self.callback_group,
+                        qos_reliability
                     )
                     self.get_logger().debug(f"Monitoring topic: {topic_name} ({display_name})")
 
-    def _create_subscription(self, msg_type, topic, display_name, callback_group):
+    def _create_subscription(self, msg_type, topic, display_name, callback_group, qos_reliability):
         """Helper to create a subscription and initialize its statistics"""
         topic_type = self._get_topic_type(topic, display_name)
         self.topics_stats[topic] = TopicStats(
             display_name=display_name,
             topic_type=topic_type,
             topic_name=topic,
+            qos_reliability=qos_reliability,
             last_report_time=time.time()
         )
+
+        # Create QoS profile based on reliability setting
+        qos = QoSProfile(depth=10)
+        if qos_reliability.lower() == "best_effort":
+            qos.reliability = QoSReliabilityPolicy.BEST_EFFORT
+        else:  # Default to reliable
+            qos.reliability = QoSReliabilityPolicy.RELIABLE
 
         return self.create_subscription(
             msg_type,
             topic,
             partial(self.topic_callback, topic_name=topic),
-            10,
+            qos,
             callback_group=callback_group
         )
 
@@ -377,7 +389,7 @@ class AutoSDVMonitor(Node):
             new_topics_set = set()
             for category, topics in self.monitor_topics.items():
                 for topic_info in topics:
-                    _, topic_name, _, param_name = topic_info
+                    _, topic_name, _, param_name, qos_reliability = topic_info if len(topic_info) >= 5 else (*topic_info, "reliable")
 
                     # Check if this topic should be monitored based on parameters
                     should_monitor = True
@@ -428,7 +440,8 @@ class AutoSDVMonitor(Node):
                             msg_type,
                             topic_name,
                             display_name,
-                            self.callback_group
+                            self.callback_group,
+                            qos_reliability
                         )
                         self.get_logger().debug(f"Added monitoring for topic: {topic_name} ({display_name})")
 

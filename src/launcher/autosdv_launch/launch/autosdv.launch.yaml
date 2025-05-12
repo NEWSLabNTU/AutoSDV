@@ -31,13 +31,16 @@ launch:
       value: "true"
     -
       name: launch_perception
-      value: "true"
+      value: "false"
     -
       name: launch_planning
       value: "false"
     -
       name: launch_control
       value: "true"
+    -
+      name: traffic_light_recognition/enable_fine_detection
+      value: "false"
     -
       name: use_sim_time
       value: "false"
