@@ -9,4 +9,4 @@ echo 'Open http://localhost:8080/ to visit the system monitor.'
 echo ''
 
 source install/setup.bash
-ros2 launch autosdv_launch autosdv.launch.yaml
+ros2 launch autosdv_launch autosdv.launch.yaml |& tee log.txt
