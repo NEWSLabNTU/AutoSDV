@@ -32,6 +32,11 @@ build:
 launch:
 	@./launch.sh
 
+
+controller:
+	. install/setup.sh && \
+	ros2 run autoware_manual_control keyboard_control --ros-args --remap /external/selected/control_cmd:=/control/command/control_cmd
+
 clean:
 	@while true; do \
 		read -p 'Are you sure to clean up? (yes/no) ' yn; \
