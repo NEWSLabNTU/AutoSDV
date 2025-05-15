@@ -29,5 +29,8 @@ launch:
       name: report_interval_sec
       value: 5.0
     -
+      name: web_server_host
+      value: 0.0.0.0
+    -
       name: web_server_port
       value: 8080

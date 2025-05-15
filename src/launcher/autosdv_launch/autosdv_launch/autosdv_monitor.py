@@ -70,10 +70,11 @@ class TopicStats:
 class WebServerThread(threading.Thread):
     """Thread class that runs a Flask web server."""
 
-    def __init__(self, node, port=8080):
+    def __init__(self, node, host='localhost', port=8080):
         super().__init__()
         self.daemon = True  # Make the thread daemon so it dies when the main thread dies
         self.node = node
+        self.host = host
         self.port = port
 
         # Get the package directory to find templates
@@ -103,7 +104,7 @@ class WebServerThread(threading.Thread):
 
     def run(self):
         """Run the Flask app."""
-        self.server = make_server('0.0.0.0', self.port, self.app)
+        self.server = make_server(self.host, self.port, self.app)
         self.node.get_logger().info(f"Web server running at http://localhost:{self.port}")
         self.server.serve_forever()
 
@@ -166,6 +167,7 @@ class AutoSDVMonitor(Node):
         self.declare_parameter('monitor_vehicle', True)
         self.declare_parameter('monitor_diagnostics', True)
         self.declare_parameter('report_interval_sec', 5.0)
+        self.declare_parameter('web_server_host', 'localhost')
         self.declare_parameter('web_server_port', 8080)
         self.declare_parameter('topics_config_file', '')
 
@@ -186,13 +188,14 @@ class AutoSDVMonitor(Node):
         # We'll set up file watching when we know the file path
 
         # Start the web server
+        host = self.get_parameter('web_server_host').value
         port = self.get_parameter('web_server_port').value
-        self.web_server = WebServerThread(self, port)
+        self.web_server = WebServerThread(self, host, port)
         self.web_server.start()
 
         self.get_logger().info('AutoSDV Monitor started')
         self.get_logger().info(f'Monitoring topics with report interval of {report_interval} seconds')
-        self.get_logger().info(f'Web interface available at: http://localhost:{port}')
+        self.get_logger().info(f'Web interface available at: http://{host}:{port}')
 
     def _setup_subscriptions(self):
         """Create subscriptions for all topics based on parameters"""
