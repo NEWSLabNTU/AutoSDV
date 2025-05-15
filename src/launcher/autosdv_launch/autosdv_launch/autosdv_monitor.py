@@ -10,7 +10,7 @@ import stat
 from functools import partial
 from datetime import datetime
 from dataclasses import dataclass, field, asdict
-from typing import Dict, Any, Optional, List, Union, ClassVar
+from typing import Dict, Any, Optional, List, Union, ClassVar, Type
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileModifiedEvent
 
@@ -34,6 +34,15 @@ from autoware_control_msgs.msg import Control
 # Web server
 from flask import Flask, render_template, jsonify
 from werkzeug.serving import make_server
+
+@dataclass
+class TopicInfo:
+    """Data class for storing topic information"""
+    msg_type: Any  # Actual message class type
+    topic_name: str
+    display_name: str
+    param_name: str
+    qos_reliability: str = "reliable"
 
 @dataclass
 class TopicStats:
@@ -202,23 +211,21 @@ class AutoSDVMonitor(Node):
         # Iterate through all topic categories and topics
         for category, topics in self.monitor_topics.items():
             for topic_info in topics:
-                msg_type, topic_name, display_name, param_name, qos_reliability = topic_info if len(topic_info) >= 5 else (*topic_info, "reliable")
-
                 # Check if this topic should be monitored
                 # Empty param_name means always monitor (e.g., system topics)
                 should_monitor = True
-                if param_name:
-                    should_monitor = self.get_parameter(param_name).value
+                if topic_info.param_name:
+                    should_monitor = self.get_parameter(topic_info.param_name).value
 
                 if should_monitor:
                     self._create_subscription(
-                        msg_type,
-                        topic_name,
-                        display_name,
+                        topic_info.msg_type,
+                        topic_info.topic_name,
+                        topic_info.display_name,
                         self.callback_group,
-                        qos_reliability
+                        topic_info.qos_reliability
                     )
-                    self.get_logger().debug(f"Monitoring topic: {topic_name} ({display_name})")
+                    self.get_logger().debug(f"Monitoring topic: {topic_info.topic_name} ({topic_info.display_name})")
 
     def _create_subscription(self, msg_type, topic, display_name, callback_group, qos_reliability):
         """Helper to create a subscription and initialize its statistics"""
@@ -303,6 +310,7 @@ class AutoSDVMonitor(Node):
             for category, topics in topics_config.items():
                 processed_topics[category] = []
                 for topic_info in topics:
+                    # Topic info from YAML comes as an array - we convert it to our dataclass
                     # Convert string message type to actual class
                     msg_type_str = topic_info[0]
                     msg_type = msg_type_map.get(msg_type_str)
@@ -310,13 +318,24 @@ class AutoSDVMonitor(Node):
                         self.get_logger().warn(f"Unknown message type: {msg_type_str}")
                         continue
 
-                    # Replace message type string with actual class
-                    processed_topics[category].append([
-                        msg_type,
-                        topic_info[1],  # topic_name
-                        topic_info[2],  # display_name
-                        topic_info[3],  # category_param_name
-                    ])
+                    # Extract the topic details
+                    topic_name = topic_info[1]
+                    display_name = topic_info[2]
+                    param_name = topic_info[3]
+
+                    # Handle the case where QoS reliability is not specified
+                    qos_reliability = "reliable"
+                    if len(topic_info) > 4:
+                        qos_reliability = topic_info[4]
+
+                    # Create a TopicInfo dataclass instead of using a list
+                    processed_topics[category].append(TopicInfo(
+                        msg_type=msg_type,
+                        topic_name=topic_name,
+                        display_name=display_name,
+                        param_name=param_name,
+                        qos_reliability=qos_reliability
+                    ))
 
             # File watching is already set up
 
@@ -392,15 +411,13 @@ class AutoSDVMonitor(Node):
             new_topics_set = set()
             for category, topics in self.monitor_topics.items():
                 for topic_info in topics:
-                    _, topic_name, _, param_name, qos_reliability = topic_info if len(topic_info) >= 5 else (*topic_info, "reliable")
-
                     # Check if this topic should be monitored based on parameters
                     should_monitor = True
-                    if param_name:
-                        should_monitor = self.get_parameter(param_name).value
+                    if topic_info.param_name:
+                        should_monitor = self.get_parameter(topic_info.param_name).value
 
                     if should_monitor:
-                        new_topics_set.add(topic_name)
+                        new_topics_set.add(topic_info.topic_name)
 
             # Update subscriptions (add new ones, remove unneeded ones)
             self._update_subscriptions(old_topics_set, new_topics_set)
@@ -429,24 +446,22 @@ class AutoSDVMonitor(Node):
         # Add new subscriptions
         for category, topics in self.monitor_topics.items():
             for topic_info in topics:
-                msg_type, topic_name, display_name, param_name = topic_info
-
                 # Check if this is a new topic we need to add
-                if topic_name in topics_to_add:
+                if topic_info.topic_name in topics_to_add:
                     # Check if this topic should be monitored based on parameters
                     should_monitor = True
-                    if param_name:
-                        should_monitor = self.get_parameter(param_name).value
+                    if topic_info.param_name:
+                        should_monitor = self.get_parameter(topic_info.param_name).value
 
                     if should_monitor:
                         self._create_subscription(
-                            msg_type,
-                            topic_name,
-                            display_name,
+                            topic_info.msg_type,
+                            topic_info.topic_name,
+                            topic_info.display_name,
                             self.callback_group,
-                            qos_reliability
+                            topic_info.qos_reliability
                         )
-                        self.get_logger().debug(f"Added monitoring for topic: {topic_name} ({display_name})")
+                        self.get_logger().debug(f"Added monitoring for topic: {topic_info.topic_name} ({topic_info.display_name})")
 
         # Log the changes
         if topics_to_add:
