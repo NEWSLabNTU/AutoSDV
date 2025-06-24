@@ -1,0 +1,61 @@
+launch:
+- include:
+    file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
+    arg:
+    -
+      name: vehicle_model
+      value: autosdv_vehicle
+    -
+      name: sensor_model
+      value: autosdv_sensor_kit
+    -
+      name: map_path
+      value: ./data/COSS-map-planning
+    -
+      name: launch_vehicle
+      value: "true"
+    -
+      name: launch_system
+      value: "true"
+    -
+      name: launch_map
+      value: "true"
+    -
+      name: launch_sensing
+      value: "false"
+    -
+      name: launch_sensing_driver
+      value: "false"
+    -
+      name: launch_localization
+      value: "true"
+    -
+      name: launch_perception
+      value: "false"
+    -
+      name: launch_planning
+      value: "false"
+    -
+      name: launch_control
+      value: "true"
+    -
+      name: traffic_light_recognition/enable_fine_detection
+      value: "false"
+    -
+      name: use_sim_time
+      value: "false"
+    -
+      name: pose_source
+      value: ndt
+    -
+      name: twist_source
+      value: gyro_odom  # gyro_odom, eagleye
+    -
+      name: lidar_model
+      value: vlp32c  # cube1, robin-w, or vlp32c
+- include:
+    file: "$(find-pkg-share autosdv_launch)/launch/autosdv_monitor.launch.yaml"
+- node:
+    pkg: rqt_runtime_monitor
+    exec: rqt_runtime_monitor
+    name: rqt_runtime_monitor
