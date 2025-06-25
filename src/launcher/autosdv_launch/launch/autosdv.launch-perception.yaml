@@ -53,6 +53,12 @@ launch:
     -
       name: lidar_model
       value: vlp32c  # cube1, robin-w, or vlp32c
+    -
+      name: use_zed_camera
+      value: "false"  # Enable ZED camera
+    -
+      name: use_usb_cameras
+      value: "true"  # Enable USB cameras
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_monitor.launch.yaml"
 - node:
