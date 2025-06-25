@@ -1,4 +1,4 @@
-.PHONY: default setup prepare build launch clean checkout
+.PHONY: default setup prepare build launch launch-cb launch-pb controller clean checkout
 SHELL := /bin/bash
 
 default:
@@ -7,6 +7,18 @@ default:
 	@echo
 	@echo 'make build'
 	@echo '    Build this project.'
+	@echo
+	@echo 'make launch'
+	@echo '    Launch AutoSDV (default single-box configuration).'
+	@echo
+	@echo 'make launch-cb'
+	@echo '    Launch Controller Box (CB) configuration.'
+	@echo
+	@echo 'make launch-pb'
+	@echo '    Launch Perception Box (PB) configuration with sensors.'
+	@echo
+	@echo 'make controller'
+	@echo '    Run manual keyboard control node.'
 	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
@@ -32,6 +44,19 @@ build:
 launch:
 	@./launch.sh
 
+launch-cb:
+	@echo 'Launching Controller Box (CB) configuration...'
+	@echo 'Open http://localhost:8080/ to visit the system monitor.'
+	@echo ''
+	source install/setup.bash && \
+	ros2 launch autosdv_launch autosdv.launch-control.yaml |& tee log-cb.txt
+
+launch-pb:
+	@echo 'Launching Perception Box (PB) configuration...'
+	@echo 'Open http://localhost:8080/ to visit the system monitor.'
+	@echo ''
+	source install/setup.bash && \
+	ros2 launch autosdv_launch autosdv.launch-perception.yaml |& tee log-pb.txt
 
 controller:
 	. install/setup.sh && \
