@@ -1,6 +1,3 @@
-[submodule "src/vehicle/external/autoware_manual_control"]
-	path = src/vehicle/external/autoware_manual_control
-	url = https://github.com/evshary/autoware_manual_control.git
 [submodule "src/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
