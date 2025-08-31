@@ -1,12 +1,6 @@
 [submodule "src/vehicle/external/autoware_manual_control"]
 	path = src/vehicle/external/autoware_manual_control
 	url = https://github.com/evshary/autoware_manual_control.git
-[submodule "src/sensor_kit/autosdv_sensor_kit_launch"]
-	path = src/sensor_kit/autosdv_sensor_kit_launch
-	url = https://github.com/NEWSLabNTU/autosdv_sensor_kit_launch.git
-[submodule "src/vehicle/autosdv_vehicle_launch"]
-	path = src/vehicle/autosdv_vehicle_launch
-	url = https://github.com/NEWSLabNTU/autosdv_vehicle_launch.git
 [submodule "src/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
@@ -28,3 +22,6 @@
 [submodule "src/sensor_component/external/seyond_ros_driver"]
 	path = src/sensor_component/external/seyond_ros_driver
 	url = https://github.com/NEWSLabNTU/seyond_ros_driver.git
+[submodule "src/launcher/autosdv_launch"]
+	path = src/launcher/autosdv_launch
+	url = https://github.com/NEWSLabNTU/autosdv_launch.git
