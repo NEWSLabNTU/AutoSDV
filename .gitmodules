@@ -16,9 +16,6 @@
 [submodule "src/sensor_component/external/ros-nmea-reader"]
 	path = src/sensor_component/external/ros-nmea-reader
 	url = https://github.com/jerry73204/ros-nmea-reader.git
-[submodule "src/param/autoware_individual_params"]
-	path = src/param/autoware_individual_params
-	url = https://github.com/NEWSLabNTU/autoware_individual_params.git
 [submodule "src/sensor_component/external/seyond_ros_driver"]
 	path = src/sensor_component/external/seyond_ros_driver
 	url = https://github.com/NEWSLabNTU/seyond_ros_driver.git
