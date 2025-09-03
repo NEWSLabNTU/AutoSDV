@@ -19,3 +19,6 @@
 [submodule "src/launcher/autosdv_launch"]
 	path = src/launcher/autosdv_launch
 	url = https://github.com/NEWSLabNTU/autosdv_launch.git
+[submodule "src/system/autosdv_runtime"]
+	path = src/system/autosdv_runtime
+	url = https://github.com/NEWSLabNTU/autosdv_runtime.git
