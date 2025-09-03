@@ -22,3 +22,6 @@
 [submodule "src/system/autosdv_runtime"]
 	path = src/system/autosdv_runtime
 	url = https://github.com/NEWSLabNTU/autosdv_runtime.git
+[submodule "src/system/autosdv_system_monitor"]
+	path = src/system/autosdv_system_monitor
+	url = https://github.com/NEWSLabNTU/autosdv_system_monitor.git
