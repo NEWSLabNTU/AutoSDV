@@ -10,16 +10,30 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 ### Build System (ROS 2 with colcon)
 - `make prepare` - Install ROS dependencies using rosdep
 - `make build` - Build all ROS packages with colcon (Release mode, symlink-install)
-- `make launch` - Launch the complete AutoSDV system
+- `make launch` - Launch AutoSDV using systemd service (installs service if needed, then starts)
+- `make stop` - Stop the running AutoSDV system
+- `make restart` - Restart the AutoSDV system
+- `make status` - Show AutoSDV system status and logs
 - `make controller` - Run keyboard manual control
 - `make clean` - Remove build, install, and log directories (with confirmation)
 - `make checkout` - Initialize and update all git submodules
 - `make setup` - Set up development environment using Ansible scripts
 
+### AutoSDV Service Management (autosdv command)
+After building (`make build`), the `autosdv` command is available:
+- `autosdv install` - Install systemd user service (done automatically by `make launch`)
+- `autosdv start` - Start the AutoSDV system
+- `autosdv stop` - Stop the AutoSDV system
+- `autosdv restart` - Restart the system
+- `autosdv status` - Show system status and recent logs
+- `autosdv enable` - Enable automatic startup at login
+- `autosdv disable` - Disable automatic startup
+- `autosdv monitor` - Open web monitor in browser (http://localhost:8080/)
+- `autosdv uninstall` - Remove the systemd service
+
 ### Manual Commands
 - `source install/setup.bash` - Source the ROS workspace (required before running nodes)
 - `colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release` - Manual build
-- `ros2 launch autosdv_launch autosdv.launch.yaml` - Launch main system
 - `rosdep install -y --from-paths src --ignore-src -r` - Install dependencies
 
 ## Architecture Overview
@@ -80,3 +94,39 @@ Python packages follow ROS 2 conventions with:
 - Uses colcon build system (not catkin)
 - Symlink installs enabled for faster development iteration
 - System monitor available at http://localhost:8080/ when launched
+
+## System Management
+
+### Systemd Service Integration
+- AutoSDV now runs as a systemd user service for better process management
+- Service is automatically installed on first `make launch`
+- Provides clean shutdown with no orphan processes
+- Logs accessible via `autosdv status` or `systemctl --user status autosdv`
+- Service is NOT enabled for automatic startup by default (use `autosdv enable` if needed)
+
+### Process Management
+- The system handles multiple Ctrl-C presses gracefully
+- First Ctrl-C: Graceful shutdown attempt
+- Second Ctrl-C: Force shutdown all processes
+- No orphan processes left after shutdown
+
+### Known Issues and Solutions
+
+#### Journal Logging
+If `journalctl --user` doesn't show logs:
+1. Run `sudo ./enable_journal.sh` to enable persistent journal storage
+2. Log out and back in for group changes to take effect
+3. Alternatively, use `systemctl --user status autosdv` to view logs
+
+#### Network Monitor Error
+- Network monitor may show socket connection errors
+- This is a known non-critical issue related to AWS Greengrass
+- Can be safely ignored - doesn't affect system functionality
+
+## Recent Updates
+- Fixed vehicle_interface.launch.xml missing file issue
+- Fixed vehicle parameter negative overhang values
+- Added Python dependencies for actuator node (Adafruit-PCA9685, simple-pid)
+- Reduced log noise from gear_manager and signal_manager nodes
+- Implemented robust process cleanup in launch scripts
+- Added systemd service management via autosdv command
