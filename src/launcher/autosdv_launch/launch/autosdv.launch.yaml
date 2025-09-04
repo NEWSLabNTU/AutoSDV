@@ -4,6 +4,26 @@ launch:
     default: "false"
     description: "Enable simulation mode (disables PWM output to hardware)"
 
+- arg:
+    name: lidar_model
+    default: "robin-w"
+    description: "LiDAR model (cube1, robin-w, or vlp32c)"
+
+- arg:
+    name: camera_model
+    default: "zedxm"
+    description: "Camera model (zedxm, usb, or none)"
+
+- arg:
+    name: gnss_receiver
+    default: "garmin"
+    description: "GNSS receiver type (ublox, septentrio, or garmin)"
+
+- arg:
+    name: use_gnss
+    default: "true"
+    description: "Enable GNSS for outdoor operation (disable for indoor testing)"
+
 - include:
     file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
     arg:
@@ -60,7 +80,8 @@ launch:
       value: gyro_odom  # gyro_odom, eagleye
     -
       name: lidar_model
-      value: vlp32c  # cube1, robin-w, or vlp32c
+      value: $(var lidar_model)
+    # Note: camera_model parameter is passed through autosdv_sensor_kit parameter configuration
 
 # System Monitor
 - include:
