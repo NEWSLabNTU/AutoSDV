@@ -62,7 +62,7 @@ launch:
       value: "true"
     -
       name: launch_perception
-      value: "false"
+      value: "true"
     -
       name: launch_planning
       value: "false"
@@ -70,8 +70,23 @@ launch:
       name: launch_control
       value: "true"
     -
+      name: perception_mode
+      value: "lidar"  # LiDAR-only mode
+    -
+      name: use_traffic_light_recognition
+      value: "false"  # Disable traffic light recognition
+    -
       name: traffic_light_recognition/enable_fine_detection
       value: "false"
+    -
+      name: use_detection_by_tracker
+      value: "false"  # Disable detection by tracker to simplify
+    -
+      name: use_image_segmentation_based_filter
+      value: "false"  # Disable image-based filters
+    -
+      name: use_pointcloud_map
+      value: "false"  # Disable pointcloud map for now
     -
       name: use_sim_time
       value: "false"
