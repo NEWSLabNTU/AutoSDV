@@ -96,6 +96,9 @@ launch:
       name: use_sim_time
       value: "false"
     -
+      name: rviz_config
+      value: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+    -
       name: pose_source
       value: ndt
     -
