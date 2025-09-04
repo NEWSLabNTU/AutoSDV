@@ -81,6 +81,64 @@ Sensor configurations are in `src/param/autoware_individual_params/individual_pa
 - Sensor model: `autosdv_sensor_kit`
 - Default map: `./data/COSS-map-planning`
 
+### Sensor Configuration
+AutoSDV supports flexible sensor configurations through launch parameters:
+
+#### LiDAR Models
+```bash
+# Robin-W Solid-State LiDAR (default)
+make launch ARGS="lidar_model:=robin-w"
+
+# Velodyne VLP-32C LiDAR
+make launch ARGS="lidar_model:=vlp32c"
+
+# Blickfeld Cube1 LiDAR
+make launch ARGS="lidar_model:=cube1"
+```
+
+#### Camera Models
+```bash
+# ZED stereo camera (default)
+make launch ARGS="camera_model:=zedxm"
+
+# USB cameras
+make launch ARGS="camera_model:=usb"
+
+# No camera
+make launch ARGS="camera_model:=none"
+```
+
+#### GNSS Receivers
+```bash
+# Garmin GNSS (default)
+make launch ARGS="gnss_receiver:=garmin"
+
+# u-blox GNSS
+make launch ARGS="gnss_receiver:=ublox"
+
+# Septentrio GNSS
+make launch ARGS="gnss_receiver:=septentrio"
+```
+
+#### Indoor Operation (No GPS)
+For indoor testing without GNSS, use manual pose initialization via RViz:
+```bash
+# Disable GNSS for indoor operation
+make launch ARGS="use_gnss:=false"
+```
+
+When running indoors:
+1. The system uses NDT localization instead of GNSS
+2. Use RViz's "2D Pose Estimate" tool to set initial vehicle position
+3. Click and drag on the map to set pose and orientation
+4. The `/initialpose` topic receives the manual pose input
+
+#### Combined Configuration Example
+```bash
+# Indoor setup with specific sensors
+make launch ARGS="lidar_model:=robin-w camera_model:=usb use_gnss:=false"
+```
+
 ### Python Packages
 Python packages follow ROS 2 conventions with:
 - Standard setup.py/setup.cfg structure
