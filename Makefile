@@ -1,4 +1,4 @@
-.PHONY: default setup prepare build launch clean checkout
+.PHONY: default setup prepare build launch launch_camera_calibration clean checkout
 SHELL := /bin/bash
 
 default:
@@ -7,6 +7,9 @@ default:
 	@echo
 	@echo 'make build'
 	@echo '    Build this project.'
+	@echo
+	@echo 'make launch_camera_calibration'
+	@echo '    Launch camera calibration with ZED camera and calibrator.'
 	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
@@ -32,6 +35,9 @@ build:
 launch:
 	@./launch.sh
 
+launch_camera_calibration:
+	. install/setup.sh && \
+	ros2 launch autosdv_launch camera_calibration.launch.xml
 
 controller:
 	. install/setup.sh && \
