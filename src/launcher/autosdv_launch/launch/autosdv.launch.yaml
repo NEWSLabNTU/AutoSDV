@@ -40,6 +40,9 @@ launch:
       name: map_path
       value: ./data/COSS-map-planning
     -
+      name: data_path
+      value: ./data
+    -
       name: launch_vehicle
       value: "true"
     -
