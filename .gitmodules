@@ -37,3 +37,6 @@
 [submodule "src/calibration/CalibrationTools"]
 	path = src/calibration/CalibrationTools
 	url = https://github.com/NEWSLabNTU/CalibrationTools.git
+[submodule "src/sensor_component/external/autoware_zed"]
+	path = src/sensor_component/external/autoware_zed
+	url = https://github.com/NEWSLabNTU/autoware_zed.git
