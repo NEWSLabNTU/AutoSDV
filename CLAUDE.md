@@ -181,10 +181,64 @@ If `journalctl --user` doesn't show logs:
 - This is a known non-critical issue related to AWS Greengrass
 - Can be safely ignored - doesn't affect system functionality
 
+## Seyond Robin-W LiDAR Integration
+
+### PointXYZIRC Format Support
+The Seyond Robin-W driver has been modified to output Autoware-compatible PointXYZIRC format:
+- Located in: `src/sensor_component/external/seyond_ros_driver/`
+- CMakeLists.txt: `set(POINT_TYPE PointXYZIRC)`
+- Custom point type defined in: `src/driver/point_xyzirc.h`
+- Field mapping:
+  - `x, y, z`: Position (FLOAT32)
+  - `intensity`: Intensity value (FLOAT32)
+  - `return_type`: Return type (UINT8) - 1=strongest/first, 2=last/second
+  - `ring`: Channel/scanning line ID (UINT16)
+
+### Robin-W Coordinate Transformation
+The Robin-W uses a non-standard coordinate system that needs transformation:
+- Robin-W native: X:up, Y:right, Z:forward
+- ROS standard (REP-103): X:forward, Y:left, Z:up
+- Transformation configured in: `sensor_kit_calibration.yaml`
+  - roll: 3.14159 (180°)
+  - pitch: -1.5708 (-90°)
+  - yaw: 0.0
+
+### Network Configuration
+- Robin-W default IP: 172.168.1.10
+- Configure in: `autosdv_sensor_kit_launch/launch/lidar.launch.xml`
+
+## TensorRT Model Compilation
+
+### First Run Behavior
+On first launch, TensorRT will compile ONNX models to optimized CUDA engines:
+- This process can take 10-30 minutes depending on hardware
+- Compiled engines are cached in `./data/` directory
+- Key models:
+  - `lidar_centerpoint/pts_voxel_encoder_centerpoint_tiny.engine`
+  - `lidar_centerpoint/pts_backbone_neck_head_centerpoint_tiny.engine`
+  - Traffic light classifiers (if enabled)
+
+### Optimized Perception Configuration
+For faster startup and LiDAR-only operation, configure in `autosdv.launch.yaml`:
+```yaml
+- name: perception_mode
+  value: "lidar"
+- name: use_traffic_light_recognition
+  value: "false"
+- name: use_detection_by_tracker
+  value: "false"
+- name: use_image_segmentation_based_filter
+  value: "false"
+```
+
 ## Recent Updates
-- Fixed vehicle_interface.launch.xml missing file issue
-- Fixed vehicle parameter negative overhang values
-- Added Python dependencies for actuator node (Adafruit-PCA9685, simple-pid)
-- Reduced log noise from gear_manager and signal_manager nodes
-- Implemented robust process cleanup in launch scripts
-- Added systemd service management via autosdv command
+- Fixed ROS2 node discovery in systemd service with Autoware environment variables
+- Added flexible sensor configuration parameters (lidar_model, camera_model, gnss_receiver, use_gnss)
+- Integrated Seyond Robin-W LiDAR with PointXYZIRC format compatibility
+- Fixed Robin-W coordinate transformation for proper pointcloud orientation
+- Optimized perception pipeline for LiDAR-only mode to reduce TensorRT compilation
+- Added data_path parameter to correctly locate ML models in ./data directory
+- Fixed systemd template to use .in file instead of embedded Python string
+- Configured ZED camera to use shared pointcloud_container for zero-copy I/O
+- Updated web monitor to track correct camera topics and removed unused traffic light topics
+- With --symlink-install flag in colcon build, edits on yaml, xml, py source files immediately apply if the file was installed earlier. There is no need to rebuild. In case can you create a new file, you need to run colcon build again to create the symlink in the install/ dir.
