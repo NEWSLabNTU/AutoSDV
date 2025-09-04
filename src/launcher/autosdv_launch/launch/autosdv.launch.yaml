@@ -24,6 +24,11 @@ launch:
     default: "true"
     description: "Enable GNSS for outdoor operation (disable for indoor testing)"
 
+- arg:
+    name: use_mapless_mode
+    default: "false"
+    description: "Enable mapless mode for indoor operation without localization"
+
 - include:
     file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
     arg:
@@ -99,6 +104,9 @@ launch:
     -
       name: lidar_model
       value: $(var lidar_model)
+    -
+      name: use_mapless_mode
+      value: $(var use_mapless_mode)
     # Note: camera_model parameter is passed through autosdv_sensor_kit parameter configuration
 
 # System Monitor
@@ -110,3 +118,11 @@ launch:
     pkg: rqt_runtime_monitor
     exec: rqt_runtime_monitor
     name: rqt_runtime_monitor
+
+# Static Transform Publisher for Mapless/Indoor Operation
+# Provides map -> base_link transform for indoor operation without localization
+- node:
+    pkg: tf2_ros
+    exec: static_transform_publisher
+    name: map_to_base_link_static_tf
+    args: "0 0 0 0 0 0 1 map base_link"
