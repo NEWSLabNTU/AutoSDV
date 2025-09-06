@@ -231,7 +231,36 @@ For faster startup and LiDAR-only operation, configure in `autosdv.launch.yaml`:
   value: "false"
 ```
 
+## Vehicle Interface Calibration
+
+### Motor PWM Control
+- **Stop position**: PWM = 370 (not 340 as previously configured)
+- **Forward motion**: PWM > 370 (e.g., 380, 390, 400+)
+- **Reverse motion**: PWM < 370 (e.g., 360, 350, 340-)
+- **Brake position**: PWM = 340 (used when transitioning from forward to stop/reverse)
+
+### Steering PWM Control
+- **Center position**: PWM = 400
+- **Left limit**: PWM = 350 (50 units from center)
+- **Right limit**: PWM = 450 (50 units from center)
+- **Range**: Symmetrical ±50 PWM units from center
+
+### Brake Sequence for Reverse
+When transitioning from forward to reverse:
+1. If moving forward (PWM > 370), set to 340 to engage brake
+2. Return to 370 (stop position)
+3. Then decrease below 370 for reverse motion
+
+### Testing Tools
+- `/home/jetson/AutoSDV/motor_pwm_interactive.py` - Interactive PWM control for testing
+- `/home/jetson/AutoSDV/stop_motor.py` - Emergency stop script (sets motor to 370)
+- `/home/jetson/AutoSDV/test_steering_pwm.py` - Steering calibration tool
+
 ## Recent Updates
+- Calibrated vehicle interface PWM values for motor and steering control
+- Fixed motor stop position from 340 to 370 based on hardware testing
+- Updated steering limits to symmetrical ±50 units from center (400)
+- Created interactive PWM control tools for calibration and testing
 - Fixed ROS2 node discovery in systemd service with Autoware environment variables
 - Added flexible sensor configuration parameters (lidar_model, camera_model, gnss_receiver, use_gnss)
 - Integrated Seyond Robin-W LiDAR with PointXYZIRC format compatibility
