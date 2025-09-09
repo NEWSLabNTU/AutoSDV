@@ -29,6 +29,11 @@ launch:
     default: "false"
     description: "Enable mapless mode for indoor operation without localization"
 
+- arg:
+    name: enable_zed_object_detection
+    default: "true"
+    description: "Enable ZED camera object detection and conversion to Autoware format"
+
 - include:
     file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
     arg:
@@ -110,6 +115,9 @@ launch:
     -
       name: use_mapless_mode
       value: $(var use_mapless_mode)
+    -
+      name: enable_zed_object_detection
+      value: $(var enable_zed_object_detection)
     # Note: camera_model parameter is passed through autosdv_sensor_kit parameter configuration
 
 # System Monitor
