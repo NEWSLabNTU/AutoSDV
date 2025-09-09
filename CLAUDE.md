@@ -256,6 +256,40 @@ When transitioning from forward to reverse:
 - `/home/jetson/AutoSDV/stop_motor.py` - Emergency stop script (sets motor to 370)
 - `/home/jetson/AutoSDV/test_steering_pwm.py` - Steering calibration tool
 
+## ZED Object Detection Integration
+
+### Overview
+ZED camera object detection has been integrated with Autoware's perception pipeline. The system can operate in two modes:
+1. **Normal mode** (default): ZED publishes colored point cloud for visualization
+2. **Object detection mode**: ZED performs object detection and converts to Autoware format
+
+### Configuration Files
+- **Launch file**: `autosdv_sensor_kit_launch/launch/zed_with_object_detection.launch.xml`
+  - Modular launch structure for ZED camera with optional object detection
+  - Handles both normal and object detection modes
+- **Config file**: `autosdv_sensor_kit_launch/config/zed_object_detection.yaml`
+  - Object detection parameters (model, confidence threshold, tracking)
+  - Point cloud settings to ensure colored point cloud is always published
+
+### Namespace Structure
+- **Important**: camera.launch.xml uses `/camera` namespace (NOT `/sensing/camera`) to avoid double namespacing
+- Topics follow Autoware convention:
+  - ZED objects: `/sensing/camera/zedxm/zed_node/obj_det/objects`
+  - Autoware format: `/perception/object_recognition/detection/camera_objects`
+  - Colored point cloud: `/sensing/camera/zedxm/zed_node/point_cloud/cloud_registered`
+
+### Usage
+```bash
+# Normal operation with colored point cloud (default)
+make launch
+
+# Enable object detection
+make launch ARGS="enable_zed_object_detection:=true"
+```
+
+### Known Issues
+- Detection box positions may not perfectly align with point cloud coordinates (coordinate transformation issue to be resolved in future update)
+
 ## Recent Updates
 - Calibrated vehicle interface PWM values for motor and steering control
 - Fixed motor stop position from 340 to 370 based on hardware testing
@@ -271,3 +305,7 @@ When transitioning from forward to reverse:
 - Configured ZED camera to use shared pointcloud_container for zero-copy I/O
 - Updated web monitor to track correct camera topics and removed unused traffic light topics
 - With --symlink-install flag in colcon build, edits on yaml, xml, py source files immediately apply if the file was installed earlier. There is no need to rebuild. In case can you create a new file, you need to run colcon build again to create the symlink in the install/ dir.
+- Added ZED object detection integration with Autoware converter
+- Created modular launch structure for ZED camera with object detection support
+- Fixed namespace structure in camera.launch.xml to prevent double namespacing
+- Configured object detection to preserve colored point cloud functionality
