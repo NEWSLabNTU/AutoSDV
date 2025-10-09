@@ -1,4 +1,4 @@
-.PHONY: default setup prepare build launch stop restart status launch_camera_calibration clean checkout
+.PHONY: default setup prepare build test launch stop restart status launch_camera_calibration clean checkout
 SHELL := /bin/bash
 
 default:
@@ -7,6 +7,9 @@ default:
 	@echo
 	@echo 'make build'
 	@echo '    Build this project.'
+	@echo
+	@echo 'make test'
+	@echo '    Run tests for packages in src/ directory.'
 	@echo
 	@echo 'make launch'
 	@echo '    Launch AutoSDV system using systemd service.'
@@ -46,6 +49,16 @@ build:
 		--base-paths src \
 		--symlink-install \
 		--cmake-args -DCMAKE_BUILD_TYPE=Release
+
+test:
+	@source /opt/ros/humble/setup.bash && \
+	colcon test \
+		--base-paths src \
+		--return-code-on-test-failure; \
+	TEST_EXIT_CODE=$$?; \
+	echo "" && \
+	colcon test-result --verbose; \
+	exit $$TEST_EXIT_CODE
 
 launch:
 	@# Source the workspace to make autosdv available
