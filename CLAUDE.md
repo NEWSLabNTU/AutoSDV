@@ -10,6 +10,7 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 ### Build System (ROS 2 with colcon)
 - `make prepare` - Install ROS dependencies using rosdep
 - `make build` - Build all ROS packages with colcon (Release mode, symlink-install)
+- `make test` - Run tests for all packages in src/ directory and show results
 - `make launch` - Launch AutoSDV using systemd service (installs service if needed, then starts)
 - `make stop` - Stop the running AutoSDV system
 - `make restart` - Restart the AutoSDV system
@@ -34,6 +35,8 @@ After building (`make build`), the `autosdv` command is available:
 ### Manual Commands
 - `source install/setup.bash` - Source the ROS workspace (required before running nodes)
 - `colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release` - Manual build
+- `colcon test --base-paths src --return-code-on-test-failure` - Manual test (src/ packages only)
+- `colcon test-result --verbose` - Show detailed test results
 - `rosdep install -y --from-paths src --ignore-src -r` - Install dependencies
 
 ## Architecture Overview
@@ -42,6 +45,9 @@ After building (`make build`), the `autosdv` command is available:
 - **src/launcher/autosdv_launch/** - Main launch configurations and system monitor
   - Provides web-based system monitor at http://localhost:8080/
   - Main launch file: `autosdv.launch.yaml`
+- **src/localization/** - Localization-related packages
+  - `odometry_pose_bridge/` - Generic odometry-to-pose converter
+  - `autosdv_isaac_slam_launch/` - Isaac ROS Visual SLAM integration
 - **src/param/autoware_individual_params/** - Parameter configurations for different sensor kits
 - **src/sensor_kit/autosdv_sensor_kit_launch/** - Sensor integration and launch files
 - **src/vehicle/autosdv_vehicle_launch/** - Vehicle interface and description
@@ -138,6 +144,50 @@ When running indoors:
 # Indoor setup with specific sensors
 make launch ARGS="lidar_model:=robin-w camera_model:=usb use_gnss:=false"
 ```
+
+### Localization Sources (pose_source)
+
+AutoSDV supports multiple localization methods through the `pose_source` parameter:
+
+#### NDT Scan Matching (Default)
+```bash
+# LiDAR-based localization using NDT algorithm (default)
+make launch ARGS="pose_source:=ndt"
+# or simply
+make launch
+```
+
+#### Isaac ROS Visual SLAM (GPU-Accelerated)
+```bash
+# Stereo camera-based localization using NVIDIA Isaac ROS Visual SLAM
+make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
+```
+
+**Isaac SLAM Features:**
+- GPU-accelerated stereo visual-inertial odometry (cuVSLAM)
+- Suitable for indoor/GNSS-denied environments
+- Requires ZED stereo camera + IMU
+- Automatically launches when `pose_source:=isaac`
+
+**Packages:**
+- `odometry_pose_bridge` - Generic odometry-to-pose converter
+- `autosdv_isaac_slam_launch` - Isaac SLAM + ZED integration
+
+**Integration:**
+- Image converters: RGB8 → Mono8 (Isaac SLAM requirement)
+- Topic relays: Camera info and IMU data
+- Bridge node: Converts Isaac SLAM odometry to Autoware pose format
+- EKF fusion: Integrates with Autoware's localization pipeline
+
+**Status:**
+- ✅ **Implementation Complete**: All code integrated and built
+- ⏸️ **Testing Deferred**: Requires stereo camera data (rosbag or hardware)
+- 📖 **Documentation**: See `docs/isaac_ros_visual_slam_integration_plan.md` and `docs/simulation_testing.md`
+
+**Testing Notes:**
+- Standard Autoware rosbags do not include camera images (privacy)
+- For testing: Use Bus-ODD dataset, record custom rosbag, or use CARLA simulator
+- See `docs/simulation_testing.md` for rosbag replay setup
 
 ### Python Packages
 Python packages follow ROS 2 conventions with:
@@ -309,3 +359,12 @@ make launch ARGS="enable_zed_object_detection:=true"
 - Created modular launch structure for ZED camera with object detection support
 - Fixed namespace structure in camera.launch.xml to prevent double namespacing
 - Configured object detection to preserve colored point cloud functionality
+- **Integrated Isaac ROS Visual SLAM for indoor localization** (2025-10-10)
+  - Created `odometry_pose_bridge` package - generic odometry-to-pose converter (6/6 tests passed)
+  - Created `autosdv_isaac_slam_launch` package - Isaac SLAM + ZED camera integration
+  - Added `pose_source` parameter to autosdv.launch.yaml (ndt/isaac)
+  - Conditional Isaac SLAM launch when `pose_source:=isaac`
+  - GPU-accelerated stereo visual-inertial odometry using NVIDIA cuVSLAM
+  - Implementation complete, testing deferred pending stereo camera data availability
+  - Documentation: `docs/isaac_ros_visual_slam_integration_plan.md`, `docs/simulation_testing.md`
+  - Status: ✅ Code complete, ready for testing when camera data is available
