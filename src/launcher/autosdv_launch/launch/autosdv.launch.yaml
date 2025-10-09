@@ -30,9 +30,28 @@ launch:
     description: "Enable mapless mode for indoor operation without localization"
 
 - arg:
+    name: pose_source
+    default: "ndt"
+    description: "Pose estimation source: ndt (LiDAR NDT), isaac (Visual SLAM)"
+
+- arg:
     name: enable_zed_object_detection
     default: "true"
     description: "Enable ZED camera object detection and conversion to Autoware format"
+
+# Launch Isaac ROS Visual SLAM when pose_source is isaac
+- group:
+    if: "$(eval '\"$(var pose_source)\" == \"isaac\"')"
+    children:
+    - include:
+        file: "$(find-pkg-share autosdv_isaac_slam_launch)/launch/isaac_slam_with_zed.launch.xml"
+        arg:
+        - name: camera_namespace
+          value: /sensing/camera/$(var camera_model)/zed_node
+        - name: enable_imu_fusion
+          value: "true"
+        - name: enable_visualization
+          value: "true"
 
 - include:
     file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
@@ -105,7 +124,7 @@ launch:
       value: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
     -
       name: pose_source
-      value: ndt
+      value: $(var pose_source)
     -
       name: twist_source
       value: gyro_odom  # gyro_odom, eagleye
