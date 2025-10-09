@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="input_odometry" default="input/odometry" description="Input odometry topic"/>
+  <arg name="output_pose" default="output/pose_with_covariance" description="Output pose topic"/>
+  <arg name="config_file" default="$(find-pkg-share odometry_pose_bridge)/config/odometry_to_pose_bridge.yaml" description="Config file path"/>
+
+  <node pkg="odometry_pose_bridge" exec="odometry_to_pose_bridge" name="odometry_to_pose_bridge">
+    <remap from="input/odometry" to="$(var input_odometry)"/>
+    <remap from="output/pose_with_covariance" to="$(var output_pose)"/>
+    <param from="$(var config_file)"/>
+  </node>
+</launch>
