@@ -15,9 +15,9 @@ This package provides launch configuration for NVIDIA Isaac ROS Visual SLAM (cuV
 
 ## Dependencies
 
-- `isaac_ros_visual_slam`: NVIDIA Isaac ROS Visual SLAM package (installed via apt)
+- `isaac_ros_visual_slam`: NVIDIA Isaac ROS Visual SLAM package (apt for arm64, build from source for amd64)
 - `isaac_ros_image_proc`: Image format conversion (rgb8 → mono8)
-- `zed_wrapper`: ZED camera driver
+- `zed_wrapper`: ZED camera driver (ZED SDK 5.x required)
 - `odometry_pose_bridge`: Odometry-to-Pose converter
 - `topic_tools`: Topic relay nodes
 
@@ -26,9 +26,12 @@ This package provides launch configuration for NVIDIA Isaac ROS Visual SLAM (cuV
 ```
 autosdv_isaac_slam_launch/
 ├── config/
-│   └── isaac_slam_params.yaml      # Visual SLAM parameters
+│   └── isaac_slam_params.yaml           # Visual SLAM parameters
 ├── launch/
-│   └── isaac_slam_with_zed.launch.xml  # Main launch file
+│   ├── isaac_slam_with_zed.launch.xml   # Main launch file
+│   └── standalone_test.launch.py        # Standalone testing launch
+├── rviz/
+│   └── isaac_slam_test.rviz             # Pre-configured RViz displays
 ├── CMakeLists.txt
 ├── package.xml
 └── README.md
@@ -38,7 +41,7 @@ autosdv_isaac_slam_launch/
 
 ### isaac_slam_with_zed.launch.xml
 
-Main launch file that integrates all components.
+Main launch file that integrates all Isaac SLAM components (without ZED camera).
 
 **Arguments:**
 - `enable_imu_fusion` (default: true): Enable IMU fusion in visual SLAM
@@ -55,6 +58,23 @@ Main launch file that integrates all components.
 7. **isaac_slam_bridge**: Converts odometry to PoseWithCovarianceStamped
 
 All nodes run in the `isaac_slam` namespace.
+
+### standalone_test.launch.py
+
+Complete standalone testing launch for Isaac Visual SLAM with ZED camera and visualization.
+
+**Arguments:**
+- `enable_imu_fusion` (default: true): Enable IMU fusion in visual SLAM
+- `enable_visualization` (default: true): Enable SLAM visualization topics
+- `enable_rviz` (default: true): Launch RViz with pre-configured displays
+- `camera_model` (default: zedxm): ZED camera model
+
+**Components launched:**
+1. **ZED camera driver**: Launches ZED X Mini with optimal settings
+2. **Isaac SLAM pipeline**: All converters, relays, and SLAM node
+3. **RViz**: Pre-configured with camera views, paths, landmarks, and odometry displays
+
+This is the **recommended way** to test Isaac Visual SLAM independently.
 
 ## Configuration
 
@@ -113,14 +133,51 @@ See config file for full parameter list.
 
 ## Usage
 
-### Standalone Testing
+### Standalone Testing (Recommended)
 
-Launch ZED camera and Isaac SLAM separately:
+**Quick Start** - Launch everything with one command:
+
+```bash
+source install/setup.bash
+ros2 launch autosdv_isaac_slam_launch standalone_test.launch.py
+```
+
+This single command launches:
+- ZED X Mini camera driver
+- Isaac ROS Visual SLAM with all converters and relays
+- RViz with pre-configured displays for visualization
+
+**Monitor SLAM status:**
+```bash
+# In separate terminal
+ros2 topic echo /isaac_slam/visual_slam_node/status
+# vo_state: 1 = tracking success, 2 = tracking lost
+
+ros2 topic hz /isaac_slam/visual_slam_node/tracking/odometry
+# Should show ~30 Hz
+```
+
+**Optional arguments:**
+```bash
+# Test without IMU fusion
+ros2 launch autosdv_isaac_slam_launch standalone_test.launch.py enable_imu_fusion:=false
+
+# Launch without RViz (headless)
+ros2 launch autosdv_isaac_slam_launch standalone_test.launch.py enable_rviz:=false
+```
+
+**For detailed tutorial**, see: `docs/isaac_visual_slam_standalone_test.md`
+
+---
+
+### Manual Step-by-Step Testing
+
+Launch components separately for debugging:
 
 ```bash
 # Terminal 1: ZED camera
 source install/setup.bash
-ros2 launch zed_wrapper zedxm.launch.py
+ros2 launch zed_wrapper zed_camera.launch.py camera_model:=zedxm
 
 # Terminal 2: Isaac SLAM
 ros2 launch autosdv_isaac_slam_launch isaac_slam_with_zed.launch.xml
@@ -174,7 +231,9 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 
 ## References
 
-- [Isaac ROS Visual SLAM Documentation](https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_visual_slam/isaac_ros_visual_slam/index.html)
+- **[Standalone Testing Tutorial](../../../docs/isaac_visual_slam_standalone_test.md)** - Complete guide for testing Isaac SLAM with ZED X Mini
+- [Isaac ROS 3.2 Documentation](https://nvidia-isaac-ros.github.io/v/release-3.2/) - Official Isaac ROS 3.2 docs (Ubuntu 22.04/Humble)
+- [Isaac ROS Visual SLAM Package](https://nvidia-isaac-ros.github.io/v/release-3.2/repositories_and_packages/isaac_ros_visual_slam/)
 - [AutoSDV Isaac ROS Integration Plan](../../../docs/isaac_ros_visual_slam_integration_plan.md)
 - [ZED ROS 2 Wrapper](https://github.com/stereolabs/zed-ros2-wrapper)
 
