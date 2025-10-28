@@ -166,7 +166,8 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 **Isaac SLAM Features:**
 - GPU-accelerated stereo visual-inertial odometry (cuVSLAM)
 - Suitable for indoor/GNSS-denied environments
-- Requires ZED stereo camera + IMU
+- Requires ZED X Mini stereo camera (GMSL connection) + IMU
+- ZED SDK 5.x required
 - Automatically launches when `pose_source:=isaac`
 
 **Packages:**
@@ -179,15 +180,28 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 - Bridge node: Converts Isaac SLAM odometry to Autoware pose format
 - EKF fusion: Integrates with Autoware's localization pipeline
 
+**Hardware Requirements:**
+- ZED X Mini camera connected via GMSL cable (NOT USB)
+- ZED SDK 5.x installed
+- NVIDIA GPU with CUDA support
+
+**Isaac ROS Installation:**
+- ⚠️ APT packages available for **arm64 only** (Jetson AGX Orin)
+- x86_64/amd64 users must build from source
+- See `docs/isaac_visual_slam_standalone_test.md` for installation guide
+
 **Status:**
 - ✅ **Implementation Complete**: All code integrated and built
-- ⏸️ **Testing Deferred**: Requires stereo camera data (rosbag or hardware)
+- ✅ **Standalone Testing Tutorial**: Available in `docs/isaac_visual_slam_standalone_test.md`
+- ⏸️ **Testing Deferred**: Requires stereo camera data (rosbag or hardware with GMSL)
 - 📖 **Documentation**: See `docs/isaac_ros_visual_slam_integration_plan.md` and `docs/simulation_testing.md`
 
 **Testing Notes:**
+- Standalone test: `ros2 launch autosdv_isaac_slam_launch standalone_test.launch.py`
 - Standard Autoware rosbags do not include camera images (privacy)
 - For testing: Use Bus-ODD dataset, record custom rosbag, or use CARLA simulator
 - See `docs/simulation_testing.md` for rosbag replay setup
+- See `docs/isaac_visual_slam_standalone_test.md` for complete testing tutorial
 
 ### Python Packages
 Python packages follow ROS 2 conventions with:
