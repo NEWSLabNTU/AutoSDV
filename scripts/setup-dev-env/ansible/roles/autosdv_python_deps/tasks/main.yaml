@@ -2,8 +2,9 @@
 - name: Install Python dependencies for AutoSDV vehicle interface
   ansible.builtin.pip:
     name:
-      - Adafruit-PCA9685
-      - simple-pid
+      - Adafruit-PCA9685==1.0.1
+      - simple-pid==2.0.1
+      - ros2systemd==0.5.1
     state: present
     executable: pip3
-  become: true
+    extra_args: --user
