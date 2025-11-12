@@ -1,4 +1,4 @@
-.PHONY: default setup prepare build test launch stop restart status launch_camera_calibration clean checkout
+.PHONY: default setup prepare build test launch stop restart status controller test-control launch_camera_calibration clean checkout
 SHELL := /bin/bash
 
 default:
@@ -25,6 +25,9 @@ default:
 	@echo
 	@echo 'make controller'
 	@echo '    Launch manual keyboard control.'
+	@echo
+	@echo 'make test-control'
+	@echo '    Launch vehicle control test with tmux (system + controller + monitor).'
 	@echo
 	@echo 'make launch_camera_calibration'
 	@echo '    Launch camera calibration with ZED camera and calibrator.'
@@ -82,6 +85,27 @@ status:
 
 logs:
 	ros2 systemd logs autosdv
+
+controller:
+	source install/setup.bash && \
+	ros2 run autoware_manual_control keyboard_control
+
+test-control:
+	@if ! command -v tmux &> /dev/null; then \
+		echo "Error: tmux is not installed. Please install it with: sudo apt install tmux"; \
+		exit 1; \
+	fi; \
+	if tmux has-session -t autosdv-control-test 2>/dev/null; then \
+		echo "Session 'autosdv-control-test' already exists. Attaching..."; \
+		tmux attach-session -t autosdv-control-test; \
+	else \
+		echo "Creating new tmux session 'autosdv-control-test'..."; \
+		tmux new-session -d -s autosdv-control-test -n launch "cd $(PWD) && make launch"; \
+		tmux new-window -t autosdv-control-test:1 -n controller "cd $(PWD) && source install/setup.bash && ros2 run autoware_manual_control keyboard_control"; \
+		tmux new-window -t autosdv-control-test:2 -n monitor "cd $(PWD) && source install/setup.bash && ros2 topic echo /control/command/control_cmd"; \
+		tmux select-window -t autosdv-control-test:1; \
+		tmux attach-session -t autosdv-control-test; \
+	fi
 
 clean:
 	@while true; do \
