@@ -319,10 +319,29 @@ When transitioning from forward to reverse:
 - `/home/jetson/AutoSDV/motor_pwm_interactive.py` - Interactive PWM control for testing
 - `/home/jetson/AutoSDV/stop_motor.py` - Emergency stop script (sets motor to 370)
 - `/home/jetson/AutoSDV/test_steering_pwm.py` - Steering calibration tool
+- `./scripts/control/gpio_speed.py` - Non-ROS GPIO-based speed measurement (minimalist)
+- `./scripts/control/gpio_read.py` - Simple GPIO pin state and event monitor for debugging
 
-## ZED Object Detection Integration
+### Control System Testing
+For comprehensive testing procedures, see `docs/control_system_testing.md`. Key commands:
+- `make test-control` - Launch AutoSDV + controller + monitor in tmux session
+- `make controller` - Launch keyboard manual control interface (requires RViz "Local" mode)
+- Debug topics: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
 
-### Overview
+**Known Issues**:
+- Steering direction is reversed (left/right inverted)
+- PID control not working - positive speed in control_cmd doesn't actuate motor
+- For manual control: Set "Local" mode in RViz, use keyboard controller
+- For autonomous: Set "Remote" mode in RViz, set pose and goal in RViz
+
+## ZED Camera Integration
+
+### SDK and Driver Versions
+- **ZED SDK**: Version 5.0.5 (latest as of 2025-10-29)
+- **ZED ROS2 Wrapper**: Version 5.0 (from `src/sensor_component/external/zed-ros2-wrapper/`)
+- **Supported models**: ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini
+
+### Object Detection Integration
 ZED camera object detection has been integrated with Autoware's perception pipeline. The system can operate in two modes:
 1. **Normal mode** (default): ZED publishes colored point cloud for visualization
 2. **Object detection mode**: ZED performs object detection and converts to Autoware format
@@ -341,6 +360,11 @@ ZED camera object detection has been integrated with Autoware's perception pipel
   - ZED objects: `/sensing/camera/zedxm/zed_node/obj_det/objects`
   - Autoware format: `/perception/object_recognition/detection/camera_objects`
   - Colored point cloud: `/sensing/camera/zedxm/zed_node/point_cloud/cloud_registered`
+
+### Container Integration
+- ZED camera runs as a composable node in the shared `/pointcloud_container`
+- **Important**: Pass `container_name` WITHOUT leading slash (e.g., `pointcloud_container`, not `/pointcloud_container`)
+- The ZED wrapper internally constructs the full container path as `/<namespace>/<container_name>`
 
 ### Usage
 ```bash
@@ -382,3 +406,20 @@ make launch ARGS="enable_zed_object_detection:=true"
   - Implementation complete, testing deferred pending stereo camera data availability
   - Documentation: `docs/isaac_ros_visual_slam_integration_plan.md`, `docs/simulation_testing.md`
   - Status: ✅ Code complete, ready for testing when camera data is available
+- **Upgraded ZED SDK and ROS2 wrapper** (2025-10-29)
+  - Upgraded ZED SDK from 4.x to 5.0.5
+  - Updated zed-ros2-wrapper submodule to version 5.0
+  - Fixed container_name parameter to exclude leading slash (ZED wrapper 5.0 requirement)
+  - Container path construction: `/<namespace>/<container_name>` now works correctly
+  - Fixed launch error: "Invalid service name: topic name must not contain repeated '/'"
+  - Updated camera.launch.xml and zed_with_object_detection.launch.xml
+- **Added GPIO testing utilities** (2025-11-12)
+  - Created `scripts/control/gpio_speed.py` - Minimalist non-ROS speed measurement using GPIO
+  - Created `scripts/control/gpio_read.py` - GPIO pin state and event monitor for debugging wheel sensors
+  - Both tools use Jetson.GPIO library for direct hardware access without ROS dependencies
+- **Created control system testing guide** (2025-11-12)
+  - Comprehensive testing documentation in `docs/control_system_testing.md`
+  - Covers manual and autonomous control testing procedures
+  - Documents debug topics: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
+  - Troubleshooting section for common issues (steering reversal, PID not working)
+  - Quick start with `make test-control` - launches system + controller + monitor in tmux
