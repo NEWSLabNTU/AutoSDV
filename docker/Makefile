@@ -110,6 +110,14 @@ IMAGE_TO_USE := $(shell \
 		echo ""; \
 	fi)
 
+# Auto-detect GPU runtime flags (Jetson uses --runtime=nvidia, others use --gpus all)
+GPU_FLAGS := $(shell \
+	if [ -f /etc/nv_tegra_release ] || uname -m | grep -q aarch64; then \
+		echo "--runtime=nvidia"; \
+	else \
+		echo "--gpus all"; \
+	fi)
+
 # Run the container, creating it if it doesn't exist, or starting/attaching if it does.
 run:
 	@if [ -z "$(IMAGE_TO_USE)" ]; then \
@@ -124,10 +132,11 @@ run:
 		exit 1; \
 	fi; \
 	echo "Using image: $(IMAGE_TO_USE)"; \
+	echo "Using GPU flags: $(GPU_FLAGS)"; \
 	if ! $(DOCKER_CMD) ps -a --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
 		echo "Creating and running new container named $(CONTAINER_NAME)..."; \
 		$(DOCKER_CMD) run -it --name $(CONTAINER_NAME) \
-			--gpus all \
+			$(GPU_FLAGS) \
 			--net host \
 			--privileged \
 			-v /tmp/.X11-unix:/tmp/.X11-unix:rw \

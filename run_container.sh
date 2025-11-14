@@ -7,6 +7,15 @@
 DOCKER_IMAGE="misuhsieh001/autosdv:2025.02-latest"
 CONTAINER_NAME="autosdv_container"
 
+# Auto-detect GPU runtime flags (Jetson uses --runtime=nvidia, others use --gpus all)
+if [ -f /etc/nv_tegra_release ] || uname -m | grep -q aarch64; then
+    GPU_FLAGS="--runtime=nvidia"
+else
+    GPU_FLAGS="--gpus all"
+fi
+
+echo "Using GPU flags: $GPU_FLAGS"
+
 # Check if container already exists
 if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
     echo "Container '${CONTAINER_NAME}' already exists."
@@ -24,7 +33,7 @@ fi
 # Run new container
 echo "Creating and starting container..."
 docker run -it --name "${CONTAINER_NAME}" \
-    --gpus all \
+    $GPU_FLAGS \
     --net host \
     --privileged \
     -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
