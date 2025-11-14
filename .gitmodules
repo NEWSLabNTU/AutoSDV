@@ -40,3 +40,6 @@
 [submodule "src/sensor_component/external/autoware_zed"]
 	path = src/sensor_component/external/autoware_zed
 	url = https://github.com/NEWSLabNTU/autoware_zed.git
+[submodule "src/sensor_component/external/zed-ros2-interfaces"]
+	path = src/sensor_component/external/zed-ros2-interfaces
+	url = https://github.com/stereolabs/zed-ros2-interfaces.git
