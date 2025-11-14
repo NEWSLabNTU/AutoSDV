@@ -1,7 +1,6 @@
 .PHONY: default bootstrap build build-force run run-rocker save clean check-commit
 
 IMAGE_NAME = autosdv
-CONTAINER_NAME = $(IMAGE_NAME)-container
 # Get the current git commit hash
 COMMIT_HASH = $(shell cd .. && git rev-parse HEAD)
 # Get the short version (prefix) of the commit hash
@@ -99,30 +98,29 @@ build-force: check-commit
 	@echo "Built image $(IMAGE_NAME):$(SHORT_HASH) and $(IMAGE_NAME):$(COMMIT_HASH)"
 
 
+run:
 # Run the container, creating it if it doesn't exist, or starting/attaching if it does.
 run:
-	@if ! docker ps -a --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
-		echo "Creating and running new container named $(CONTAINER_NAME)..."; \
-		$(DOCKER_CMD) run -it --name $(CONTAINER_NAME) \
-			--gpus all \
-			--net host \
-			--privileged \
-			-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-			-v $(HOME)/.Xauthority:/root/.Xauthority:rw \
-			-v $(CURDIR)/..:/AutoSDV:rw \
-			-v /dev:/dev:rw \
-			-e DISPLAY=$(DISPLAY) \
-			-e QT_X11_NO_MITSHM=1 \
-			$(IMAGE_NAME):$(SHORT_HASH) /bin/bash; \
-	elif ! docker ps --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
-		echo "Starting and attaching to existing container $(CONTAINER_NAME)..."; \
-		$(DOCKER_CMD) start -ai $(CONTAINER_NAME); \
-	else \
-		echo "Attaching to running container $(CONTAINER_NAME)..."; \
-		$(DOCKER_CMD) exec -it $(CONTAINER_NAME) /bin/bash; \
-	fi
-
-# Alternative run command using rocker if available
+	@if [ -z "$$(docker ps -a -q -f name=$(CONTAINER_NAME))" ]; then 
+		echo "Creating and running new container named $(CONTAINER_NAME)..."; 
+		$(DOCKER_CMD) run -it 
+			--name $(CONTAINER_NAME) 
+			--gpus all 
+			--net host 
+			--privileged 
+			-v /tmp/.X11-unix:/tmp/.X11-unix:rw 
+			-v $(CURDIR)/..:/AutoSDV:rw 
+			-e DISPLAY=$(DISPLAY) 
+			-e QT_X11_NO_MITSHM=1 
+			$(IMAGE_NAME):$(SHORT_HASH) 
+			/bin/bash; 
+	elif [ -z "$$(docker ps -q -f name=$(CONTAINER_NAME))" ]; then 
+		echo "Starting and attaching to existing container $(CONTAINER_NAME)..."; 
+		$(DOCKER_CMD) start -ai $(CONTAINER_NAME); 
+	else 
+		echo "Attaching to running container $(CONTAINER_NAME)..."; 
+		$(DOCKER_CMD) exec -it $(CONTAINER_NAME) /bin/bash; 
+	fi# Alternative run command using rocker if available
 run-rocker:
 	rocker \
 		--x11 \

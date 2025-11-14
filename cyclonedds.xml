@@ -3,9 +3,9 @@
   <Domain Id="any">
     <General>
       <Interfaces>
-	<NetworkInterface autodetermine="false" name="lo" priority="default" multicast="default" />
+        <NetworkInterface name="lo" priority="default" multicast="false" />
       </Interfaces>
-      <AllowMulticast>default</AllowMulticast>
+      <AllowMulticast>false</AllowMulticast>
       <MaxMessageSize>65500B</MaxMessageSize>
     </General>
     <Internal>

@@ -1,16 +1,39 @@
-# editor
+# Build artifacts
+build/
+install/
+log/
+
+# Core dumps and crash files
+*.core
+core.*
+qemu_*.core
+
+# IDE files
+.vscode/
+.idea/
+
+# Test data
+NDT/
+vSLAM/
+
+# Log files
+*.log
+output.txt
+
+# Office files
+*.xlsx
+*.docx
+
+# Bag files (too large)
+*.db3
+*.bag
+
+# Large map files
+*.pcd
+
+# Temporary files
 *.swp
 *.swo
 *~
-.*~
-\#*#
+.DS_Store
 
-# colcon
-/build/
-/log/
-/install/
-
-# python
-__pycache__/
-*.pyc
-*.pyo

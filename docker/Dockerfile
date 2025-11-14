@@ -1,10 +1,14 @@
 FROM nvcr.io/nvidia/l4t-tensorrt:r8.6.2-devel
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=humble
+# Clean existing apt cache before updating
+RUN rm -rf /var/lib/apt/lists/* && apt-get clean
 
 # Accept commit hash as build arg
 ARG COMMIT_HASH=2025.02
 
 # Update system packages
-RUN apt update -y
+RUN apt update
 RUN apt upgrade -y
 
 # Configure the locale and timezone
@@ -19,16 +23,16 @@ RUN apt install -y apt-transport-https
 RUN add-apt-repository universe
 
 # Install APT packages
-RUN apt install -y python3-venv
-RUN apt install -y python3-pip
-RUN apt install -y sudo
-RUN apt install -y openssh-client
-RUN apt install -y openssh-server
-RUN apt install -y git
-RUN apt install -y make
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      gnupg2 curl ca-certificates cmake build-essential \
+      python3-venv python3-pip sudo openssh-client openssh-server \
+      git make libopencv-dev python3-opencv && \
+    rm -rf /var/lib/apt/lists/*
 
 # Remove cmake
-RUN rm -f /usr/local/bin/cmake /usr/local/bin/cpack /usr/local/bin/ctest
+# RUN rm -f /usr/local/bin/cmake /usr/local/bin/cpack /usr/local/bin/ctest
+RUN rm -f /usr/local/bin/cpack /usr/local/bin/ctest || true
 
 # Install NVIDIA l4t compiler
 RUN apt-key adv --fetch-key http://repo.download.nvidia.com/jetson/jetson-ota-public.asc
@@ -38,6 +42,45 @@ RUN touch /opt/nvidia/l4t-packages/.nv-l4t-disable-boot-fw-update-in-preinstall
 RUN apt update
 RUN apt install -o DPkg::Options::="--force-confold" -y nvidia-l4t-dla-compiler
 
+# Install dependencies for ZED SDK
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    lsb-release \
+    zstd \
+    udev \
+    libusb-1.0-0 \
+    libhidapi-libusb0 \
+    libhidapi-dev
+
+# Download ZED SDK 5.0 installer for JetPack 6.0 (L4T 36.3) with CUDA 12.2
+# Using SDK 5.0 to match zed-ros2-wrapper version humble-v5.0.0
+RUN wget --no-check-certificate -O ZED_SDK_Tegra_L4T36.3_v5.0.0.zstd.run \
+    https://download.stereolabs.com/zedsdk/5.0/l4t36.3/jetsons && \
+    echo "Downloaded ZED SDK 5.0 installer"
+
+# Install ZED SDK with proper flags
+# - silent: non-interactive installation
+# - skip_cuda: skip CUDA installation (already installed)
+# - skip_od_module: skip object detection module (optional, reduces size)
+RUN chmod +x ZED_SDK_Tegra_L4T36.3_v5.0.0.zstd.run && \
+    ./ZED_SDK_Tegra_L4T36.3_v5.0.0.zstd.run -- silent skip_cuda && \
+    echo "ZED SDK 5.0 installation completed" && \
+    rm -f ZED_SDK_Tegra_L4T36.3_v5.0.0.zstd.run
+
+# Verify ZED SDK installation
+RUN if [ -d /usr/local/zed ]; then \
+        echo "ZED SDK successfully installed at /usr/local/zed"; \
+        ls -la /usr/local/zed/; \
+        find /usr/local/zed -name "*.cmake" | head -5; \
+    else \
+        echo "WARNING: ZED SDK installation may have failed - /usr/local/zed not found"; \
+    fi
+
+# Set environment variables for ZED SDK
+ENV ZED_SDK_ROOT_DIR=/usr/local/zed
+ENV CMAKE_PREFIX_PATH="/usr/local/zed:/opt/ros/${ROS_DISTRO}"
+ENV LD_LIBRARY_PATH="/usr/local/zed/lib:${LD_LIBRARY_PATH}"
+
 # Clone AutoSDV repository and checkout specific commit
 RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
     cd AutoSDV && \
@@ -45,12 +88,70 @@ RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
     (git checkout ${COMMIT_HASH} || \
     (echo "Error: Failed to checkout commit ${COMMIT_HASH}. Please ensure this commit is pushed to the remote repository." && exit 1))
 
-# Run setup with non-interactive mode and download artifacts
-WORKDIR /AutoSDV
-RUN ./scripts/setup-dev-env/setup-dev-env.sh -y
+# Fix git ownership issue for volume-mounted repository
+RUN git config --global --add safe.directory '*'
 
-WORKDIR /
-RUN rm -rf /AutoSDV
+# Run setup to install ROS 2 Humble and other dependencies
+WORKDIR /AutoSDV
+RUN /bin/bash -c "./scripts/setup-dev-env/setup-dev-env.sh -y"
+
+# Install all required additional dependencies for AutoSDV
+RUN apt-get update && \
+    apt-get install -y \
+    # OpenCV with matching version
+    libopencv-dev:arm64=4.5.4+dfsg-9ubuntu4 \
+    libopencv-core4.5d:arm64 \
+    python3-opencv \
+    # ROS 2 packages (installed after ROS setup)
+    ros-humble-cv-bridge \
+    ros-humble-backward-ros \
+    ros-humble-robot-localization \
+    ros-humble-point-cloud-transport \
+    ros-humble-rmw-fastrtps-cpp \
+    ros-humble-nmea-navsat-driver \
+    # I2C development libraries for MPU9250 driver
+    libi2c-dev \
+    i2c-tools \
+    # Build tools
+    wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Upgrade CMake to version 3.22+ (required for VTK/PCL compatibility)
+RUN wget -q https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-aarch64.sh && \
+    chmod +x cmake-3.22.1-linux-aarch64.sh && \
+    ./cmake-3.22.1-linux-aarch64.sh --skip-license --prefix=/usr/local && \
+    rm cmake-3.22.1-linux-aarch64.sh && \
+    cmake --version
+
+# Create symlinks for ALL OpenCV libraries from aarch64 directory to /usr/lib
+# This fixes CMake finding OpenCV libraries on ARM64 architecture
+RUN if [ -d /usr/lib/aarch64-linux-gnu ]; then \
+      echo "Creating OpenCV library symlinks..."; \
+      for lib in /usr/lib/aarch64-linux-gnu/libopencv_*.so*; do \
+        if [ -f "$lib" ]; then \
+          ln -sf "$lib" "/usr/lib/$(basename $lib)"; \
+        fi; \
+      done; \
+      echo "OpenCV symlinks created successfully"; \
+      ls -la /usr/lib/libopencv_*.so* | head -10; \
+    fi
+
+# Clone zed-ros2-interfaces (provides zed_msgs package)
+RUN cd /AutoSDV/src/sensor_component/external && \
+    git clone https://github.com/stereolabs/zed-ros2-interfaces.git && \
+    echo "zed-ros2-interfaces cloned successfully"
+
+# Auto-source ROS and workspace on shell startup
+RUN echo "" >> /root/.bashrc && \
+    echo "# Auto-source ROS 2 Humble and AutoSDV workspace" >> /root/.bashrc && \
+    echo "source /opt/ros/humble/setup.bash" >> /root/.bashrc && \
+    echo "if [ -f /AutoSDV/install/setup.bash ]; then" >> /root/.bashrc && \
+    echo "    source /AutoSDV/install/setup.bash" >> /root/.bashrc && \
+    echo "    echo '[AutoSDV] Workspace sourced successfully ✓'" >> /root/.bashrc && \
+    echo "else" >> /root/.bashrc && \
+    echo "    echo '[AutoSDV] Warning: Workspace not built yet. Run: make build'" >> /root/.bashrc && \
+    echo "fi" >> /root/.bashrc && \
+    echo "cd /AutoSDV" >> /root/.bashrc
 
 # Default command
 CMD ["/bin/bash"]
