@@ -19,7 +19,7 @@ echo ""
 
 # Configuration
 REPO_URL="https://github.com/misuhsieh001/AutoSDV-containerization.git"
-REPO_BRANCH="lab3-deployment"
+REPO_BRANCH="2025.11-containerization"
 
 echo "Repository: $REPO_URL"
 echo "Branch: $REPO_BRANCH"
