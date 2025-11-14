@@ -99,9 +99,32 @@ build-force: check-commit
 	@echo "Built image $(IMAGE_NAME):$(SHORT_HASH) and $(IMAGE_NAME):$(COMMIT_HASH)"
 
 
+# Auto-detect which image to use (local build or DockerHub)
+DOCKERHUB_IMAGE := misuhsieh001/autosdv:2025.02-latest
+IMAGE_TO_USE := $(shell \
+	if $(DOCKER_CMD) image inspect $(IMAGE_NAME):$(SHORT_HASH) >/dev/null 2>&1; then \
+		echo "$(IMAGE_NAME):$(SHORT_HASH)"; \
+	elif $(DOCKER_CMD) image inspect $(DOCKERHUB_IMAGE) >/dev/null 2>&1; then \
+		echo "$(DOCKERHUB_IMAGE)"; \
+	else \
+		echo ""; \
+	fi)
+
 # Run the container, creating it if it doesn't exist, or starting/attaching if it does.
 run:
-	@if ! docker ps -a --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
+	@if [ -z "$(IMAGE_TO_USE)" ]; then \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo "❌ ERROR: No Docker image found!"; \
+		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
+		echo ""; \
+		echo "You need to either:"; \
+		echo "  1. Build locally:  make build"; \
+		echo "  2. Pull from DockerHub:  $(DOCKER_CMD) pull $(DOCKERHUB_IMAGE)"; \
+		echo ""; \
+		exit 1; \
+	fi; \
+	echo "Using image: $(IMAGE_TO_USE)"; \
+	if ! $(DOCKER_CMD) ps -a --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
 		echo "Creating and running new container named $(CONTAINER_NAME)..."; \
 		$(DOCKER_CMD) run -it --name $(CONTAINER_NAME) \
 			--gpus all \
@@ -113,8 +136,8 @@ run:
 			-v /dev:/dev:rw \
 			-e DISPLAY=$(DISPLAY) \
 			-e QT_X11_NO_MITSHM=1 \
-			$(IMAGE_NAME):$(SHORT_HASH) /bin/bash; \
-	elif ! docker ps --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
+			$(IMAGE_TO_USE) /bin/bash; \
+	elif ! $(DOCKER_CMD) ps --format '{{.Names}}' | grep -q "^$(CONTAINER_NAME)$$"; then \
 		echo "Starting and attaching to existing container $(CONTAINER_NAME)..."; \
 		$(DOCKER_CMD) start -ai $(CONTAINER_NAME); \
 	else \
