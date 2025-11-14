@@ -55,11 +55,11 @@ build:
 		if [ -d /usr/local/zed ]; then \
 			echo "ZED SDK found at /usr/local/zed"; \
 			echo "Building with ZED SDK 5.0 (compatible with zed-ros2-wrapper humble-v5.0.0)"; \
-			echo "Skipping seyond package (x86-64 binary incompatible with ARM64)"; \
+			echo "Skipping seyond (x86-64 binary) and autosdv_sensor_kit_launch (depends on seyond)"; \
 			colcon build \
 				--base-paths src \
 				--symlink-install \
-				--packages-skip seyond \
+				--packages-skip seyond autosdv_sensor_kit_launch \
 				--cmake-args \
 					-DCMAKE_BUILD_TYPE=Release \
 					-DCMAKE_PREFIX_PATH="/usr/local/zed:$$CMAKE_PREFIX_PATH" \
@@ -67,7 +67,7 @@ build:
 					-DCMAKE_MODULE_PATH="/usr/local/zed/cmake"; \
 		else \
 			echo "ZED SDK not found, skipping ZED-related packages"; \
-			echo "Skipping seyond package (x86-64 binary incompatible with ARM64)"; \
+			echo "Skipping seyond (x86-64 binary) and autosdv_sensor_kit_launch (depends on seyond)"; \
 			colcon build \
 				--base-paths src \
 				--symlink-install \
@@ -79,6 +79,7 @@ build:
 					autoware_zed_launch \
 					zed_launch \
 					seyond \
+					autosdv_sensor_kit_launch \
 				--cmake-args \
 					-DCMAKE_BUILD_TYPE=Release; \
 		fi \
