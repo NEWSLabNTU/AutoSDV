@@ -1,0 +1,5 @@
+# U-Blox GNSS receiver udev rules
+# This rule sets proper permissions for U-Blox GPS devices and creates a symlink
+
+# U-Blox GPS (Vendor: 1546, Product: 01a9)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1546", ATTRS{idProduct}=="01a9", MODE="0666", GROUP="dialout", SYMLINK+="ublox-gps"
