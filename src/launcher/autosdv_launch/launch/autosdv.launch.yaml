@@ -4,25 +4,37 @@ launch:
     default: "false"
     description: "Enable simulation mode (disables PWM output to hardware)"
 
+# Sensor Suite Configuration
+- arg:
+    name: sensor_suite
+    default: "robin_zed"
+    description: "Predefined sensor suite: robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, cube1_usb, custom"
+
+# Individual Sensor Parameters (override suite defaults when sensor_suite=custom)
 - arg:
     name: lidar_model
-    default: "robin-w"
-    description: "LiDAR model (cube1, robin-w, or vlp32c)"
+    default: ""
+    description: "LiDAR model (cube1, robin-w, or vlp32c) - empty string uses suite default"
 
 - arg:
     name: camera_model
-    default: "zedxm"
-    description: "Camera model (zedxm, usb, or none)"
+    default: ""
+    description: "Camera model (zedxm, usb, or none) - empty string uses suite default"
+
+- arg:
+    name: imu_source
+    default: ""
+    description: "IMU source (mpu9250, zed) - empty string uses suite default"
 
 - arg:
     name: gnss_receiver
-    default: "garmin"
-    description: "GNSS receiver type (ublox, septentrio, or garmin)"
+    default: ""
+    description: "GNSS receiver type (ublox, septentrio, or garmin) - empty string uses suite default"
 
 - arg:
     name: use_gnss
-    default: "true"
-    description: "Enable GNSS for outdoor operation (disable for indoor testing)"
+    default: ""
+    description: "Enable GNSS for outdoor operation - empty string uses suite default"
 
 - arg:
     name: use_mapless_mode
@@ -36,8 +48,8 @@ launch:
 
 - arg:
     name: enable_zed_object_detection
-    default: "true"
-    description: "Enable ZED camera object detection and conversion to Autoware format"
+    default: ""
+    description: "Enable ZED camera object detection - empty string uses suite default"
 
 # Launch Isaac ROS Visual SLAM when pose_source is isaac
 - group:
@@ -132,12 +144,26 @@ launch:
       name: lidar_model
       value: $(var lidar_model)
     -
-      name: use_mapless_mode
-      value: $(var use_mapless_mode)
+      name: camera_model
+      value: $(var camera_model)
+    -
+      name: imu_source
+      value: $(var imu_source)
+    -
+      name: gnss_receiver
+      value: $(var gnss_receiver)
+    -
+      name: use_gnss
+      value: $(var use_gnss)
     -
       name: enable_zed_object_detection
       value: $(var enable_zed_object_detection)
-    # Note: camera_model parameter is passed through autosdv_sensor_kit parameter configuration
+    -
+      name: sensor_suite
+      value: $(var sensor_suite)
+    -
+      name: use_mapless_mode
+      value: $(var use_mapless_mode)
 
 # System Monitor
 - include:
