@@ -1,0 +1,8 @@
+---
+galaxy_info:
+  author: AutoSDV
+  description: Install udev rules for U-Blox GPS devices
+  license: Apache-2.0
+  min_ansible_version: "2.9"
+
+dependencies: []

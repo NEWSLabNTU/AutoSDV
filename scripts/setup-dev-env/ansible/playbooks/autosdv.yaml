@@ -9,3 +9,4 @@
     # - role: autoware.dev_env.zed_sdk
     - role: autoware.dev_env.autoware_debian
     - role: autosdv_python_deps
+    - role: ublox_gps_udev
