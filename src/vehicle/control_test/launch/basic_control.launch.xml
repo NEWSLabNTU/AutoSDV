@@ -7,13 +7,39 @@
   <group>
     <push-ros-namespace namespace="sensing"/>
 
-    <!-- Minimal ZED IMU -->
-    <include file="$(find-pkg-share autosdv_sensor_kit_launch)/launch/imu.launch.xml">
-      <arg name="launch_driver" value="true"/>
-      <arg name="imu_source" value="zed"/>
-      <arg name="camera_model" value="zedxm"/>
-    </include>
+    <!-- IMU Processing -->
+    <group>
+      <push-ros-namespace namespace="imu"/>
+
+      <arg name="imu_corrector_param_file" default="$(find-pkg-share individual_params)/config/$(var vehicle_id)/autosdv_sensor_kit/imu_corrector.param.yaml"/>
+
+      <!-- IMU Corrector - processes ZED IMU data -->
+      <include file="$(find-pkg-share autoware_imu_corrector)/launch/imu_corrector.launch.xml">
+        <arg name="input_topic" value="/sensing/camera/zedxm/zed_node/imu/data_raw"/>
+        <arg name="output_topic" value="imu_data"/>
+        <arg name="param_file" value="$(var imu_corrector_param_file)"/>
+      </include>
+
+      <!-- Gyro Bias Estimator -->
+      <include file="$(find-pkg-share autoware_imu_corrector)/launch/gyro_bias_estimator.launch.xml">
+        <arg name="input_imu_raw" value="/sensing/camera/zedxm/zed_node/imu/data_raw"/>
+        <arg name="input_odom" value="/localization/kinematic_state"/>
+        <arg name="imu_corrector_param_file" value="$(var imu_corrector_param_file)"/>
+      </include>
+    </group>
+
   </group>
+
+  <!-- ZED Camera for IMU-only (minimal mode) -->
+  <!-- Python launch adds leading slash, so use relative path -->
+  <include file="$(find-pkg-share zed_wrapper)/launch/zed_camera.launch.py">
+    <arg name="camera_name" value="zedxm"/>
+    <arg name="camera_model" value="zedxm"/>
+    <arg name="namespace" value="sensing/camera/zedxm"/>
+    <arg name="publish_tf" value="false"/>
+    <arg name="publish_imu_tf" value="false"/>
+    <arg name="ros_params_override_path" value="$(find-pkg-share autosdv_sensor_kit_launch)/config/zed_imu_minimal.yaml"/>
+  </include>
 
   <!-- Vehicle Interface Group - matches AutoSDV namespace structure -->
   <group>
