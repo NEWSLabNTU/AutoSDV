@@ -100,9 +100,10 @@ test-control:
 		tmux attach-session -t autosdv-control-test; \
 	else \
 		echo "Creating new tmux session 'autosdv-control-test'..."; \
-		tmux new-session -d -s autosdv-control-test -n launch "cd $(PWD) && make launch"; \
-		tmux new-window -t autosdv-control-test:1 -n controller "cd $(PWD) && source install/setup.bash && ros2 run autoware_manual_control keyboard_control"; \
-		tmux new-window -t autosdv-control-test:2 -n monitor "cd $(PWD) && source install/setup.bash && ros2 topic echo /control/command/control_cmd"; \
+		tmux new-session -d -s autosdv-control-test -n launch "cd $(PWD) && play_launch launch autosdv_launch control_testing.launch.yaml"; \
+		tmux new-window -t autosdv-control-test:1 -n controller "$(PWD)/scripts/control/keyboard_control_direct.sh"; \
+		tmux new-window -t autosdv-control-test:2 -n control-cmd "$(PWD)/scripts/control/watch_control_cmd.sh"; \
+		tmux new-window -t autosdv-control-test:3 -n actuator-log "$(PWD)/scripts/control/watch_actuator_log.sh"; \
 		tmux select-window -t autosdv-control-test:1; \
 		tmux attach-session -t autosdv-control-test; \
 	fi
