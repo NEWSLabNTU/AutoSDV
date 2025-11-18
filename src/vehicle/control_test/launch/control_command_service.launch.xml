@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Launch arguments -->
+  <arg name="target_speed" default="0.0" description="Target longitudinal speed (m/s)"/>
+  <arg name="target_steering" default="0.0" description="Target steering angle (rad)"/>
+  <arg name="target_acceleration" default="0.0" description="Target acceleration (m/s^2)"/>
+  <arg name="publish_rate" default="10.0" description="Control command publish rate (Hz)"/>
+
+  <!-- Control Command Service Node -->
+  <node pkg="control_test" exec="control_command_service" name="control_command_service_node" output="screen">
+    <param name="target_speed" value="$(var target_speed)"/>
+    <param name="target_steering" value="$(var target_steering)"/>
+    <param name="target_acceleration" value="$(var target_acceleration)"/>
+    <param name="publish_rate" value="$(var publish_rate)"/>
+  </node>
+</launch>
+

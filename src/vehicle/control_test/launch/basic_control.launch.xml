@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Arguments -->
+  <arg name="vehicle_id" default="$(env VEHICLE_ID default)"/>
+
+  <!-- Sensing Group - matches AutoSDV namespace structure -->
+  <group>
+    <push-ros-namespace namespace="sensing"/>
+
+    <!-- Minimal ZED IMU -->
+    <include file="$(find-pkg-share autosdv_sensor_kit_launch)/launch/imu.launch.xml">
+      <arg name="launch_driver" value="true"/>
+      <arg name="imu_source" value="zed"/>
+      <arg name="camera_model" value="zedxm"/>
+    </include>
+  </group>
+
+  <!-- Vehicle Interface Group - matches AutoSDV namespace structure -->
+  <group>
+    <push-ros-namespace namespace="autosdv"/>
+
+    <!-- Speedometer (Velocity Report Node) -->
+    <node pkg="autosdv_vehicle_interface" exec="velocity_report" name="velocity_report_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/velocity_report.yaml"/>
+      <remap from="~/output/velocity_status" to="/vehicle/status/velocity_status"/>
+    </node>
+
+    <!-- AutoSDV Vehicle Interface (Actuator Node) -->
+    <node pkg="autosdv_vehicle_interface" exec="actuator" name="actuator_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/actuator.yaml"/>
+      <remap from="~/input/control_cmd" to="/control/command/control_cmd"/>
+      <remap from="~/input/velocity_status" to="/vehicle/status/velocity_status"/>
+    </node>
+
+    <!-- Gear Manager -->
+    <node pkg="autosdv_vehicle_interface" exec="gear_manager" name="gear_manager_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/gear_manager.yaml"/>
+    </node>
+
+    <!-- Control Mode Manager -->
+    <node pkg="autosdv_vehicle_interface" exec="control_mode_manager" name="control_mode_manager_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/control_mode_manager.yaml"/>
+    </node>
+
+    <!-- Steering Status -->
+    <node pkg="autosdv_vehicle_interface" exec="steering_status" name="steering_status_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/steering_status.yaml"/>
+    </node>
+
+    <!-- Signal Manager -->
+    <node pkg="autosdv_vehicle_interface" exec="signal_manager" name="signal_manager_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/signal_manager.yaml"/>
+    </node>
+  </group>
+
+  <!-- Vehicle Velocity Converter - required for Autoware integration -->
+  <group>
+    <push-ros-namespace namespace="sensing"/>
+    <include file="$(find-pkg-share autoware_vehicle_velocity_converter)/launch/vehicle_velocity_converter.launch.xml">
+      <arg name="input_vehicle_velocity_topic" value="/vehicle/status/velocity_status"/>
+      <arg name="output_twist_with_covariance" value="vehicle_velocity_converter/twist_with_covariance"/>
+    </include>
+  </group>
+</launch>
