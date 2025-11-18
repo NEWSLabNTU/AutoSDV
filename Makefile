@@ -26,7 +26,7 @@ default:
 	@echo 'make controller'
 	@echo '    Launch manual keyboard control.'
 	@echo
-	@echo 'make test-control'
+	@echo 'make play-basic-control'
 	@echo '    Launch vehicle control test with tmux (system + controller + monitor).'
 	@echo
 	@echo 'make launch_camera_calibration'
@@ -78,14 +78,8 @@ test:
 launch:
 	ros2 launch autosdv_launch autosdv.launch.yaml
 
-start:
-	ros2 systemd launch \
-		--replace \
-		--name autosdv \
-		--source $(PWD)/setup.sh \
-		--rmw cyclonedds \
-		--env CYCLONEDDS_URI="file://$(PWD)/cyclonedds.xml" \
-		autosdv_launch autosdv.launch.yaml
+play:
+	play_launch launch autosdv_launch autosdv.launch.yaml
 
 stop:
 	ros2 systemd stop autosdv
@@ -98,27 +92,16 @@ status:
 logs:
 	ros2 systemd logs autosdv
 
-controller:
+run-controller:
 	source install/setup.bash && \
-	ros2 run autoware_manual_control keyboard_control
+	ros2 run control_test keyboard_control
 
-test-control:
-	@if ! command -v tmux &> /dev/null; then \
-		echo "Error: tmux is not installed. Please install it with: sudo apt install tmux"; \
-		exit 1; \
-	fi; \
-	if tmux has-session -t autosdv-control-test 2>/dev/null; then \
-		echo "Session 'autosdv-control-test' already exists. Attaching..."; \
-		tmux attach-session -t autosdv-control-test; \
-	else \
-		echo "Creating new tmux session 'autosdv-control-test'..."; \
-		tmux new-session -d -s autosdv-control-test -n launch "cd $(PWD) && play_launch launch autosdv_launch control_testing.launch.yaml"; \
-		tmux new-window -t autosdv-control-test:1 -n controller "$(PWD)/scripts/control/keyboard_control_direct.sh"; \
-		tmux new-window -t autosdv-control-test:2 -n control-cmd "$(PWD)/scripts/control/watch_control_cmd.sh"; \
-		tmux new-window -t autosdv-control-test:3 -n actuator-log "$(PWD)/scripts/control/watch_actuator_log.sh"; \
-		tmux select-window -t autosdv-control-test:1; \
-		tmux attach-session -t autosdv-control-test; \
-	fi
+run-plogjuggler:
+	source install/setup.bash && \
+	ros2 run plotjuggler plotjuggler
+
+play-basic-control:
+	play_launch launch control_test basic_control.launch.xml
 
 clean:
 	@while true; do \
