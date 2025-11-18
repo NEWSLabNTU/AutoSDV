@@ -37,6 +37,11 @@ launch:
     description: "Enable GNSS for outdoor operation - empty string uses suite default"
 
 - arg:
+    name: use_ntrip
+    default: "false"
+    description: "Enable NTRIP client for RTK corrections (ublox only)"
+
+- arg:
     name: use_mapless_mode
     default: "false"
     description: "Enable mapless mode for indoor operation without localization"
@@ -155,6 +160,9 @@ launch:
     -
       name: use_gnss
       value: $(var use_gnss)
+    -
+      name: use_ntrip
+      value: $(var use_ntrip)
     -
       name: enable_zed_object_detection
       value: $(var enable_zed_object_detection)
