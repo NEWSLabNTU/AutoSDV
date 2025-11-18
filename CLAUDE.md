@@ -126,6 +126,67 @@ make launch ARGS="gnss_receiver:=ublox"
 make launch ARGS="gnss_receiver:=septentrio"
 ```
 
+#### NTRIP/RTK Configuration (u-blox only)
+
+AutoSDV supports RTK (Real-Time Kinematic) positioning for centimeter-level accuracy using NTRIP (Networked Transport of RTCM via Internet Protocol).
+
+**Hardware Requirements:**
+- u-blox ZED-F9R GNSS receiver (e.g., SimpleRTK2B Fusion board)
+- Connected via USB (udev rules create `/dev/ublox-gps` symlink)
+- Clear sky view for optimal satellite reception
+
+**NTRIP Service:**
+- **Default**: e-GNSS Taiwan VRS (Virtual Reference Station)
+  - Server: 210.241.63.193:81
+  - Mountpoint: Taiwan
+  - Uses VRS technology for reduced differential errors
+  - Credentials configured in `/src/sensor_kit/autosdv_sensor_kit_launch/launch/ntrip.launch.xml`
+
+**Enable NTRIP:**
+```bash
+# Basic RTK setup with u-blox + NTRIP
+make launch ARGS="gnss_receiver:=ublox use_ntrip:=true"
+
+# Full outdoor autonomous setup with RTK
+make launch ARGS="gnss_receiver:=ublox use_ntrip:=true lidar_model:=robin-w camera_model:=zedxm"
+```
+
+**How It Works:**
+1. NTRIP client connects to e-GNSS Taiwan VRS server
+2. Client subscribes to `/sensing/gnss/ublox/nmea_sentence` (rover position)
+3. Server sends RTCM corrections via `/sensing/gnss/ntrip/rtcm` topic
+4. u-blox driver applies corrections to achieve RTK fix
+5. Output: cm-level accuracy on `/sensing/gnss/ublox/nav_sat_fix`
+
+**Monitor RTK Status:**
+```bash
+# Check RTCM corrections being received
+ros2 topic hz /sensing/gnss/ntrip/rtcm
+
+# Check NMEA sentences from GPS
+ros2 topic echo /sensing/gnss/ublox/nmea_sentence
+
+# Check RTK fix quality (look for RTK_FIXED or RTK_FLOAT status)
+ros2 topic echo /sensing/gnss/ublox/nav_sat_fix
+
+# Check RTCM reception status
+ros2 topic echo /sensing/gnss/ublox/rxmrtcm
+```
+
+**Configuration Files:**
+- NTRIP client: `src/sensor_kit/autosdv_sensor_kit_launch/launch/ntrip.launch.xml`
+- ZED-F9R config: `src/sensor_kit/autosdv_sensor_kit_launch/config/zed_f9r_rover.yaml`
+
+**Troubleshooting:**
+- **No RTCM data**: Check internet connection and e-GNSS credentials
+- **Poor accuracy**: Ensure clear sky view (avoid buildings/trees)
+- **Recommended location**: Open areas like 社科院 (College of Social Sciences) at NTU
+
+**Alternative NTRIP Services:**
+- RTK2go (free, community-based, less stable)
+  - Previously tested mountpoint: `TWNTPEDATONG1` (Taipei)
+  - Requires registration at rtk2go.com
+
 #### Indoor Operation (No GPS)
 For indoor testing without GNSS, use manual pose initialization via RViz:
 ```bash
@@ -423,3 +484,13 @@ make launch ARGS="enable_zed_object_detection:=true"
   - Documents debug topics: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
   - Troubleshooting section for common issues (steering reversal, PID not working)
   - Quick start with `make test-control` - launches system + controller + monitor in tmux
+- **Integrated NTRIP/RTK for centimeter-level positioning** (2025-11-18)
+  - Added NTRIP client support using LORD-MicroStrain `ros-humble-ntrip-client` package
+  - Configured for e-GNSS Taiwan VRS (Virtual Reference Station) by default
+  - Created ZED-F9R rover configuration: `config/zed_f9r_rover.yaml`
+  - New launch parameter: `use_ntrip:=true` to enable RTK corrections
+  - RTCM corrections flow: NTRIP server → `/sensing/gnss/ntrip/rtcm` → u-blox driver
+  - NMEA feedback: u-blox → `/sensing/gnss/ublox/nmea_sentence` → NTRIP client
+  - Added monitoring topics: `/sensing/gnss/ntrip/rtcm`, `/sensing/gnss/ublox/nmea_sentence`, `/sensing/gnss/ublox/rxmrtcm`
+  - Hardware ready for SimpleRTK2B Fusion (ZED-F9R) when connected
+  - Usage: `make launch ARGS="gnss_receiver:=ublox use_ntrip:=true"`
