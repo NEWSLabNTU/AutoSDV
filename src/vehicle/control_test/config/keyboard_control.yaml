@@ -1,0 +1,12 @@
+/**:
+  ros__parameters:
+    # Step sizes for control
+    speed_step_ms: 1.0       # Speed increment per keypress in m/s
+    steering_step_deg: 1.0   # Steering increment per keypress in degrees
+
+    # Maximum values
+    max_speed_ms: 10.0       # Maximum speed in m/s
+    max_steer_deg: 22.5      # Maximum steering angle in degrees (0.3925 rad)
+
+    # Publishing rate
+    publish_rate: 30.0       # Command publishing frequency in Hz

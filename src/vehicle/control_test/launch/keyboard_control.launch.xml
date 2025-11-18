@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Keyboard Control GUI Node -->
+  <!--
+    This node provides manual control of the vehicle using arrow keys with a GUI.
+    GUI includes topic mode selection - no need for separate launch files!
+
+    Topic Modes (selectable in GUI):
+      - External: /external/selected/* (default, standard Autoware workflow)
+      - Direct: /control/command/* (bypasses external selector, for testing)
+
+    Always publishes:
+      - /control/gate_mode_cmd
+
+    Usage:
+      1. Launch AutoSDV: make launch
+      2. Run this: ros2 launch control_test keyboard_control.launch.xml
+      3. Select topic mode using radio buttons in GUI
+      4. Click on the GUI window to focus it
+      5. Press 'z' to toggle to EXTERNAL mode (if using External topic mode)
+      6. Press 'x' for DRIVE gear
+      7. Use arrow keys to control
+
+    ⚠️ Requires GUI: Needs X11 display (DISPLAY environment variable)
+  -->
+
+  <node pkg="control_test" exec="keyboard_control" name="keyboard_control_node" output="screen">
+    <!-- Load configuration parameters -->
+    <param from="$(find-pkg-share control_test)/config/keyboard_control.yaml"/>
+  </node>
+</launch>

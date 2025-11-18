@@ -80,7 +80,111 @@ ros2 service call /control_command_service_node/enable example_interfaces/srv/Se
 **Services:**
 - `~/enable` (example_interfaces/srv/SetBool): Enable/disable command publishing
 
-### 4. `keyboard_pwm_control` (Non-ROS Script)
+### 4. `keyboard_control` (Autoware Manual Control with GUI)
+Keyboard-based manual control for Autoware using arrow keys with a GUI.
+
+This is a Python re-implementation of the `autoware_manual_control` package with:
+- Arrow key support for intuitive control
+- **Tkinter GUI** for status display and keyboard input
+- **Launch-friendly** - works without TTY
+
+**⚠️ Requires**: X11 display (DISPLAY environment variable)
+
+**Usage:**
+```bash
+# Run standalone
+ros2 run control_test keyboard_control
+
+# Launch with GUI (uses config file)
+ros2 launch control_test keyboard_control.launch.xml
+```
+
+**Configuration:**
+
+Edit `config/keyboard_control.yaml` to customize:
+```yaml
+speed_step_ms: 1.0       # Speed increment (m/s) - default: 1.0
+steering_step_deg: 1.0   # Steering increment (degrees) - default: 1.0
+max_speed_ms: 10.0       # Maximum speed (m/s) - default: 10.0
+max_steer_deg: 22.5      # Maximum steering angle (degrees) - default: 22.5
+publish_rate: 30.0       # Command publishing rate (Hz) - default: 30.0
+```
+
+**Output Topic Selection (GUI Feature):**
+
+The GUI includes a dropdown to select output topic presets or define custom topics:
+
+**Presets:**
+
+1. **External (Standard)** - Default
+   - Control: `/external/selected/control_cmd`
+   - Gear: `/external/selected/gear_cmd`
+   - Standard Autoware external control workflow
+   - Requires toggling to EXTERNAL gate mode with 'z' key
+
+2. **Direct (Bypass)**
+   - Control: `/control/command/control_cmd`
+   - Gear: `/control/command/gear_cmd`
+   - Direct vehicle control, bypasses external control selector
+   - Useful for testing and debugging
+
+3. **Custom**
+   - Allows you to specify custom topic names
+   - Text entry fields appear when selected
+   - Enter your desired topics and click "Apply Custom Topics"
+   - Useful for integration with custom control pipelines
+
+Simply select from the dropdown in the GUI and topics will be applied instantly!
+
+**Controls:**
+- **Mode Control:**
+  - `z`: Toggle AUTO/EXTERNAL mode
+  - `x`: Set gear to DRIVE
+  - `c`: Set gear to REVERSE
+  - `v`: Set gear to PARK
+- **Speed Control:**
+  - `↑`: Increase speed (1 m/s steps, configurable)
+  - `↓`: Decrease speed (1 m/s steps, configurable)
+  - `Space`: Stop (set speed to 0)
+  - Range: -10.0 to +10.0 m/s (configurable)
+- **Steering Control:**
+  - `←`: Turn left (1° steps, configurable)
+  - `→`: Turn right (1° steps, configurable)
+  - `Enter`: Center steering (angle = 0)
+  - Range: ±22.5° (configurable)
+- **Other:**
+  - `s`: Show current status
+  - `h`: Show help
+  - `q`: Quit
+
+**Topics Published:**
+- `/control/gate_mode_cmd` - Switch between AUTO/EXTERNAL modes
+- `/external/selected/control_cmd` - Control commands (velocity, acceleration, steering)
+- `/external/selected/gear_cmd` - Gear commands (PARK/REVERSE/DRIVE)
+
+**Topics Subscribed:**
+- `/control/current_gate_mode` - Current gate mode
+- `/api/autoware/get/engage` - Engage status
+- `/vehicle/status/velocity_status` - Current velocity
+- `/vehicle/status/gear_status` - Current gear
+
+**Workflow:**
+1. Launch AutoSDV system: `make launch`
+2. Launch keyboard control: `ros2 launch control_test keyboard_control.launch.xml`
+3. Click on the GUI window to focus it
+4. Press `z` to toggle to EXTERNAL mode
+5. Press `x` to set gear to DRIVE
+6. Use arrow keys (↑/↓/←/→) to control speed and steering
+
+**GUI Features:**
+- Real-time status display (engage, mode, gear, speed, angle)
+- **Output topic presets** - Choose from External, Direct, or Custom topics
+- **Custom topic entry** - Define your own control/gear topics
+- Color-coded interface for easy reading
+- Built-in help text and controls reference
+- No TTY required - works with launch files
+
+### 5. `keyboard_pwm_control` (Non-ROS Script)
 Direct keyboard control of motor and steering PWM values.
 
 **⚠️ Moved to scripts/**: This tool has been converted to a standalone non-ROS script.

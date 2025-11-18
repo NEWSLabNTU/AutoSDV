@@ -3,13 +3,17 @@
 <package format="3">
   <name>control_test</name>
   <version>1.0.0</version>
-  <description>Control system testing package with static PWM test node</description>
+  <description>Control system testing package with manual control and testing nodes</description>
   <maintainer email="dev@autosdv.org">AutoSDV Team</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
+  <depend>tier4_control_msgs</depend>
+  <depend>tier4_external_api_msgs</depend>
+  <depend>autoware_control_msgs</depend>
+  <depend>autoware_vehicle_msgs</depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
