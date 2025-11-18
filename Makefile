@@ -49,17 +49,17 @@ build:
 		set -e; \
 		echo "--- Cleaning up old build directories ---"; \
 		rm -rf build install log; \
+		echo "--- Rebuilding seyond SDK for ARM64 (if needed) ---"; \
+		bash scripts/rebuild_seyond_sdk.sh || echo "Seyond SDK rebuild skipped or failed"; \
 		echo "--- Sourcing ROS environment ---"; \
 		source /opt/ros/humble/setup.bash; \
 		echo "--- Starting colcon build with ZED SDK path ---"; \
 		if [ -d /usr/local/zed ]; then \
 			echo "ZED SDK found at /usr/local/zed"; \
 			echo "Building with ZED SDK 5.0 (compatible with zed-ros2-wrapper humble-v5.0.0)"; \
-			echo "Skipping seyond (x86-64 binary incompatible with ARM64)"; \
 			colcon build \
 				--base-paths src \
 				--symlink-install \
-				--packages-skip seyond \
 				--cmake-args \
 					-DCMAKE_BUILD_TYPE=Release \
 					-DCMAKE_PREFIX_PATH="/usr/local/zed:$$CMAKE_PREFIX_PATH" \
@@ -67,7 +67,6 @@ build:
 					-DCMAKE_MODULE_PATH="/usr/local/zed/cmake"; \
 		else \
 			echo "ZED SDK not found, skipping ZED-related packages"; \
-			echo "Skipping seyond (x86-64 binary incompatible with ARM64)"; \
 			colcon build \
 				--base-paths src \
 				--symlink-install \
@@ -78,7 +77,6 @@ build:
 					autoware_zed_converter \
 					autoware_zed_launch \
 					zed_launch \
-					seyond \
 				--cmake-args \
 					-DCMAKE_BUILD_TYPE=Release; \
 		fi \

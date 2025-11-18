@@ -2,10 +2,14 @@
 
 IMAGE_NAME = autosdv
 CONTAINER_NAME = $(IMAGE_NAME)-container
+# Get the current git branch name (fallback to commit hash if detached)
+BRANCH_NAME = $(shell cd .. && git symbolic-ref --short HEAD 2>/dev/null || git rev-parse --short HEAD)
 # Get the current git commit hash
 COMMIT_HASH = $(shell cd .. && git rev-parse HEAD)
 # Get the short version (prefix) of the commit hash
 SHORT_HASH = $(shell cd .. && git rev-parse --short HEAD)
+# Get the remote repository URL from the branch's upstream, or misuhsieh remote, or origin as fallback
+REPO_URL = $(shell cd .. && git config --get branch.$(BRANCH_NAME).remote 2>/dev/null | xargs -I {} git config --get remote.{}.url || git config --get remote.misuhsieh.url || git config --get remote.origin.url)
 
 # Check Docker availability and set DOCKER_CMD.
 DOCKER_CMD := $(shell \
@@ -75,11 +79,14 @@ check-commit:
 # Build using the current commit hash
 build: check-commit
 	@echo "Building Docker image with commit hash: $(COMMIT_HASH) (short: $(SHORT_HASH))"
+	@echo "Repository: $(REPO_URL)"
+	@echo "Branch/Ref: $(BRANCH_NAME)"
 	$(DOCKER_CMD) buildx build --load . \
 		--network=host \
 		--no-cache \
 		--platform linux/arm64 \
-		--build-arg COMMIT_HASH=$(COMMIT_HASH) \
+		--build-arg COMMIT_HASH=$(BRANCH_NAME) \
+		--build-arg REPO_URL=$(REPO_URL) \
 		--tag $(IMAGE_NAME):$(SHORT_HASH) \
 		--tag $(IMAGE_NAME):$(COMMIT_HASH)
 	@echo "Built image $(IMAGE_NAME):$(SHORT_HASH) and $(IMAGE_NAME):$(COMMIT_HASH)"
@@ -89,11 +96,14 @@ build: check-commit
 # Force build without cache
 build-force: check-commit
 	@echo "FORCE building Docker image (no cache) with commit hash: $(COMMIT_HASH) (short: $(SHORT_HASH))"
+	@echo "Repository: $(REPO_URL)"
+	@echo "Branch/Ref: $(BRANCH_NAME)"
 	$(DOCKER_CMD) buildx build --load . \
 		--network=host \
 		--no-cache \
 		--platform linux/arm64 \
-		--build-arg COMMIT_HASH=$(COMMIT_HASH) \
+		--build-arg COMMIT_HASH=$(BRANCH_NAME) \
+		--build-arg REPO_URL=$(REPO_URL) \
 		--tag $(IMAGE_NAME):$(SHORT_HASH) \
 		--tag $(IMAGE_NAME):$(COMMIT_HASH)
 	@echo "Built image $(IMAGE_NAME):$(SHORT_HASH) and $(IMAGE_NAME):$(COMMIT_HASH)"

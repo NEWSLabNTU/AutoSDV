@@ -4,8 +4,9 @@ ENV ROS_DISTRO=humble
 # Clean existing apt cache before updating
 RUN rm -rf /var/lib/apt/lists/* && apt-get clean
 
-# Accept commit hash as build arg
-ARG COMMIT_HASH=2025.02
+# Accept commit hash and repository as build args
+ARG COMMIT_HASH=2025.11-containerization
+ARG REPO_URL=https://github.com/misuhsieh001/AutoSDV-containerization.git
 
 # Update system packages
 RUN apt update
@@ -81,12 +82,41 @@ ENV ZED_SDK_ROOT_DIR=/usr/local/zed
 ENV CMAKE_PREFIX_PATH="/usr/local/zed:/opt/ros/${ROS_DISTRO}"
 ENV LD_LIBRARY_PATH="/usr/local/zed/lib:${LD_LIBRARY_PATH}"
 
-# Clone AutoSDV repository and checkout specific commit
-RUN git clone --recursive https://github.com/NEWSLabNTU/AutoSDV.git && \
-    cd AutoSDV && \
-    git fetch --all && \
-    (git checkout ${COMMIT_HASH} || \
-    (echo "Error: Failed to checkout commit ${COMMIT_HASH}. Please ensure this commit is pushed to the remote repository." && exit 1))
+# Clone AutoSDV repository and checkout specific commit/branch
+RUN git clone --recursive --branch ${COMMIT_HASH} ${REPO_URL} AutoSDV || \
+    (git clone --recursive ${REPO_URL} AutoSDV && \
+     cd AutoSDV && \
+     git fetch --all && \
+     git checkout ${COMMIT_HASH})
+
+# Initialize nested submodules (specifically for seyond_ros_driver's inno-lidar-sdk)
+RUN cd /AutoSDV && \
+    git submodule update --init --recursive && \
+    echo "All submodules initialized successfully"
+
+# Force rebuild seyond SDK from source for ARM64 (remove precompiled x86-64 binaries)
+RUN SDK_PATH="/AutoSDV/src/sensor_component/external/seyond_ros_driver/src/seyond_lidar_ros/src/seyond_sdk" && \
+    if [ -d "$SDK_PATH" ]; then \
+        echo "=== Seyond SDK found at $SDK_PATH ===" && \
+        cd "$SDK_PATH" && \
+        echo "Current directory: $(pwd)" && \
+        ls -la lib/ && \
+        echo "Removing precompiled x86-64 libraries..." && \
+        rm -f lib/*.a lib/*.so* && \
+        echo "Verifying libraries removed:" && \
+        ls -la lib/ || echo "lib/ directory empty (good!)" && \
+        echo "Building seyond SDK from source for ARM64..." && \
+        cd build && \
+        chmod +x build_unix.sh && \
+        ./build_unix.sh && \
+        echo "Build script completed, checking result:" && \
+        cd .. && \
+        file lib/*.a && \
+        echo "Seyond SDK compiled successfully for ARM64"; \
+    else \
+        echo "WARNING: Seyond SDK path not found at $SDK_PATH"; \
+        exit 1; \
+    fi
 
 # Fix git ownership issue for volume-mounted repository
 RUN git config --global --add safe.directory '*'
@@ -96,25 +126,31 @@ WORKDIR /AutoSDV
 RUN /bin/bash -c "./scripts/setup-dev-env/setup-dev-env.sh -y"
 
 # Install all required additional dependencies for AutoSDV
+# Split into non-ROS and ROS packages for proper dependency resolution
 RUN apt-get update && \
     apt-get install -y \
     # OpenCV with matching version
     libopencv-dev:arm64=4.5.4+dfsg-9ubuntu4 \
     libopencv-core4.5d:arm64 \
     python3-opencv \
-    # ROS 2 packages (installed after ROS setup)
-    ros-humble-cv-bridge \
-    ros-humble-backward-ros \
-    ros-humble-robot-localization \
-    ros-humble-point-cloud-transport \
-    ros-humble-rmw-fastrtps-cpp \
-    ros-humble-nmea-navsat-driver \
     # I2C development libraries for MPU9250 driver
     libi2c-dev \
     i2c-tools \
     # Build tools
     wget && \
     rm -rf /var/lib/apt/lists/*
+
+# Install ROS 2 packages after sourcing ROS environment
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+    apt-get update && \
+    apt-get install -y \
+    ros-humble-cv-bridge \
+    ros-humble-backward-ros \
+    ros-humble-robot-localization \
+    ros-humble-point-cloud-transport \
+    ros-humble-rmw-fastrtps-cpp \
+    ros-humble-nmea-navsat-driver && \
+    rm -rf /var/lib/apt/lists/*"
 
 # Upgrade CMake to version 3.22+ (required for VTK/PCL compatibility)
 RUN wget -q https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-aarch64.sh && \
@@ -136,10 +172,14 @@ RUN if [ -d /usr/lib/aarch64-linux-gnu ]; then \
       ls -la /usr/lib/libopencv_*.so* | head -10; \
     fi
 
-# Clone zed-ros2-interfaces (provides zed_msgs package)
-RUN cd /AutoSDV/src/sensor_component/external && \
-    git clone https://github.com/stereolabs/zed-ros2-interfaces.git && \
-    echo "zed-ros2-interfaces cloned successfully"
+# Clone zed-ros2-interfaces (provides zed_msgs package) if not already present
+RUN if [ ! -d /AutoSDV/src/sensor_component/external/zed-ros2-interfaces ]; then \
+        cd /AutoSDV/src/sensor_component/external && \
+        git clone https://github.com/stereolabs/zed-ros2-interfaces.git && \
+        echo "zed-ros2-interfaces cloned successfully"; \
+    else \
+        echo "zed-ros2-interfaces already exists, skipping clone"; \
+    fi
 
 # Auto-source ROS and workspace on shell startup
 RUN echo "" >> /root/.bashrc && \
