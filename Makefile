@@ -1,4 +1,4 @@
-.PHONY: default setup prepare build test launch stop restart status controller test-control launch_camera_calibration clean checkout
+.PHONY: default setup prepare build test launch stop restart status controller test-control launch_camera_calibration clean checkout start-simulation stop-simulation status-simulation logs-simulation
 SHELL := /bin/bash
 
 default:
@@ -31,6 +31,18 @@ default:
 	@echo
 	@echo 'make launch_camera_calibration'
 	@echo '    Launch camera calibration with ZED camera and calibrator.'
+	@echo
+	@echo 'make start-simulation'
+	@echo '    Start Autoware logging simulator using systemd.'
+	@echo
+	@echo 'make stop-simulation'
+	@echo '    Stop the running simulation.'
+	@echo
+	@echo 'make status-simulation'
+	@echo '    Show simulation status.'
+	@echo
+	@echo 'make logs-simulation'
+	@echo '    Follow simulation logs.'
 	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
@@ -117,3 +129,24 @@ clean:
 			* ) echo 'Please enter yes or no.';; \
 		esac \
 	done
+
+start-simulation:
+	systemd-run --user \
+		--unit=autosdv-simulation \
+		--working-directory=$(PWD) \
+		--setenv=CYCLONEDDS_URI="file://$(PWD)/cyclonedds.xml" \
+		--setenv=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+		/bin/bash -c "source /opt/ros/humble/setup.bash && source $(PWD)/install/setup.bash && \
+		ros2 launch autoware_launch logging_simulator.launch.xml \
+			map_path:=data/COSS-map-planning/ \
+			vehicle_model:=autosdv_vehicle \
+			sensor_model:=autosdv_sensor_kit"
+
+stop-simulation:
+	systemctl --user stop autosdv-simulation
+
+status-simulation:
+	systemctl --user status autosdv-simulation
+
+logs-simulation:
+	journalctl --user -u autosdv-simulation -f
