@@ -47,11 +47,11 @@ ros2 launch control_test pid_tuning.launch.xml kp:=2.0 ki:=0.2 kd:=0.3
 - `h`: Show help
 
 **Parameters:**
-- `kp`: Proportional gain (default: 0.1)
-- `ki`: Integral gain (default: 0.0)
-- `kd`: Derivative gain (default: 0.1)
-- `speed_step`: Speed increment per keypress in m/s (default: 0.5)
-- `steering_pwm_step`: Steering PWM increment per keypress (default: 5)
+- `kp`: Proportional gain
+- `ki`: Integral gain
+- `kd`: Derivative gain
+- `speed_step`: Speed increment per keypress in m/s
+- `steering_pwm_step`: Steering PWM increment per keypress
 
 ### 3. `control_command_service`
 Service-based control command publisher. Accepts target speed/steering via parameters and publishes to `/control/command/control_cmd` when enabled.
@@ -72,10 +72,10 @@ ros2 service call /control_command_service_node/enable example_interfaces/srv/Se
 ```
 
 **Parameters:**
-- `target_speed`: Target longitudinal speed in m/s (default: 0.0)
-- `target_steering`: Target steering angle in rad (default: 0.0)
-- `target_acceleration`: Target acceleration in m/s² (default: 0.0)
-- `publish_rate`: Control command publish rate in Hz (default: 10.0)
+- `target_speed`: Target longitudinal speed in m/s
+- `target_steering`: Target steering angle in rad
+- `target_acceleration`: Target acceleration in m/s²
+- `publish_rate`: Control command publish rate in Hz
 
 **Services:**
 - `~/enable` (example_interfaces/srv/SetBool): Enable/disable command publishing
@@ -103,11 +103,11 @@ ros2 launch control_test keyboard_control.launch.xml
 
 Edit `config/keyboard_control.yaml` to customize:
 ```yaml
-speed_step_ms: 1.0       # Speed increment (m/s) - default: 1.0
-steering_step_deg: 1.0   # Steering increment (degrees) - default: 1.0
-max_speed_ms: 10.0       # Maximum speed (m/s) - default: 10.0
-max_steer_deg: 22.5      # Maximum steering angle (degrees) - default: 22.5
-publish_rate: 30.0       # Command publishing rate (Hz) - default: 30.0
+speed_step_ms: 0.5       # Speed increment (m/s)
+steering_step_deg: 1.0   # Steering increment (degrees)
+max_speed_ms: 10.0       # Maximum speed (m/s)
+max_steer_deg: 22.5      # Maximum steering angle (degrees)
+publish_rate: 30.0       # Command publishing rate (Hz)
 ```
 
 **Output Topic Selection (GUI Feature):**
