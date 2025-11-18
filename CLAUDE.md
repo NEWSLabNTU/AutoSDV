@@ -467,6 +467,27 @@ For comprehensive testing procedures, see `docs/control_system_testing.md`. Key 
 - **ZED ROS2 Wrapper**: Version 5.0 (from `src/sensor_component/external/zed-ros2-wrapper/`)
 - **Supported models**: ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini
 
+### Python Launch File Namespace Handling
+**Important**: The ZED Python launch file (`zed_camera.launch.py`) does NOT respect XML `<push-ros-namespace>` directives. When including the Python launch from XML:
+
+1. **DO NOT** use `<push-ros-namespace>` - it will cause namespace mismatches
+2. **DO** use the explicit `namespace` parameter without a leading slash
+3. The Python launch file will automatically add the leading slash
+
+**Example (Correct)**:
+```xml
+<!-- ZED launch is OUTSIDE any push-ros-namespace groups -->
+<include file="$(find-pkg-share zed_wrapper)/launch/zed_camera.launch.py">
+  <arg name="camera_name" value="zedxm"/>
+  <arg name="camera_model" value="zedxm"/>
+  <arg name="namespace" value="sensing/camera/zedxm"/>  <!-- No leading slash -->
+  <arg name="publish_tf" value="false"/>
+  <arg name="ros_params_override_path" value="..."/>
+</include>
+```
+
+This creates the container at `/sensing/camera/zedxm/zed_container` with proper namespace matching for composable node loading.
+
 ### Object Detection Integration
 ZED camera object detection has been integrated with Autoware's perception pipeline. The system can operate in two modes:
 1. **Normal mode** (default): ZED publishes colored point cloud for visualization
