@@ -73,6 +73,14 @@ After building (`make build`), the `autosdv` command is available:
 
 ## Development Workflow
 
+### Development Practices
+
+**Temporary Files**
+- Write temporary test files and logs to `$PROJECT_ROOT/tmp/` directory
+- The `tmp/` directory is gitignored and safe for disposable files
+- Examples: test logs, debug outputs, temporary scripts
+- Do NOT use system `/tmp/` - use project-local `./tmp/` instead
+
 ### LiDAR Sensor Kits
 The platform supports three main configurations:
 1. **Robin-W Solid-State LiDAR Kit** - Compact solid-state solution
@@ -88,7 +96,64 @@ Sensor configurations are in `src/param/autoware_individual_params/individual_pa
 - Default map: `./data/COSS-map-planning`
 
 ### Sensor Configuration
-AutoSDV supports flexible sensor configurations through launch parameters:
+AutoSDV supports flexible sensor configurations through both predefined sensor suites and individual sensor parameters.
+
+#### Sensor Suites (Recommended)
+Predefined sensor suites provide convenient configurations for common hardware combinations:
+
+```bash
+# Robin-W LiDAR + ZED X Mini + ZED IMU (integrated)
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=robin_zed
+
+# Robin-W LiDAR + ZED X Mini + MPU9250 IMU
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=robin_zed_mpu
+
+# Velodyne VLP-32C + ZED X Mini + ZED IMU (integrated)
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed
+
+# Velodyne VLP-32C + ZED X Mini + MPU9250 IMU
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed_mpu
+
+# Blickfeld Cube1 + USB Cameras + MPU9250 IMU
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=cube1_usb
+
+# Custom configuration (use individual parameters)
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=custom lidar_model:=robin-w camera_model:=zedxm imu_source:=mpu9250
+```
+
+**Suite Configuration Matrix:**
+
+| Suite | LiDAR | Camera | IMU | GNSS | ZED OD |
+|-------|-------|--------|-----|------|--------|
+| robin_zed | Robin-W | ZED X Mini | ZED built-in | u-blox | Yes |
+| robin_zed_mpu | Robin-W | ZED X Mini | MPU9250 | u-blox | Yes |
+| vlp32c_zed | Velodyne 32C | ZED X Mini | ZED built-in | u-blox | Yes |
+| vlp32c_zed_mpu | Velodyne 32C | ZED X Mini | MPU9250 | u-blox | Yes |
+| cube1_usb | Cube1 | USB cameras | MPU9250 | u-blox | No |
+| custom | (manual) | (manual) | (manual) | (manual) | (manual) |
+
+**Overriding Suite Defaults:**
+```bash
+# Use robin_zed suite but disable GNSS for indoor testing
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=robin_zed use_gnss:=false
+
+# Use vlp32c_zed suite but switch to Septentrio GNSS
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed gnss_receiver:=septentrio
+```
+
+#### Individual Sensor Parameters (Custom Configuration)
+When using `sensor_suite:=custom` (default), configure sensors individually:
+
+##### IMU Sources
+```bash
+# MPU9250 external I2C IMU (default for custom suite)
+ros2 launch autosdv_launch autosdv.launch.yaml imu_source:=mpu9250
+
+# ZED camera built-in IMU (factory-calibrated, more stable)
+ros2 launch autosdv_launch autosdv.launch.yaml imu_source:=zed camera_model:=zedxm
+```
+
+**Note:** When using ZED IMU (`imu_source:=zed`), the ZED camera must be used (`camera_model:=zedxm`). The system automatically relays IMU data from the camera node to avoid launching duplicate ZED drivers.
 
 #### LiDAR Models
 ```bash
@@ -440,6 +505,21 @@ make launch ARGS="enable_zed_object_detection:=true"
 - Detection box positions may not perfectly align with point cloud coordinates (coordinate transformation issue to be resolved in future update)
 
 ## Recent Updates
+- **Implemented Sensor Suite System** (2025-11-17)
+  - Added `sensor_suite` parameter with 6 predefined configurations (robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, cube1_usb, custom)
+  - Suite parameters can be overridden individually for flexibility
+  - Centralized sensor configuration in sensing.launch.xml
+  - Prevents ZED camera conflicts when both camera and IMU use ZED hardware
+- **Added IMU Source Selection** (2025-11-17)
+  - New `imu_source` parameter: mpu9250 (external I2C) or zed (ZED built-in)
+  - Smart IMU relay: When camera uses ZED, IMU launch only relays data (no duplicate driver)
+  - ZED IMU is factory-calibrated and more stable than MPU9250
+  - Created minimal ZED config for IMU-only operation
+- **Simplified Control Testing Launch** (2025-11-17)
+  - Created control_testing.launch.yaml for minimal vehicle control testing
+  - Includes only: vehicle interface, IMU, velocity converter (no perception/planning)
+  - Fast startup, ideal for actuator calibration and control debugging
+  - Supports both MPU9250 and ZED IMU sources
 - Calibrated vehicle interface PWM values for motor and steering control
 - Fixed motor stop position from 340 to 370 based on hardware testing
 - Updated steering limits to symmetrical ±50 units from center (400)
