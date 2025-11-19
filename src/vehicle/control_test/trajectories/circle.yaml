@@ -1,0 +1,21 @@
+# Circular Trajectory - 15 degree steering angle
+# Vehicle follows a circular path with constant speed and steering angle
+#
+# Profile:
+# - Acceleration: 0->1.5 m/s in 1s
+# - Circle: 1.5 m/s with 15° steering for 10s
+# - Deceleration: 1.5->0 m/s in 1s
+# Total: 12 seconds
+
+waypoints:
+  # Start from rest
+  - {time: 0.0, speed: 0.0, steering_angle: 15.0}
+
+  # Accelerate to cruise speed with gradual steering
+  - {time: 1.0, speed: 2.0, steering_angle: 15.0}
+
+  # Maintain constant speed and steering (circular motion)
+  - {time: 8.0, speed: 2.0, steering_angle: 15.0}
+
+  # Decelerate and straighten out
+  - {time: 9.0, speed: 0.0, steering_angle: 15.0}
