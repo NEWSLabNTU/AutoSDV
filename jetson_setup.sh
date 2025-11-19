@@ -34,7 +34,7 @@ if [ -z "$REPO_URL" ] || [ -z "$DOCKERHUB_USERNAME" ]; then
 fi
 
 DOCKER_IMAGE="${DOCKERHUB_USERNAME}/autosdv:2025.11-latest"
-WORKSPACE_DIR="$HOME/AutoSDV"
+WORKSPACE_DIR="$(pwd)"
 
 echo ""
 echo -e "${GREEN}Configuration:${NC}"
