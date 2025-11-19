@@ -16,6 +16,10 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - `make restart` - Restart the AutoSDV system
 - `make status` - Show AutoSDV system status and logs
 - `make controller` - Run keyboard manual control
+- `make test-control` - Launch PID speed control test in tmux (controller + speedometer + monitor)
+- `make plot-test` - Launch PlotJuggler for PID speed control visualization
+- `make plot-control` - Launch PlotJuggler with actuator node debug layout
+- `make plot-pid` - Launch PlotJuggler with PID speed control layout
 - `make clean` - Remove build, install, and log directories (with confirmation)
 - `make checkout` - Initialize and update all git submodules
 - `make setup` - Set up development environment using Ansible scripts
@@ -449,14 +453,33 @@ When transitioning from forward to reverse:
 - `./scripts/control/gpio_read.py` - Simple GPIO pin state and event monitor for debugging
 
 ### Control System Testing
-For comprehensive testing procedures, see `docs/control_system_testing.md`. Key commands:
-- `make test-control` - Launch AutoSDV + controller + monitor in tmux session
+For comprehensive testing procedures, see `docs/control_system_testing.md` and `PLOTJUGGLER_QUICKSTART.md`. 
+
+**Key Commands:**
+- `make test-control` - Launch PID speed control test in tmux (controller + speedometer + monitor)
+- `make plot-test` - Launch PlotJuggler for real-time PID visualization
 - `make controller` - Launch keyboard manual control interface (requires RViz "Local" mode)
-- Debug topics: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
+
+**Debug Topics:**
+- Actuator node: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
+- PID speed control: `/pid_speed_control_node/debug/{control_values,pwm_values,pid_values}`
+
+**PlotJuggler Workflow:**
+1. Terminal 1: `make test-control` (launches PID controller)
+2. Terminal 2: `make plot-test` (launches PlotJuggler)
+3. In PlotJuggler: Click "Start" to stream topics
+4. Use `w/s` keys to change target speed, observe response in real-time
+5. Tune PID: `ros2 launch control_test pid_tuning.launch.xml kp:=10.0 ki:=0.2 kd:=0.5`
+
+**PID Tuning Guidelines:**
+- Slow response → Increase Kp
+- Oscillation → Decrease Kp, increase Kd
+- Steady-state error → Increase Ki
+- Noisy control → Decrease all gains, increase speed filter
+- Derivative noise → Enable differential_on_measurement, increase speed_filter_size
 
 **Known Issues**:
 - Steering direction is reversed (left/right inverted)
-- PID control not working - positive speed in control_cmd doesn't actuate motor
 - For manual control: Set "Local" mode in RViz, use keyboard controller
 - For autonomous: Set "Remote" mode in RViz, set pose and goal in RViz
 
@@ -526,6 +549,42 @@ make launch ARGS="enable_zed_object_detection:=true"
 - Detection box positions may not perfectly align with point cloud coordinates (coordinate transformation issue to be resolved in future update)
 
 ## Recent Updates
+- **Refactored control_test Package with PID Tuning and PlotJuggler Integration** (2025-11-19)
+  - **Package Restructuring**: Cleaned up control_test package structure
+    - Removed backup directory (control_test_backup_direct_pwm)
+    - Removed keyboard controller from launch files (run via `make controller` instead)
+    - Created `control_command_service` node for service-based control testing without TTY
+    - Added comprehensive README.md with usage examples for all nodes
+  - **PID Speed Controller Improvements**: Enhanced pid_speed_control.py node
+    - Added debug topic publishing for real-time visualization
+    - Implemented speed filtering (moving average) to reduce sensor noise
+    - Added PWM slew rate limiting for smoother control (configurable)
+    - Fixed PID architecture: base PWM on forward/reverse start thresholds, not stop position
+    - Enabled derivative-on-measurement mode to reduce noise sensitivity
+    - Safe handling of uninitialized PID internal variables
+  - **PlotJuggler Visualization**: Complete integration for PID tuning
+    - Created `plotjuggler_pid_test.xml` layout with 5 plots (speed tracking, error, PWM, PID components, total output)
+    - Added `make plot-test` command for easy PlotJuggler launch
+    - Published debug topics at 100 Hz:
+      - `/pid_speed_control_node/debug/control_values` - [target_speed, current_speed, error, target_steering, current_steering]
+      - `/pid_speed_control_node/debug/pwm_values` - [motor_pwm, steering_pwm]
+      - `/pid_speed_control_node/debug/pid_values` - [P_term, I_term, D_term, total_output]
+    - Created `PLOTJUGGLER_QUICKSTART.md` comprehensive guide with tuning methodology
+    - Fixed PlotJuggler detection script (check ROS package instead of command)
+  - **PID Tuning Methodology**: Documented systematic approach
+    - Identified and fixed derivative term noise amplification from sensor quantization
+    - Increased speed filter from 2→10 samples to reduce measurement noise
+    - Adjusted default gains: Kp=10.0, Ki=0.2, Kd=0.5 (optimized for noisy sensor)
+    - Increased slew rate from 2→5 PWM/cycle for better response
+    - Enabled differential_on_measurement to reduce noise kick
+  - **Debug Topics Data Structure**: Well-documented message formats
+    - control_values: Speed tracking and error monitoring
+    - pwm_values: Hardware command verification
+    - pid_values: P/I/D term analysis for tuning
+  - **Testing Improvements**: Enhanced `make test-control` workflow
+    - Launches tmux session with PID controller, speedometer, and monitor
+    - Integrates with PlotJuggler for real-time visualization
+    - Provides interactive tuning with keyboard control (w/s/a/d/x/c/q/h)
 - **Implemented Sensor Suite System** (2025-11-17)
   - Added `sensor_suite` parameter with 6 predefined configurations (robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, cube1_usb, custom)
   - Suite parameters can be overridden individually for flexibility
