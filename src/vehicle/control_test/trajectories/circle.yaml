@@ -9,13 +9,13 @@
 
 waypoints:
   # Start from rest
-  - {time: 0.0, speed: 0.0, steering_angle: 15.0}
+  - {time: 0.0, speed: 0.0, steering_angle: 7.5}
 
   # Accelerate to cruise speed with gradual steering
-  - {time: 1.0, speed: 2.0, steering_angle: 15.0}
+  - {time: 1.0, speed: 2.0, steering_angle: 7.5}
 
   # Maintain constant speed and steering (circular motion)
-  - {time: 8.0, speed: 2.0, steering_angle: 15.0}
+  - {time: 8.0, speed: 2.0, steering_angle: 7.5}
 
   # Decelerate and straighten out
-  - {time: 9.0, speed: 0.0, steering_angle: 15.0}
+  - {time: 9.0, speed: 0.0, steering_angle: 7.5}
