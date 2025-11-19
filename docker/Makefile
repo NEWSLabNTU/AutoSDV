@@ -130,6 +130,11 @@ GPU_FLAGS := $(shell \
 
 # Run the container, creating it if it doesn't exist, or starting/attaching if it does.
 run:
+	@# Enable X11 forwarding for Docker containers (allows GUI apps like RViz)
+	@if command -v xhost >/dev/null 2>&1; then \
+		echo "Enabling X11 access for Docker containers..."; \
+		xhost +local:docker >/dev/null 2>&1 || true; \
+	fi
 	@if [ -z "$(IMAGE_TO_USE)" ]; then \
 		echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; \
 		echo "❌ ERROR: No Docker image found!"; \

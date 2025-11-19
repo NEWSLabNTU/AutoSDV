@@ -1,0 +1,664 @@
+🚗 Launching on HARDWARE (Jetson Orin with sensors)
+   launch_rviz:=true (GUI enabled)
+   launch_vehicle:=true (GPIO hardware available)
+   launch_sensing_driver:=true (real sensors connected)
+   launch_perception:=true (GPU/TensorRT available)
+   use_gnss:=true (GPS hardware connected)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[INFO] [launch]: All log files can be found below /root/.ros/log/2025-11-19-13-32-52-746439-ubuntu-7550
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [launch.user]: Using common configuration file: /AutoSDV/install/zed_wrapper/share/zed_wrapper/config/common_stereo.yaml
+[INFO] [launch.user]: Using camera configuration file: /AutoSDV/install/zed_wrapper/share/zed_wrapper/config/zedxm.yaml
+[INFO] [launch.user]: Using FFMPEG configuration file: /AutoSDV/install/zed_wrapper/share/zed_wrapper/config/ffmpeg.yaml
+[INFO] [launch.user]: Using Object Detection configuration file: /AutoSDV/install/zed_wrapper/share/zed_wrapper/config/object_detection.yaml
+[INFO] [launch.user]: Using Custom Object Detection configuration file: /AutoSDV/install/zed_wrapper/share/zed_wrapper/config/custom_object_detection.yaml
+[INFO] [launch.user]: Using ROS parameters override file: /AutoSDV/install/autosdv_sensor_kit_launch/share/autosdv_sensor_kit_launch/config/zed_object_detection.yaml
+[INFO] [launch.user]: Loading ZED node `zed_node` in container `/zedxm/pointcloud_container`
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/system_monitor/cpu_monitor' in container '/system/system_monitor/system_monitor/system_monitor_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/system_monitor/mem_monitor' in container '/system/system_monitor/system_monitor/system_monitor_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/component_state_monitor/component' in container '/system/component_state_monitor/container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/system_monitor/net_monitor' in container '/system/system_monitor/system_monitor/system_monitor_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/system_monitor/ntp_monitor' in container '/system/system_monitor/system_monitor/system_monitor_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/system_monitor/process_monitor' in container '/system/system_monitor/system_monitor/system_monitor_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/system/mrm_comfortable_stop_operator' in container '/system/mrm_comfortable_stop_operator/mrm_comfortable_stop_operator_container'
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/sensing/lidar/passthrough_as_concatenate' in container 'pointcloud_container'
+[ERROR] [launch]: Caught exception in launch (see debug for traceback): [Errno 2] No such file or directory: 'data/lidar_centerpoint/centerpoint_tiny_ml_package.param.yaml'
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the 'pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/system/mrm_emergency_stop_operator/mrm_emergency_stop_operator_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/zedxm/pointcloud_container/_container/load_node' service, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/system/system_monitor/system_monitor/system_monitor_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the 'pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/map/map_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the 'pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/system/system_monitor/system_monitor/system_monitor_container/_container/load_node' service response, due to shutdown.
+Future exception was never retrieved
+future: <Future finished exception=InvalidHandle('cannot use Destroyable because destruction was requested')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+	result = self.fn(*self.args, **self.kwargs)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 197, in _load_in_sequence
+	self._load_node(next_load_node_request, context)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 119, in _load_node
+	while not self.__rclpy_load_node_client.wait_for_service(timeout_sec=1.0):
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 176, in wait_for_service
+	while self.context.ok() and not self.service_is_ready() and timeout_sec > 0.0:
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 159, in service_is_ready
+	with self.handle:
+rclpy._rclpy_pybind11.InvalidHandle: cannot use Destroyable because destruction was requested
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the 'pointcloud_container/_container/load_node' service response, due to shutdown.
+Future exception was never retrieved
+future: <Future finished exception=InvalidHandle('cannot use Destroyable because destruction was requested')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+	result = self.fn(*self.args, **self.kwargs)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 197, in _load_in_sequence
+	self._load_node(next_load_node_request, context)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 119, in _load_node
+	while not self.__rclpy_load_node_client.wait_for_service(timeout_sec=1.0):
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 180, in wait_for_service
+	return self.service_is_ready()
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 159, in service_is_ready
+	with self.handle:
+rclpy._rclpy_pybind11.InvalidHandle: cannot use Destroyable because destruction was requested
+[INFO] [component_container_mt-1]: process started with pid [7582]
+[INFO] [robot_state_publisher-2]: process started with pid [7584]
+[INFO] [actuator-3]: process started with pid [7586]
+[ERROR] [actuator-3]: process has died [pid 7586, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/actuator --ros-args -r __node:=actuator_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/actuator.yaml --params-file /tmp/launch_params_qdxdy_dg -r ~/input/control_cmd:=/control/command/control_cmd -r ~/input/velocity_status:=/vehicle/status/velocity_status'].
+[INFO] [velocity_report-4]: process started with pid [7588]
+[ERROR] [velocity_report-4]: process has died [pid 7588, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/velocity_report --ros-args -r __node:=velocity_report_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/velocity_report.yaml -r ~/output/velocity_status:=/vehicle/status/velocity_status'].
+[INFO] [gear_manager-5]: process started with pid [7590]
+[INFO] [control_mode_manager-6]: process started with pid [7592]
+[INFO] [steering_status-7]: process started with pid [7594]
+[INFO] [signal_manager-8]: process started with pid [7596]
+[INFO] [component_container_mt-9]: process started with pid [7598]
+[INFO] [duplicated_node_checker_node-10]: process started with pid [7600]
+[INFO] [processing_time_checker_node-11]: process started with pid [7602]
+[INFO] [service_log_checker_node-12]: process started with pid [7604]
+[INFO] [component_container-13]: process started with pid [7682]
+[INFO] [topic_state_monitor_node-14]: process started with pid [7684]
+[INFO] [topic_state_monitor_node-15]: process started with pid [7686]
+[INFO] [topic_state_monitor_node-16]: process started with pid [7688]
+[INFO] [topic_state_monitor_node-17]: process started with pid [7715]
+[INFO] [topic_state_monitor_node-18]: process started with pid [7717]
+[INFO] [topic_state_monitor_node-19]: process started with pid [7720]
+[INFO] [topic_state_monitor_node-20]: process started with pid [7730]
+[INFO] [topic_state_monitor_node-21]: process started with pid [7735]
+[INFO] [topic_state_monitor_node-22]: process started with pid [7746]
+[INFO] [topic_state_monitor_node-23]: process started with pid [7753]
+[INFO] [topic_state_monitor_node-24]: process started with pid [7776]
+[INFO] [topic_state_monitor_node-25]: process started with pid [7793]
+[INFO] [topic_state_monitor_node-26]: process started with pid [7813]
+[INFO] [topic_state_monitor_node-27]: process started with pid [7819]
+[INFO] [topic_state_monitor_node-28]: process started with pid [7827]
+[INFO] [component_container-29]: process started with pid [7842]
+[INFO] [component_container-30]: process started with pid [7856]
+[INFO] [aggregator_node-31]: process started with pid [7884]
+[INFO] [component_state_diagnostics-32]: process started with pid [7887]
+[INFO] [converter-33]: process started with pid [7889]
+[INFO] [mrm_handler_node-34]: process started with pid [7912]
+[INFO] [component_container_mt-35]: process started with pid [7921]
+[INFO] [map_hash_generator-36]: process started with pid [7923]
+[INFO] [autoware_map_projection_loader_node-37]: process started with pid [7944]
+[INFO] [seyond_node-38]: process started with pid [7960]
+[INFO] [robot_state_publisher-39]: process started with pid [7964]
+[INFO] [autoware_zed_converter_node-40]: process started with pid [7977]
+[INFO] [mpu9250driver-41]: process started with pid [7994]
+[INFO] [imu_corrector_node-42]: process started with pid [8012]
+[INFO] [gyro_bias_estimator_node-43]: process started with pid [8019]
+[INFO] [nmea_reader-44]: process started with pid [8023]
+[INFO] [nmea_topic_driver-45]: process started with pid [8060]
+[INFO] [gnss_poser-46]: process started with pid [8081]
+[INFO] [autoware_vehicle_velocity_converter_node-47]: process started with pid [8104]
+[INFO] [autoware_ndt_scan_matcher_node-48]: process started with pid [8106]
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/pointcloud_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the '/map/map_container/_container/load_node' service response, due to shutdown.
+[WARNING] [launch_ros.actions.load_composable_nodes]: Abandoning wait for the 'pointcloud_container/_container/load_node' service response, due to shutdown.
+[INFO] [autoware_gyro_odometer_node-49]: process started with pid [8130]
+[INFO] [autoware_pose_initializer_node-50]: process started with pid [8133]
+[INFO] [automatic_pose_initializer_node-51]: process started with pid [8135]
+[INFO] [autoware_ekf_localizer_node-52]: process started with pid [8139]
+[INFO] [autoware_stop_filter_node-53]: process started with pid [8150]
+[INFO] [autoware_twist2accel_node-54]: process started with pid [8153]
+[INFO] [autoware_pose_instability_detector_node-55]: process started with pid [8179]
+[INFO] [autoware_localization_error_monitor_node-56]: process started with pid [8199]
+Future exception was never retrieved
+future: <Future finished exception=InvalidHandle('cannot use Destroyable because destruction was requested')>
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/concurrent/futures/thread.py", line 58, in run
+	result = self.fn(*self.args, **self.kwargs)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 197, in _load_in_sequence
+	self._load_node(next_load_node_request, context)
+  File "/opt/ros/humble/lib/python3.10/site-packages/launch_ros/actions/load_composable_nodes.py", line 119, in _load_node
+	while not self.__rclpy_load_node_client.wait_for_service(timeout_sec=1.0):
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 180, in wait_for_service
+	return self.service_is_ready()
+  File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/client.py", line 159, in service_is_ready
+	with self.handle:
+rclpy._rclpy_pybind11.InvalidHandle: cannot use Destroyable because destruction was requested
+[ERROR] [nmea_topic_driver-45]: process has died [pid 8060, exit code 1, cmd '/opt/ros/humble/lib/nmea_navsat_driver/nmea_topic_driver --ros-args -r __node:=nmea_topic_driver -r __ns:=/sensing/gnss/garmin -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349'].
+[ERROR] [nmea_reader-44]: process has died [pid 8023, exit code 1, cmd '/AutoSDV/install/nmea_reader/lib/nmea_reader/nmea_reader --ros-args -r __node:=new_serial_reader -r __ns:=/sensing/gnss/garmin -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /tmp/launch_params_009v6iwu --params-file /tmp/launch_params_puuc0aar --params-file /tmp/launch_params_rkr_kn01'].
+[autoware_map_projection_loader_node-37] Load ./data/COSS-map-planning/map_projector_info.yaml
+[mpu9250driver-41] /dev/i2c-1
+[component_container_mt-1] [INFO] [1763559203.194070601] [pointcloud_container]: Load Library: /opt/ros/humble/lib/libpointcloud_preprocessor_filter.so
+[component_container_mt-1] [INFO] [1763559204.112824277] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::ApproximateDownsampleFilterComponent>
+[component_container_mt-1] [INFO] [1763559204.113926836] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::BlockageDiagComponent>
+[component_container_mt-1] [INFO] [1763559204.114112943] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[component_container_mt-1] [INFO] [1763559204.114170829] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::DistortionCorrectorComponent>
+[component_container_mt-1] [INFO] [1763559204.114186701] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::DualReturnOutlierFilterComponent>
+[component_container_mt-1] [INFO] [1763559204.114197324] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::Lanelet2MapFilterComponent>
+[component_container_mt-1] [INFO] [1763559204.114204620] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PassThroughFilterComponent>
+[component_container_mt-1] [INFO] [1763559204.114210700] [pointcloud_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PassThroughFilterComponent>
+[component_container_mt-1] [INFO] [1763559205.321645278] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::ApproximateDownsampleFilterComponent>
+[component_container_mt-1] [INFO] [1763559205.321720027] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::BlockageDiagComponent>
+[component_container_mt-1] [INFO] [1763559205.321729883] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[component_container_mt-1] [INFO] [1763559205.321736795] [pointcloud_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[robot_state_publisher-2] [INFO] [1763559203.168508948] [robot_state_publisher]: got segment base_link
+[robot_state_publisher-2] [INFO] [1763559203.174320811] [robot_state_publisher]: got segment car_link
+[robot_state_publisher-2] [INFO] [1763559203.174390184] [robot_state_publisher]: got segment cube1
+[robot_state_publisher-2] [INFO] [1763559203.174403784] [robot_state_publisher]: got segment gnss_base_link
+[robot_state_publisher-2] [INFO] [1763559203.174413384] [robot_state_publisher]: got segment imu_link
+[robot_state_publisher-2] [INFO] [1763559203.174419784] [robot_state_publisher]: got segment robin_w
+[robot_state_publisher-2] [INFO] [1763559203.174425863] [robot_state_publisher]: got segment sensor_kit_base_link
+[robot_state_publisher-2] [INFO] [1763559203.174432967] [robot_state_publisher]: got segment usb_camera_front_link
+[robot_state_publisher-2] [INFO] [1763559203.174440103] [robot_state_publisher]: got segment usb_camera_front_optical_link
+[robot_state_publisher-2] [INFO] [1763559203.174446535] [robot_state_publisher]: got segment usb_camera_left_link
+[robot_state_publisher-2] [INFO] [1763559203.174769117] [robot_state_publisher]: got segment usb_camera_left_optical_link
+[robot_state_publisher-2] [INFO] [1763559203.174794205] [robot_state_publisher]: got segment usb_camera_rear_link
+[robot_state_publisher-2] [INFO] [1763559203.174805820] [robot_state_publisher]: got segment usb_camera_rear_optical_link
+[robot_state_publisher-2] [INFO] [1763559203.174813276] [robot_state_publisher]: got segment usb_camera_right_link
+[robot_state_publisher-2] [INFO] [1763559203.174819868] [robot_state_publisher]: got segment usb_camera_right_optical_link
+[robot_state_publisher-2] [INFO] [1763559203.174825948] [robot_state_publisher]: got segment vlp32c
+[robot_state_publisher-2] [INFO] [1763559203.174832156] [robot_state_publisher]: got segment zedxm_camera_center
+[robot_state_publisher-2] [INFO] [1763559203.174837915] [robot_state_publisher]: got segment zedxm_camera_link
+[robot_state_publisher-2] [INFO] [1763559203.174843771] [robot_state_publisher]: got segment zedxm_left_camera_frame
+[robot_state_publisher-2] [INFO] [1763559203.174849563] [robot_state_publisher]: got segment zedxm_left_camera_optical_frame
+[robot_state_publisher-2] [INFO] [1763559203.174855707] [robot_state_publisher]: got segment zedxm_right_camera_frame
+[robot_state_publisher-2] [INFO] [1763559203.174861435] [robot_state_publisher]: got segment zedxm_right_camera_optical_frame
+[actuator-3] Traceback (most recent call last):
+  File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/actuator", line 33, in <module>
+	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'actuator')())
+  File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/actuator.py", line 1075, in main
+	node = AutoSdvActuator()
+  File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/actuator.py", line 171, in __init__
+	self.driver = self.initialize_pwm_driver(parameter_values)
+  File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/actuator.py", line 419, in initialize_pwm_driver
+	driver = PCA9685(address=params["i2c_address"], busnum=params["i2c_busnum"])
+  File "/root/.local/lib/python3.10/site-packages/Adafruit_PCA9685/PCA9685.py", line 75, in __init__
+	self.set_all_pwm(0, 0)
+  File "/root/.local/lib/python3.10/site-packages/Adafruit_PCA9685/PCA9685.py", line 111, in set_all_pwm
+	self._device.write8(ALL_LED_ON_L, on & 0xFF)
+  File "/root/.local/lib/python3.10/site-packages/Adafruit_GPIO/I2C.py", line 114, in write8
+	self._bus.write_byte_data(self._address, register, value)
+  File "/root/.local/lib/python3.10/site-packages/Adafruit_PureIO/smbus.py", line 316, in write_byte_data
+	self._device.write(data)
+OSError: [Errno 121] Remote I/O error
+
+[velocity_report-4] Traceback (most recent call last):
+  File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/velocity_report", line 33, in <module>
+	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'velocity_report')())
+  File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/velocity_report", line 25, in importlib_load_entry_point
+	return next(matches).load()
+  File "/usr/lib/python3.10/importlib/metadata/__init__.py", line 171, in load
+	module = import_module(match.group('module'))
+  File "/usr/lib/python3.10/importlib/__init__.py", line 126, in import_module
+	return _bootstrap._gcd_import(name[level:], package, level)
+  File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/velocity_report.py", line 9, in <module>
+	import Jetson.GPIO as GPIO
+ModuleNotFoundError: No module named 'Jetson'
+
+[gear_manager-5] [INFO] [1763559204.436428669] [autosdv.gear_manager_node]: Gear Manager initialized - Publishing at 30.0Hz
+[control_mode_manager-6] [INFO] [1763559205.171017555] [autosdv.control_mode_manager_node]: Control Mode Manager initialized - Publishing at 10.0Hz
+[steering_status-7] [INFO] [1763559204.253015793] [autosdv.steering_status_node]: Steering Status Publisher initialized - Publishing at 30.0Hz
+[signal_manager-8] [INFO] [1763559204.483255876] [autosdv.signal_manager_node]: Signal Manager initialized - Publishing at 10.0Hz
+[component_container_mt-9] [INFO] [1763559203.364648141] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libcpu_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559203.367912621] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<CPUMonitor>
+[component_container_mt-9] [INFO] [1763559203.367992683] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<CPUMonitor>
+[component_container_mt-9] [INFO] [1763559203.601306596] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libmem_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559203.601985744] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<MemMonitor>
+[component_container_mt-9] [INFO] [1763559203.602406723] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<MemMonitor>
+[component_container_mt-9] [INFO] [1763559203.925088327] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libnet_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559203.926712279] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<NetMonitor>
+[component_container_mt-9] [INFO] [1763559203.926769526] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<NetMonitor>
+[component_container_mt-9] [ERROR] [1763559204.026432595] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container_mt-9] [INFO] [1763559204.056643680] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libntp_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559204.057399593] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<NTPMonitor>
+[component_container_mt-9] [INFO] [1763559204.057450472] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<NTPMonitor>
+[component_container_mt-9] [INFO] [1763559204.349598600] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libprocess_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559204.350314899] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<ProcessMonitor>
+[component_container_mt-9] [INFO] [1763559204.350356210] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<ProcessMonitor>
+[component_container_mt-9] [ERROR] [1763559205.003219838] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container_mt-9] [INFO] [1763559205.132346813] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libhdd_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559205.134306660] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<HddMonitor>
+[component_container_mt-9] [INFO] [1763559205.134378050] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<HddMonitor>
+[component_container_mt-9] [ERROR] [1763559206.003645365] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container_mt-9] [ERROR] [1763559207.003688279] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container-13] [INFO] [1763559203.426982222] [system.component_state_monitor.container]: Load Library: /opt/ros/humble/lib/libcomponent_state_monitor.so
+[component_container-13] [INFO] [1763559203.428492705] [system.component_state_monitor.container]: Found class: rclcpp_components::NodeFactoryTemplate<component_state_monitor::StateMonitor>
+[component_container-13] [INFO] [1763559203.428571487] [system.component_state_monitor.container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<component_state_monitor::StateMonitor>
+[topic_state_monitor_node-14] [INFO] [1763559203.351075513] [system.topic_state_monitor_vector_map]: /map/vector_map has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-14] [INFO] [1763559206.450961084] [system.topic_state_monitor_vector_map]: /map/vector_map has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-15] [INFO] [1763559203.322298403] [system.topic_state_monitor_pointcloud_map]: /map/pointcloud_map has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-15] [INFO] [1763559206.422257059] [system.topic_state_monitor_pointcloud_map]: /map/pointcloud_map has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-16] [INFO] [1763559203.514304116] [system.topic_state_monitor_initialpose3d]: /initialpose3d has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-16] [INFO] [1763559206.614266260] [system.topic_state_monitor_initialpose3d]: /initialpose3d has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-17] [INFO] [1763559203.488371626] [system.topic_state_monitor_pose_twist_fusion_filter_pose]: /localization/pose_twist_fusion_filter/pose has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-17] [INFO] [1763559206.588307083] [system.topic_state_monitor_pose_twist_fusion_filter_pose]: /localization/pose_twist_fusion_filter/pose has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-18] [INFO] [1763559203.356411805] [system.topic_state_monitor_obstacle_segmentation_pointcloud]: /perception/obstacle_segmentation/pointcloud has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-18] [INFO] [1763559206.456376093] [system.topic_state_monitor_obstacle_segmentation_pointcloud]: /perception/obstacle_segmentation/pointcloud has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-19] [INFO] [1763559203.461734389] [system.topic_state_monitor_object_recognition_objects]: /perception/object_recognition/objects has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-19] [INFO] [1763559206.561694645] [system.topic_state_monitor_object_recognition_objects]: /perception/object_recognition/objects has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-20] [INFO] [1763559203.482449432] [system.topic_state_monitor_traffic_light_recognition_traffic_signals]: /perception/traffic_light_recognition/traffic_signals has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-20] [INFO] [1763559206.482452387] [system.topic_state_monitor_traffic_light_recognition_traffic_signals]: /perception/traffic_light_recognition/traffic_signals has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-21] [INFO] [1763559203.433710409] [system.topic_state_monitor_mission_planning_route]: /planning/mission_planning/route has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-21] [INFO] [1763559206.433719572] [system.topic_state_monitor_mission_planning_route]: /planning/mission_planning/route has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-22] [INFO] [1763559203.510274474] [system.topic_state_monitor_scenario_planning_trajectory]: /planning/scenario_planning/trajectory has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-22] [INFO] [1763559206.610165484] [system.topic_state_monitor_scenario_planning_trajectory]: /planning/scenario_planning/trajectory has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-23] [INFO] [1763559203.545869049] [system.topic_state_monitor_trajectory_follower_control_cmd]: /control/trajectory_follower/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-23] [INFO] [1763559206.645642110] [system.topic_state_monitor_trajectory_follower_control_cmd]: /control/trajectory_follower/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-24] [INFO] [1763559203.657560503] [system.topic_state_monitor_control_command_control_cmd]: /control/command/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-24] [INFO] [1763559206.756518004] [system.topic_state_monitor_control_command_control_cmd]: /control/command/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-25] [INFO] [1763559203.544730074] [system.topic_state_monitor_vehicle_status_velocity_status]: /vehicle/status/velocity_status has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-25] [INFO] [1763559206.644698298] [system.topic_state_monitor_vehicle_status_velocity_status]: /vehicle/status/velocity_status has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-26] [INFO] [1763559203.718789016] [system.topic_state_monitor_vehicle_status_steering_status]: /vehicle/status/steering_status has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-27] [INFO] [1763559204.115451048] [system.topic_state_monitor_system_emergency_control_cmd]: /system/emergency/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-27] [INFO] [1763559207.213730713] [system.topic_state_monitor_system_emergency_control_cmd]: /system/emergency/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-28] [INFO] [1763559203.778074610] [system.topic_state_monitor_transform_map_to_base_link]: /tf has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-28] [INFO] [1763559206.878150159] [system.topic_state_monitor_transform_map_to_base_link]: /tf has not received. Set ERROR in diagnostics.
+[component_container-29] [INFO] [1763559204.825735844] [system.mrm_comfortable_stop_operator.mrm_comfortable_stop_operator_container]: Load Library: /opt/ros/humble/lib/libmrm_comfortable_stop_operator_component.so
+[component_container-29] [INFO] [1763559204.826855971] [system.mrm_comfortable_stop_operator.mrm_comfortable_stop_operator_container]: Found class: rclcpp_components::NodeFactoryTemplate<mrm_comfortable_stop_operator::MrmComfortableStopOperator>
+[component_container-29] [INFO] [1763559204.826914306] [system.mrm_comfortable_stop_operator.mrm_comfortable_stop_operator_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<mrm_comfortable_stop_operator::MrmComfortableStopOperator>
+[component_container-30] [INFO] [1763559204.580286062] [system.mrm_emergency_stop_operator.mrm_emergency_stop_operator_container]: Load Library: /opt/ros/humble/lib/libmrm_emergency_stop_operator_component.so
+[component_container-30] [INFO] [1763559204.582823396] [system.mrm_emergency_stop_operator.mrm_emergency_stop_operator_container]: Found class: rclcpp_components::NodeFactoryTemplate<mrm_emergency_stop_operator::MrmEmergencyStopOperator>
+[component_container-30] [INFO] [1763559204.582901538] [system.mrm_emergency_stop_operator.mrm_emergency_stop_operator_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<mrm_emergency_stop_operator::MrmEmergencyStopOperator>
+[mrm_handler_node-34] [INFO] [1763559204.348811071] [system.mrm_handler]: waiting for operation_mode_availability msg...
+[component_container_mt-35] [INFO] [1763559205.364590678] [map.map_container]: Load Library: /opt/ros/humble/lib/libpointcloud_map_loader_node.so
+[component_container_mt-35] [INFO] [1763559206.616860264] [map.map_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::map_loader::PointCloudMapLoaderNode>
+[component_container_mt-35] [INFO] [1763559206.616958309] [map.map_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::map_loader::PointCloudMapLoaderNode>
+[seyond_node-38] [INFO] [1763559204.433193436] [seyond]:  7960 mem_pool_manager.cpp:32 MemPoolManager [AsyncJob_memory_pool] 0xaaaafb5b46a0 created pool=0xffffb45c6020, unit_size=4096, unit_count=90, allocator=DefaultMemAllocator
+[seyond_node-38] [INFO] [1763559204.443718472] [seyond]:  7960 async_log.cpp:69 LIDAR Log Async Thread work : True
+[seyond_node-38] [INFO] [1763559204.550046114] [seyond]:  8085 consumer_producer.cpp:191 thread AsyncLogThread_Manager starts. pid=8085 target_priority=0
+[seyond_node-38] [INFO] [1763559204.550106913] [seyond]:  7960 api_common.cpp:60 LIDAR SDK version is 3.103.1.20250715022834
+[seyond_node-38] [INFO] [1763559204.550116544] [seyond]:  7960 api_common.cpp:61 LIDAR SDK build tag is release-client-sdk-3.103.1
+[seyond_node-38] [INFO] [1763559204.550120928] [seyond]:  7960 api_common.cpp:62 LIDAR SDK build time is 13:28:34 Nov 19 2025
+[seyond_node-38] [INFO] [1763559204.550124544] [seyond]:  7960 yaml_tools.hpp:96
+[seyond_node-38] 	replay_rosbag: 0
+[seyond_node-38] 	packet_mode: 0
+[seyond_node-38] 	aggregate_num: 10
+[seyond_node-38] 	frame_id: robin_w
+[seyond_node-38] 	packet_topic: iv_packets
+[seyond_node-38] 	frame_topic: iv_points
+[seyond_node-38] 	lidar_name: falcon
+[seyond_node-38] 	lidar_ip: 172.168.1.10
+[seyond_node-38] 	port: 8010
+[seyond_node-38] 	udp_port: 8010
+[seyond_node-38] 	reflectance_mode: 1
+[seyond_node-38] 	multiple_return: 1
+[seyond_node-38] 	continue_live: 0
+[seyond_node-38] 	pcap_file:
+[seyond_node-38] 	hv_table_file:
+[seyond_node-38] 	packet_rate: 10000
+[seyond_node-38] 	file_rewind: 0
+[seyond_node-38] 	max_range: 200.000000
+[seyond_node-38] 	min_range: 0.400000
+[seyond_node-38] 	name_value_pairs:
+[seyond_node-38] 	coordinate_mode: 0
+[seyond_node-38] 	transform_enable: 0
+[seyond_node-38] 	x: 0.000000
+[seyond_node-38] 	y: 0.000000
+[seyond_node-38] 	z: 0.000000
+[seyond_node-38] 	pitch: 0.000000
+[seyond_node-38] 	yaw: 0.000000
+[seyond_node-38] 	roll: 0.000000
+[seyond_node-38] 	transform_matrix:
+[seyond_node-38]
+[seyond_node-38] [INFO] [1763559204.550133344] [seyond]:  7960 driver_lidar.cc:141 falcon: transformation: x, y, z, yaw, pitch, roll: 0.000 0.000 0.000 0.000 0.000 0.000
+[seyond_node-38] [INFO] [1763559204.550137888] [seyond]:  7960 mem_allocator.cpp:351 DefaultMemAllocator calloc start
+[seyond_node-38] [INFO] [1763559204.550141632] [seyond]:  7960 mem_pool_manager.cpp:32 MemPoolManager [packet_pool] 0xaaaafb603eb0 created pool=0xffff947af020, unit_size=65536, unit_count=900, allocator=DefaultMemAllocator
+[seyond_node-38] [INFO] [1763559204.550145504] [seyond]:  7960 lidar_client.cpp:58 falcon uses live lidar at 172.168.1.10 port=8010 udp_port=8010
+[seyond_node-38] [INFO] [1763559204.550149151] [seyond]:  7960 api_common.cpp:395 add lidar 1 (total=1 total_active=1)
+[seyond_node-38] [INFO] [1763559204.550152511] [seyond]:  7960 config.cpp:55 config LidarClient_Communication(1) set get_conn_timeout_sec to 5.0
+[seyond_node-38] [INFO] [1763559204.550156191] [seyond]:  7960 config.cpp:55 config LidarClient_StageClientRead(1) set misorder_correct_enable to 1
+[seyond_node-38] [INFO] [1763559204.550159647] [seyond]:  7960 net_manager.cpp:112 Requesting /command/?get_enabled from 172.168.1.10:8010
+[robot_state_publisher-39] [INFO] [1763559205.097086149] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_camera_center
+[robot_state_publisher-39] [INFO] [1763559205.097569942] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_camera_link
+[robot_state_publisher-39] [INFO] [1763559205.097592822] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_left_camera_frame
+[robot_state_publisher-39] [INFO] [1763559205.097601494] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_left_camera_optical_frame
+[robot_state_publisher-39] [INFO] [1763559205.097608373] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_right_camera_frame
+[robot_state_publisher-39] [INFO] [1763559205.097614133] [sensing.camera.zedxm.zedxm_state_publisher]: got segment zedxm_right_camera_optical_frame
+[autoware_zed_converter_node-40] [INFO] [1763559204.904925272] [sensing.camera.zed_object_converter]: ZED to Autoware Converter initialized:
+[autoware_zed_converter_node-40]   Input topic: /sensing/camera/zedxm/zed_node/obj_det/objects
+[autoware_zed_converter_node-40]   Output topic: /perception/object_recognition/detection/camera_objects
+[mpu9250driver-41] Error waking sensor
+[mpu9250driver-41] Error disabling i2c master interface
+[mpu9250driver-41] Error enabling bypass
+[mpu9250driver-41] Error powering down magnometer
+[mpu9250driver-41] Error reactivating magnometer
+[mpu9250driver-41] Error setting gyroscope range
+[mpu9250driver-41] Error setting acc. range
+[mpu9250driver-41] Error setting bandwidth
+[mpu9250driver-41] [INFO] [1763559204.696172785] [sensing.imu.mpu9250.mpu9250driver_node]: Calibrating...
+[INFO] [component_container_mt-1]: sending signal 'SIGINT' to process[component_container_mt-1]
+[INFO] [robot_state_publisher-2]: sending signal 'SIGINT' to process[robot_state_publisher-2]
+[INFO] [gear_manager-5]: sending signal 'SIGINT' to process[gear_manager-5]
+[INFO] [control_mode_manager-6]: sending signal 'SIGINT' to process[control_mode_manager-6]
+[INFO] [steering_status-7]: sending signal 'SIGINT' to process[steering_status-7]
+[INFO] [signal_manager-8]: sending signal 'SIGINT' to process[signal_manager-8]
+[INFO] [component_container_mt-9]: sending signal 'SIGINT' to process[component_container_mt-9]
+[INFO] [duplicated_node_checker_node-10]: sending signal 'SIGINT' to process[duplicated_node_checker_node-10]
+[INFO] [processing_time_checker_node-11]: sending signal 'SIGINT' to process[processing_time_checker_node-11]
+[INFO] [service_log_checker_node-12]: sending signal 'SIGINT' to process[service_log_checker_node-12]
+[INFO] [component_container-13]: sending signal 'SIGINT' to process[component_container-13]
+[INFO] [topic_state_monitor_node-14]: sending signal 'SIGINT' to process[topic_state_monitor_node-14]
+[INFO] [topic_state_monitor_node-15]: sending signal 'SIGINT' to process[topic_state_monitor_node-15]
+[INFO] [topic_state_monitor_node-16]: sending signal 'SIGINT' to process[topic_state_monitor_node-16]
+[INFO] [topic_state_monitor_node-17]: sending signal 'SIGINT' to process[topic_state_monitor_node-17]
+[INFO] [topic_state_monitor_node-18]: sending signal 'SIGINT' to process[topic_state_monitor_node-18]
+[INFO] [topic_state_monitor_node-19]: sending signal 'SIGINT' to process[topic_state_monitor_node-19]
+[INFO] [topic_state_monitor_node-20]: sending signal 'SIGINT' to process[topic_state_monitor_node-20]
+[INFO] [topic_state_monitor_node-21]: sending signal 'SIGINT' to process[topic_state_monitor_node-21]
+[INFO] [topic_state_monitor_node-22]: sending signal 'SIGINT' to process[topic_state_monitor_node-22]
+[INFO] [topic_state_monitor_node-23]: sending signal 'SIGINT' to process[topic_state_monitor_node-23]
+[INFO] [topic_state_monitor_node-24]: sending signal 'SIGINT' to process[topic_state_monitor_node-24]
+[INFO] [topic_state_monitor_node-25]: sending signal 'SIGINT' to process[topic_state_monitor_node-25]
+[INFO] [topic_state_monitor_node-26]: sending signal 'SIGINT' to process[topic_state_monitor_node-26]
+[INFO] [duplicated_node_checker_node-10]: process has finished cleanly [pid 7600]
+[INFO] [topic_state_monitor_node-20]: process has finished cleanly [pid 7730]
+[INFO] [topic_state_monitor_node-16]: process has finished cleanly [pid 7688]
+[INFO] [topic_state_monitor_node-18]: process has finished cleanly [pid 7717]
+[INFO] [topic_state_monitor_node-15]: process has finished cleanly [pid 7686]
+[INFO] [topic_state_monitor_node-27]: sending signal 'SIGINT' to process[topic_state_monitor_node-27]
+[INFO] [topic_state_monitor_node-19]: process has finished cleanly [pid 7720]
+[INFO] [service_log_checker_node-12]: process has finished cleanly [pid 7604]
+[INFO] [topic_state_monitor_node-14]: process has finished cleanly [pid 7684]
+[INFO] [topic_state_monitor_node-17]: process has finished cleanly [pid 7715]
+[INFO] [robot_state_publisher-2]: process has finished cleanly [pid 7584]
+[INFO] [topic_state_monitor_node-28]: sending signal 'SIGINT' to process[topic_state_monitor_node-28]
+[INFO] [topic_state_monitor_node-21]: process has finished cleanly [pid 7735]
+[INFO] [topic_state_monitor_node-23]: process has finished cleanly [pid 7753]
+[INFO] [topic_state_monitor_node-22]: process has finished cleanly [pid 7746]
+[ERROR] [signal_manager-8]: process has died [pid 7596, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/signal_manager --ros-args -r __node:=signal_manager_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/signal_manager.yaml'].
+[INFO] [component_container-29]: sending signal 'SIGINT' to process[component_container-29]
+[INFO] [topic_state_monitor_node-24]: process has finished cleanly [pid 7776]
+[ERROR] [steering_status-7]: process has died [pid 7594, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/steering_status --ros-args -r __node:=steering_status_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/steering_status.yaml'].
+[INFO] [component_container-30]: sending signal 'SIGINT' to process[component_container-30]
+[ERROR] [gear_manager-5]: process has died [pid 7590, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/gear_manager --ros-args -r __node:=gear_manager_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/gear_manager.yaml'].
+[INFO] [aggregator_node-31]: sending signal 'SIGINT' to process[aggregator_node-31]
+[INFO] [topic_state_monitor_node-25]: process has finished cleanly [pid 7793]
+[INFO] [component_state_diagnostics-32]: sending signal 'SIGINT' to process[component_state_diagnostics-32]
+[INFO] [processing_time_checker_node-11]: process has finished cleanly [pid 7602]
+[ERROR] [control_mode_manager-6]: process has died [pid 7592, exit code 1, cmd '/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/control_mode_manager --ros-args -r __node:=control_mode_manager_node -r __ns:=/autosdv -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/autosdv_vehicle_interface/share/autosdv_vehicle_interface/params/control_mode_manager.yaml'].
+[INFO] [converter-33]: sending signal 'SIGINT' to process[converter-33]
+[INFO] [mrm_handler_node-34]: sending signal 'SIGINT' to process[mrm_handler_node-34]
+[INFO] [topic_state_monitor_node-27]: process has finished cleanly [pid 7819]
+[INFO] [topic_state_monitor_node-26]: process has finished cleanly [pid 7813]
+[INFO] [component_container-13]: process has finished cleanly [pid 7682]
+[INFO] [component_container_mt-35]: sending signal 'SIGINT' to process[component_container_mt-35]
+[INFO] [map_hash_generator-36]: sending signal 'SIGINT' to process[map_hash_generator-36]
+[INFO] [topic_state_monitor_node-28]: process has finished cleanly [pid 7827]
+[INFO] [autoware_map_projection_loader_node-37]: sending signal 'SIGINT' to process[autoware_map_projection_loader_node-37]
+[INFO] [seyond_node-38]: sending signal 'SIGINT' to process[seyond_node-38]
+[INFO] [robot_state_publisher-39]: sending signal 'SIGINT' to process[robot_state_publisher-39]
+[INFO] [component_container-30]: process has finished cleanly [pid 7856]
+[INFO] [autoware_zed_converter_node-40]: sending signal 'SIGINT' to process[autoware_zed_converter_node-40]
+[INFO] [mpu9250driver-41]: sending signal 'SIGINT' to process[mpu9250driver-41]
+[INFO] [imu_corrector_node-42]: sending signal 'SIGINT' to process[imu_corrector_node-42]
+[INFO] [component_container-29]: process has finished cleanly [pid 7842]
+[INFO] [converter-33]: process has finished cleanly [pid 7889]
+[INFO] [gyro_bias_estimator_node-43]: sending signal 'SIGINT' to process[gyro_bias_estimator_node-43]
+[INFO] [component_container_mt-9]: process has finished cleanly [pid 7598]
+[INFO] [aggregator_node-31]: process has finished cleanly [pid 7884]
+[INFO] [gnss_poser-46]: sending signal 'SIGINT' to process[gnss_poser-46]
+[INFO] [autoware_map_projection_loader_node-37]: process has finished cleanly [pid 7944]
+[INFO] [autoware_vehicle_velocity_converter_node-47]: sending signal 'SIGINT' to process[autoware_vehicle_velocity_converter_node-47]
+[INFO] [mrm_handler_node-34]: process has finished cleanly [pid 7912]
+[INFO] [autoware_ndt_scan_matcher_node-48]: sending signal 'SIGINT' to process[autoware_ndt_scan_matcher_node-48]
+[INFO] [robot_state_publisher-39]: process has finished cleanly [pid 7964]
+[INFO] [autoware_gyro_odometer_node-49]: sending signal 'SIGINT' to process[autoware_gyro_odometer_node-49]
+[INFO] [autoware_zed_converter_node-40]: process has finished cleanly [pid 7977]
+[INFO] [component_container_mt-1]: process has finished cleanly [pid 7582]
+[INFO] [autoware_pose_initializer_node-50]: sending signal 'SIGINT' to process[autoware_pose_initializer_node-50]
+[INFO] [automatic_pose_initializer_node-51]: sending signal 'SIGINT' to process[automatic_pose_initializer_node-51]
+[INFO] [component_container_mt-35]: process has finished cleanly [pid 7921]
+[INFO] [map_hash_generator-36]: process has finished cleanly [pid 7923]
+[INFO] [imu_corrector_node-42]: process has finished cleanly [pid 8012]
+[INFO] [gyro_bias_estimator_node-43]: process has finished cleanly [pid 8019]
+[INFO] [autoware_ekf_localizer_node-52]: sending signal 'SIGINT' to process[autoware_ekf_localizer_node-52]
+[INFO] [component_state_diagnostics-32]: process has finished cleanly [pid 7887]
+[INFO] [autoware_stop_filter_node-53]: sending signal 'SIGINT' to process[autoware_stop_filter_node-53]
+[INFO] [autoware_twist2accel_node-54]: sending signal 'SIGINT' to process[autoware_twist2accel_node-54]
+[INFO] [gnss_poser-46]: process has finished cleanly [pid 8081]
+[INFO] [autoware_pose_instability_detector_node-55]: sending signal 'SIGINT' to process[autoware_pose_instability_detector_node-55]
+[INFO] [autoware_vehicle_velocity_converter_node-47]: process has finished cleanly [pid 8104]
+[INFO] [autoware_localization_error_monitor_node-56]: sending signal 'SIGINT' to process[autoware_localization_error_monitor_node-56]
+[autoware_ekf_localizer_node-52] [WARN] [1763559207.352271269] [localization.pose_twist_fusion_filter.ekf_localizer]: The node is not activated. Provide initial pose to pose_initializer
+[autoware_ekf_localizer_node-52] [WARN] [1763559209.371070951] [localization.pose_twist_fusion_filter.ekf_localizer]: The node is not activated. Provide initial pose to pose_initializer
+[component_container_mt-1] [INFO] [1763559207.433082506] [perception.obstacle_segmentation.crop_box_filter]: Input and output frames are the same. Overriding has_static_tf_only to true.
+[component_container_mt-1] [INFO] [1763559208.350361697] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::ApproximateDownsampleFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350450238] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::BlockageDiagComponent>
+[component_container_mt-1] [INFO] [1763559208.350461694] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350468542] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::DistortionCorrectorComponent>
+[component_container_mt-1] [INFO] [1763559208.350475230] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::DualReturnOutlierFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350481661] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::Lanelet2MapFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350487101] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PassThroughFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350493341] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PassThroughFilterUInt16Component>
+[component_container_mt-1] [INFO] [1763559208.350498845] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PickupBasedVoxelGridDownsampleFilterComponent>
+[component_container_mt-1] [INFO] [1763559208.350505469] [pointcloud_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::PickupBasedVoxelGridDownsampleFilterComponent>
+[nmea_reader-44] Traceback (most recent call last):
+[nmea_reader-44]   File "/usr/lib/python3/dist-packages/serial/serialposix.py", line 322, in open
+[nmea_reader-44] 	self.fd = os.open(self.portstr, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+[nmea_reader-44] FileNotFoundError: [Errno 2] No such file or directory: '/dev/ttyUSB0'
+[nmea_reader-44]
+[nmea_reader-44] During handling of the above exception, another exception occurred:
+[nmea_reader-44]
+[nmea_reader-44] Traceback (most recent call last):
+[nmea_reader-44]   File "/AutoSDV/install/nmea_reader/lib/nmea_reader/nmea_reader", line 33, in <module>
+[nmea_reader-44] 	sys.exit(load_entry_point('nmea-reader', 'console_scripts', 'nmea_reader')())
+[nmea_reader-44]   File "/AutoSDV/build/nmea_reader/nmea_reader/nmea_reader.py", line 41, in main
+[nmea_reader-44] 	node = NmeaReader()
+[nmea_reader-44]   File "/AutoSDV/build/nmea_reader/nmea_reader/nmea_reader.py", line 19, in __init__
+[nmea_reader-44] 	self.gps = serial.Serial(port=serial_port, baudrate=serial_baud, timeout=2)
+[nmea_reader-44]   File "/usr/lib/python3/dist-packages/serial/serialutil.py", line 244, in __init__
+[nmea_reader-44] 	self.open()
+[nmea_reader-44]   File "/usr/lib/python3/dist-packages/serial/serialposix.py", line 325, in open
+[nmea_reader-44] 	raise SerialException(msg.errno, "could not open port {}: {}".format(self._port, msg))
+[nmea_reader-44] serial.serialutil.SerialException: [Errno 2] could not open port /dev/ttyUSB0: [Errno 2] No such file or directory: '/dev/ttyUSB0'
+[component_container_mt-35] [INFO] [1763559207.888596705] [map.map_container]: Load Library: /opt/ros/humble/lib/liblanelet2_map_loader_node.so
+[component_container_mt-35] [INFO] [1763559207.898138730] [map.map_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::map_loader::Lanelet2MapLoaderNode>
+[component_container_mt-35] [INFO] [1763559207.898222407] [map.map_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::map_loader::Lanelet2MapLoaderNode>
+[component_container_mt-35] [WARN] [1763559208.526729083] [map.pointcloud_map_loader.rclcpp]: failed to send response to /map/pointcloud_map_loader/get_parameters (timeout): client will not receive response, at ./src/rmw_response.cpp:154, at ./src/rcl/service.c:314
+[component_container_mt-35] [WARN] [1763559209.683703600] [map.lanelet2_map_loader]: ./data/COSS-map-planning/lanelet2_map.osm has no format_version(null) or non semver-style format_version(null) information
+[component_container_mt-35] [INFO] [1763559209.683824589] [map.lanelet2_map_loader]: Loaded map format_version: null
+[component_container_mt-35] [INFO] [1763559209.701656611] [map.lanelet2_map_loader]: Succeeded to load lanelet2_map. Map is published.
+[component_container_mt-35] [WARN] [1763559209.733091756] [map.map_container.rclcpp]: failed to send response to /map/map_container/_container/load_node (timeout): client will not receive response, at ./src/rmw_response.cpp:154, at ./src/rcl/service.c:314
+[control_mode_manager-6] [INFO] [1763559207.896024200] [autosdv.control_mode_manager_node]: Startup complete - System ready for operation
+[nmea_topic_driver-45] Traceback (most recent call last):
+[nmea_topic_driver-45]   File "/opt/ros/humble/lib/nmea_navsat_driver/nmea_topic_driver", line 33, in <module>
+[nmea_topic_driver-45] 	sys.exit(load_entry_point('nmea-navsat-driver==2.0.1', 'console_scripts', 'nmea_topic_driver')())
+[nmea_topic_driver-45]   File "/opt/ros/humble/lib/nmea_navsat_driver/nmea_topic_driver", line 25, in importlib_load_entry_point
+[nmea_topic_driver-45] 	return next(matches).load()
+[nmea_topic_driver-45]   File "/usr/lib/python3.10/importlib/metadata/__init__.py", line 171, in load
+[nmea_topic_driver-45] 	module = import_module(match.group('module'))
+[nmea_topic_driver-45]   File "/usr/lib/python3.10/importlib/__init__.py", line 126, in import_module
+[nmea_topic_driver-45] 	return _bootstrap._gcd_import(name[level:], package, level)
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap>", line 1050, in _gcd_import
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap>", line 1027, in _find_and_load
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap>", line 1006, in _find_and_load_unlocked
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap>", line 688, in _load_unlocked
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap_external>", line 883, in exec_module
+[nmea_topic_driver-45]   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+[nmea_topic_driver-45]   File "/opt/ros/humble/lib/python3.10/site-packages/libnmea_navsat_driver/nodes/nmea_topic_driver.py", line 39, in <module>
+[nmea_topic_driver-45] 	from libnmea_navsat_driver.driver import Ros2NMEADriver
+[nmea_topic_driver-45]   File "/opt/ros/humble/lib/python3.10/site-packages/libnmea_navsat_driver/driver.py", line 40, in <module>
+[nmea_topic_driver-45] 	from tf_transformations import quaternion_from_euler
+[nmea_topic_driver-45]   File "/opt/ros/humble/lib/python3.10/site-packages/tf_transformations/__init__.py", line 46, in <module>
+[nmea_topic_driver-45] 	import transforms3d
+[nmea_topic_driver-45]   File "/usr/lib/python3/dist-packages/transforms3d/__init__.py", line 10, in <module>
+[nmea_topic_driver-45] 	from . import quaternions
+[nmea_topic_driver-45]   File "/usr/lib/python3/dist-packages/transforms3d/quaternions.py", line 26, in <module>
+[nmea_topic_driver-45] 	_MAX_FLOAT = np.maximum_sctype(np.float)
+[nmea_topic_driver-45]   File "/usr/local/lib/python3.10/dist-packages/numpy/__init__.py", line 400, in __getattr__
+[nmea_topic_driver-45] 	raise AttributeError(
+[nmea_topic_driver-45] AttributeError: `np.maximum_sctype` was removed in the NumPy 2.0 release. Use a specific dtype instead. You should avoid relying on any implicit mechanism and select the largest dtype of a kind explicitly in the code.
+[component_container_mt-9] [ERROR] [1763559208.003247880] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container_mt-9] [ERROR] [1763559208.776377590] [system.system_monitor.hdd_monitor]: socket connect error. Connection refused
+[component_container_mt-9] [ERROR] [1763559208.776523634] [system.system_monitor.hdd_monitor]: Failed to unmount device : overlay
+[component_container_mt-9] [INFO] [1763559208.791342081] [system.system_monitor.system_monitor.system_monitor_container]: Load Library: /opt/ros/humble/lib/libgpu_monitor_lib.so
+[component_container_mt-9] [INFO] [1763559208.793912662] [system.system_monitor.system_monitor.system_monitor_container]: Found class: rclcpp_components::NodeFactoryTemplate<GPUMonitor>
+[component_container_mt-9] [INFO] [1763559208.794011251] [system.system_monitor.system_monitor.system_monitor_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<GPUMonitor>
+[component_container_mt-9] [ERROR] [1763559209.003516196] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[mpu9250driver-41] Error! Errno: Remote I/O error
+[INFO] [autoware_gyro_odometer_node-49]: process has finished cleanly [pid 8130]
+[INFO] [autoware_ndt_scan_matcher_node-48]: process has finished cleanly [pid 8106]
+[seyond_node-38] [ERROR] [1763559209.465205990] [seyond]:  7960 net_manager.cpp:1136 strerror: 'Operation now in progress' get_connection timeout for 5.00000s, fd: 32
+[seyond_node-38] [ERROR] [1763559209.465248229] [seyond]:  7960 net_manager.cpp:115 strerror: 'Operation now in progress' Error opening HTTP connection (172.168.1.10:8010)
+[seyond_node-38] [INFO] [1763559209.465253637] [seyond]:  7960 net_manager.cpp:112 Requesting /command/?get_enabled from 172.168.1.10:8010
+[topic_state_monitor_node-21] [INFO] [1763559209.533687571] [system.topic_state_monitor_mission_planning_route]: /planning/mission_planning/route has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-14] [INFO] [1763559209.550887516] [system.topic_state_monitor_vector_map]: /map/vector_map has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-18] [INFO] [1763559209.556360252] [system.topic_state_monitor_obstacle_segmentation_pointcloud]: /perception/obstacle_segmentation/pointcloud has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-19] [INFO] [1763559209.561700448] [system.topic_state_monitor_object_recognition_objects]: /perception/object_recognition/objects has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-20] [INFO] [1763559209.582455553] [system.topic_state_monitor_traffic_light_recognition_traffic_signals]: /perception/traffic_light_recognition/traffic_signals has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-16] [INFO] [1763559209.614276703] [system.topic_state_monitor_initialpose3d]: /initialpose3d has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-17] [INFO] [1763559209.688284202] [system.topic_state_monitor_pose_twist_fusion_filter_pose]: /localization/pose_twist_fusion_filter/pose has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-22] [INFO] [1763559209.710158699] [system.topic_state_monitor_scenario_planning_trajectory]: /planning/scenario_planning/trajectory has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-25] [INFO] [1763559209.745190826] [system.topic_state_monitor_vehicle_status_velocity_status]: /vehicle/status/velocity_status has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-23] [INFO] [1763559209.745706619] [system.topic_state_monitor_trajectory_follower_control_cmd]: /control/trajectory_follower/control_cmd has not received. Set ERROR in diagnostics.
+[topic_state_monitor_node-24] [INFO] [1763559209.756661595] [system.topic_state_monitor_control_command_control_cmd]: /control/command/control_cmd has not received. Set ERROR in diagnostics.
+[component_container_mt-9] [ERROR] [1763559209.800569655] [system.system_monitor.hdd_monitor]: socket connect error. Connection refused
+[component_container_mt-9] [ERROR] [1763559209.800692659] [system.system_monitor.hdd_monitor]: Failed to unmount device : overlay
+[component_container_mt-1] [INFO] [1763559209.811985961] [perception.occupancy_grid_map.raw_pc_downsample_filter]: Input and output frames are the same. Overriding has_static_tf_only to true.
+[component_container_mt-1] [WARN] [1763559209.917578073] [pointcloud_container.rclcpp]: failed to send response to /pointcloud_container/_container/load_node (timeout): client will not receive response, at ./src/rmw_response.cpp:154, at ./src/rcl/service.c:314
+[component_container_mt-1] [INFO] [1763559209.918643610] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::ApproximateDownsampleFilterComponent>
+[component_container_mt-1] [INFO] [1763559209.918732983] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::BlockageDiagComponent>
+[component_container_mt-1] [INFO] [1763559209.918744855] [pointcloud_container]: Found class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[component_container_mt-1] [INFO] [1763559209.918753078] [pointcloud_container]: Instantiate class: rclcpp_components::NodeFactoryTemplate<autoware::pointcloud_preprocessor::CropBoxFilterComponent>
+[INFO] [automatic_pose_initializer_node-51]: process has finished cleanly [pid 8135]
+[component_container_mt-1] [INFO] [1763559209.967243852] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-28] [INFO] [1763559209.978050416] [system.topic_state_monitor_transform_map_to_base_link]: /tf has not received. Set ERROR in diagnostics.
+[robot_state_publisher-2] [INFO] [1763559209.987446782] [rclcpp]: signal_handler(signum=2)
+[component_container_mt-9] [ERROR] [1763559210.003364460] [system.system_monitor.net_monitor]: Failed to connect socket. No such file or directory
+[component_container_mt-9] [INFO] [1763559210.078900779] [rclcpp]: signal_handler(signum=2)
+[duplicated_node_checker_node-10] [INFO] [1763559210.096775072] [rclcpp]: signal_handler(signum=2)
+[processing_time_checker_node-11] [INFO] [1763559210.113766991] [rclcpp]: signal_handler(signum=2)
+[service_log_checker_node-12] [INFO] [1763559210.131133492] [rclcpp]: signal_handler(signum=2)
+[component_container_mt-9] [WARN] [1763559210.151251271] [system.system_monitor.system_monitor.system_monitor_container.rclcpp]: failed to send response to /system/system_monitor/system_monitor/system_monitor_container/_container/load_node (timeout): client will not receive response, at ./src/rmw_response.cpp:154, at ./src/rcl/service.c:314
+[component_container-13] [INFO] [1763559210.159044899] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-14] [INFO] [1763559210.175733787] [rclcpp]: signal_handler(signum=2)
+[component_container_mt-1] [ERROR] [1763559210.193825994] [pointcloud_container]: Component constructor threw an exception: could not create service: rcl node's context is invalid, at ./src/rcl/node.c:428
+[topic_state_monitor_node-15] [INFO] [1763559210.193815882] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-16] [INFO] [1763559210.219003018] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-17] [INFO] [1763559210.236584072] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-18] [INFO] [1763559210.255138665] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-19] [INFO] [1763559210.277436509] [rclcpp]: signal_handler(signum=2)
+[component_container_mt-1] [WARN] [1763559210.294858432] [pointcloud_container.rclcpp]: failed to send response to /pointcloud_container/_container/load_node (timeout): client will not receive response, at ./src/rmw_response.cpp:154, at ./src/rcl/service.c:314
+[topic_state_monitor_node-20] [INFO] [1763559210.300693493] [rclcpp]: signal_handler(signum=2)
+[INFO] [autoware_pose_initializer_node-50]: process has finished cleanly [pid 8133]
+[topic_state_monitor_node-21] [INFO] [1763559210.324016971] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-22] [INFO] [1763559210.359360801] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-23] [INFO] [1763559210.382607961] [rclcpp]: signal_handler(signum=2)
+[signal_manager-8] Traceback (most recent call last):
+[signal_manager-8]   File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/signal_manager", line 33, in <module>
+[signal_manager-8] 	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'signal_manager')())
+[signal_manager-8]   File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/signal_manager.py", line 230, in main
+[signal_manager-8] 	rclpy.shutdown()
+[signal_manager-8]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 130, in shutdown
+[signal_manager-8] 	_shutdown(context=context)
+[signal_manager-8]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/utilities.py", line 58, in shutdown
+[signal_manager-8] 	return context.shutdown()
+[signal_manager-8]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/context.py", line 102, in shutdown
+[signal_manager-8] 	self.__context.shutdown()
+[signal_manager-8] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:241
+[topic_state_monitor_node-24] [INFO] [1763559210.522739095] [rclcpp]: signal_handler(signum=2)
+[steering_status-7] Traceback (most recent call last):
+[steering_status-7]   File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/steering_status", line 33, in <module>
+[steering_status-7] 	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'steering_status')())
+[steering_status-7]   File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/steering_status.py", line 179, in main
+[steering_status-7] 	rclpy.shutdown()
+[steering_status-7]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 130, in shutdown
+[steering_status-7] 	_shutdown(context=context)
+[steering_status-7]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/utilities.py", line 58, in shutdown
+[steering_status-7] 	return context.shutdown()
+[steering_status-7]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/context.py", line 102, in shutdown
+[steering_status-7] 	self.__context.shutdown()
+[steering_status-7] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:241
+[gear_manager-5] Traceback (most recent call last):
+[gear_manager-5]   File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/gear_manager", line 33, in <module>
+[gear_manager-5] 	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'gear_manager')())
+[gear_manager-5]   File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/gear_manager.py", line 278, in main
+[gear_manager-5] 	rclpy.shutdown()
+[gear_manager-5]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 130, in shutdown
+[gear_manager-5] 	_shutdown(context=context)
+[gear_manager-5]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/utilities.py", line 58, in shutdown
+[gear_manager-5] 	return context.shutdown()
+[gear_manager-5]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/context.py", line 102, in shutdown
+[gear_manager-5] 	self.__context.shutdown()
+[gear_manager-5] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:241
+[control_mode_manager-6] Traceback (most recent call last):
+[control_mode_manager-6]   File "/AutoSDV/install/autosdv_vehicle_interface/lib/autosdv_vehicle_interface/control_mode_manager", line 33, in <module>
+[control_mode_manager-6] 	sys.exit(load_entry_point('autosdv-vehicle-interface', 'console_scripts', 'control_mode_manager')())
+[control_mode_manager-6]   File "/AutoSDV/build/autosdv_vehicle_interface/autosdv_vehicle_interface/control_mode_manager.py", line 326, in main
+[control_mode_manager-6] 	rclpy.shutdown()
+[control_mode_manager-6]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 130, in shutdown
+[control_mode_manager-6] 	_shutdown(context=context)
+[control_mode_manager-6]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/utilities.py", line 58, in shutdown
+[control_mode_manager-6] 	return context.shutdown()
+[control_mode_manager-6]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/context.py", line 102, in shutdown
+[control_mode_manager-6] 	self.__context.shutdown()
+[control_mode_manager-6] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:241
+[topic_state_monitor_node-25] [INFO] [1763559210.576566769] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-26] [INFO] [1763559210.669482324] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-27] [INFO] [1763559210.708717145] [rclcpp]: signal_handler(signum=2)
+[topic_state_monitor_node-28] [INFO] [1763559210.744277545] [rclcpp]: signal_handler(signum=2)
+[component_container-29] [INFO] [1763559210.792577700] [rclcpp]: signal_handler(signum=2)
+[component_container-30] [INFO] [1763559210.821172160] [rclcpp]: signal_handler(signum=2)
+[aggregator_node-31] [INFO] [1763559210.840832449] [rclcpp]: signal_handler(signum=2)
+[converter-33] [INFO] [1763559210.879965896] [rclcpp]: signal_handler(signum=2)
+[mrm_handler_node-34] [INFO] [1763559210.915798001] [rclcpp]: signal_handler(signum=2)
+[INFO] [autoware_ekf_localizer_node-52]: process has finished cleanly [pid 8139]
+[component_container_mt-35] [INFO] [1763559210.935355765] [rclcpp]: signal_handler(signum=2)
+[autoware_map_projection_loader_node-37] [INFO] [1763559210.979893726] [rclcpp]: signal_handler(signum=2)
+[robot_state_publisher-39] [INFO] [1763559211.014719844] [rclcpp]: signal_handler(signum=2)
+[autoware_zed_converter_node-40] [INFO] [1763559211.032106855] [rclcpp]: signal_handler(signum=2)
+[mpu9250driver-41] [INFO] [1763559211.049511690] [rclcpp]: signal_handler(signum=2)
+[imu_corrector_node-42] [INFO] [1763559211.066765010] [rclcpp]: signal_handler(signum=2)
+[INFO] [autoware_stop_filter_node-53]: process has finished cleanly [pid 8150]
+[gyro_bias_estimator_node-43] [INFO] [1763559211.085466351] [rclcpp]: signal_handler(signum=2)
+[gnss_poser-46] [INFO] [1763559211.140001268] [rclcpp]: signal_handler(signum=2)
+[autoware_vehicle_velocity_converter_node-47] [INFO] [1763559211.157226236] [rclcpp]: signal_handler(signum=2)
+[autoware_ndt_scan_matcher_node-48] [INFO] [1763559211.175241069] [rclcpp]: signal_handler(signum=2)
+[autoware_gyro_odometer_node-49] [INFO] [1763559211.192776493] [rclcpp]: signal_handler(signum=2)
+[autoware_pose_initializer_node-50] [INFO] [1763559211.211095925] [rclcpp]: signal_handler(signum=2)
+[automatic_pose_initializer_node-51] [INFO] [1763559211.229576984] [rclcpp]: signal_handler(signum=2)
+[autoware_ekf_localizer_node-52] [INFO] [1763559211.247842146] [rclcpp]: signal_handler(signum=2)
+[autoware_stop_filter_node-53] [INFO] [1763559211.264494171] [rclcpp]: signal_handler(signum=2)
+[autoware_twist2accel_node-54] [INFO] [1763559211.282041178] [rclcpp]: signal_handler(signum=2)
+[autoware_pose_instability_detector_node-55] [INFO] [1763559211.298785488] [rclcpp]: signal_handler(signum=2)
+[autoware_localization_error_monitor_node-56] [INFO] [1763559211.315594661] [rclcpp]: signal_handler(signum=2)
+[INFO] [autoware_twist2accel_node-54]: process has finished cleanly [pid 8153]
+[INFO] [autoware_pose_instability_detector_node-55]: process has finished cleanly [pid 8179]
+[INFO] [autoware_localization_error_monitor_node-56]: process has finished cleanly [pid 8199]
+[mpu9250driver-41] Error! Errno: Remote I/O error
+[ERROR] [seyond_node-38]: process[seyond_node-38] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[ERROR] [mpu9250driver-41]: process[mpu9250driver-41] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[INFO] [seyond_node-38]: sending signal 'SIGTERM' to process[seyond_node-38]
+[INFO] [mpu9250driver-41]: sending signal 'SIGTERM' to process[mpu9250driver-41]
+[ERROR] [seyond_node-38]: process has died [pid 7960, exit code -15, cmd '/AutoSDV/install/seyond/lib/seyond/seyond_node --ros-args -r __ns:=/sensing/lidar -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /tmp/launch_params_xnienjmn --params-file /tmp/launch_params_smr4mh5p --params-file /tmp/launch_params_5gokoj7j --params-file /tmp/launch_params_vu04tor_ --params-file /tmp/launch_params_dan4vtn6 --params-file /tmp/launch_params_jlhiyruv --params-file /tmp/launch_params_y02t6xrb --params-file /tmp/launch_params_epy57nix --params-file /tmp/launch_params_eghps0bj --params-file /tmp/launch_params_sqa9r2ys --params-file /tmp/launch_params_79uffh1l --params-file /tmp/launch_params_f49wxn80 --params-file /tmp/launch_params_ooqhp1hb --params-file /tmp/launch_params_99ozp0um --params-file /tmp/launch_params_cf_9mhjf --params-file /tmp/launch_params_p7xvuj9l --params-file /tmp/launch_params_aylpjps_ --params-file /tmp/launch_params_t7bee68e --params-file /tmp/launch_params_nqkoi5qt --params-file /tmp/launch_params_a_hennl3 --params-file /tmp/launch_params_w2uri1wz --params-file /tmp/launch_params_d6m32rbp --params-file /tmp/launch_params_2s7f6btj --params-file /tmp/launch_params_m6984u7y --params-file /tmp/launch_params_09bpxju9 --params-file /tmp/launch_params_lj7ebbny --params-file /tmp/launch_params_pjtssd6k --params-file /tmp/launch_params_l02_fcul --params-file /tmp/launch_params_kbh5679g --params-file /tmp/launch_params_8w_kds0u --params-file /tmp/launch_params_xttn2mmd'].
+[mpu9250driver-41] [INFO] [1763559214.787455881] [rclcpp]: signal_handler(signum=15)
+[mpu9250driver-41] terminate called after throwing an instance of 'rclcpp::exceptions::RCLError'
+[mpu9250driver-41]   what():  could not create publisher: rcl node's context is invalid, at ./src/rcl/node.c:428
+[ERROR] [mpu9250driver-41]: process has died [pid 7994, exit code -6, cmd '/AutoSDV/install/mpu9250driver/lib/mpu9250driver/mpu9250driver --ros-args -r __node:=mpu9250driver_node -r __ns:=/sensing/imu/mpu9250 -p use_sim_time:=False -p wheel_radius:=0.052 -p wheel_width:=0.049 -p wheel_base:=0.319 -p wheel_tread:=0.263 -p front_overhang:=0.043 -p rear_overhang:=0.059 -p left_overhang:=0.035 -p right_overhang:=0.035 -p vehicle_height:=0.262 -p max_steer_angle:=0.349 --params-file /AutoSDV/install/mpu9250driver/share/mpu9250driver/params/mpu9250.yaml -r imu:=imu_raw'].
+make[1]: *** [Makefile:127: launch-hw] Error 1
+make[1]: Leaving directory '/AutoSDV'
+make: *** [Makefile:141: launch] Error 2
+
+
+
+

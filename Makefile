@@ -96,7 +96,7 @@ test:
 launch-sim:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐳 Launching in SIMULATION mode (no hardware required)"
-	@echo "   launch_rviz:=false (GUI disabled)"
+	@echo "   launch_rviz:=true (GUI enabled)"
 	@echo "   launch_vehicle:=false (no GPIO hardware)"
 	@echo "   launch_sensing_driver:=false (no sensors)"
 	@echo "   launch_perception:=false (no GPU/TensorRT)"
@@ -107,7 +107,7 @@ launch-sim:
 		source install/setup.bash; \
 		export RMW_IMPLEMENTATION=rmw_fastrtps_cpp; \
 		ros2 launch autosdv_launch autosdv.launch.yaml \
-			launch_rviz:=false \
+			launch_rviz:=true \
 			launch_vehicle:=false \
 			launch_sensing_driver:=false \
 			launch_perception:=false \
