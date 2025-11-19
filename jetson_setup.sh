@@ -34,7 +34,7 @@ if [ -z "$REPO_URL" ] || [ -z "$DOCKERHUB_USERNAME" ]; then
 fi
 
 DOCKER_IMAGE="${DOCKERHUB_USERNAME}/autosdv:2025.11-latest"
-WORKSPACE_DIR="$(pwd)"
+WORKSPACE_DIR="$HOME/AutoSDV-containerization"
 
 echo ""
 echo -e "${GREEN}Configuration:${NC}"
@@ -50,23 +50,23 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 if [ -d "$WORKSPACE_DIR" ]; then
     echo -e "${YELLOW}Warning: $WORKSPACE_DIR already exists${NC}"
-    read -p "Remove and re-clone? (y/n) " -n 1 -r
+    read -p "Update existing repository? (y/n) " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf "$WORKSPACE_DIR"
+        cd "$WORKSPACE_DIR"
+        git fetch --all
+        git checkout "$REPO_BRANCH"
+        git pull
+        echo -e "${GREEN}✓ Repository updated to latest $REPO_BRANCH${NC}"
     else
-        echo "Keeping existing directory"
+        cd "$WORKSPACE_DIR"
+        echo -e "${GREEN}✓ Using existing repository${NC}"
     fi
-fi
-
-if [ ! -d "$WORKSPACE_DIR" ]; then
-    git clone -b "$REPO_BRANCH" "$REPO_URL" "$WORKSPACE_DIR"
-    echo -e "${GREEN}✓ Repository cloned (branch: $REPO_BRANCH)${NC}"
 else
-    echo -e "${GREEN}✓ Using existing repository${NC}"
+    git clone -b "$REPO_BRANCH" "$REPO_URL" "$WORKSPACE_DIR"
+    cd "$WORKSPACE_DIR"
+    echo -e "${GREEN}✓ Repository cloned (branch: $REPO_BRANCH)${NC}"
 fi
-
-cd "$WORKSPACE_DIR"
 echo ""
 
 # Step 2: Pull Docker image
