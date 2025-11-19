@@ -33,7 +33,7 @@ if [ -z "$REPO_URL" ] || [ -z "$DOCKERHUB_USERNAME" ]; then
     exit 1
 fi
 
-DOCKER_IMAGE="${DOCKERHUB_USERNAME}/autosdv:2025.02-latest"
+DOCKER_IMAGE="${DOCKERHUB_USERNAME}/autosdv:2025.11-latest"
 WORKSPACE_DIR="$HOME/AutoSDV"
 
 echo ""
@@ -81,51 +81,18 @@ echo ""
 echo -e "${GREEN}✓ Docker image pulled${NC}"
 echo ""
 
-# Step 3: Create run script
+# Step 3: Verify Makefile setup
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${BLUE}Step 3: Creating run script...${NC}"
+echo -e "${BLUE}Step 3: Verifying setup...${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-cat > "$WORKSPACE_DIR/run_container.sh" << 'RUNSCRIPT'
-#!/bin/bash
-# AutoSDV Container Run Script
-
-DOCKER_IMAGE="DOCKER_IMAGE_PLACEHOLDER"
-CONTAINER_NAME="autosdv_container"
-
-# Check if container already exists
-if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
-    echo "Container '${CONTAINER_NAME}' already exists."
-    read -p "Remove and recreate? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        docker rm -f "${CONTAINER_NAME}"
-    else
-        echo "Starting existing container..."
-        docker start -ai "${CONTAINER_NAME}"
-        exit 0
-    fi
+if [ -f "$WORKSPACE_DIR/docker/Makefile" ]; then
+    echo -e "${GREEN}✓ Docker Makefile found${NC}"
+else
+    echo -e "${RED}✗ Docker Makefile not found!${NC}"
+    exit 1
 fi
 
-# Run new container
-echo "Creating and starting container..."
-docker run -it --name "${CONTAINER_NAME}" \
-    --gpus all \
-    --net host \
-    --privileged \
-    -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-    -v $(pwd):/AutoSDV:rw \
-    -v /dev:/dev:rw \
-    -e DISPLAY=$DISPLAY \
-    -e QT_X11_NO_MITSHM=1 \
-    "${DOCKER_IMAGE}" /bin/bash
-RUNSCRIPT
-
-# Replace placeholder with actual image name
-sed -i "s|DOCKER_IMAGE_PLACEHOLDER|$DOCKER_IMAGE|g" "$WORKSPACE_DIR/run_container.sh"
-chmod +x "$WORKSPACE_DIR/run_container.sh"
-
-echo -e "${GREEN}✓ Run script created: $WORKSPACE_DIR/run_container.sh${NC}"
 echo ""
 
 # Step 4: Instructions
@@ -136,18 +103,18 @@ echo ""
 echo "Next steps:"
 echo ""
 echo "1. Start the container:"
-echo -e "   ${BLUE}cd $WORKSPACE_DIR${NC}"
-echo -e "   ${BLUE}./run_container.sh${NC}"
+echo -e "   ${BLUE}cd $WORKSPACE_DIR/docker${NC}"
+echo -e "   ${BLUE}make run${NC}"
 echo ""
 echo "2. Inside the container, build the workspace (FIRST TIME ONLY):"
 echo -e "   ${BLUE}cd /AutoSDV${NC}"
 echo -e "   ${BLUE}make build${NC}     ${YELLOW}(15-20 minutes)${NC}"
 echo ""
-echo "3. Launch AutoSDV:"
-echo -e "   ${BLUE}make launch${NC}"
+echo "3. Launch AutoSDV (auto-detects hardware):"
+echo -e "   ${BLUE}make launch${NC}     ${YELLOW}(or 'make launch-sim' / 'make launch-hw')${NC}"
 echo ""
 echo "For subsequent uses, just run:"
-echo -e "   ${BLUE}./run_container.sh${NC}"
+echo -e "   ${BLUE}cd $WORKSPACE_DIR/docker && make run${NC}"
 echo -e "   ${BLUE}cd /AutoSDV && make launch${NC}"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
