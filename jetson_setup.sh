@@ -57,15 +57,19 @@ if [ -d "$WORKSPACE_DIR" ]; then
         git fetch --all
         git checkout "$REPO_BRANCH"
         git pull
+        echo "Updating submodules..."
+        git submodule update --init --recursive
         echo -e "${GREEN}✓ Repository updated to latest $REPO_BRANCH${NC}"
     else
         cd "$WORKSPACE_DIR"
         echo -e "${GREEN}✓ Using existing repository${NC}"
     fi
 else
-    git clone -b "$REPO_BRANCH" "$REPO_URL" "$WORKSPACE_DIR"
+    git clone --recursive -b "$REPO_BRANCH" "$REPO_URL" "$WORKSPACE_DIR"
     cd "$WORKSPACE_DIR"
-    echo -e "${GREEN}✓ Repository cloned (branch: $REPO_BRANCH)${NC}"
+    echo "Initializing all submodules (including nested)..."
+    git submodule update --init --recursive
+    echo -e "${GREEN}✓ Repository cloned (branch: $REPO_BRANCH) with all submodules${NC}"
 fi
 echo ""
 
