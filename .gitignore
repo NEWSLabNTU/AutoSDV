@@ -14,3 +14,9 @@
 __pycache__/
 *.pyc
 *.pyo
+
+# tmp
+tmp/
+
+# play records
+play_log/
