@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- Trajectory Player Launch File -->
+  <!--
+    Launches the trajectory player node for open-loop control command playback.
+
+    Usage:
+      ros2 launch control_test trajectory_player.launch.xml
+      ros2 launch control_test trajectory_player.launch.xml trajectory_file:=speed_tracking_hard.yaml
+  -->
+
+  <!-- Parameters -->
+  <arg name="trajectory_file" default="speed_tracking_medium.yaml"
+       description="Trajectory YAML file name (from trajectories/ directory)"/>
+  <arg name="control_rate" default="20.0"
+       description="Control command publishing rate (Hz)"/>
+
+  <!-- Trajectory Player Node -->
+  <node pkg="control_test" exec="trajectory_player" name="trajectory_player" output="screen">
+    <param name="trajectory_file" value="$(var trajectory_file)"/>
+    <param name="control_rate" value="$(var control_rate)"/>
+  </node>
+
+</launch>

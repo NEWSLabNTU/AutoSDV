@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.xml')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'trajectories'), glob('trajectories/*.yaml')),
     ],
     install_requires=['setuptools', 'simple-pid'],
     zip_safe=True,
@@ -26,6 +27,7 @@ setup(
         'console_scripts': [
             'control_command_service = control_test.control_command_service:main',
             'keyboard_control = control_test.keyboard_control:main',
+            'trajectory_player = control_test.trajectory_player:main',
         ],
     },
 )
