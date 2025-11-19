@@ -1,7 +1,8 @@
 # AutoSDV Quick Start Guide 🚀
 
-**Last Updated:** November 14, 2025  
-**Status:** Container built and tested, ready for deployment
+**Last Updated:** November 19, 2025  
+**Status:** ARM64 Docker images available on DockerHub  
+**Version:** 2025.11-v1.0
 
 ---
 
@@ -28,17 +29,33 @@ make run
 # Then inside: cd /AutoSDV && make launch-sim
 ```
 
-### If Need to Rebuild
+### Using Pre-built DockerHub Image (Recommended)
 
 ```bash
-cd ~/Container_Test/AutoSDV-containerization
-git pull
-docker rm -f autosdv-container
-cd docker && make run
+# Pull the latest image from DockerHub
+docker pull misuhsieh001/autosdv:2025.11-latest
+
+# Run it
+cd ~/AutoSDV-containerization/docker
+make run
 
 # Inside container:
 cd /AutoSDV
-rm -rf build install log
+make build         # Build workspace once
+make launch-sim    # Launch!
+```
+
+### If Need to Build from Source
+
+```bash
+cd ~/AutoSDV-containerization
+git pull
+docker rm -f autosdv-container
+cd docker && make build-force  # 20-30 minutes
+make run
+
+# Inside container:
+cd /AutoSDV
 make build         # 15-20 minutes
 make launch-sim    # Launch!
 ```

@@ -6,11 +6,26 @@ This directory contains Docker configuration files for building and running Auto
 
 The Docker environment is configured to:
 
-- Use NVIDIA L4T (Linux for Tegra) as the base image
-- Include TensorRT for deep learning acceleration
+- Use NVIDIA L4T (Linux for Tegra) r36.3 as the base image with TensorRT r8.6.2
+- Include ZED SDK 5.0 for JetPack 6.0 compatibility
+- Support ARM64 architecture with cross-platform builds from x86 hosts
 - Configure necessary NVIDIA repositories and dependencies
 - Clone the AutoSDV repository and check out the **exact same commit** as your local repository
 - Provide a ready-to-use environment that matches your current code state
+
+## Pre-built Images
+
+Pre-built ARM64 images are available on DockerHub:
+
+```bash
+# Pull the latest version
+docker pull misuhsieh001/autosdv:2025.11-latest
+
+# Or specific version
+docker pull misuhsieh001/autosdv:2025.11-v1.0
+```
+
+The Makefile will automatically detect and use the DockerHub image if available.
 
 ## Requirements
 
@@ -37,20 +52,33 @@ This installs required dependencies like QEMU and configures Docker to handle AR
 
 ### Building the Image
 
+**Option 1: Use pre-built image (Recommended)**
+
+```bash
+# The Makefile automatically detects and uses DockerHub images
+make run
+```
+
+**Option 2: Build from source**
+
 Build the AutoSDV Docker image with:
 
 ```bash
-make build
+make build        # Standard build
+# OR
+make build-force  # Force rebuild without cache
 ```
 
 This creates a Docker image named `autosdv` configured for ARM64 architecture, suitable for Jetson devices. The image will:
 
-1. Use the **current commit** of your local repository
-2. Clone the repository and check out that same commit inside the container
-3. Build with all necessary dependencies and artifacts
+1. Use the **current commit** of your local repository  
+2. Clone the repository and check out that same commit inside the container  
+3. Build with all necessary dependencies (ZED SDK, ROS 2 Humble, seyond SDK, etc.)  
 4. Create two tags:
-   - `autosdv:<short-hash>` (e.g., `autosdv:a05519`)
-   - `autosdv:<full-hash>` (e.g., `autosdv:a0551926248c75aac9411d53...")
+   - `autosdv:<short-hash>` (e.g., `autosdv:be3c163`)
+   - `autosdv:<full-hash>` (e.g., `autosdv:be3c163261d9af21a34325762919cc22b29ec820`)
+
+**Build time:** 20-30 minutes on x86 host with QEMU emulation
 
 ### Running the Container
 
