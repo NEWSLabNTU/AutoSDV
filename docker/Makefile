@@ -110,12 +110,12 @@ build-force: check-commit
 
 
 # Auto-detect which image to use (local build or DockerHub)
-DOCKERHUB_IMAGE := misuhsieh001/autosdv:2025.02-latest
+DOCKERHUB_IMAGE := misuhsieh001/autosdv:2025.11-latest
 IMAGE_TO_USE := $(shell \
-	if $(DOCKER_CMD) image inspect $(IMAGE_NAME):$(SHORT_HASH) >/dev/null 2>&1; then \
-		echo "$(IMAGE_NAME):$(SHORT_HASH)"; \
-	elif $(DOCKER_CMD) image inspect $(DOCKERHUB_IMAGE) >/dev/null 2>&1; then \
+	if $(DOCKER_CMD) image inspect $(DOCKERHUB_IMAGE) >/dev/null 2>&1; then \
 		echo "$(DOCKERHUB_IMAGE)"; \
+	elif $(DOCKER_CMD) image inspect $(IMAGE_NAME):$(SHORT_HASH) >/dev/null 2>&1; then \
+		echo "$(IMAGE_NAME):$(SHORT_HASH)"; \
 	else \
 		echo ""; \
 	fi)
