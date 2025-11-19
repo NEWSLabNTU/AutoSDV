@@ -8,9 +8,9 @@ set -e
 
 # Configuration
 IMAGE_NAME="autosdv"
-IMAGE_TAG="4af9537"
-VERSION="2025.02-v1.0"
-LATEST_TAG="2025.02-latest"
+IMAGE_TAG="be3c163"
+VERSION="2025.11-v1.0"
+LATEST_TAG="2025.11-latest"
 
 # Colors for output
 RED='\033[0;31m'
