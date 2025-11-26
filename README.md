@@ -42,16 +42,31 @@ technologies.
 
 ## Releases
 
-This project is released based on avaialble Autoware releases.
+This project is released based on available Autoware releases.
 
-- [2025.02](https://github.com/NEWSLabNTU/AutoSDV/tree/2025.02)
-- [2024.11](https://github.com/NEWSLabNTU/AutoSDV/tree/2024.11)
-- [2024.02](https://github.com/NEWSLabNTU/AutoSDV/tree/2024.02)
+- [2025.11-containerization](https://github.com/misuhsieh001/AutoSDV-containerization/tree/2025.11-containerization) - ARM64 Docker support with cross-platform builds
+- [2025.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2025.02)
+- [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11)
+- [2024.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.02)
+
+## Docker Images
+
+Pre-built ARM64 Docker images are available on DockerHub:
+
+```bash
+# Pull the latest 2025.11 containerized version
+docker pull misuhsieh001/autosdv:2025.11-latest
+
+# Or specific version
+docker pull misuhsieh001/autosdv:2025.11-v1.0
+```
+
+See [docker/README.md](docker/README.md) for usage instructions.
 
 Please download and checkout to the release branch using this command.
 
 ```sh
-git clone -b 2025.02 --recurse-submodules https://github.com/NEWSLabNTU/AutoSDV.git
+git clone -b 2025.02 --recurse-submodules git@github.com:NEWSLabNTU/F1EIGHTH.git
 ```
 
 ## License
@@ -66,6 +81,7 @@ it as follows:
   title = {AutoSDV: A Software-Defined Vehicle Platform for Research and Education},
   year = {2025},
   institution = {National Taiwan University},
-  url = {https://github.com/yourusername/autosdv},
+  url = {https://github.com/NEWSLabNTU/AutoSDV},
   note = {Accessed: 2025-04-28}
 }
+```
