@@ -1,0 +1,202 @@
+# AutoSDV Development Environment Setup
+# Usage: just setup          - Run full setup
+#        just resume         - Resume from last failure
+#        just <step>         - Run specific step
+#        just clean-markers  - Reset all checkpoints
+
+set shell := ["bash", "-uc"]
+set positional-arguments
+
+# Directories
+root_dir := justfile_directory()
+marker_dir := root_dir / ".markers"
+scripts_dir := root_dir / "scripts"
+files_dir := root_dir / "files"
+data_dir := root_dir / "/../../data"
+
+# Architecture detection
+arch := `uname -m`
+
+# Export for child scripts
+export DATA_DIR := data_dir
+export ARCH := arch
+
+# Colors for output
+green := '\033[0;32m'
+yellow := '\033[0;33m'
+red := '\033[0;31m'
+nc := '\033[0m'
+
+# Default recipe - show help
+default:
+    @just --list
+
+# Full setup (runs all steps in order)
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev
+    @printf "{{green}}✓ Setup complete!{{nc}}\n"
+
+# Alias for setup (resume from where it left off due to markers)
+resume: setup
+
+# Download ML model artifacts (optional, large download)
+download-artifacts: _init
+    @just _run artifacts "{{scripts_dir}}/download-artifacts.sh"
+
+# Install ZED SDK (optional, for ZED camera users)
+install-zed-sdk: _init
+    @just _run zed-sdk "{{scripts_dir}}/install-zed-sdk.sh"
+
+# === Individual Setup Steps ===
+
+# Install ROS 2 Humble
+ros2: _init
+    @just _run ros2 "{{scripts_dir}}/install-ros2.sh"
+
+# Install ROS 2 development tools (colcon, rosdep, etc.)
+ros2-dev-tools: _init ros2
+    @just _run ros2-dev-tools "{{scripts_dir}}/install-ros2-dev-tools.sh"
+
+# Install gdown (Google Drive downloader)
+gdown: _init
+    @just _run gdown "pip3 install --user gdown"
+
+# Install GeographicLib tools and data
+geographiclib: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/geographiclib" ]] && printf "{{green}}✓{{nc}} geographiclib already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing geographiclib...\n"
+    sudo apt-get update
+    sudo apt-get install -y geographiclib-tools
+    if [[ ! -f /usr/share/GeographicLib/geoids/egm2008-1.pgm ]]; then
+        sudo geographiclib-get-geoids egm2008-1
+    fi
+    touch "{{marker_dir}}/geographiclib"
+    printf "{{green}}✓{{nc}} geographiclib done\n"
+
+# Add AutonomouStuff (pacmod) apt repository
+pacmod: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/pacmod" ]] && printf "{{green}}✓{{nc}} pacmod already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Setting up pacmod repository...\n"
+    sudo apt-get install -y apt-transport-https
+    CODENAME=$(lsb_release -sc)
+    echo "deb [trusted=yes] https://s3.amazonaws.com/autonomoustuff-repo/ ${CODENAME} main" | \
+        sudo tee /etc/apt/sources.list.d/autonomoustuff-public.list > /dev/null
+    sudo mkdir -p /etc/ros/rosdep/sources.list.d
+    echo "yaml https://s3.amazonaws.com/autonomoustuff-repo/autonomoustuff-public-humble.yaml" | \
+        sudo tee /etc/ros/rosdep/sources.list.d/40-autonomoustuff-public-humble.list > /dev/null
+    sudo apt-get update
+    touch "{{marker_dir}}/pacmod"
+    printf "{{green}}✓{{nc}} pacmod done\n"
+
+# Install development tools (git-lfs, pre-commit, Go, plotjuggler)
+dev-tools: _init ros2
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/dev-tools" ]] && printf "{{green}}✓{{nc}} dev-tools already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing dev tools...\n"
+    sudo apt-get update
+    sudo apt-get install -y git-lfs golang
+    pip3 install --user pre-commit clang-format==17.0.5
+    # Check if plotjuggler is held before installing
+    if ! apt-mark showhold | grep -q "ros-humble-plotjuggler-ros"; then
+        sudo apt-get install -y ros-humble-plotjuggler-ros || true
+    fi
+    touch "{{marker_dir}}/dev-tools"
+    printf "{{green}}✓{{nc}} dev-tools done\n"
+
+# Install Blickfeld scanner library
+blickfeld: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/blickfeld" ]] && printf "{{green}}✓{{nc}} blickfeld already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing Blickfeld scanner library...\n"
+    mkdir -p "{{data_dir}}/blickfeld-scanner-lib"
+    if [[ "{{arch}}" == "x86_64" ]]; then
+        URL="https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
+        DEB="{{data_dir}}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
+    else
+        URL="https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_arm64.deb"
+        DEB="{{data_dir}}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_arm64.deb"
+    fi
+    [[ ! -f "$DEB" ]] && curl -fSL -o "$DEB" "$URL"
+    sudo apt-get install -y "$DEB"
+    touch "{{marker_dir}}/blickfeld"
+    printf "{{green}}✓{{nc}} blickfeld done\n"
+
+# Install Autoware Debian packages
+autoware-debian: _init ros2
+    @just _run autoware-debian "{{scripts_dir}}/install-autoware-debian.sh"
+
+# Install AutoSDV Python dependencies
+python-deps: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/python-deps" ]] && printf "{{green}}✓{{nc}} python-deps already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing Python dependencies...\n"
+    pip3 install --user \
+        Adafruit-PCA9685==1.0.1 \
+        simple-pid==2.0.1 \
+        ros2systemd==0.5.1
+    touch "{{marker_dir}}/python-deps"
+    printf "{{green}}✓{{nc}} python-deps done\n"
+
+# Install u-blox GPS udev rules
+ublox-udev: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/ublox-udev" ]] && printf "{{green}}✓{{nc}} ublox-udev already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing u-blox GPS udev rules...\n"
+    sudo cp "{{files_dir}}/99-ublox-gps.rules" /etc/udev/rules.d/
+    sudo chmod 644 /etc/udev/rules.d/99-ublox-gps.rules
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+    # Add user to dialout group
+    sudo usermod -aG dialout "$USER" || true
+    touch "{{marker_dir}}/ublox-udev"
+    printf "{{green}}✓{{nc}} ublox-udev done\n"
+    printf "{{yellow}}Note:{{nc}} Log out and back in for dialout group to take effect.\n"
+
+# === Utility Recipes ===
+
+# Initialize marker directory
+_init:
+    @mkdir -p "{{marker_dir}}"
+
+# Run a script with marker check
+_run name cmd:
+    #!/usr/bin/env bash
+    if [[ -f "{{marker_dir}}/{{name}}" ]]; then
+        printf "{{green}}✓{{nc}} {{name}} already done\n"
+        exit 0
+    fi
+    printf "{{yellow}}→{{nc}} Running {{name}}...\n"
+    set -e
+    {{cmd}}
+    touch "{{marker_dir}}/{{name}}"
+    printf "{{green}}✓{{nc}} {{name}} done\n"
+
+# Clean all markers (force re-run of all steps)
+clean-markers:
+    rm -rf "{{marker_dir}}"
+    @printf "{{yellow}}→{{nc}} Markers cleared. Next 'just setup' will run all steps.\n"
+
+# Clean specific marker
+clean-marker name:
+    rm -f "{{marker_dir}}/{{name}}"
+    @printf "{{yellow}}→{{nc}} Marker '{{name}}' cleared.\n"
+
+# Show setup status
+status:
+    #!/usr/bin/env bash
+    echo "Setup Status:"
+    echo "============="
+    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev artifacts zed-sdk; do
+        if [[ -f "{{marker_dir}}/$step" ]]; then
+            printf "{{green}}✓{{nc}} %s\n" "$step"
+        else
+            printf "{{red}}○{{nc}} %s\n" "$step"
+        fi
+    done
