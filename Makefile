@@ -168,3 +168,7 @@ status-simulation:
 .PHONY: logs-simulation
 logs-simulation:
 	journalctl --user -u autosdv-simulation -f
+
+.PHONY: run-rviz
+run-rviz:
+	rviz2 -d ./src/launcher/autosdv_launch/rviz/autosdv.rviz
