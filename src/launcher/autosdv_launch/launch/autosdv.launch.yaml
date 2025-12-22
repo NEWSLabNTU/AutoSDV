@@ -64,7 +64,7 @@ launch:
         file: "$(find-pkg-share autosdv_isaac_slam_launch)/launch/isaac_slam_with_zed.launch.xml"
         arg:
         - name: camera_namespace
-          value: /sensing/camera/$(var camera_model)/zed_node
+          value: /sensing/camera/$(var camera_model)/$(var camera_model)
         - name: enable_imu_fusion
           value: "true"
         - name: enable_visualization

@@ -3,7 +3,9 @@
   <!-- Arguments -->
   <arg name="enable_imu_fusion" default="true" description="Enable IMU fusion in visual SLAM"/>
   <arg name="enable_visualization" default="true" description="Enable SLAM visualization"/>
-  <arg name="camera_namespace" default="/sensing/camera/zedxm/zed_node" description="ZED camera namespace"/>
+  <!-- Note: ZED wrapper overrides node_name with camera_name when namespace is specified -->
+  <!-- Topics are published at: /sensing/camera/<camera_name>/<camera_name>/... -->
+  <arg name="camera_namespace" default="/sensing/camera/zedxm/zedxm" description="ZED camera namespace"/>
 
   <!-- Image Format Converters (RGB8 -> Mono8) -->
   <!-- Isaac SLAM requires mono8 images, but ZED publishes rgb8 -->
