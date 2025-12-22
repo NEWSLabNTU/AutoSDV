@@ -38,7 +38,7 @@ launch:
 
 - arg:
     name: use_ntrip
-    default: "false"
+    default: "true"
     description: "Enable NTRIP client for RTK corrections (ublox only)"
 
 - arg:
