@@ -11,30 +11,23 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - `make prepare` - Install ROS dependencies using rosdep
 - `make build` - Build all ROS packages with colcon (Release mode, symlink-install)
 - `make test` - Run tests for all packages in src/ directory and show results
-- `make launch` - Launch AutoSDV using systemd service (installs service if needed, then starts)
-- `make stop` - Stop the running AutoSDV system
-- `make restart` - Restart the AutoSDV system
-- `make status` - Show AutoSDV system status and logs
-- `make controller` - Run keyboard manual control
-- `make test-control` - Launch PID speed control test in tmux (controller + speedometer + monitor)
-- `make plot-test` - Launch PlotJuggler for PID speed control visualization
-- `make plot-control` - Launch PlotJuggler with actuator node debug layout
-- `make plot-pid` - Launch PlotJuggler with PID speed control layout
+- `make launch` - Launch AutoSDV system with web UI at http://localhost:8081
+  - Logs are saved to `play_log/latest/` directory
+  - Use Ctrl+C to stop the system
+- `make run-controller` - Run keyboard manual control
+- `make play-basic-control` - Launch vehicle control test (basic_control.launch.xml)
+- `make run-straight-10m` - Run trajectory player with straight_10m.yaml
+- `make run-circle` - Run trajectory player with circle.yaml
+- `make run-rviz` - Launch RViz with AutoSDV configuration
 - `make clean` - Remove build, install, and log directories (with confirmation)
 - `make checkout` - Initialize and update all git submodules
 - `make setup` - Set up development environment using Ansible scripts
 
-### AutoSDV Service Management (autosdv command)
-After building (`make build`), the `autosdv` command is available:
-- `autosdv install` - Install systemd user service (done automatically by `make launch`)
-- `autosdv start` - Start the AutoSDV system
-- `autosdv stop` - Stop the AutoSDV system
-- `autosdv restart` - Restart the system
-- `autosdv status` - Show system status and recent logs
-- `autosdv enable` - Enable automatic startup at login
-- `autosdv disable` - Disable automatic startup
-- `autosdv monitor` - Open web monitor in browser (http://localhost:8080/)
-- `autosdv uninstall` - Remove the systemd service
+### Simulation Commands
+- `make start-simulation` - Start Autoware logging simulator using systemd
+- `make stop-simulation` - Stop the running simulation
+- `make status-simulation` - Show simulation status
+- `make logs-simulation` - Follow simulation logs
 
 ### Manual Commands
 - `source install/setup.bash` - Source the ROS workspace (required before running nodes)
@@ -46,9 +39,9 @@ After building (`make build`), the `autosdv` command is available:
 ## Architecture Overview
 
 ### Core Structure
-- **src/launcher/autosdv_launch/** - Main launch configurations and system monitor
-  - Provides web-based system monitor at http://localhost:8080/
+- **src/launcher/autosdv_launch/** - Main launch configurations
   - Main launch file: `autosdv.launch.yaml`
+  - Web-based node management UI at http://localhost:8081/ (via play_launch)
 - **src/localization/** - Localization-related packages
   - `odometry_pose_bridge/` - Generic odometry-to-pose converter
   - `autosdv_isaac_slam_launch/` - Isaac ROS Visual SLAM integration
@@ -345,30 +338,21 @@ Python packages follow ROS 2 conventions with:
 - Built for Ubuntu with NVIDIA GPU support
 - Uses colcon build system (not catkin)
 - Symlink installs enabled for faster development iteration
-- System monitor available at http://localhost:8080/ when launched
+- Web-based node management UI available at http://localhost:8081/ when launched
 
 ## System Management
 
-### Systemd Service Integration
-- AutoSDV now runs as a systemd user service for better process management
-- Service is automatically installed on first `make launch`
-- Provides clean shutdown with no orphan processes
-- Logs accessible via `autosdv status` or `systemctl --user status autosdv`
-- Service is NOT enabled for automatic startup by default (use `autosdv enable` if needed)
+### Launch System (play_launch)
+- AutoSDV uses `play_launch` for launching and managing nodes
+- Web UI available at http://localhost:8081/ for node management
+- Logs are saved to `play_log/latest/` directory
+- Use Ctrl+C to stop the system gracefully
 
 ### Process Management
-- The system handles multiple Ctrl-C presses gracefully
-- First Ctrl-C: Graceful shutdown attempt
-- Second Ctrl-C: Force shutdown all processes
+- The system handles Ctrl-C gracefully for clean shutdown
 - No orphan processes left after shutdown
 
 ### Known Issues and Solutions
-
-#### Journal Logging
-If `journalctl --user` doesn't show logs:
-1. Run `sudo ./enable_journal.sh` to enable persistent journal storage
-2. Log out and back in for group changes to take effect
-3. Alternatively, use `systemctl --user status autosdv` to view logs
 
 #### Network Monitor Error
 - Network monitor may show socket connection errors
@@ -526,10 +510,11 @@ ZED camera object detection has been integrated with Autoware's perception pipel
 
 ### Namespace Structure
 - **Important**: camera.launch.xml uses `/camera` namespace (NOT `/sensing/camera`) to avoid double namespacing
+- **Note**: ZED wrapper overrides `node_name` with `camera_name` when namespace is specified
 - Topics follow Autoware convention:
-  - ZED objects: `/sensing/camera/zedxm/zed_node/obj_det/objects`
+  - ZED objects: `/sensing/camera/zedxm/zedxm/obj_det/objects`
   - Autoware format: `/perception/object_recognition/detection/camera_objects`
-  - Colored point cloud: `/sensing/camera/zedxm/zed_node/point_cloud/cloud_registered`
+  - Colored point cloud: `/sensing/camera/zedxm/zedxm/point_cloud/cloud_registered`
 
 ### Container Integration
 - ZED camera runs as a composable node in the shared `/pointcloud_container`
@@ -654,3 +639,13 @@ make launch ARGS="enable_zed_object_detection:=true"
   - Added monitoring topics: `/sensing/gnss/ntrip/rtcm`, `/sensing/gnss/ublox/nmea_sentence`, `/sensing/gnss/ublox/rxmrtcm`
   - Hardware ready for SimpleRTK2B Fusion (ZED-F9R) when connected
   - Usage: `make launch ARGS="gnss_receiver:=ublox use_ntrip:=true"`
+- **Migrated to play_launch and fixed ZED topic naming** (2025-12-22)
+  - Replaced systemd service with `play_launch` for launching AutoSDV
+  - Web UI for node management at http://localhost:8081/
+  - Logs saved to `play_log/latest/` directory
+  - Removed `make stop/restart/status` targets (use Ctrl+C to stop)
+  - Fixed ZED camera topic naming mismatch:
+    - ZED wrapper overrides `node_name` with `camera_name` when namespace is specified
+    - Topics are now correctly at `/sensing/camera/zedxm/zedxm/...`
+    - Updated all subscriber configs: isaac_slam, monitor_topics, imu.launch.xml, rviz
+  - Added `use_mapless_mode` parameter for indoor operation without localization
