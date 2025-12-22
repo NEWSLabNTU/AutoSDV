@@ -12,31 +12,21 @@ default:
 	@echo '    Run tests for packages in src/ directory.'
 	@echo
 	@echo 'make launch'
-	@echo '    Launch AutoSDV system using systemd service.'
+	@echo '    Launch AutoSDV system with web UI at http://localhost:8081'
+	@echo '    Logs are saved to play_log/latest/ directory.'
+	@echo '    Use Ctrl+C to stop the system.'
 	@echo
-	@echo 'make stop'
-	@echo '    Stop the running AutoSDV system.'
-	@echo
-	@echo 'make restart'
-	@echo '    Restart the AutoSDV system.'
-	@echo
-	@echo 'make status'
-	@echo '    Show AutoSDV system status and logs.'
-	@echo
-	@echo 'make controller'
+	@echo 'make run-controller'
 	@echo '    Launch manual keyboard control.'
 	@echo
 	@echo 'make play-basic-control'
-	@echo '    Launch vehicle control test with tmux (system + controller + monitor).'
+	@echo '    Launch vehicle control test (basic_control.launch.xml).'
 	@echo
 	@echo 'make run-straight-10m'
 	@echo '    Run trajectory player with straight_10m.yaml (10m straight line).'
 	@echo
 	@echo 'make run-circle'
 	@echo '    Run trajectory player with circle.yaml (circular path).'
-	@echo
-	@echo 'make launch_camera_calibration'
-	@echo '    Launch camera calibration with ZED camera and calibrator.'
 	@echo
 	@echo 'make start-simulation'
 	@echo '    Start Autoware logging simulator using systemd.'
@@ -49,6 +39,9 @@ default:
 	@echo
 	@echo 'make logs-simulation'
 	@echo '    Follow simulation logs.'
+	@echo
+	@echo 'make run-rviz'
+	@echo '    Launch RViz with AutoSDV configuration.'
 	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
@@ -88,26 +81,11 @@ test:
 
 .PHONY: launch
 launch:
-	ros2 launch autosdv_launch autosdv.launch.yaml
-
-.PHONY: play
-play:
-	play_launch launch autosdv_launch autosdv.launch.yaml
-
-.PHONY: stop
-stop:
-	ros2 systemd stop autosdv
-
-.PHONY: restart
-restart: start
-
-.PHONY: status
-status:
-	ros2 systemd status autosdv
-
-.PHONY: logs
-logs:
-	ros2 systemd logs autosdv
+	play_launch launch \
+		--web-ui \
+		--web-ui-addr 0.0.0.0 \
+		--web-ui-port 8081 \
+		autosdv_launch autosdv.launch.yaml
 
 .PHONY: run-controller
 run-controller:
@@ -152,7 +130,7 @@ start-simulation:
 		--setenv=CYCLONEDDS_URI="file://$(PWD)/cyclonedds.xml" \
 		--setenv=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
 		/bin/bash -c "source /opt/ros/humble/setup.bash && source $(PWD)/install/setup.bash && \
-		ros2 launch autoware_launch logging_simulator.launch.xml \
+		play_launch launch autoware_launch logging_simulator.launch.xml \
 			map_path:=data/COSS-map-planning/ \
 			vehicle_model:=autosdv_vehicle \
 			sensor_model:=autosdv_sensor_kit"
