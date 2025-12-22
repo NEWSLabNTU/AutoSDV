@@ -1,15 +1,43 @@
 # Circular Trajectory - 15 degree steering angle
 # Vehicle follows a circular path with constant speed and steering angle
-
+#
+## ADD 202512i05 ##
+## this is coss.yaml sometimes , you should use real_circle.yaml##
 waypoints:
-  # Start from rest
-  - {time: 0.0, speed: 0.0, steering_angle: 7.5}
 
-  # Accelerate to cruise speed with gradual steering
-  - {time: 1.0, speed: 2.0, steering_angle: 7.5}
+# waypoint 1 to 2
+  - {time: 0.0, speed: 0.0, steering_angle: -0.0}
 
-  # Maintain constant speed and steering (circular motion)
-  - {time: 8.0, speed: 2.0, steering_angle: 7.5}
+  - {time: 0.5, speed: 2.0, steering_angle: -0.0}
 
-  # Decelerate and straighten out
-  - {time: 9.0, speed: 0.0, steering_angle: 7.5}
+  - {time: 6.5, speed: 2.0, steering_angle: -0.35}
+
+  - {time: 7.2, speed: 2.0, steering_angle: -0.15}
+
+  - {time: 8.1, speed: 2.0, steering_angle: -0.15}
+
+  - {time: 8.5, speed: 0.0, steering_angle: -0.0}
+
+
+# waypoint 2 to 3
+  - {time: 9.0, speed: 0.0, steering_angle: 0.5}
+
+  - {time: 9.5, speed: 2.0, steering_angle: 0.5}
+
+  - {time: 12.3, speed: 2.0, steering_angle: 0.45}
+
+  - {time: 13.5, speed: 0.7, steering_angle: 0.1}
+
+  - {time: 13.6, speed: 0.0, steering_angle: 0.0}
+
+
+# waypoint 3 to 4
+  - {time: 14.0, speed: 0.0, steering_angle: 0.0}
+
+  - {time: 14.5, speed: 2.0, steering_angle: -0.70}
+
+  - {time: 17.5, speed: 2.0, steering_angle: -0.70}
+
+  - {time: 18.0, speed: 0.7, steering_angle: 0.0}
+
+  - {time: 18.2, speed: 0.0, steering_angle: 0.0}
