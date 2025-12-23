@@ -7,7 +7,7 @@ launch:
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
-    default: "robin_zed"
+    default: "vlp32c_zed"
     description: "Predefined sensor suite: robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, cube1_usb, custom"
 
 # Individual Sensor Parameters (override suite defaults when sensor_suite=custom)
@@ -108,7 +108,7 @@ launch:
       value: "true"
     -
       name: launch_perception
-      value: "true"
+      value: "false"
     -
       name: launch_planning
       value: "true"

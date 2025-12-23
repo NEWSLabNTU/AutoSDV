@@ -3,15 +3,16 @@
   <!-- Arguments -->
   <arg name="enable_imu_fusion" default="true" description="Enable IMU fusion in visual SLAM"/>
   <arg name="enable_visualization" default="true" description="Enable SLAM visualization"/>
-  <!-- Note: ZED wrapper overrides node_name with camera_name when namespace is specified -->
-  <!-- Topics are published at: /sensing/camera/<camera_name>/<camera_name>/... -->
-  <arg name="camera_namespace" default="/sensing/camera/zedxm/zedxm" description="ZED camera namespace"/>
+  <!-- ZED 5.1.0: Topics are at /sensing/camera/<camera_name>/... -->
+  <arg name="camera_namespace" default="/sensing/camera/zedxm" description="ZED camera namespace"/>
 
   <!-- Image Format Converters (RGB8 -> Mono8) -->
   <!-- Isaac SLAM requires mono8 images, but ZED publishes rgb8 -->
+  <!-- ZED 5.1.0 topic names: left/color/rect/image (was left/image_rect_color) -->
+  <!-- NOTE: ZED must be configured with publish_left_right: true for stereo output -->
   <node pkg="isaac_ros_image_proc" exec="isaac_ros_image_format_converter_node"
         name="left_image_converter" namespace="isaac_slam">
-    <remap from="image_raw" to="$(var camera_namespace)/left/image_rect_color"/>
+    <remap from="image_raw" to="$(var camera_namespace)/left/color/rect/image"/>
     <remap from="image" to="/visual_slam/image_0"/>
     <param name="encoding_desired" value="mono8"/>
     <param name="image_width" value="1280"/>
@@ -20,7 +21,7 @@
 
   <node pkg="isaac_ros_image_proc" exec="isaac_ros_image_format_converter_node"
         name="right_image_converter" namespace="isaac_slam">
-    <remap from="image_raw" to="$(var camera_namespace)/right/image_rect_color"/>
+    <remap from="image_raw" to="$(var camera_namespace)/right/color/rect/image"/>
     <remap from="image" to="/visual_slam/image_1"/>
     <param name="encoding_desired" value="mono8"/>
     <param name="image_width" value="1280"/>
@@ -28,12 +29,14 @@
   </node>
 
   <!-- Topic Relays for Camera Info and IMU -->
+  <!-- ZED 5.1.0: camera_info topics unchanged -->
   <node pkg="topic_tools" exec="relay" name="left_camera_info_relay" namespace="isaac_slam"
-        args="$(var camera_namespace)/left/camera_info /visual_slam/camera_info_0"/>
+        args="$(var camera_namespace)/left/color/rect/camera_info /visual_slam/camera_info_0"/>
 
   <node pkg="topic_tools" exec="relay" name="right_camera_info_relay" namespace="isaac_slam"
-        args="$(var camera_namespace)/right/camera_info /visual_slam/camera_info_1"/>
+        args="$(var camera_namespace)/right/color/rect/camera_info /visual_slam/camera_info_1"/>
 
+  <!-- ZED 5.1.0: IMU topic is imu/data (not imu/data_raw) -->
   <node pkg="topic_tools" exec="relay" name="imu_relay" namespace="isaac_slam"
         args="$(var camera_namespace)/imu/data /visual_slam/imu"/>
 

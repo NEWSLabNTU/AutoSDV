@@ -46,7 +46,7 @@ Main launch file that integrates all Isaac SLAM components (without ZED camera).
 **Arguments:**
 - `enable_imu_fusion` (default: true): Enable IMU fusion in visual SLAM
 - `enable_visualization` (default: true): Enable SLAM visualization topics
-- `camera_namespace` (default: /sensing/camera/zedxm/zedxm): ZED camera namespace
+- `camera_namespace` (default: /sensing/camera/zedxm): ZED camera namespace
 
 **Nodes launched:**
 1. **left_image_converter**: Converts left image from rgb8 to mono8
@@ -108,12 +108,13 @@ See config file for full parameter list.
 
 ## Topic Mapping
 
-### Input Topics (from ZED camera)
-- `/sensing/camera/zedxm/zedxm/left/image_rect_color` (sensor_msgs/Image, rgb8)
-- `/sensing/camera/zedxm/zedxm/right/image_rect_color` (sensor_msgs/Image, rgb8)
-- `/sensing/camera/zedxm/zedxm/left/camera_info` (sensor_msgs/CameraInfo)
-- `/sensing/camera/zedxm/zedxm/right/camera_info` (sensor_msgs/CameraInfo)
-- `/sensing/camera/zedxm/zedxm/imu/data` (sensor_msgs/Imu)
+### Input Topics (from ZED camera - ZED 5.1.0 naming)
+**Note:** ZED must be configured with `publish_left_right: true` for stereo output.
+- `/sensing/camera/zedxm/left/color/rect/image` (sensor_msgs/Image, rgb8)
+- `/sensing/camera/zedxm/right/color/rect/image` (sensor_msgs/Image, rgb8)
+- `/sensing/camera/zedxm/left/color/rect/camera_info` (sensor_msgs/CameraInfo)
+- `/sensing/camera/zedxm/right/color/rect/camera_info` (sensor_msgs/CameraInfo)
+- `/sensing/camera/zedxm/imu/data` (sensor_msgs/Imu)
 
 ### Internal Topics (Isaac SLAM)
 - `/visual_slam/image_0` (sensor_msgs/Image, mono8) - Converted left image
@@ -192,13 +193,16 @@ ros2 topic hz /localization/pose_estimator/pose_with_covariance
 Launch via AutoSDV main launch (see Phase 4 integration):
 
 ```bash
-make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
+# Enable Isaac SLAM with stereo output from ZED camera
+make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm enable_stereo_output:=true"
 ```
+
+**Note:** The `enable_stereo_output:=true` parameter is required to enable left/right stereo image publishing from the ZED camera (ZED 5.1.0 requires explicit configuration for stereo output).
 
 ## Troubleshooting
 
 ### No odometry output
-- Check ZED camera is publishing images: `ros2 topic hz /sensing/camera/zedxm/zedxm/left/image_rect_color`
+- Check ZED camera is publishing images: `ros2 topic hz /sensing/camera/zedxm/left/image_rect_color`
 - Check image converters running: `ros2 node list | grep converter`
 - Check visual SLAM status: `ros2 topic echo /isaac_slam/visual_slam_node/status`
   - `vo_state: 1` = tracking success
@@ -207,7 +211,7 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 ### Tracking failures
 - Ensure sufficient lighting and texture in environment
 - Avoid rapid camera motion during initialization
-- Check IMU data is publishing: `ros2 topic hz /sensing/camera/zedxm/zedxm/imu/data`
+- Check IMU data is publishing: `ros2 topic hz /sensing/camera/zedxm/imu/data`
 - Try disabling IMU fusion: `enable_imu_fusion:=false`
 
 ### Image format errors

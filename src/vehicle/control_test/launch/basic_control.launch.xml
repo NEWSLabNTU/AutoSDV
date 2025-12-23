@@ -21,9 +21,9 @@
 
       <arg name="imu_corrector_param_file" default="$(find-pkg-share individual_params)/config/$(var vehicle_id)/autosdv_sensor_kit/imu_corrector.param.yaml"/>
 
-      <!-- IMU Corrector - processes ZED IMU data -->
+      <!-- IMU Corrector - processes ZED IMU data (ZED 5.1.0: imu/data) -->
       <include file="$(find-pkg-share autoware_imu_corrector)/launch/imu_corrector.launch.xml">
-        <arg name="input_topic" value="/sensing/camera/zedxm/zedxm/imu/data_raw"/>
+        <arg name="input_topic" value="/sensing/camera/zedxm/imu/data"/>
         <arg name="output_topic" value="imu_data"/>
         <arg name="param_file" value="$(var imu_corrector_param_file)"/>
       </include>
@@ -32,7 +32,7 @@
       <!-- Requires /localization/kinematic_state which is not available in minimal setup -->
       <!--
       <include file="$(find-pkg-share autoware_imu_corrector)/launch/gyro_bias_estimator.launch.xml">
-        <arg name="input_imu_raw" value="/sensing/camera/zedxm/zedxm/imu/data_raw"/>
+        <arg name="input_imu_raw" value="/sensing/camera/zedxm/imu/data"/>
         <arg name="input_odom" value="/localization/kinematic_state"/>
         <arg name="imu_corrector_param_file" value="$(var imu_corrector_param_file)"/>
       </include>
