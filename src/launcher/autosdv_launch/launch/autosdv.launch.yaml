@@ -7,8 +7,8 @@ launch:
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
-    default: "vlp32c_zed"
-    description: "Predefined sensor suite: robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, cube1_usb, custom"
+    default: "vlp32c_zed_imu"
+    description: "Predefined sensor suite: robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, vlp32c_zed_imu, cube1_usb, custom"
 
 # Individual Sensor Parameters (override suite defaults when sensor_suite=custom)
 - arg:
