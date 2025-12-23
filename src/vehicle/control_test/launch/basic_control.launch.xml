@@ -70,7 +70,9 @@
     </node>
 
     <!-- Gear Manager -->
+    <!-- Uses actuator.yaml as single source of truth for motor PWM parameters -->
     <node pkg="autosdv_vehicle_interface" exec="gear_manager" name="gear_manager_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/actuator.yaml"/>
       <param from="$(find-pkg-share autosdv_vehicle_interface)/params/gear_manager.yaml"/>
     </node>
 
@@ -80,7 +82,9 @@
     </node>
 
     <!-- Steering Status -->
+    <!-- Uses actuator.yaml as single source of truth for max_steering_angle -->
     <node pkg="autosdv_vehicle_interface" exec="steering_status" name="steering_status_node" output="screen">
+      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/actuator.yaml"/>
       <param from="$(find-pkg-share autosdv_vehicle_interface)/params/steering_status.yaml"/>
     </node>
 
