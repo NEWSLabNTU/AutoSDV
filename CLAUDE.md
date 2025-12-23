@@ -111,6 +111,9 @@ ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed
 # Velodyne VLP-32C + ZED X Mini + MPU9250 IMU
 ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed_mpu
 
+# Velodyne VLP-32C + ZED IMU only (no camera streams, lightweight)
+ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=vlp32c_zed_imu
+
 # Blickfeld Cube1 + USB Cameras + MPU9250 IMU
 ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=cube1_usb
 
@@ -126,6 +129,7 @@ ros2 launch autosdv_launch autosdv.launch.yaml sensor_suite:=custom lidar_model:
 | robin_zed_mpu | Robin-W | ZED X Mini | MPU9250 | u-blox | Yes |
 | vlp32c_zed | Velodyne 32C | ZED X Mini | ZED built-in | u-blox | Yes |
 | vlp32c_zed_mpu | Velodyne 32C | ZED X Mini | MPU9250 | u-blox | Yes |
+| vlp32c_zed_imu | Velodyne 32C | None | ZED built-in | u-blox | No |
 | cube1_usb | Cube1 | USB cameras | MPU9250 | u-blox | No |
 | custom | (manual) | (manual) | (manual) | (manual) | (manual) |
 
@@ -470,30 +474,39 @@ For comprehensive testing procedures, see `docs/control_system_testing.md` and `
 ## ZED Camera Integration
 
 ### SDK and Driver Versions
-- **ZED SDK**: Version 5.0.5 (latest as of 2025-10-29)
-- **ZED ROS2 Wrapper**: Version 5.0 (from `src/sensor_component/external/zed-ros2-wrapper/`)
+- **ZED SDK**: Version 5.1.2
+- **ZED Link Duo Driver**: Version 1.3.2 for L4T 36.3.0
+- **ZED ROS2 Wrapper**: Version 5.1.0 (humble-v5.1.0, from `src/sensor_component/external/zed-ros2-wrapper/`)
 - **Supported models**: ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini
+- **Status**: ✅ Working - Namespace fix completed. See `docs/zed_wrapper_5.1.0_fix.md`
 
 ### Python Launch File Namespace Handling
-**Important**: The ZED Python launch file (`zed_camera.launch.py`) does NOT respect XML `<push-ros-namespace>` directives. When including the Python launch from XML:
+**Important**: The ZED Python launch file (`zed_camera.launch.py`) does NOT respect XML `<push-ros-namespace>` directives.
 
-1. **DO NOT** use `<push-ros-namespace>` - it will cause namespace mismatches
-2. **DO** use the explicit `namespace` parameter without a leading slash
-3. The Python launch file will automatically add the leading slash
+**Solution**: Load the ZED composable node directly via XML's `<load_composable_node>` instead of including the Python launch file. This gives full control over namespaces:
 
-**Example (Correct)**:
 ```xml
-<!-- ZED launch is OUTSIDE any push-ros-namespace groups -->
-<include file="$(find-pkg-share zed_wrapper)/launch/zed_camera.launch.py">
-  <arg name="camera_name" value="zedxm"/>
-  <arg name="camera_model" value="zedxm"/>
-  <arg name="namespace" value="sensing/camera/zedxm"/>  <!-- No leading slash -->
-  <arg name="publish_tf" value="false"/>
-  <arg name="ros_params_override_path" value="..."/>
-</include>
+<!-- Container with ABSOLUTE namespace (bypasses push-ros-namespace) -->
+<node_container pkg="rclcpp_components" exec="component_container_isolated"
+                name="zed_container" namespace="/sensing/camera/$(var camera_name)">
+  <param name="use_multi_threaded_executor" value="true"/>
+</node_container>
+
+<!-- Load composable node: namespace="camera" + name=camera_name = /sensing/camera/<name> -->
+<load_composable_node target="/sensing/camera/$(var camera_name)/zed_container">
+  <composable_node pkg="zed_components" plugin="stereolabs::ZedCamera"
+                   name="$(var camera_name)" namespace="camera">
+    <param from="$(find-pkg-share zed_wrapper)/config/common_stereo.yaml"/>
+    <param from="$(find-pkg-share zed_wrapper)/config/$(var camera_model).yaml"/>
+    <!-- ... other config files ... -->
+  </composable_node>
+</load_composable_node>
 ```
 
-This creates the container at `/sensing/camera/zedxm/zed_container` with proper namespace matching for composable node loading.
+This creates:
+- Container at `/sensing/camera/zedxm/zed_container` (absolute)
+- ZED node at `/sensing/camera/zedxm` (clean path)
+- Topics at `/sensing/camera/zedxm/<topic>` (no double nesting)
 
 ### Object Detection Integration
 ZED camera object detection has been integrated with Autoware's perception pipeline. The system can operate in two modes:
@@ -509,17 +522,17 @@ ZED camera object detection has been integrated with Autoware's perception pipel
   - Point cloud settings to ensure colored point cloud is always published
 
 ### Namespace Structure
-- **Important**: camera.launch.xml uses `/camera` namespace (NOT `/sensing/camera`) to avoid double namespacing
-- **Note**: ZED wrapper overrides `node_name` with `camera_name` when namespace is specified
-- Topics follow Autoware convention:
-  - ZED objects: `/sensing/camera/zedxm/zedxm/obj_det/objects`
-  - Autoware format: `/perception/object_recognition/detection/camera_objects`
-  - Colored point cloud: `/sensing/camera/zedxm/zedxm/point_cloud/cloud_registered`
+Topics follow Autoware convention with clean paths:
+- ZED node: `/sensing/camera/zedxm`
+- ZED objects: `/sensing/camera/zedxm/obj_det/objects`
+- Autoware format: `/perception/object_recognition/detection/camera_objects`
+- Colored point cloud: `/sensing/camera/zedxm/point_cloud/cloud_registered`
+- IMU data: `/sensing/camera/zedxm/imu/data`
 
 ### Container Integration
-- ZED camera runs as a composable node in the shared `/pointcloud_container`
-- **Important**: Pass `container_name` WITHOUT leading slash (e.g., `pointcloud_container`, not `/pointcloud_container`)
-- The ZED wrapper internally constructs the full container path as `/<namespace>/<container_name>`
+- ZED camera runs as a composable node in a dedicated container at `/sensing/camera/<camera_name>/zed_container`
+- The container uses an absolute namespace to bypass parent `push-ros-namespace` directives
+- Composable node is loaded directly via XML's `<load_composable_node>` (not the Python launch file)
 
 ### Usage
 ```bash
@@ -530,10 +543,62 @@ make launch
 make launch ARGS="enable_zed_object_detection:=true"
 ```
 
+### ZED X Camera Troubleshooting
+
+#### Camera Freeze / Stream Failed to Start
+If the ZED camera fails to start or freezes during operation, you may see errors like:
+```
+(Argus) Error Timeout: (propagating from src/rpc/socket/client/ClientSocketManager.cpp...)
+[WARN] Error opening camera: CAMERA MOTION SENSORS NOT DETECTED
+[WARN] Error opening camera: CAMERA STREAM FAILED TO START
+```
+
+Or in `zed_x_daemon` logs (`journalctl -u zed_x_daemon`):
+```
+[ZED-X Daemon] Received invalid message: "ZEDX#0#0#FROZEN"
+```
+
+**Recovery Procedure:**
+```bash
+# Restart zed_x_daemon (this is the key fix)
+sudo service zed_x_daemon restart
+
+# Wait at least 25 seconds for driver to reconfigure
+sleep 25
+```
+
+**Note:** Restarting only `nvargus-daemon` is NOT sufficient. The `zed_x_daemon` must be restarted to properly reinitialize the GMSL camera connection.
+
+#### Check Service Logs
+```bash
+# ZED X daemon logs (look for FROZEN messages)
+journalctl -u zed_x_daemon --since "30 minutes ago"
+
+# NVIDIA Argus daemon logs (camera framework)
+journalctl -u nvargus-daemon --since "30 minutes ago"
+
+# Kernel logs for hardware-level camera errors
+journalctl -k | grep -i "zed\|gmsl\|ar0234"
+```
+
+#### Hardware Version Info
+- **ZED SDK**: 5.1.2 (check with `ZED_Explorer --version`)
+- **ZED Link Duo Driver**: 1.3.2 for L4T 36.3.0
+- **Camera Model**: ZED X Mini (GMSL connection)
+
 ### Known Issues
 - Detection box positions may not perfectly align with point cloud coordinates (coordinate transformation issue to be resolved in future update)
 
 ## Recent Updates
+- **ZED Wrapper 5.1.0 Namespace Fix (COMPLETED)** (2025-12-23)
+  - Updated zed-ros2-wrapper submodule to humble-v5.1.0
+  - **Fixed**: Double `/sensing` namespace issue in ZED nodes
+  - Solution: Load ZED composable node directly via XML `<load_composable_node>` instead of including Python launch
+  - Root cause: Python launch files don't respect XML `push-ros-namespace`
+  - Key: Container uses absolute namespace, composable node uses relative namespace
+  - ZED node now correctly at `/sensing/camera/zedxm/zedxm`
+  - Topics correctly at `/sensing/camera/zedxm/zedxm/...`
+  - See `docs/zed_wrapper_5.1.0_fix.md` for detailed documentation
 - **Refactored control_test Package with PID Tuning and PlotJuggler Integration** (2025-11-19)
   - **Package Restructuring**: Cleaned up control_test package structure
     - Removed backup directory (control_test_backup_direct_pwm)
