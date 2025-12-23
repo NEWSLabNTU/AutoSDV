@@ -177,16 +177,16 @@ launch:
 - include:
     file: "$(find-pkg-share autosdv_system_monitor)/launch/autosdv_system_monitor.launch.yaml"
 
-# RQT Runtime Monitor
-- node:
-    pkg: rqt_runtime_monitor
-    exec: rqt_runtime_monitor
-    name: rqt_runtime_monitor
+# # RQT Runtime Monitor
+# - node:
+#     pkg: rqt_runtime_monitor
+#     exec: rqt_runtime_monitor
+#     name: rqt_runtime_monitor
 
-# Static Transform Publisher for Mapless/Indoor Operation
-# Provides map -> base_link transform for indoor operation without localization
-- node:
-    pkg: tf2_ros
-    exec: static_transform_publisher
-    name: map_to_base_link_static_tf
-    args: "0 0 0 0 0 0 1 map base_link"
+# # Static Transform Publisher for Mapless/Indoor Operation
+# # Provides map -> base_link transform for indoor operation without localization
+# - node:
+#     pkg: tf2_ros
+#     exec: static_transform_publisher
+#     name: map_to_base_link_static_tf
+#     args: "0 0 0 0 0 0 1 map base_link"
