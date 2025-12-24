@@ -545,6 +545,22 @@ make launch ARGS="enable_zed_object_detection:=true"
 
 ### ZED X Camera Troubleshooting
 
+#### Hardware Acceleration Required (VNC Sessions)
+The ZED node requires OpenGL hardware acceleration to start. Running `make launch` in a standard VNC session (e.g., TigerVNC) will cause the ZED node to fail.
+
+**Solution**: Use TurboVNC with VirtualGL for hardware-accelerated remote desktop:
+
+```bash
+# Start TurboVNC with VirtualGL (VGL_DISPLAY must point to GPU X server)
+VGL_DISPLAY=:1 /opt/TurboVNC/bin/vncserver :2 -vgl
+```
+
+A systemd user service is configured to start this automatically on boot:
+- Service file: `~/.config/systemd/user/turbovnc.service`
+- Commands: `systemctl --user {start|stop|status|restart} turbovnc`
+
+**Why this happens**: The ZED SDK uses OpenGL for GPU-accelerated image processing. Standard VNC provides only software rendering, which causes the ZED driver to fail during initialization.
+
 #### Camera Freeze / Stream Failed to Start
 If the ZED camera fails to start or freezes during operation, you may see errors like:
 ```

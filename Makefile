@@ -87,6 +87,14 @@ launch:
 		--web-ui-port 8081 \
 		autosdv_launch autosdv.launch.yaml
 
+.PHONY: launch-zed-only
+launch-zed-only:
+	play_launch launch \
+		--web-ui \
+		--web-ui-addr 0.0.0.0 \
+		--web-ui-port 8081 \
+		zed_wrapper zed_camera.launch.py camera_model:=zedxm
+
 .PHONY: run-controller
 run-controller:
 	source install/setup.bash && \
