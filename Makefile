@@ -2,8 +2,8 @@ SHELL := /bin/bash
 
 .PHONY: default
 default:
-	@echo 'make prepare'
-	@echo '    Install required dependencies for this project.'
+	@echo 'make setup'
+	@echo '    Run interactive setup (installs ROS 2, dependencies, etc.)'
 	@echo
 	@echo 'make build'
 	@echo '    Build this project.'
@@ -52,13 +52,7 @@ checkout:
 
 .PHONY: setup
 setup:
-	./scripts/setup-dev-env/setup-dev-env.sh
-
-.PHONY: prepare
-prepare:
-	source /opt/ros/humble/setup.sh && \
-	rosdep update --rosdistro=humble && \
-	rosdep install -y --from-paths src --ignore-src -r
+	./setup.sh
 
 .PHONY: build
 build:

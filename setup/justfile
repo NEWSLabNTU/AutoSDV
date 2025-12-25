@@ -32,8 +32,17 @@ default:
     @just --list
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld _setup-autoware-debian python-deps ublox-udev ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
+
+# Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
+_setup-autoware-debian:
+    #!/usr/bin/env bash
+    if [[ "${SKIP_AUTOWARE_DEBIAN:-0}" == "1" ]]; then
+        printf "{{yellow}}⊘{{nc}} autoware-debian skipped (user choice)\n"
+    else
+        just autoware-debian
+    fi
 
 # Alias for setup (resume from where it left off due to markers)
 resume: setup
@@ -159,6 +168,19 @@ ublox-udev: _init
     printf "{{green}}✓{{nc}} ublox-udev done\n"
     printf "{{yellow}}Note:{{nc}} Log out and back in for dialout group to take effect.\n"
 
+# Install ROS dependencies for workspace packages
+ros-deps: _init ros2-dev-tools
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/ros-deps" ]] && printf "{{green}}✓{{nc}} ros-deps already done\n" && exit 0
+    set -e
+    printf "{{yellow}}→{{nc}} Installing ROS dependencies...\n"
+    cd "{{root_dir}}/.."
+    source /opt/ros/humble/setup.sh
+    rosdep update --rosdistro=humble
+    rosdep install -y --from-paths src --ignore-src -r
+    touch "{{marker_dir}}/ros-deps"
+    printf "{{green}}✓{{nc}} ros-deps done\n"
+
 # === Utility Recipes ===
 
 # Initialize marker directory
@@ -193,7 +215,7 @@ status:
     #!/usr/bin/env bash
     echo "Setup Status:"
     echo "============="
-    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev artifacts zed-sdk; do
+    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev ros-deps artifacts zed-sdk; do
         if [[ -f "{{marker_dir}}/$step" ]]; then
             printf "{{green}}✓{{nc}} %s\n" "$step"
         else
