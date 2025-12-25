@@ -8,7 +8,11 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 ## Essential Commands
 
 ### Build System (ROS 2 with colcon)
-- `make prepare` - Install ROS dependencies using rosdep
+- `make setup` or `./setup.sh` - Run interactive setup (installs ROS 2, dependencies, etc.)
+  - Interactive wizard asks about optional components (Autoware Debian packages)
+  - Installs: ROS 2 Humble, dev tools, GeographicLib, Python deps, rosdep dependencies
+  - Use `./setup.sh status` to check installation status
+  - Use `./setup.sh <recipe>` to run specific setup steps (e.g., `./setup.sh ros2`)
 - `make build` - Build all ROS packages with colcon (Release mode, symlink-install)
 - `make test` - Run tests for all packages in src/ directory and show results
 - `make launch` - Launch AutoSDV system with web UI at http://localhost:8081
@@ -21,7 +25,6 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - `make run-rviz` - Launch RViz with AutoSDV configuration
 - `make clean` - Remove build, install, and log directories (with confirmation)
 - `make checkout` - Initialize and update all git submodules
-- `make setup` - Set up development environment using Ansible scripts
 
 ### Simulation Commands
 - `make start-simulation` - Start Autoware logging simulator using systemd
@@ -34,7 +37,7 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - `colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release` - Manual build
 - `colcon test --base-paths src --return-code-on-test-failure` - Manual test (src/ packages only)
 - `colcon test-result --verbose` - Show detailed test results
-- `rosdep install -y --from-paths src --ignore-src -r` - Install dependencies
+- `rosdep install -y --from-paths src --ignore-src -r` - Install dependencies (handled automatically by setup script)
 
 ## Architecture Overview
 
@@ -77,6 +80,54 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - The `tmp/` directory is gitignored and safe for disposable files
 - Examples: test logs, debug outputs, temporary scripts
 - Do NOT use system `/tmp/` - use project-local `./tmp/` instead
+
+### Setup System
+
+The project uses a modular setup system based on `just` (command runner) with an interactive wrapper script:
+
+**Structure:**
+- `setup/setup.sh` - Interactive wrapper script (symlinked to `./setup.sh` at project root)
+- `setup/justfile` - Recipe definitions for individual setup steps
+- `setup/scripts/` - Individual setup scripts for each component
+- `setup/files/` - Configuration files (udev rules, etc.)
+- `setup/.markers/` - Marker files to track completed steps (prevents re-running)
+
+**Usage:**
+```bash
+# Interactive full setup (recommended for first-time setup)
+./setup.sh
+
+# Check what's already installed
+./setup.sh status
+
+# Run specific setup step
+./setup.sh ros2
+./setup.sh dev-tools
+./setup.sh autoware-debian
+
+# Reset all markers (force re-run all steps)
+./setup.sh clean-markers
+```
+
+**Setup Steps (in order):**
+1. `ros2` - Install ROS 2 Humble
+2. `ros2-dev-tools` - Install colcon, rosdep, etc.
+3. `gdown` - Google Drive downloader
+4. `geographiclib` - Geographic coordinate tools
+5. `pacmod` - AutonomouStuff repository
+6. `dev-tools` - git-lfs, pre-commit, PlotJuggler
+7. `blickfeld` - Blickfeld scanner library
+8. `autoware-debian` - Autoware packages (optional, ~2-3 GB)
+9. `python-deps` - AutoSDV Python dependencies
+10. `ublox-udev` - u-blox GPS udev rules
+11. `ros-deps` - ROS workspace dependencies (rosdep)
+
+**Features:**
+- Marker-based checkpoint system (resume from failure)
+- Interactive prompts for optional components
+- Ctrl-C to cancel during interactive questions
+- Works from any directory (resolves symlinks automatically)
+- Sudo keep-alive for long installations
 
 ### LiDAR Sensor Kits
 The platform supports three main configurations:
@@ -315,20 +366,20 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 **Isaac ROS Installation:**
 - ⚠️ APT packages available for **arm64 only** (Jetson AGX Orin)
 - x86_64/amd64 users must build from source
-- See `docs/isaac_visual_slam_standalone_test.md` for installation guide
+- See `docs/guides/isaac_vslam_testing.md` for installation guide
 
 **Status:**
 - ✅ **Implementation Complete**: All code integrated and built
-- ✅ **Standalone Testing Tutorial**: Available in `docs/isaac_visual_slam_standalone_test.md`
+- ✅ **Standalone Testing Tutorial**: Available in `docs/guides/isaac_vslam_testing.md`
 - ⏸️ **Testing Deferred**: Requires stereo camera data (rosbag or hardware with GMSL)
-- 📖 **Documentation**: See `docs/isaac_ros_visual_slam_integration_plan.md` and `docs/simulation_testing.md`
+- 📖 **Documentation**: See `docs/design/isaac_vslam_integration.md` and `docs/guides/simulation_testing.md`
 
 **Testing Notes:**
 - Standalone test: `ros2 launch autosdv_isaac_slam_launch standalone_test.launch.py`
 - Standard Autoware rosbags do not include camera images (privacy)
 - For testing: Use Bus-ODD dataset, record custom rosbag, or use CARLA simulator
-- See `docs/simulation_testing.md` for rosbag replay setup
-- See `docs/isaac_visual_slam_standalone_test.md` for complete testing tutorial
+- See `docs/guides/simulation_testing.md` for rosbag replay setup
+- See `docs/guides/isaac_vslam_testing.md` for complete testing tutorial
 
 ### Python Packages
 Python packages follow ROS 2 conventions with:
@@ -441,7 +492,7 @@ When transitioning from forward to reverse:
 - `./scripts/control/gpio_read.py` - Simple GPIO pin state and event monitor for debugging
 
 ### Control System Testing
-For comprehensive testing procedures, see `docs/control_system_testing.md` and `PLOTJUGGLER_QUICKSTART.md`. 
+For comprehensive testing procedures, see `docs/guides/control_testing.md` and `PLOTJUGGLER_QUICKSTART.md`. 
 
 **Key Commands:**
 - `make test-control` - Launch PID speed control test in tmux (controller + speedometer + monitor)
@@ -478,7 +529,7 @@ For comprehensive testing procedures, see `docs/control_system_testing.md` and `
 - **ZED Link Duo Driver**: Version 1.3.2 for L4T 36.3.0
 - **ZED ROS2 Wrapper**: Version 5.1.0 (humble-v5.1.0, from `src/sensor_component/external/zed-ros2-wrapper/`)
 - **Supported models**: ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini
-- **Status**: ✅ Working - Namespace fix completed. See `docs/zed_wrapper_5.1.0_fix.md`
+- **Status**: ✅ Working - Namespace fix completed
 
 ### Python Launch File Namespace Handling
 **Important**: The ZED Python launch file (`zed_camera.launch.py`) does NOT respect XML `<push-ros-namespace>` directives.
@@ -614,7 +665,6 @@ journalctl -k | grep -i "zed\|gmsl\|ar0234"
   - Key: Container uses absolute namespace, composable node uses relative namespace
   - ZED node now correctly at `/sensing/camera/zedxm/zedxm`
   - Topics correctly at `/sensing/camera/zedxm/zedxm/...`
-  - See `docs/zed_wrapper_5.1.0_fix.md` for detailed documentation
 - **Refactored control_test Package with PID Tuning and PlotJuggler Integration** (2025-11-19)
   - **Package Restructuring**: Cleaned up control_test package structure
     - Removed backup directory (control_test_backup_direct_pwm)
@@ -691,7 +741,7 @@ journalctl -k | grep -i "zed\|gmsl\|ar0234"
   - Conditional Isaac SLAM launch when `pose_source:=isaac`
   - GPU-accelerated stereo visual-inertial odometry using NVIDIA cuVSLAM
   - Implementation complete, testing deferred pending stereo camera data availability
-  - Documentation: `docs/isaac_ros_visual_slam_integration_plan.md`, `docs/simulation_testing.md`
+  - Documentation: `docs/design/isaac_vslam_integration.md`, `docs/guides/simulation_testing.md`
   - Status: ✅ Code complete, ready for testing when camera data is available
 - **Upgraded ZED SDK and ROS2 wrapper** (2025-10-29)
   - Upgraded ZED SDK from 4.x to 5.0.5
@@ -705,7 +755,7 @@ journalctl -k | grep -i "zed\|gmsl\|ar0234"
   - Created `scripts/control/gpio_read.py` - GPIO pin state and event monitor for debugging wheel sensors
   - Both tools use Jetson.GPIO library for direct hardware access without ROS dependencies
 - **Created control system testing guide** (2025-11-12)
-  - Comprehensive testing documentation in `docs/control_system_testing.md`
+  - Comprehensive testing documentation in `docs/guides/control_testing.md`
   - Covers manual and autonomous control testing procedures
   - Documents debug topics: `/autosdv/actuator_node/debug/{control_values,pwm_values,pid_values}`
   - Troubleshooting section for common issues (steering reversal, PID not working)
@@ -730,3 +780,15 @@ journalctl -k | grep -i "zed\|gmsl\|ar0234"
     - Topics are now correctly at `/sensing/camera/zedxm/zedxm/...`
     - Updated all subscriber configs: isaac_slam, monitor_topics, imu.launch.xml, rviz
   - Added `use_mapless_mode` parameter for indoor operation without localization
+- **Refactored setup system with interactive wizard** (2025-12-25)
+  - Moved setup directory from `scripts/setup/` to `setup/` at project root
+  - Removed `make prepare` recipe, integrated into setup script as `ros-deps` step
+  - Added interactive wizard for optional components (Autoware Debian packages)
+  - Created marker-based checkpoint system for resumable installation
+  - Fixed symlink support: resolves actual script location with `readlink -f`
+  - Fixed Ctrl-C handling in interactive questions (exit code 130)
+  - Fixed ros-deps path: changed from `../..` to `..` relative to setup directory
+  - Setup script works from any directory and through symlinks
+  - Minimalist output style with clear status indicators (✓/→/○)
+  - 11 modular setup steps: ros2, ros2-dev-tools, gdown, geographiclib, pacmod, dev-tools, blickfeld, autoware-debian, python-deps, ublox-udev, ros-deps
+  - Usage: `./setup.sh` (interactive), `./setup.sh status` (check), `./setup.sh <recipe>` (specific step)
