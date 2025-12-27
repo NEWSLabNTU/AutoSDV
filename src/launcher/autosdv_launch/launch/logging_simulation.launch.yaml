@@ -1,0 +1,204 @@
+launch:
+# Logging Simulation Launch File
+# This launch file is used for replaying rosbags with Autoware stack
+# It uses sim_time and disables sensor drivers (data comes from rosbag)
+
+- arg:
+    name: is_simulation
+    default: "true"
+    description: "Enable simulation mode (disables PWM output to hardware)"
+
+# Sensor Suite Configuration
+- arg:
+    name: sensor_suite
+    default: "vlp32c_zed_imu"
+    description: "Predefined sensor suite: robin_zed, robin_zed_mpu, vlp32c_zed, vlp32c_zed_mpu, vlp32c_zed_imu, cube1_usb, custom"
+
+# Individual Sensor Parameters (override suite defaults when sensor_suite=custom)
+- arg:
+    name: lidar_model
+    default: ""
+    description: "LiDAR model (cube1, robin-w, or vlp32c) - empty string uses suite default"
+
+- arg:
+    name: camera_model
+    default: ""
+    description: "Camera model (zedxm, usb, or none) - empty string uses suite default"
+
+- arg:
+    name: imu_source
+    default: ""
+    description: "IMU source (mpu9250, zed) - empty string uses suite default"
+
+- arg:
+    name: gnss_receiver
+    default: ""
+    description: "GNSS receiver type (ublox, septentrio, or garmin) - empty string uses suite default"
+
+- arg:
+    name: use_gnss
+    default: ""
+    description: "Enable GNSS for outdoor operation - empty string uses suite default"
+
+- arg:
+    name: use_ntrip
+    default: "false"
+    description: "Enable NTRIP client for RTK corrections (disabled in simulation)"
+
+- arg:
+    name: use_mapless_mode
+    default: "false"
+    description: "Enable mapless mode for indoor operation without localization"
+
+- arg:
+    name: pose_source
+    default: "ndt"
+    description: "Pose estimation source: ndt (LiDAR NDT), isaac (Visual SLAM)"
+
+- arg:
+    name: enable_zed_object_detection
+    default: ""
+    description: "Enable ZED camera object detection - empty string uses suite default"
+
+# Logging simulation specific parameters
+- arg:
+    name: launch_perception
+    default: "true"
+    description: "Launch perception module"
+
+- arg:
+    name: launch_planning
+    default: "true"
+    description: "Launch planning module"
+
+- arg:
+    name: launch_control
+    default: "true"
+    description: "Launch control module"
+
+- arg:
+    name: rviz
+    default: "true"
+    description: "Launch RViz"
+
+- include:
+    file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
+    arg:
+    -
+      name: vehicle_model
+      value: autosdv_vehicle
+    -
+      name: is_simulation
+      value: $(var is_simulation)
+    -
+      name: sensor_model
+      value: autosdv_sensor_kit
+    -
+      name: map_path
+      value: ./data/COSS-map-planning
+    -
+      name: data_path
+      value: ./data
+    -
+      name: launch_vehicle
+      value: "true"
+    -
+      name: launch_vehicle_interface
+      value: "false"
+    -
+      name: launch_system
+      value: "true"
+    -
+      name: system_run_mode
+      value: "logging_simulation"
+    -
+      name: launch_system_monitor
+      value: "false"
+    -
+      name: launch_dummy_diag_publisher
+      value: "false"
+    -
+      name: launch_map
+      value: "true"
+    -
+      name: launch_sensing
+      value: "true"
+    -
+      name: launch_sensing_driver
+      value: "false"
+    -
+      name: launch_localization
+      value: "true"
+    -
+      name: launch_perception
+      value: $(var launch_perception)
+    -
+      name: launch_planning
+      value: $(var launch_planning)
+    -
+      name: launch_control
+      value: $(var launch_control)
+    -
+      name: perception_mode
+      value: "lidar"
+    -
+      name: use_traffic_light_recognition
+      value: "false"
+    -
+      name: traffic_light_recognition/enable_fine_detection
+      value: "false"
+    -
+      name: use_detection_by_tracker
+      value: "false"
+    -
+      name: use_image_segmentation_based_filter
+      value: "false"
+    -
+      name: use_pointcloud_map
+      value: "true"
+    -
+      name: use_sim_time
+      value: "true"
+    -
+      name: rviz
+      value: $(var rviz)
+    -
+      name: rviz_config
+      value: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+    -
+      name: pose_source
+      value: $(var pose_source)
+    -
+      name: twist_source
+      value: gyro_odom
+    -
+      name: lidar_model
+      value: $(var lidar_model)
+    -
+      name: camera_model
+      value: $(var camera_model)
+    -
+      name: imu_source
+      value: $(var imu_source)
+    -
+      name: gnss_receiver
+      value: $(var gnss_receiver)
+    -
+      name: use_gnss
+      value: $(var use_gnss)
+    -
+      name: use_ntrip
+      value: $(var use_ntrip)
+    -
+      name: enable_zed_object_detection
+      value: $(var enable_zed_object_detection)
+    -
+      name: sensor_suite
+      value: $(var sensor_suite)
+    -
+      name: use_mapless_mode
+      value: $(var use_mapless_mode)
+
+# System Monitor
+- include:
+    file: "$(find-pkg-share autosdv_system_monitor)/launch/autosdv_system_monitor.launch.yaml"

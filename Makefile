@@ -81,6 +81,18 @@ launch:
 		--web-ui-port 8081 \
 		autosdv_launch autosdv.launch.yaml
 
+.PHONY: launch-planning-simulation
+launch-planning-simulation:
+	play_launch launch \
+		--web-ui \
+		--web-ui-addr 0.0.0.0 \
+		--web-ui-port 8081 \
+		autoware_launch planning_simulator.launch.xml \
+		map_path:=$(PWD)/data/COSS-map-planning \
+		vehicle_model:=autosdv_vehicle \
+		sensor_model:=autosdv_sensor_kit
+
+
 .PHONY: launch-zed-only
 launch-zed-only:
 	play_launch launch \
@@ -88,6 +100,15 @@ launch-zed-only:
 		--web-ui-addr 0.0.0.0 \
 		--web-ui-port 8081 \
 		zed_wrapper zed_camera.launch.py camera_model:=zedxm
+
+.PHONY: launch-logging-simulation
+launch-logging-simulation:
+	play_launch launch \
+		--web-ui \
+		--web-ui-addr 0.0.0.0 \
+		--web-ui-port 8081 \
+		autosdv_launch logging_simulation.launch.yaml
+
 
 .PHONY: run-controller
 run-controller:
@@ -123,31 +144,6 @@ clean:
 			* ) echo 'Please enter yes or no.';; \
 		esac \
 	done
-
-.PHONY: start-simulation
-start-simulation:
-	systemd-run --user \
-		--unit=autosdv-simulation \
-		--working-directory=$(PWD) \
-		--setenv=CYCLONEDDS_URI="file://$(PWD)/cyclonedds.xml" \
-		--setenv=RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
-		/bin/bash -c "source /opt/ros/humble/setup.bash && source $(PWD)/install/setup.bash && \
-		play_launch launch autoware_launch logging_simulator.launch.xml \
-			map_path:=data/COSS-map-planning/ \
-			vehicle_model:=autosdv_vehicle \
-			sensor_model:=autosdv_sensor_kit"
-
-.PHONY: stop-simulation
-stop-simulation:
-	systemctl --user stop autosdv-simulation
-
-.PHONY: status-simulation
-status-simulation:
-	systemctl --user status autosdv-simulation
-
-.PHONY: logs-simulation
-logs-simulation:
-	journalctl --user -u autosdv-simulation -f
 
 .PHONY: run-rviz
 run-rviz:
