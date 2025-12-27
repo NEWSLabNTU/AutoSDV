@@ -16,6 +16,9 @@ default:
 	@echo '    Logs are saved to play_log/latest/ directory.'
 	@echo '    Use Ctrl+C to stop the system.'
 	@echo
+	@echo 'make checkout'
+	@echo '    Initialize and update all git submodules.'
+	@echo
 	@echo 'make run-controller'
 	@echo '    Launch manual keyboard control.'
 	@echo
@@ -28,20 +31,11 @@ default:
 	@echo 'make run-circle'
 	@echo '    Run trajectory player with circle.yaml (circular path).'
 	@echo
-	@echo 'make start-simulation'
-	@echo '    Start Autoware logging simulator using systemd.'
-	@echo
-	@echo 'make stop-simulation'
-	@echo '    Stop the running simulation.'
-	@echo
-	@echo 'make status-simulation'
-	@echo '    Show simulation status.'
-	@echo
-	@echo 'make logs-simulation'
-	@echo '    Follow simulation logs.'
-	@echo
 	@echo 'make run-rviz'
 	@echo '    Launch RViz with AutoSDV configuration.'
+	@echo
+	@echo 'make run-plotjuggler'
+	@echo '    Launch PlotJuggler for data visualization.'
 	@echo
 	@echo 'make record-outdoor'
 	@echo '    Record outdoor sensor topics to rosbags/ directory.'
@@ -51,6 +45,18 @@ default:
 	@echo
 	@echo 'make run-drive'
 	@echo '    Run autonomous driving with poses from scripts/testing/drive/poses.json.'
+	@echo
+	@echo 'make launch-planning-simulation'
+	@echo '    Launch Autoware planning simulator with AutoSDV vehicle.'
+	@echo
+	@echo 'make launch-logging-simulation'
+	@echo '    Launch logging simulation for rosbag replay testing.'
+	@echo
+	@echo 'make launch-zed-only'
+	@echo '    Launch only ZED camera node for testing.'
+	@echo
+	@echo 'make test-logging-simulation'
+	@echo '    Run full logging simulation test (launch + rosbag + drive + record).'
 	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
@@ -124,8 +130,8 @@ run-controller:
 	source install/setup.bash && \
 	ros2 run control_test keyboard_control
 
-.PHONY: run-plogjuggler
-run-plogjuggler:
+.PHONY: run-plotjuggler
+run-plotjuggler:
 	source install/setup.bash && \
 	ros2 run plotjuggler plotjuggler
 
@@ -174,10 +180,10 @@ play-outdoor:
 
 .PHONY: test-logging-simulation
 test-logging-simulation:
-	parallel --halt now,fail=1 --line-buffer ::: \
+	parallel --line-buffer ::: \
 		"$(MAKE) launch-logging-simulation" \
-		"./scripts/play_rosbag.sh 50" \
-		"./scripts/record_localization.sh 55"
+		"sleep 70 && ./scripts/play_rosbag.sh" \
+		"sleep 75 && ./scripts/record_localization.sh"
 
 .PHONY: run-drive
 run-drive:

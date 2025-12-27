@@ -1,13 +1,11 @@
 #!/bin/bash
 # Record localization-related topics for logging simulation testing
-# Usage: ./scripts/record_localization.sh [delay]
+# Usage: ./scripts/record_localization.sh
 
 set -e
 
-DELAY="${1:-55}"
 OUTPUT_DIR="rosbags/localization_test_$(date +%Y%m%d_%H%M%S)"
 
-sleep "$DELAY"
 source /opt/ros/humble/setup.bash
 source install/setup.bash
 
