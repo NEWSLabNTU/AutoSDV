@@ -168,3 +168,10 @@ play-outdoor:
 	fi; \
 	echo "Playing: $$LATEST"; \
 	ros2 bag play "$$LATEST" --clock
+
+.PHONY: test-logging-simulation
+test-logging-simulation:
+	parallel --halt now,fail=1 --line-buffer ::: \
+		"$(MAKE) launch-logging-simulation" \
+		"./scripts/play_rosbag.sh 50" \
+		"./scripts/record_localization.sh 55"
