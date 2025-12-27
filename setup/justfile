@@ -12,7 +12,7 @@ root_dir := justfile_directory()
 marker_dir := root_dir / ".markers"
 scripts_dir := root_dir / "scripts"
 files_dir := root_dir / "files"
-data_dir := root_dir / "/../../data"
+data_dir := root_dir / ".." / "data"
 
 # Architecture detection
 arch := `uname -m`
