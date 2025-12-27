@@ -49,6 +49,9 @@ default:
 	@echo 'make play-outdoor'
 	@echo '    Play the most recent outdoor recording.'
 	@echo
+	@echo 'make run-drive'
+	@echo '    Run autonomous driving with poses from scripts/testing/drive/poses.json.'
+	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
 
@@ -175,3 +178,8 @@ test-logging-simulation:
 		"$(MAKE) launch-logging-simulation" \
 		"./scripts/play_rosbag.sh 50" \
 		"./scripts/record_localization.sh 55"
+
+.PHONY: run-drive
+run-drive:
+	source install/setup.bash && \
+	python3 ./scripts/testing/drive/run.py
