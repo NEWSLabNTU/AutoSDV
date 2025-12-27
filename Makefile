@@ -43,6 +43,12 @@ default:
 	@echo 'make run-rviz'
 	@echo '    Launch RViz with AutoSDV configuration.'
 	@echo
+	@echo 'make record-outdoor'
+	@echo '    Record outdoor sensor topics to rosbags/ directory.'
+	@echo
+	@echo 'make play-outdoor'
+	@echo '    Play the most recent outdoor recording.'
+	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
 
@@ -148,3 +154,17 @@ clean:
 .PHONY: run-rviz
 run-rviz:
 	rviz2 -d ./src/launcher/autosdv_launch/rviz/autosdv.rviz
+
+.PHONY: record-outdoor
+record-outdoor:
+	./scripts/record_outdoor.sh
+
+.PHONY: play-outdoor
+play-outdoor:
+	@LATEST=$$(ls -td rosbags/outdoor_* 2>/dev/null | head -1); \
+	if [ -z "$$LATEST" ]; then \
+		echo "No outdoor recordings found in rosbags/"; \
+		exit 1; \
+	fi; \
+	echo "Playing: $$LATEST"; \
+	ros2 bag play "$$LATEST" --clock
