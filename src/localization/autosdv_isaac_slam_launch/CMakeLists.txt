@@ -12,6 +12,40 @@ endif()
 
 # Find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
+# Build bridge executables
+add_executable(odometry_to_twist_bridge
+  src/odometry_to_twist_bridge.cpp
+)
+
+add_executable(odometry_to_pose_bridge
+  src/odometry_to_pose_bridge.cpp
+)
+
+ament_target_dependencies(odometry_to_twist_bridge
+  rclcpp
+  rclcpp_components
+  nav_msgs
+  geometry_msgs
+)
+
+ament_target_dependencies(odometry_to_pose_bridge
+  rclcpp
+  rclcpp_components
+  nav_msgs
+  geometry_msgs
+)
+
+# Install executables
+install(TARGETS
+  odometry_to_twist_bridge
+  odometry_to_pose_bridge
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # Install launch files
 install(DIRECTORY
@@ -25,10 +59,28 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}/
 )
 
+# Install RViz config
+install(DIRECTORY
+  rviz
+  DESTINATION share/${PROJECT_NAME}/
+)
+
 # Testing
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   ament_lint_auto_find_test_dependencies()
+
+  # Install test directory
+  install(DIRECTORY
+    test
+    DESTINATION share/${PROJECT_NAME}/
+  )
+
+  # Add Python integration tests
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_ar_tag_fusion test/test_ar_tag_fusion.py
+    TIMEOUT 30
+  )
 endif()
 
 ament_package()

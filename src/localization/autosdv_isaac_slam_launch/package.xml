@@ -10,6 +10,12 @@
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
+  <!-- C++ dependencies for bridge node -->
+  <depend>rclcpp</depend>
+  <depend>rclcpp_components</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+
   <!-- Isaac ROS dependencies -->
   <exec_depend>isaac_ros_visual_slam</exec_depend>
   <exec_depend>isaac_ros_image_proc</exec_depend>
@@ -17,14 +23,13 @@
   <!-- ZED camera -->
   <exec_depend>zed_wrapper</exec_depend>
 
-  <!-- Bridge node -->
-  <exec_depend>odometry_pose_bridge</exec_depend>
-
   <!-- Topic tools for relaying -->
   <exec_depend>topic_tools</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

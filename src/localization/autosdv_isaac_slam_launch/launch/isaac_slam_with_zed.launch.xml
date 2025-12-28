@@ -51,9 +51,18 @@
   </node>
 
   <!-- Bridge: Odometry -> PoseWithCovarianceStamped -->
-  <node pkg="odometry_pose_bridge" exec="odometry_to_pose_bridge"
-        name="isaac_slam_bridge" namespace="isaac_slam">
+  <!-- Used when Isaac SLAM is the primary pose source (pose_source:=isaac) -->
+  <node pkg="autosdv_isaac_slam_launch" exec="odometry_to_pose_bridge"
+        name="isaac_slam_pose_bridge" namespace="isaac_slam">
     <remap from="input/odometry" to="/isaac_slam/visual_slam_node/tracking/odometry"/>
     <remap from="output/pose_with_covariance" to="/localization/pose_estimator/pose_with_covariance"/>
+  </node>
+
+  <!-- Bridge: Odometry -> TwistWithCovarianceStamped -->
+  <!-- Used for velocity input to EKF (e.g., AR tag fusion mode) -->
+  <node pkg="autosdv_isaac_slam_launch" exec="odometry_to_twist_bridge"
+        name="isaac_slam_twist_bridge" namespace="isaac_slam">
+    <remap from="input/odometry" to="/isaac_slam/visual_slam_node/tracking/odometry"/>
+    <remap from="output/twist_with_covariance" to="/localization/twist_estimator/twist_with_covariance"/>
   </node>
 </launch>
