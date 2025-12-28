@@ -1,0 +1,13 @@
+# Sensor Kit Calibration for AR Tag Rosbag Testing
+# This configuration matches the topic structure of the AR tag test rosbag
+# Topics: /sensing/camera/front/image, /sensing/camera/front/image/info
+
+sensor_kit_base_link:
+  # Front camera for AR tag detection
+  camera_front/camera_link:
+    x: 0.1
+    y: 0.0
+    z: 0.0
+    roll: 0.0
+    pitch: 0.0
+    yaw: 0.0
