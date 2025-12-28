@@ -1,3 +1,8 @@
 /**:
   ros__parameters:
-    sample_num: 1500
+    # AutoSDV: Random downsampling limits final point count for NDT
+    # Tuned to balance matching quality with computational performance
+    # Too few points reduce NDT score and may cause yaw drift
+    # Too many points increase computation time without significant benefit
+    # Value depends on voxel size, NDT resolution, and sensor characteristics
+    sample_num: 6000

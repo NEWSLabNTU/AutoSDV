@@ -29,13 +29,17 @@
       step_size: 0.1
 
       # The ND voxel grid resolution
+      # AutoSDV: Tuned based on point density and matching quality
+      # Larger voxels improve statistical confidence but reduce geometric precision
+      # Smaller voxels preserve features but require more points per voxel
       resolution: 2.0
 
       # The number of iterations required to calculate alignment
-      max_iterations: 30
+      # AutoSDV: Increased for better convergence with current resolution
+      max_iterations: 50
 
       # Number of threads used for parallel computing
-      num_threads: 4
+      num_threads: 12
 
       regularization:
         enable: false
@@ -82,13 +86,21 @@
 
       # If converged_param_type is 1
       # Threshold for deciding whether to trust the estimation result
-      converged_param_nearest_voxel_transformation_likelihood: 2.3
+      # AutoSDV: Tuned based on observed score distribution and point density
+      # Higher resolution voxels improve score confidence
+      # Lower threshold accepts more poses but may reduce accuracy
+      converged_param_nearest_voxel_transformation_likelihood: 2.8
 
       # Scan matching score based on no ground LiDAR scan
       no_ground_points:
+        # AutoSDV: Ground filtering configuration
+        # Disabled to preserve point count for NDT matching
+        # Excessive filtering can cause insufficient points and yaw drift
+        # Use crop_box filtering as primary point reduction method
         enable: false
 
         # If lidar_point.z - base_link.z <= this threshold , the point will be removed
+        # Not used when enable: false
         z_margin_for_ground_removal: 0.8
 
 

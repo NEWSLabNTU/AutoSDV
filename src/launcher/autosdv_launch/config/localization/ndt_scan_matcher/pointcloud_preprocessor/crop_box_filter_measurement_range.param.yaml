@@ -2,10 +2,17 @@
   ros__parameters:
     input_frame: "base_link"
     output_frame: "base_link"
-    min_x: -60.0
-    max_x: 60.0
-    min_y: -60.0
-    max_y: 60.0
-    min_z: -30.0
+    # AutoSDV: Crop box limits the matching area to nearby features
+    # Smaller box focuses on local geometry and reduces distant building noise
+    # Larger box includes more features but may introduce matching ambiguity
+    # Tuned based on map coverage and LiDAR effective range
+    min_x: -20.0
+    max_x: 20.0
+    min_y: -20.0
+    max_y: 20.0
+    # AutoSDV: Z-axis filtering based on LiDAR mount height
+    # Negative values include ground points
+    # Positive values filter ground, focusing on vertical structures
+    min_z: -1.0
     max_z: 50.0
     negative: False
