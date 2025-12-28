@@ -1,0 +1,120 @@
+AutoSDV - Autonomous Software-Defined Vehicle Platform
+Copyright 2025 AutoSDV Team
+
+This product is licensed under the Apache License, Version 2.0 (the "License").
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+
+This project integrates with and depends on the following third-party software:
+
+================================================================================
+
+1. Autoware Foundation
+   https://github.com/autowarefoundation/autoware
+   Copyright: The Autoware Foundation
+   License: Apache License 2.0
+
+   Components used:
+   - Autoware Core packages
+   - Autoware Universe packages
+   - AR Tag-based Localizer (autoware_ar_tag_based_localizer)
+   - EKF Localizer
+
+   Full license: https://autowarefoundation.github.io/autoware-documentation/main/contributing/license/
+
+================================================================================
+
+2. NVIDIA Isaac ROS
+   https://github.com/NVIDIA-ISAAC-ROS
+   Copyright: NVIDIA Corporation
+
+   2a. Isaac ROS Visual SLAM (ROS wrapper)
+       License: Apache License 2.0
+       https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_visual_slam/blob/main/LICENSE
+
+   2b. cuVSLAM Library (GPU-accelerated SLAM engine)
+       License: NVIDIA Isaac ROS Software License (Proprietary)
+       https://nvidia-ai-iot.github.io/jetson_isaac_ros_visual_slam_tutorial/NVIDIA-ISAAC-ROS-SOFTWARE-LICENSE.html
+
+       IMPORTANT: cuVSLAM is proprietary NVIDIA software. Users must:
+       - Accept NVIDIA Isaac ROS Software License terms
+       - Use only on systems with NVIDIA GPUs
+       - Install separately via NVIDIA APT repository or from source
+
+   This software contains source code provided by NVIDIA Corporation.
+
+================================================================================
+
+3. ROS 2 (Robot Operating System)
+   https://github.com/ros2
+   Copyright: Open Source Robotics Foundation
+   License: Apache License 2.0
+
+   Components used:
+   - ROS 2 Humble Hawksbill
+   - rclcpp, rclpy, and core ROS 2 packages
+
+   Full license: https://docs.ros.org/en/humble/The-ROS2-Project/Contributing/Developer-Guide.html#licensing
+
+================================================================================
+
+4. ZED SDK and ROS 2 Wrapper
+   https://github.com/stereolabs/zed-ros2-wrapper
+   Copyright: Stereolabs
+   License: Apache License 2.0 (wrapper), Proprietary (SDK)
+
+   Components:
+   - ZED ROS 2 wrapper (Apache 2.0)
+   - ZED SDK 5.x (Proprietary, requires separate license acceptance)
+
+================================================================================
+
+5. Additional ROS 2 Dependencies
+
+   Various ROS 2 packages from the community, including but not limited to:
+   - tf2, tf2_ros (Apache 2.0)
+   - sensor_msgs, geometry_msgs, nav_msgs (Apache 2.0)
+   - rviz2 (BSD 3-Clause)
+   - colcon build tools (Apache 2.0)
+
+================================================================================
+
+HARDWARE REQUIREMENTS
+
+This software is designed for use with:
+- NVIDIA Jetson AGX Orin (recommended)
+- NVIDIA GPUs with CUDA support (required for Isaac ROS components)
+
+The Isaac ROS components are licensed for use only on systems with NVIDIA GPUs.
+
+================================================================================
+
+INSTALLATION NOTES
+
+External dependencies (NVIDIA Isaac ROS, ZED SDK) must be installed separately
+and are subject to their respective license terms. See the installation
+documentation for details:
+
+- Isaac ROS: https://nvidia-isaac-ros.github.io/getting_started/
+- ZED SDK: https://www.stereolabs.com/developers/release/
+
+================================================================================
+
+For complete license information, see:
+- AutoSDV: LICENSE file in this repository (Apache 2.0)
+- Third-party licenses: See individual project repositories linked above
+- Licensing analysis: docs/LICENSING_ANALYSIS.md
+
+For questions about licensing, see docs/LICENSING_ANALYSIS.md or consult with
+a qualified attorney specializing in software licensing.
