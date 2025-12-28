@@ -89,7 +89,7 @@
       # AutoSDV: Tuned based on observed score distribution and point density
       # Higher resolution voxels improve score confidence
       # Lower threshold accepts more poses but may reduce accuracy
-      converged_param_nearest_voxel_transformation_likelihood: 2.8
+      converged_param_nearest_voxel_transformation_likelihood: 2.2
 
       # Scan matching score based on no ground LiDAR scan
       no_ground_points:
