@@ -1,0 +1,127 @@
+/**:
+  ros__parameters:
+    node:
+      # Enable debug output for AR tag + VSLAM fusion tuning
+      show_debug_info: true
+
+      # Enable automatic yaw bias estimation for IMU drift correction
+      enable_yaw_bias_estimation: true
+
+      # Prediction and TF publishing frequency
+      predict_frequency: 50.0  # 50 Hz prediction rate
+      tf_rate: 50.0            # 50 Hz TF publishing rate
+
+      # Extended state estimation steps for bias estimation
+      extend_state_step: 50
+
+    pose_measurement:
+      # AR Tag pose measurement configuration
+      # AR tags provide periodic global pose corrections
+      pose_additional_delay: 0.0
+      pose_measure_uncertainty_time: 0.01
+
+      # Smooth AR tag corrections over 5 steps to prevent sudden jumps
+      # This is important because AR tag detections can have frame-to-frame jitter
+      pose_smoothing_steps: 5
+
+      # Measurement gate - larger value to accept AR tag corrections
+      # AR tags are trusted as ground truth for global reference
+      pose_gate_dist: 10000.0  # Large value to trust AR tag measurements
+
+    twist_measurement:
+      # Isaac VSLAM twist (velocity) measurement configuration
+      # VSLAM provides continuous high-rate velocity tracking
+      twist_additional_delay: 0.0
+
+      # Minimal smoothing for twist (VSLAM already smooth)
+      twist_smoothing_steps: 2
+
+      # Measurement gate - trust Isaac VSLAM velocity output
+      twist_gate_dist: 10000.0  # Large value to trust VSLAM measurements
+
+    process_noise:
+      # Process noise defines system dynamics uncertainty
+      # These values determine how much the EKF trusts predictions vs measurements
+
+      # Yaw drift rate (rad/s) - how fast heading can change unexpectedly
+      # Lower value = trust predicted heading more
+      # Higher value = accept larger heading corrections from measurements
+      proc_stddev_yaw_c: 0.005  # Conservative yaw drift
+
+      # Longitudinal velocity change rate (m/s²)
+      # This affects how quickly EKF responds to velocity measurements
+      # Higher value = faster response to VSLAM twist updates
+      # Tuned for AR tag + VSLAM fusion (was 10.0 in default)
+      proc_stddev_vx_c: 5.0  # Moderate velocity dynamics
+
+      # Yaw rate change (rad/s²)
+      # Angular acceleration uncertainty
+      proc_stddev_wz_c: 1.0  # Conservative angular dynamics (was 5.0)
+
+    simple_1d_filter_parameters:
+      # Simple 1D filters for non-observable states (z, roll, pitch)
+      # These are not directly measured by AR tags or VSLAM in typical setup
+      z_filter_proc_dev: 1.0       # Height variation
+      roll_filter_proc_dev: 0.1    # Roll angle variation
+      pitch_filter_proc_dev: 0.1   # Pitch angle variation
+
+    diagnostics:
+      # Diagnostic thresholds for monitoring fusion health
+
+      # AR tag pose update thresholds
+      # Warn if no pose update for 50 cycles (1 second at 50Hz)
+      # Error if no pose update for 100 cycles (2 seconds)
+      pose_no_update_count_threshold_warn: 50
+      pose_no_update_count_threshold_error: 100
+
+      # VSLAM twist update thresholds
+      # These should trigger rarely as VSLAM runs continuously
+      twist_no_update_count_threshold_warn: 50
+      twist_no_update_count_threshold_error: 100
+
+      # Error ellipse visualization parameters
+      ellipse_scale: 3.0  # 3-sigma ellipse for visualization
+      error_ellipse_size: 1.5  # Error threshold (meters)
+      warn_ellipse_size: 1.2   # Warning threshold (meters)
+      error_ellipse_size_lateral_direction: 0.3  # Lateral error threshold
+      warn_ellipse_size_lateral_direction: 0.25  # Lateral warning threshold
+
+    misc:
+      # Miscellaneous configuration
+
+      # Velocity threshold for treating vehicle as stationary (m/s)
+      # Set to 0.0 to always use velocity measurements
+      threshold_observable_velocity_mps: 0.0
+
+      # Reference frame for pose measurements
+      # AR tags provide pose in "map" frame (global coordinate system)
+      pose_frame_id: "map"
+
+# Configuration Notes:
+# ====================
+# This EKF configuration is tuned for AR Tag + Isaac VSLAM sensor fusion:
+#
+# Input Sources:
+# - AR Tag Localizer: Provides global pose corrections (~10 Hz when visible)
+#   Topic: /localization/pose_estimator/pose_with_covariance
+#   Purpose: Periodic global reference to prevent drift accumulation
+#
+# - Isaac VSLAM: Provides local velocity tracking (continuous ~30 Hz)
+#   Topic: /localization/twist_estimator/twist_with_covariance
+#   Purpose: High-rate smooth odometry between AR tag detections
+#
+# Fusion Strategy:
+# - AR tags correct accumulated drift when visible (pose smoothing over 5 steps)
+# - VSLAM twist integrates for smooth tracking between tag detections
+# - EKF fuses both sources with appropriate process noise tuning
+#
+# Tuning Guidelines:
+# - Increase proc_stddev_vx_c for faster response to VSLAM velocity changes
+# - Increase pose_smoothing_steps if AR tag corrections cause jerky motion
+# - Adjust measurement gates if valid measurements are being rejected
+# - Monitor diagnostics topics for fusion health (/diagnostics)
+#
+# Expected Behavior:
+# - Smooth tracking with AR tags visible (pose updates + velocity integration)
+# - Gradual drift accumulation when no tags visible (velocity-only integration)
+# - Quick convergence when tags re-appear (within 1 second)

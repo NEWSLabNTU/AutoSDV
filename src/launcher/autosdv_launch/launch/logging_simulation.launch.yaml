@@ -82,7 +82,7 @@ launch:
     description: "Launch RViz"
 
 - include:
-    file: "$(find-pkg-share autoware_launch)/launch/autoware.launch.xml"
+    file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
     arg:
     -
       name: vehicle_model

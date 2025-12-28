@@ -180,10 +180,11 @@ play-outdoor:
 
 .PHONY: test-logging-simulation
 test-logging-simulation:
+	source install/setup.bash && \
 	parallel --line-buffer ::: \
 		"$(MAKE) launch-logging-simulation" \
-		"sleep 70 && ./scripts/play_rosbag.sh" \
-		"sleep 75 && ./scripts/record_localization.sh"
+		"sleep 35 && ros2 bag play rosbags/outdoor_20251226_153115/ --clock -l -r 1.5" \
+		"sleep 40 && ./scripts/record_localization.sh"
 
 .PHONY: run-drive
 run-drive:
