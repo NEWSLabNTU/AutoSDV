@@ -1,0 +1,71 @@
+/**:
+  ros__parameters:
+    # Marker physical size in meters
+    # Must match actual printed tag size
+    marker_size: 0.6
+
+    # Target marker IDs to detect
+    # Test data contains markers: 0, 4, 5
+    # For custom deployment, adjust to match your environment
+    target_tag_ids: ['0', '4', '5']
+
+    # Base covariance for pose estimation
+    # Will be scaled by detection distance
+    # Format: [x, y, z, roll, pitch, yaw] diagonal values (6x6 matrix)
+    # Lower values = higher confidence in measurement
+    # Units: meters for position, radians for orientation
+    base_covariance: [
+      0.2, 0.0, 0.0, 0.0,  0.0,  0.0,   # x variance
+      0.0, 0.2, 0.0, 0.0,  0.0,  0.0,   # y variance
+      0.0, 0.0, 0.2, 0.0,  0.0,  0.0,   # z variance
+      0.0, 0.0, 0.0, 0.02, 0.0,  0.0,   # roll variance
+      0.0, 0.0, 0.0, 0.0,  0.02, 0.0,   # pitch variance
+      0.0, 0.0, 0.0, 0.0,  0.0,  0.02   # yaw variance
+    ]
+
+    # Maximum detection distance in meters
+    # Tags beyond this distance will be ignored
+    # Typical range: 5-15m depending on camera resolution and tag size
+    distance_threshold: 13.0
+
+    # Whether to use marker orientation for 6DOF pose
+    # false: Position-only (3DOF) - more robust, ignore orientation
+    # true: Full 6DOF pose - requires accurate tag alignment
+    consider_orientation: false
+
+    # Detection mode (ArUco library)
+    # DM_NORMAL: Standard detection (recommended)
+    # DM_FAST: Faster but less accurate
+    # DM_VIDEO_FAST: Optimized for video streams
+    detection_mode: "DM_NORMAL"
+
+    # Minimum marker size in image (normalized units 0-1)
+    # Smaller values detect tags at greater distances but may increase false positives
+    # Larger values require tags to be closer but more reliable
+    min_marker_size: 0.02
+
+    # EKF validation thresholds
+    # Used to filter out false positive detections by comparing with EKF estimate
+
+    # Maximum time difference between AR tag detection and EKF pose (seconds)
+    # Detections older than this will be rejected
+    ekf_time_tolerance: 5.0
+
+    # Maximum position difference between AR tag and EKF pose (meters)
+    # If detection is farther than this from EKF estimate, it's rejected as false positive
+    # Increase if EKF drift is large or decrease for stricter validation
+    ekf_position_tolerance: 10.0
+
+    # Camera frame ID (should match your camera's frame_id in TF tree)
+    # This is used to transform detected tags from camera frame to map frame
+    # Default: camera_optical_link (adjust if your setup uses different frame name)
+    # camera_frame_id: "camera_optical_link"
+
+    # Publish TF transforms for debugging
+    # Shows detected tag pose in TF tree for visualization
+    publish_tf: true
+
+    # Debug image publishing
+    # Publishes annotated image with detected tags highlighted
+    # Useful for debugging but adds computational overhead
+    publish_debug_image: true

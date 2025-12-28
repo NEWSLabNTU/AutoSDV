@@ -1,0 +1,108 @@
+launch:
+# Map configuration
+- arg:
+    name: map_path
+    default: "$(env PWD)/data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/map"
+    description: "Path to AR tag test map"
+
+# Vehicle and sensor configuration
+- arg:
+    name: vehicle_model
+    default: "sample_vehicle"
+    description: "Vehicle model for rosbag testing"
+
+- arg:
+    name: sensor_model
+    default: "ar_tag_rosbag_sensor_kit"
+    description: "Sensor kit model for rosbag testing"
+
+# Localization configuration - Use AR tag based localization
+- arg:
+    name: pose_source
+    default: "artag"
+    description: "Pose estimation source: artag (AR Tag based)"
+
+- arg:
+    name: twist_source
+    default: "gyro_odom"
+    description: "Twist source for velocity estimation"
+
+# Simulation time (required for rosbag replay)
+- arg:
+    name: use_sim_time
+    default: "true"
+    description: "Use simulation time from rosbag"
+
+# AR Tag localizer configuration
+- arg:
+    name: ar_tag_config_file
+    default: "$(find-pkg-share ar_tag_rosbag_launch)/config/localization/ar_tag_based_localizer.param.yaml"
+    description: "AR tag localizer configuration file"
+
+- arg:
+    name: camera_name
+    default: "front"
+    description: "Camera name for AR tag detection (rosbag uses 'front')"
+
+# Launch AR Tag Based Localizer
+- include:
+    file: "$(find-pkg-share ar_tag_rosbag_launch)/launch/localization/ar_tag.launch.xml"
+    arg:
+    - name: ar_tag_config_file
+      value: $(var ar_tag_config_file)
+    - name: camera_name
+      value: $(var camera_name)
+
+# Launch Autoware logging simulator
+- include:
+    file: "$(find-pkg-share autoware_launch)/launch/logging_simulator.launch.xml"
+    arg:
+    # Basic configuration
+    - name: map_path
+      value: $(var map_path)
+    - name: vehicle_model
+      value: $(var vehicle_model)
+    - name: sensor_model
+      value: $(var sensor_model)
+    - name: use_sim_time
+      value: $(var use_sim_time)
+
+    # Localization configuration
+    - name: pose_source
+      value: $(var pose_source)
+    - name: twist_source
+      value: $(var twist_source)
+
+    # Map configuration
+    - name: use_pointcloud_map
+      value: "true"
+
+    # Launch control - Minimal for rosbag testing
+    - name: launch_vehicle
+      value: "true"
+    - name: launch_system
+      value: "true"
+    - name: launch_map
+      value: "true"
+    - name: launch_sensing
+      value: "true"
+    - name: launch_sensing_driver
+      value: "false"  # No hardware drivers for rosbag replay
+    - name: launch_localization
+      value: "true"
+    - name: launch_perception
+      value: "false"  # Disable perception for simplicity
+    - name: launch_planning
+      value: "false"  # Disable planning for rosbag testing
+    - name: launch_control
+      value: "false"  # Disable control for rosbag testing
+
+    # Perception configuration (disabled but set defaults)
+    - name: perception_mode
+      value: "camera_lidar_fusion"
+    - name: use_traffic_light_recognition
+      value: "false"
+    - name: use_detection_by_tracker
+      value: "false"
+    - name: use_image_segmentation_based_filter
+      value: "false"

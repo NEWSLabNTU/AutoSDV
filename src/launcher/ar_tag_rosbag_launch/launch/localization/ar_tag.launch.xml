@@ -1,0 +1,47 @@
+<launch>
+  <!-- AR Tag Based Localizer Launch File -->
+  <!-- Integrates Autoware's AR tag localizer with AutoSDV -->
+
+  <!-- Arguments -->
+  <arg name="ar_tag_config_file" description="Path to AR tag localizer parameter file"/>
+  <arg name="camera_name" default="zedxm" description="Camera name for topic namespace"/>
+
+  <!-- Camera topic configuration -->
+  <!-- For live camera: /sensing/camera/zedxm/zedxm/rgb/* -->
+  <!-- For test rosbag: /sensing/camera/front/* (requires remapping) -->
+  <arg name="camera_image_topic" default="/sensing/camera/$(var camera_name)/$(var camera_name)/rgb/image_rect_color"
+       description="Camera image topic"/>
+  <arg name="camera_info_topic" default="/sensing/camera/$(var camera_name)/$(var camera_name)/rgb/camera_info"
+       description="Camera info topic"/>
+
+  <!-- Launch AR Tag Based Localizer -->
+  <include file="$(find-pkg-share autoware_ar_tag_based_localizer)/launch/ar_tag_based_localizer.launch.xml">
+    <!-- Parameter file -->
+    <arg name="param_file" value="$(var ar_tag_config_file)"/>
+
+    <!-- Input topic remapping -->
+    <!-- Lanelet2 map with AR tag landmarks -->
+    <arg name="input_lanelet2_map" value="/map/vector_map"/>
+
+    <!-- Camera image and calibration -->
+    <arg name="input_image" value="$(var camera_image_topic)"/>
+    <arg name="input_camera_info" value="$(var camera_info_topic)"/>
+
+    <!-- EKF pose for validation (prevents false positives) -->
+    <arg name="input_ekf_pose" value="/localization/ekf_localizer/ekf_pose_with_covariance"/>
+
+    <!-- Output topic -->
+    <!-- Publishes global pose estimate from AR tag detection -->
+    <arg name="output_pose_with_covariance" value="/localization/pose_estimator/pose_with_covariance"/>
+
+    <!-- Debug topics (optional) -->
+    <arg name="debug_image" value="/localization/ar_tag_based_localizer/debug/image"/>
+    <arg name="debug_mapped_tag" value="/localization/ar_tag_based_localizer/debug/mapped_tag"/>
+    <arg name="debug_detected_tag" value="/localization/ar_tag_based_localizer/debug/detected_tag"/>
+  </include>
+
+  <!-- Info message -->
+  <node pkg="ros2" exec="topic" name="ar_tag_localizer_info" output="screen"
+        args="echo 'AR Tag Based Localizer started. Waiting for camera images and map...'" unless="false"/>
+
+</launch>
