@@ -16,6 +16,22 @@ Date copied: 2025-12-28
   - Optimized for indoor/GPS-denied environments
   - Last modified: 2025-12-25
 
+- **ndt_scan_matcher/ndt_scan_matcher.param.yaml**: Tuned for low-mounted LiDAR (30cm height)
+  - Ground removal enabled (`no_ground_points.enable: true`)
+  - Z-margin set to 0.2m for balanced ground filtering (empirically tuned)
+  - Finer resolution (1.5m vs 2.0m default) for better yaw estimation
+  - Increased max iterations (50 vs 30) for convergence
+  - Lowered score threshold (1.8 vs 2.3) to allow more poses through
+  - **Tuning history**: 0.4m (too permissive) → 0.0m (too aggressive, 2.5k pts) → 0.2m (balanced)
+  - Last modified: 2025-12-28
+
+- **ndt_scan_matcher/pointcloud_preprocessor/crop_box_filter_measurement_range.param.yaml**: Tuned for low-mounted LiDAR
+  - Balanced Z-range filtering (min: -0.25m, max: 10.0m)
+  - Ground points at ~-0.3m, keeping points above -0.25m ensures sufficient points
+  - **Tuning history**: -0.5m (too permissive) → -0.1m (too aggressive) → -0.25m (balanced)
+  - Target: >5000 points/scan for reliable NDT convergence
+  - Last modified: 2025-12-28
+
 ## Updating Configurations
 
 When updating Autoware base version:
