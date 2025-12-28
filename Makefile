@@ -31,6 +31,15 @@ default:
 	@echo 'make run-circle'
 	@echo '    Run trajectory player with circle.yaml (circular path).'
 	@echo
+	@echo 'make launch-ar-tag-sim'
+	@echo '    Launch logging simulator with AR tag test map and localization.'
+	@echo
+	@echo 'make play-ar-tag-rosbag'
+	@echo '    Play AR tag test rosbag (use with launch-ar-tag-sim).'
+	@echo
+	@echo 'make test-ar-tag-sim'
+	@echo '    Run complete AR tag test (launch simulator + play rosbag automatically).'
+	@echo
 	@echo 'make run-rviz'
 	@echo '    Launch RViz with AutoSDV configuration.'
 	@echo
@@ -159,6 +168,59 @@ clean:
 			* ) echo 'Please enter yes or no.';; \
 		esac \
 	done
+
+.PHONY: launch-ar-tag-sim
+launch-ar-tag-sim:
+	@if [ ! -d "data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/map" ]; then \
+		echo "ERROR: AR tag test map not found."; \
+		echo "Run: ./scripts/testing/download_ar_tag_data.sh"; \
+		exit 1; \
+	fi
+	play_launch launch \
+		--web-ui \
+		--web-ui-addr 0.0.0.0 \
+		--web-ui-port 8081 \
+		ar_tag_rosbag_launch ar_tag_rosbag.launch.yaml
+
+.PHONY: play-ar-tag-rosbag
+play-ar-tag-rosbag:
+	@if [ ! -d "data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/ar_tag_based_localizer_sample_bag" ]; then \
+		echo "ERROR: AR tag test rosbag not found."; \
+		echo "Run: ./scripts/testing/download_ar_tag_data.sh"; \
+		exit 1; \
+	fi
+	@echo "Playing AR tag test rosbag at 0.5x speed..."
+	@echo "Note: Use with 'make launch-ar-tag-sim' for matching sensor configuration"
+	@echo "Press Ctrl+C to stop playback."
+	@echo ""
+	source $(PWD)/install/setup.bash && \
+	ros2 bag play data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/ar_tag_based_localizer_sample_bag -r 0.5 -s sqlite3
+
+.PHONY: test-ar-tag-sim
+test-ar-tag-sim:
+	@if [ ! -d "data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/map" ]; then \
+		echo "ERROR: AR tag test map not found."; \
+		echo "Run: ./scripts/testing/download_ar_tag_data.sh"; \
+		exit 1; \
+	fi
+	@if [ ! -d "data/ar_tag_test_real/sample_data_for_ar_tag_based_localizer/ar_tag_based_localizer_sample_bag" ]; then \
+		echo "ERROR: AR tag test rosbag not found."; \
+		echo "Run: ./scripts/testing/download_ar_tag_data.sh"; \
+		exit 1; \
+	fi
+	@echo "Starting AR tag rosbag test..."
+	@echo "This will:"
+	@echo "  1. Launch AR tag simulation (60s startup wait)"
+	@echo "  2. Play AR tag rosbag automatically"
+	@echo "Press Ctrl+C to stop both processes."
+	@echo ""
+	@command -v parallel >/dev/null 2>&1 || { \
+		echo "ERROR: GNU parallel not found. Install with: sudo apt install parallel"; \
+		exit 1; \
+	}
+	parallel --ungroup ::: \
+		"$(MAKE) launch-ar-tag-sim" \
+		"echo 'Waiting 60s for Autoware to be ready...' && sleep 60 && echo 'Starting rosbag playback...' && $(MAKE) play-ar-tag-rosbag"
 
 .PHONY: run-rviz
 run-rviz:

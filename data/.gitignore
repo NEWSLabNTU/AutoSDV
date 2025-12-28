@@ -10,6 +10,7 @@
 /traffic_light_classifier/
 /traffic_light_fine_detector/
 /tvm_utility/
+/ar_tag_test_real/
 
 # Avoid accidentally committing large binaries
 *.bin
