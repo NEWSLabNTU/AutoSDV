@@ -78,8 +78,11 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 **Temporary Files**
 - Write temporary test files and logs to `$PROJECT_ROOT/tmp/` directory
 - The `tmp/` directory is gitignored and safe for disposable files
-- Examples: test logs, debug outputs, temporary scripts
+- Examples: test logs, debug outputs, temporary scripts, tutorials, notes
 - Do NOT use system `/tmp/` - use project-local `./tmp/` instead
+- **Tool usage**: Use the Write tool to create files in `./tmp/`, not bash `cat` with heredocs or echo redirects
+  - Example: `Write(file_path="/home/aeon/repos/AutoSDV/2025.02/tmp/tutorial.md", content="...")`
+  - Avoid: `cat << 'EOF' > /tmp/file` or `echo "text" > /tmp/file`
 
 ### Setup System
 
