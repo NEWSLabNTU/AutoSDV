@@ -90,11 +90,20 @@ test:
 
 .PHONY: launch
 launch:
-	play_launch launch \
-		--web-ui \
-		--web-ui-addr 0.0.0.0 \
-		--web-ui-port 8081 \
-		autosdv_launch autosdv.launch.yaml
+	@if [ -n "$$DISPLAY" ]; then \
+		play_launch launch \
+			--web-ui \
+			--web-ui-addr 0.0.0.0 \
+			--web-ui-port 8081 \
+			autosdv_launch autosdv.launch.yaml; \
+	else \
+		play_launch launch \
+			--web-ui \
+			--web-ui-addr 0.0.0.0 \
+			--web-ui-port 8081 \
+			autosdv_launch autosdv.launch.yaml \
+			rviz:=false; \
+	fi
 
 .PHONY: launch-planning-simulation
 launch-planning-simulation:
@@ -118,11 +127,20 @@ launch-zed-only:
 
 .PHONY: launch-logging-simulation
 launch-logging-simulation:
-	play_launch launch \
-		--web-ui \
-		--web-ui-addr 0.0.0.0 \
-		--web-ui-port 8081 \
-		autosdv_launch logging_simulation.launch.yaml
+	@if [ -n "$$DISPLAY" ]; then \
+		play_launch launch \
+			--web-ui \
+			--web-ui-addr 0.0.0.0 \
+			--web-ui-port 8081 \
+			autosdv_launch logging_simulation.launch.yaml; \
+	else \
+		play_launch launch \
+			--web-ui \
+			--web-ui-addr 0.0.0.0 \
+			--web-ui-port 8081 \
+			autosdv_launch logging_simulation.launch.yaml \
+			rviz:=false; \
+	fi
 
 
 .PHONY: run-controller
@@ -183,8 +201,8 @@ test-logging-simulation:
 	source install/setup.bash && \
 	parallel --line-buffer ::: \
 		"$(MAKE) launch-logging-simulation" \
-		"sleep 35 && ros2 bag play rosbags/outdoor_20251226_153115/ --clock -l -r 1.5" \
-		"sleep 40 && ./scripts/record_localization.sh"
+		"sleep 40 && ros2 bag play rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \
+		"sleep 45 && ./scripts/record_localization.sh"
 
 .PHONY: run-drive
 run-drive:
