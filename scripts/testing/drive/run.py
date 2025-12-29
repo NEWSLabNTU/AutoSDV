@@ -16,6 +16,8 @@ Controls (Emacs-style combo keys):
   [R]+[1-9]       - Set route to selected goal pose
   [C] Clear Route - Clear current route
   [A] Autonomous  - Engage autonomous driving
+  [S] Stop        - Stop the vehicle (emergency stop)
+  [L] Limit Speed - Set speed limit to 2 m/s
   [M] Manual      - Switch to manual control
   [Q] Quit        - Exit the program
   [ESC]           - Cancel current combo command
@@ -56,6 +58,7 @@ from autoware_vehicle_msgs.msg import VelocityReport
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
 from tier4_debug_msgs.msg import Float32Stamped, Int32Stamped
+from tier4_planning_msgs.msg import VelocityLimit
 
 
 # Route state constants (from RouteState message)
@@ -279,6 +282,13 @@ class AutowareDriveNode(Node):
             "/localization/pose_estimator/debug/loaded_pointcloud_map",
             self.ndt_map_points_callback,
             qos_transient_map,
+        )
+
+        # Velocity limit publisher (TRANSIENT_LOCAL for latched behavior)
+        self.velocity_limit_pub = self.create_publisher(
+            VelocityLimit,
+            "/planning/scenario_planning/max_velocity_default",
+            qos_transient_local,
         )
 
         self.log("Autoware Drive Node initialized")
@@ -539,6 +549,32 @@ class AutowareDriveNode(Node):
         if success:
             self.log("Manual mode activated")
         return success
+
+    def stop_vehicle(self):
+        """Stop the vehicle immediately."""
+        self.log("STOPPING VEHICLE...")
+        client = self.create_client(ChangeOperationMode, "/api/operation_mode/change_to_stop")
+        request = ChangeOperationMode.Request()
+        success, _ = self.call_service(
+            client,
+            request,
+            "Stop vehicle",
+        )
+        if success:
+            self.log("Vehicle stopped")
+        return success
+
+    def set_velocity_limit(self, max_velocity=2.0):
+        """Set maximum velocity limit."""
+        self.log(f"Setting speed limit to {max_velocity} m/s...")
+        msg = VelocityLimit()
+        msg.stamp = self.get_clock().now().to_msg()
+        msg.max_velocity = max_velocity
+        msg.use_constraints = False
+        msg.sender = "autoware_drive_node"
+        self.velocity_limit_pub.publish(msg)
+        self.log(f"Speed limit set to {max_velocity} m/s")
+        return True
 
 
 class PoseSelector:
@@ -1117,23 +1153,23 @@ class AutowareTUI:
                         self.stdscr.addstr(y, 2, "[I]+[1-9] Init Pose    [R]+[1-9] Set Route    [C] Clear Route")
                     y += 1
                     if y < height:
-                        self.stdscr.addstr(y, 2, "[A] Autonomous Mode    [M] Manual Mode       [Q] Quit")
+                        self.stdscr.addstr(y, 2, "[A] Auto  [S] Stop  [L] Limit 2m/s  [M] Manual  [Q] Quit")
                     y += 1
                 elif width >= 50:
                     if y < height:
                         self.stdscr.addstr(y, 2, "[I]+[1-9] Init  [R]+[1-9] Route  [C] Clear")
                     y += 1
                     if y < height:
-                        self.stdscr.addstr(y, 2, "[A] Auto  [M] Manual  [Q] Quit")
+                        self.stdscr.addstr(y, 2, "[A] Auto [S] Stop [L] Limit [M] Manual [Q] Quit")
                     y += 1
                 elif width >= 35:
                     if y < height:
-                        self.stdscr.addstr(y, 2, "I+# R+# C A M Q")
+                        self.stdscr.addstr(y, 2, "I+# R+# C A S L M Q")
                     y += 1
                 else:
                     # Ultra compact
                     if y < height:
-                        self.stdscr.addstr(y, 2, "I# R# C A M Q")
+                        self.stdscr.addstr(y, 2, "I# R# C A S L M Q")
                     y += 1
         except curses.error:
             pass
@@ -1338,6 +1374,14 @@ class AutowareTUI:
         elif key == ord('a') or key == ord('A'):
             # Autonomous mode (immediate action, no combo)
             Thread(target=self.node.set_autonomous_mode, daemon=True).start()
+
+        elif key == ord('s') or key == ord('S'):
+            # Stop vehicle (immediate action, no combo)
+            Thread(target=self.node.stop_vehicle, daemon=True).start()
+
+        elif key == ord('l') or key == ord('L'):
+            # Set speed limit to 2 m/s (immediate action, no combo)
+            Thread(target=self.node.set_velocity_limit, args=(2.0,), daemon=True).start()
 
         elif key == ord('m') or key == ord('M'):
             # Manual mode (immediate action, no combo)
