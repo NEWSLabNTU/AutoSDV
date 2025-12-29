@@ -66,6 +66,19 @@ AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Aut
 - **data/models/** - ML models (YOLOX, CenterPoint, TensorRT)
 - **data/zed-sdk/** - ZED camera SDK and calibration
 
+### Documentation Structure
+- **docs/design/** - Design documents and architecture decisions
+  - `isaac_vslam_integration.md` - Isaac ROS Visual SLAM integration design
+- **docs/guides/** - Operational guides and testing procedures
+  - `control_testing.md` - Control system testing procedures
+  - `isaac_vslam_testing.md` - Isaac SLAM standalone testing tutorial
+  - `mrm_configuration.md` - MRM (Minimum Risk Maneuver) configuration guide
+  - `simulation_testing.md` - Simulation and rosbag replay guide
+- **docs/research/** - Empirical research studies and experimental findings
+  - `localization/ndt_parameter_tuning_coss_map.md` - NDT parameter tuning for COSS map
+- **docs/roadmaps/** - Feature roadmaps and development plans
+  - `ar_tag_integration/` - AR tag-based localization roadmap
+
 ### Build Artifacts
 - **build/** - Compiled binaries (gitignored)
 - **install/** - Installed packages and setup files
@@ -338,6 +351,12 @@ make launch ARGS="pose_source:=ndt"
 make launch
 ```
 
+**NDT Configuration:**
+- Tuned for VLP-32C LiDAR on COSS map (NTU Campus)
+- Resolution: 2.0m, Score threshold: 2.2, Voxel size: 0.5m, Points: 3000
+- Performance: 95% pose acceptance, 7.4ms execution time
+- See `docs/research/localization/ndt_parameter_tuning_coss_map.md` for empirical tuning results
+
 #### Isaac ROS Visual SLAM (GPU-Accelerated)
 ```bash
 # Stereo camera-based localization using NVIDIA Isaac ROS Visual SLAM
@@ -411,6 +430,14 @@ Python packages follow ROS 2 conventions with:
 - No orphan processes left after shutdown
 
 ### Known Issues and Solutions
+
+#### MRM False Emergency Stops (RESOLVED)
+- **Issue**: Vehicle would unexpectedly trigger emergency stop during normal outdoor operation
+- **Cause**: Default localization accuracy thresholds (1.5m position, 0.3m lateral) too strict for VLP-32C LiDAR
+- **Solution**: Disabled `/autoware/localization/accuracy` diagnostic check in `config/system/diagnostics/localization.yaml`
+- **Status**: Localization quality still monitored via NDT scan_matching_status (score threshold 2.2)
+- **Reference**: See `docs/guides/mrm_configuration.md` for complete MRM system documentation
+- **Monitoring**: Use `ros2 topic echo /system/fail_safe/mrm_state` to monitor MRM status
 
 #### Network Monitor Error
 - Network monitor may show socket connection errors
@@ -795,3 +822,27 @@ journalctl -k | grep -i "zed\|gmsl\|ar0234"
   - Minimalist output style with clear status indicators (✓/→/○)
   - 11 modular setup steps: ros2, ros2-dev-tools, gdown, geographiclib, pacmod, dev-tools, blickfeld, autoware-debian, python-deps, ublox-udev, ros-deps
   - Usage: `./setup.sh` (interactive), `./setup.sh status` (check), `./setup.sh <recipe>` (specific step)
+- **Documented NDT parameter tuning for COSS map** (2025-12-28)
+  - Created comprehensive research documentation in `docs/research/localization/ndt_parameter_tuning_coss_map.md`
+  - Empirical testing of 3 configurations with VLP-32C LiDAR on NTU Campus COSS map
+  - **Final configuration for AGX Orin**: resolution 2.0m, threshold 2.2, voxel 0.5m, 3000 points
+  - **Results**: 95% pose acceptance, 16% faster execution (7.4ms vs 8.8ms), 50% memory reduction
+  - **Key findings**:
+    - Higher NDT resolution (2.0m) compensates for VLP-32C sparse vertical sampling
+    - Crop box ±20m eliminates distant building noise, improves yaw stability
+    - Coarser voxel downsampling (0.5m) provides better efficiency without sacrificing robustness
+  - Analysis includes: score distributions, execution times, rejection rates, point density effects
+  - Documented trade-offs: statistical confidence vs geometric precision, CPU budget on embedded hardware
+- **Disabled MRM localization accuracy check to prevent false emergency stops** (2025-12-28)
+  - Modified `src/launcher/autosdv_launch/config/system/diagnostics/localization.yaml`
+  - Commented out `/autoware/localization/accuracy` check that was triggering false MRM emergency stops
+  - **Problem**: Default error ellipse thresholds (1.5m position, 0.3m lateral) too strict for VLP-32C
+  - **Solution**: Disabled accuracy check; localization quality still monitored via NDT scan_matching_status
+  - Created comprehensive MRM configuration guide: `docs/guides/mrm_configuration.md`
+  - Documentation covers: MRM architecture, trigger conditions, monitoring topics, testing recommendations
+  - Allows outdoor testing without false emergency stops from brief localization uncertainty
+- **Organized documentation structure** (2025-12-28)
+  - Created `docs/research/` directory for empirical research studies and experimental findings
+  - Structure: `docs/research/localization/` for localization-specific research
+  - Merged `config/README.md` into `autosdv_launch/README.md` for centralized package documentation
+  - Updated autosdv_launch README with package structure, configuration categories, and related docs links
