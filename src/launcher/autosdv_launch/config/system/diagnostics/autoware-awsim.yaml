@@ -3,3 +3,10 @@ files:
 
 edits:
   - { type: remove, path: /autoware/system/duplicated_node_checker }
+
+  - { type: remove, path: /autoware/system/topic_rate_check/emergency_control_command }
+  - { type: remove, path: /autoware/system/emergency_stop_operation }
+  - { type: remove, path: /autoware/control/emergency_braking }
+  - { type: remove, path: /autoware/control/performance_monitoring/lane_departure }
+  - { type: remove, path: /autoware/control/performance_monitoring/trajectory_deviation }
+  - { type: remove, path: /autoware/control/performance_monitoring/control_state }
