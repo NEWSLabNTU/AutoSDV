@@ -32,7 +32,7 @@
       # AutoSDV: Tuned based on point density and matching quality
       # Larger voxels improve statistical confidence but reduce geometric precision
       # Smaller voxels preserve features but require more points per voxel
-      resolution: 2.0
+      resolution: 4.0
 
       # The number of iterations required to calculate alignment
       # AutoSDV: Increased for better convergence with current resolution

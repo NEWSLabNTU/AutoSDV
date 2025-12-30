@@ -5,4 +5,4 @@
     # Too few points reduce NDT score and may cause yaw drift
     # Too many points increase computation time without significant benefit
     # Value depends on voxel size, NDT resolution, and sensor characteristics
-    sample_num: 3000
+    sample_num: 2000
