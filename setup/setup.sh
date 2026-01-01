@@ -128,13 +128,39 @@ interactive_setup() {
     fi
     printf "\n"
 
-    # Export choice for justfile
+    # System-wide CycloneDDS kernel buffer configuration
+    CONFIGURE_CYCLONEDDS_SYSCTL="n"
+    printf "${YELLOW}System Configuration:${NC} CycloneDDS kernel buffers (recommended)\n"
+    printf "This modifies: /etc/sysctl.d/10-cyclone-max.conf (system-wide)\n\n"
+    if ask_yes_no "Configure kernel network buffers?" "y"; then
+        CONFIGURE_CYCLONEDDS_SYSCTL="y"
+    fi
+    printf "\n"
+
+    # Blickfeld EULA
+    INSTALL_BLICKFELD="n"
+    printf "${YELLOW}Sensor Drivers:${NC} Blickfeld Scanner Library (for Cube1 LiDAR)\n"
+    printf "License: https://github.com/NEWSLabNTU/blickfeld-scanner-lib\n\n"
+    if ask_yes_no "Install Blickfeld Scanner Library?" "y"; then
+        INSTALL_BLICKFELD="y"
+    fi
+    printf "\n"
+
+    # Export choices for justfile
     export SKIP_AUTOWARE_DEBIAN="$([[ "$INSTALL_AUTOWARE" == "n" ]] && echo "1" || echo "0")"
+    export CONFIGURE_CYCLONEDDS_SYSCTL="$CONFIGURE_CYCLONEDDS_SYSCTL"
+    export SKIP_BLICKFELD="$([[ "$INSTALL_BLICKFELD" == "n" ]] && echo "1" || echo "0")"
 
     # Summary
     printf "Installing: Core"
     if [[ "$INSTALL_AUTOWARE" == "y" ]]; then
-        printf " + Autoware Debian"
+        printf " + Autoware"
+    fi
+    if [[ "$CONFIGURE_CYCLONEDDS_SYSCTL" == "y" ]]; then
+        printf " + CycloneDDS sysctl"
+    fi
+    if [[ "$INSTALL_BLICKFELD" == "y" ]]; then
+        printf " + Blickfeld"
     fi
     printf "\n\n"
 
@@ -186,6 +212,26 @@ main() {
     else
         # Pass through all arguments
         just "$@"
+    fi
+
+    # After successful setup, show direnv instructions
+    if [[ "$recipe" == "setup" ]]; then
+        if ! command -v direnv &> /dev/null; then
+            printf "\n${YELLOW}┌────────────────────────────────────────────────────────────┐${NC}\n"
+            printf "${YELLOW}│ IMPORTANT: Install direnv for environment management      │${NC}\n"
+            printf "${YELLOW}└────────────────────────────────────────────────────────────┘${NC}\n\n"
+            printf "  ${BLUE}# Install direnv${NC}\n"
+            printf "  sudo apt install direnv\n\n"
+            printf "  ${BLUE}# Add to your shell (bash)${NC}\n"
+            printf "  echo 'eval \"\$(direnv hook bash)\"' >> ~/.bashrc\n"
+            printf "  source ~/.bashrc\n\n"
+            printf "  ${BLUE}# Allow .envrc${NC}\n"
+            printf "  direnv allow\n\n"
+            printf "See: ${BLUE}https://direnv.net/${NC}\n"
+        else
+            printf "\n${GREEN}✓ direnv detected!${NC}\n"
+            printf "Run this to activate environment: ${BLUE}direnv allow${NC}\n"
+        fi
     fi
 }
 

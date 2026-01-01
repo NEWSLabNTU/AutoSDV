@@ -32,7 +32,7 @@ default:
     @just --list
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld _setup-autoware-debian python-deps ublox-udev ros-deps
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian python-deps ublox-udev _setup-cyclonedds-sysctl ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -42,6 +42,25 @@ _setup-autoware-debian:
         printf "{{yellow}}⊘{{nc}} autoware-debian skipped (user choice)\n"
     else
         just autoware-debian
+    fi
+
+# Conditional Blickfeld install (based on SKIP_BLICKFELD env var)
+_setup-blickfeld:
+    #!/usr/bin/env bash
+    if [[ "${SKIP_BLICKFELD:-0}" == "1" ]]; then
+        printf "{{yellow}}⊘{{nc}} blickfeld skipped (user choice)\n"
+    else
+        just blickfeld
+    fi
+
+# Conditional CycloneDDS sysctl configuration (based on CONFIGURE_CYCLONEDDS_SYSCTL env var)
+_setup-cyclonedds-sysctl:
+    #!/usr/bin/env bash
+    if [[ "${CONFIGURE_CYCLONEDDS_SYSCTL}" == "y" ]]; then
+        just cyclonedds-sysctl
+    else
+        printf "{{yellow}}⊘{{nc}} cyclonedds-sysctl skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} Run 'just cyclonedds-sysctl' to configure later\n"
     fi
 
 # Alias for setup (resume from where it left off due to markers)
@@ -116,24 +135,9 @@ dev-tools: _init ros2
     touch "{{marker_dir}}/dev-tools"
     printf "{{green}}✓{{nc}} dev-tools done\n"
 
-# Install Blickfeld scanner library
+# Install Blickfeld scanner library (with EULA acceptance)
 blickfeld: _init
-    #!/usr/bin/env bash
-    [[ -f "{{marker_dir}}/blickfeld" ]] && printf "{{green}}✓{{nc}} blickfeld already done\n" && exit 0
-    set -e
-    printf "{{yellow}}→{{nc}} Installing Blickfeld scanner library...\n"
-    mkdir -p "{{data_dir}}/blickfeld-scanner-lib"
-    if [[ "{{arch}}" == "x86_64" ]]; then
-        URL="https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
-        DEB="{{data_dir}}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_amd64.deb"
-    else
-        URL="https://github.com/NEWSLabNTU/blickfeld-scanner-lib/releases/download/v2.20.6-newslab1/blickfeld-scanner-lib_2.20.6-1_arm64.deb"
-        DEB="{{data_dir}}/blickfeld-scanner-lib/blickfeld-scanner-lib_2.20.6-1_arm64.deb"
-    fi
-    [[ ! -f "$DEB" ]] && curl -fSL -o "$DEB" "$URL"
-    sudo apt-get install -y "$DEB"
-    touch "{{marker_dir}}/blickfeld"
-    printf "{{green}}✓{{nc}} blickfeld done\n"
+    @just _run blickfeld "{{scripts_dir}}/install-blickfeld.sh"
 
 # Install Autoware Debian packages
 autoware-debian: _init ros2
@@ -167,6 +171,10 @@ ublox-udev: _init
     touch "{{marker_dir}}/ublox-udev"
     printf "{{green}}✓{{nc}} ublox-udev done\n"
     printf "{{yellow}}Note:{{nc}} Log out and back in for dialout group to take effect.\n"
+
+# Configure CycloneDDS kernel buffers (system-wide)
+cyclonedds-sysctl: _init ros2
+    @just _run cyclonedds-sysctl "{{scripts_dir}}/configure-cyclonedds-sysctl.sh"
 
 # Install ROS dependencies for workspace packages
 ros-deps: _init ros2-dev-tools
@@ -215,10 +223,37 @@ status:
     #!/usr/bin/env bash
     echo "Setup Status:"
     echo "============="
-    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools blickfeld autoware-debian python-deps ublox-udev ros-deps artifacts zed-sdk; do
+    echo ""
+    echo "Core Components:"
+    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools python-deps ublox-udev ros-deps; do
         if [[ -f "{{marker_dir}}/$step" ]]; then
-            printf "{{green}}✓{{nc}} %s\n" "$step"
+            printf "  {{green}}✓{{nc}} %s\n" "$step"
         else
-            printf "{{red}}○{{nc}} %s\n" "$step"
+            printf "  {{red}}○{{nc}} %s\n" "$step"
+        fi
+    done
+    echo ""
+    echo "Optional Components:"
+    for step in autoware-debian blickfeld; do
+        if [[ -f "{{marker_dir}}/$step" ]]; then
+            printf "  {{green}}✓{{nc}} %s\n" "$step"
+        else
+            printf "  {{yellow}}○{{nc}} %s (optional)\n" "$step"
+        fi
+    done
+    echo ""
+    echo "Configuration:"
+    if [[ -f "{{marker_dir}}/cyclonedds-sysctl" ]]; then
+        printf "  {{green}}✓{{nc}} cyclonedds-sysctl\n"
+    else
+        printf "  {{red}}○{{nc}} cyclonedds-sysctl\n"
+    fi
+    echo ""
+    echo "Optional Downloads:"
+    for step in artifacts zed-sdk; do
+        if [[ -f "{{marker_dir}}/$step" ]]; then
+            printf "  {{green}}✓{{nc}} %s\n" "$step"
+        else
+            printf "  {{yellow}}○{{nc}} %s (optional)\n" "$step"
         fi
     done
