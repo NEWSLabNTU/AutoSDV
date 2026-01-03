@@ -1,0 +1,27 @@
+launch:
+  # LiDAR-Only Perception Preset
+  # Default preset for AutoSDV
+  # Uses only LiDAR for perception, disables camera-based features
+
+  # Perception mode - LiDAR only
+  - arg:
+      name: perception_mode
+      default: "lidar"
+
+  # Feature toggles - Disabled for LiDAR-only mode
+  - arg:
+      name: use_traffic_light_recognition
+      default: "false"
+
+  - arg:
+      name: use_detection_by_tracker
+      default: "false"
+
+  - arg:
+      name: use_image_segmentation_based_filter
+      default: "false"
+
+  # Map usage
+  - arg:
+      name: use_pointcloud_map
+      default: "true"

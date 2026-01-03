@@ -1,0 +1,8 @@
+launch:
+  # Default Localization Preset
+  # Uses gyro odometry for twist estimation
+  # Suitable for most outdoor scenarios
+
+  - arg:
+      name: twist_source
+      default: "gyro_odom"

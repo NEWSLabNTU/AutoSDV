@@ -1,0 +1,27 @@
+launch:
+  # Camera-LiDAR Fusion Perception Preset
+  # Uses both camera and LiDAR for enhanced perception
+  # Enables traffic light recognition and image-based filtering
+
+  # Perception mode - Camera + LiDAR fusion
+  - arg:
+      name: perception_mode
+      default: "camera_lidar_fusion"
+
+  # Feature toggles - Enabled for fusion mode
+  - arg:
+      name: use_traffic_light_recognition
+      default: "true"
+
+  - arg:
+      name: use_detection_by_tracker
+      default: "true"
+
+  - arg:
+      name: use_image_segmentation_based_filter
+      default: "true"
+
+  # Map usage
+  - arg:
+      name: use_pointcloud_map
+      default: "true"

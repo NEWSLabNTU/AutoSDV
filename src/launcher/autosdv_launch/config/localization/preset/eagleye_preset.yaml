@@ -1,0 +1,8 @@
+launch:
+  # Eagleye Localization Preset
+  # Uses Eagleye for twist estimation
+  # Requires GNSS and IMU for Eagleye to function
+
+  - arg:
+      name: twist_source
+      default: "eagleye"

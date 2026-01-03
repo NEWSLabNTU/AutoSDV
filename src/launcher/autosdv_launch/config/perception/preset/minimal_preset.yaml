@@ -1,0 +1,27 @@
+launch:
+  # Minimal Perception Preset
+  # For development and debugging
+  # Disables all optional perception features for faster startup
+
+  # Perception mode - LiDAR only
+  - arg:
+      name: perception_mode
+      default: "lidar"
+
+  # Feature toggles - All disabled for minimal setup
+  - arg:
+      name: use_traffic_light_recognition
+      default: "false"
+
+  - arg:
+      name: use_detection_by_tracker
+      default: "false"
+
+  - arg:
+      name: use_image_segmentation_based_filter
+      default: "false"
+
+  # Map usage - Disabled for minimal setup
+  - arg:
+      name: use_pointcloud_map
+      default: "false"
