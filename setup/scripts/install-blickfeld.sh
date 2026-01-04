@@ -37,8 +37,11 @@ echo "License information:"
 echo "  https://github.com/NEWSLabNTU/blickfeld-scanner-lib#license"
 echo ""
 
-# Interactive mode: ask for acceptance
-if [[ -t 0 ]]; then
+# Check if license acceptance was already provided via environment variable
+if [[ "${AUTOSDV_ACCEPT_BLICKFELD_EULA:-0}" == "1" ]]; then
+    echo "License accepted via AUTOSDV_ACCEPT_BLICKFELD_EULA environment variable."
+elif [[ -t 0 ]]; then
+    # Interactive mode: ask for acceptance
     read -p "Do you accept the license terms? [y/N] " -n 1 -r
     echo
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
@@ -48,12 +51,9 @@ if [[ -t 0 ]]; then
         exit 1
     fi
 else
-    # Non-interactive mode: check environment variable
-    if [[ "${AUTOSDV_ACCEPT_BLICKFELD_EULA:-0}" != "1" ]]; then
-        echo "Error: Non-interactive mode requires AUTOSDV_ACCEPT_BLICKFELD_EULA=1"
-        exit 1
-    fi
-    echo "License accepted via AUTOSDV_ACCEPT_BLICKFELD_EULA environment variable."
+    # Non-interactive mode without environment variable
+    echo "Error: Non-interactive mode requires AUTOSDV_ACCEPT_BLICKFELD_EULA=1"
+    exit 1
 fi
 
 echo ""

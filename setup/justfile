@@ -250,10 +250,15 @@ status:
     fi
     echo ""
     echo "Optional Downloads:"
-    for step in artifacts zed-sdk; do
-        if [[ -f "{{marker_dir}}/$step" ]]; then
-            printf "  {{green}}✓{{nc}} %s\n" "$step"
-        else
-            printf "  {{yellow}}○{{nc}} %s (optional)\n" "$step"
-        fi
-    done
+    # Check artifacts
+    if [[ -f "{{marker_dir}}/artifacts" ]]; then
+        printf "  {{green}}✓{{nc}} ML model artifacts\n"
+    else
+        printf "  {{yellow}}○{{nc}} ML model artifacts (run: just download-artifacts)\n"
+    fi
+    # Check ZED SDK installation (not supported in setup script)
+    if [[ -d "/usr/local/zed" ]] || command -v ZED_Explorer &> /dev/null; then
+        printf "  {{green}}✓{{nc}} ZED SDK (installed)\n"
+    else
+        printf "  {{yellow}}○{{nc}} ZED SDK (not installed - install manually if needed)\n"
+    fi

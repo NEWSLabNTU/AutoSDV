@@ -41,14 +41,27 @@ EOF
 
 # Cleanup function - called on exit (normal or abnormal)
 cleanup() {
+    local exit_code=$?
     if [[ -n "$SUDO_LOOP_PID" ]] && kill -0 "$SUDO_LOOP_PID" 2>/dev/null; then
         kill "$SUDO_LOOP_PID" 2>/dev/null || true
     fi
     rm -f "$SUDO_PID_FILE"
+
+    # Show cancellation message if interrupted (but not on normal exit)
+    if [[ $exit_code -eq 130 ]]; then
+        printf "\n${YELLOW}Cancelled by user${NC}\n" >&2
+    fi
+}
+
+# Handle interrupt signal (Ctrl-C)
+interrupt_handler() {
+    printf "\n${YELLOW}Interrupted${NC}\n" >&2
+    exit 130
 }
 
 # Set trap for cleanup on any exit
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap interrupt_handler INT TERM
 
 # Recipes that don't need sudo
 NO_SUDO_RECIPES="status clean-marker clean-markers default"
@@ -91,15 +104,15 @@ ask_yes_no() {
     local prompt
 
     if [[ "$default" == "y" ]]; then
-        prompt="[Y/n]"
+        prompt="[Y/n/q]"
     else
-        prompt="[y/N]"
+        prompt="[y/N/q]"
     fi
 
     while true; do
         printf "${BLUE}?${NC} %s %s " "$question" "$prompt"
         read -r response || {
-            # Handle Ctrl-C or Ctrl-D
+            # Handle Ctrl-D (EOF)
             printf "\n${YELLOW}Cancelled${NC}\n"
             exit 130
         }
@@ -107,7 +120,11 @@ ask_yes_no() {
         case "${response,,}" in
             y|yes) return 0 ;;
             n|no) return 1 ;;
-            *) printf "${RED}Please answer yes or no.${NC}\n" ;;
+            q|quit|exit)
+                printf "\n${YELLOW}Cancelled${NC}\n"
+                exit 0
+                ;;
+            *) printf "${RED}Please answer yes, no, or q to quit.${NC}\n" ;;
         esac
     done
 }
@@ -137,12 +154,31 @@ interactive_setup() {
     fi
     printf "\n"
 
-    # Blickfeld EULA
+    # Blickfeld Scanner Library with EULA
     INSTALL_BLICKFELD="n"
+    ACCEPT_BLICKFELD_EULA="0"
     printf "${YELLOW}Sensor Drivers:${NC} Blickfeld Scanner Library (for Cube1 LiDAR)\n"
-    printf "License: https://github.com/NEWSLabNTU/blickfeld-scanner-lib\n\n"
+    printf "License: https://github.com/NEWSLabNTU/blickfeld-scanner-lib\n"
+    printf "This is a modified version maintained by NEWSLab NTU.\n"
+    printf "Original software by Blickfeld GmbH.\n\n"
     if ask_yes_no "Install Blickfeld Scanner Library?" "y"; then
-        INSTALL_BLICKFELD="y"
+        if ask_yes_no "Do you accept the Blickfeld license terms?" "y"; then
+            INSTALL_BLICKFELD="y"
+            ACCEPT_BLICKFELD_EULA="1"
+        else
+            printf "${YELLOW}License not accepted. Skipping Blickfeld installation.${NC}\n"
+            INSTALL_BLICKFELD="n"
+        fi
+    fi
+    printf "\n"
+
+    # ML model artifacts download
+    DOWNLOAD_ARTIFACTS="n"
+    printf "${YELLOW}Optional:${NC} ML model artifacts (YOLOX, CenterPoint, ~2-5 GB)\n"
+    printf "Required for perception features (object detection, tracking).\n"
+    printf "You can skip and download later with: just download-artifacts\n\n"
+    if ask_yes_no "Download ML model artifacts?" "n"; then
+        DOWNLOAD_ARTIFACTS="y"
     fi
     printf "\n"
 
@@ -150,6 +186,8 @@ interactive_setup() {
     export SKIP_AUTOWARE_DEBIAN="$([[ "$INSTALL_AUTOWARE" == "n" ]] && echo "1" || echo "0")"
     export CONFIGURE_CYCLONEDDS_SYSCTL="$CONFIGURE_CYCLONEDDS_SYSCTL"
     export SKIP_BLICKFELD="$([[ "$INSTALL_BLICKFELD" == "n" ]] && echo "1" || echo "0")"
+    export AUTOSDV_ACCEPT_BLICKFELD_EULA="$ACCEPT_BLICKFELD_EULA"
+    export DOWNLOAD_ARTIFACTS="$DOWNLOAD_ARTIFACTS"
 
     # Summary
     printf "Installing: Core"
@@ -161,6 +199,9 @@ interactive_setup() {
     fi
     if [[ "$INSTALL_BLICKFELD" == "y" ]]; then
         printf " + Blickfeld"
+    fi
+    if [[ "$DOWNLOAD_ARTIFACTS" == "y" ]]; then
+        printf " + ML artifacts"
     fi
     printf "\n\n"
 
@@ -212,6 +253,14 @@ main() {
     else
         # Pass through all arguments
         just "$@"
+    fi
+
+    # After successful setup, download artifacts if requested
+    if [[ "$recipe" == "setup" ]] && [[ "${DOWNLOAD_ARTIFACTS:-n}" == "y" ]]; then
+        printf "\n${YELLOW}→${NC} Downloading ML model artifacts...\n"
+        just download-artifacts || {
+            printf "${YELLOW}Warning: Artifact download failed. You can retry later with: just download-artifacts${NC}\n"
+        }
     fi
 
     # After successful setup, show direnv instructions
