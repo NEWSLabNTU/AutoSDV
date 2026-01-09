@@ -26,7 +26,7 @@ fi
 echo "Adding TurboVNC APT repository..."
 # Add TurboVNC GPG key
 wget -q -O- https://packagecloud.io/dcommander/turbovnc/gpgkey | \
-    sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/TurboVNC.gpg
+    sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/TurboVNC.gpg
 
 # Add TurboVNC repository
 sudo wget -q -O /etc/apt/sources.list.d/TurboVNC.list \
@@ -35,7 +35,7 @@ sudo wget -q -O /etc/apt/sources.list.d/TurboVNC.list \
 echo "Adding VirtualGL APT repository..."
 # Add VirtualGL GPG key
 wget -q -O- https://packagecloud.io/dcommander/virtualgl/gpgkey | \
-    sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/VirtualGL.gpg
+    sudo gpg --dearmor --yes -o /etc/apt/trusted.gpg.d/VirtualGL.gpg
 
 # Add VirtualGL repository
 sudo wget -q -O /etc/apt/sources.list.d/VirtualGL.list \
@@ -58,10 +58,26 @@ sudo /opt/VirtualGL/bin/vglserver_config -config +s +f
 
 echo ""
 echo "Setting up vncserver alternative..."
-# Register TurboVNC's vncserver with update-alternatives
+# Create a wrapper script for TurboVNC's vncserver.
+# The vncserver script looks for Xvnc and other binaries relative to its
+# working directory. We create a wrapper that changes to /opt/TurboVNC/bin/
+# before executing the real vncserver.
+TURBOVNC_WRAPPER="/usr/local/bin/turbovnc-vncserver"
+
+sudo tee "$TURBOVNC_WRAPPER" > /dev/null << 'EOF'
+#!/usr/bin/env bash
+# Wrapper script for TurboVNC vncserver
+# Changes to TurboVNC bin directory so vncserver can find Xvnc and other binaries
+cd /opt/TurboVNC/bin
+exec ./vncserver "$@"
+EOF
+
+sudo chmod +x "$TURBOVNC_WRAPPER"
+
+# Register the wrapper with update-alternatives
 # Install the alternative with high priority, then force selection
-sudo update-alternatives --install /usr/bin/vncserver vncserver /opt/TurboVNC/bin/vncserver 100
-sudo update-alternatives --set vncserver /opt/TurboVNC/bin/vncserver
+sudo update-alternatives --install /usr/bin/vncserver vncserver "$TURBOVNC_WRAPPER" 100
+sudo update-alternatives --set vncserver "$TURBOVNC_WRAPPER"
 
 echo ""
 echo "TurboVNC + VirtualGL installation complete!"
