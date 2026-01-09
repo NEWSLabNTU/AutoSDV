@@ -85,6 +85,45 @@ Write temp files to `./tmp/` (gitignored). Do NOT use system `/tmp/`.
 ### Python Packages
 Standard ROS 2 conventions: setup.py/setup.cfg, test files for copyright/flake8/pep257.
 
+### Setup Script Architecture
+
+The setup system (`setup/`) uses a two-layer design:
+
+1. **`setup.sh`** - Interactive wrapper that asks all questions upfront before any installation begins
+2. **`justfile`** - Recipe definitions that perform actual installations
+
+**Adding new optional components:**
+
+1. Add installation script to `setup/scripts/install-<name>.sh`
+2. Add recipe to `setup/justfile`:
+   ```just
+   # Direct recipe (for manual invocation)
+   my-component: _init
+       @just _run my-component "{{scripts_dir}}/install-my-component.sh"
+
+   # Conditional recipe (for interactive setup)
+   _setup-my-component:
+       #!/usr/bin/env bash
+       if [[ "${INSTALL_MY_COMPONENT}" == "y" ]]; then
+           just my-component
+       else
+           printf "{{yellow}}⊘{{nc}} my-component skipped (user choice)\n"
+       fi
+   ```
+3. Add `_setup-my-component` to the `setup:` recipe chain
+4. Add question in `setup.sh` `interactive_setup()` function:
+   ```bash
+   INSTALL_MY_COMPONENT="n"
+   printf "${YELLOW}Optional:${NC} My Component description\n"
+   if ask_yes_no "Install My Component?" "n"; then
+       INSTALL_MY_COMPONENT="y"
+   fi
+   export INSTALL_MY_COMPONENT="$INSTALL_MY_COMPONENT"
+   ```
+5. Update summary output and status display
+
+**Key pattern:** Questions are asked at the start, choices exported as env vars, justfile conditionals execute based on those vars.
+
 ### Preset System
 
 AutoSDV uses a **preset system** (following Autoware's pattern) to manage component-level configurations. Presets group related parameters for common use cases.
