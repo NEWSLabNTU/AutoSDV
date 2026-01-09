@@ -32,7 +32,7 @@ default:
     @just --list
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian python-deps ublox-udev _setup-cyclonedds-sysctl ros-deps
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian python-deps ublox-udev _setup-cyclonedds-sysctl _setup-turbovnc-virtualgl ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -63,6 +63,15 @@ _setup-cyclonedds-sysctl:
         printf "{{yellow}}Note:{{nc}} Run 'just cyclonedds-sysctl' to configure later\n"
     fi
 
+# Conditional TurboVNC + VirtualGL install (based on INSTALL_TURBOVNC_VIRTUALGL env var)
+_setup-turbovnc-virtualgl:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_TURBOVNC_VIRTUALGL}" == "y" ]]; then
+        just turbovnc-virtualgl
+    else
+        printf "{{yellow}}⊘{{nc}} turbovnc-virtualgl skipped (user choice)\n"
+    fi
+
 # Alias for setup (resume from where it left off due to markers)
 resume: setup
 
@@ -73,6 +82,10 @@ download-artifacts: _init
 # Install ZED SDK (optional, for ZED camera users)
 install-zed-sdk: _init
     @just _run zed-sdk "{{scripts_dir}}/install-zed-sdk.sh"
+
+# Install TurboVNC + VirtualGL (optional, for hardware-accelerated VNC)
+turbovnc-virtualgl: _init
+    @just _run turbovnc-virtualgl "{{scripts_dir}}/install-turbovnc-virtualgl.sh"
 
 # === Individual Setup Steps ===
 
@@ -260,5 +273,11 @@ status:
     if [[ -d "/usr/local/zed" ]] || command -v ZED_Explorer &> /dev/null; then
         printf "  {{green}}✓{{nc}} ZED SDK (installed)\n"
     else
-        printf "  {{yellow}}○{{nc}} ZED SDK (not installed - install manually if needed)\n"
+        printf "  {{yellow}}○{{nc}} ZED SDK (not installed - run: just install-zed-sdk)\n"
+    fi
+    # Check TurboVNC/VirtualGL installation
+    if command -v vglrun &> /dev/null && [[ -d "/opt/TurboVNC" ]]; then
+        printf "  {{green}}✓{{nc}} TurboVNC + VirtualGL (installed)\n"
+    else
+        printf "  {{yellow}}○{{nc}} TurboVNC + VirtualGL (run: just turbovnc-virtualgl)\n"
     fi

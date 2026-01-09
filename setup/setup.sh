@@ -182,12 +182,23 @@ interactive_setup() {
     fi
     printf "\n"
 
+    # TurboVNC + VirtualGL (for hardware-accelerated VNC)
+    INSTALL_TURBOVNC_VIRTUALGL="n"
+    printf "${YELLOW}Optional:${NC} TurboVNC + VirtualGL (for hardware-accelerated VNC)\n"
+    printf "Required for ZED camera usage in VNC sessions.\n"
+    printf "You can skip and install later with: just turbovnc-virtualgl\n\n"
+    if ask_yes_no "Install TurboVNC + VirtualGL?" "n"; then
+        INSTALL_TURBOVNC_VIRTUALGL="y"
+    fi
+    printf "\n"
+
     # Export choices for justfile
     export SKIP_AUTOWARE_DEBIAN="$([[ "$INSTALL_AUTOWARE" == "n" ]] && echo "1" || echo "0")"
     export CONFIGURE_CYCLONEDDS_SYSCTL="$CONFIGURE_CYCLONEDDS_SYSCTL"
     export SKIP_BLICKFELD="$([[ "$INSTALL_BLICKFELD" == "n" ]] && echo "1" || echo "0")"
     export AUTOSDV_ACCEPT_BLICKFELD_EULA="$ACCEPT_BLICKFELD_EULA"
     export DOWNLOAD_ARTIFACTS="$DOWNLOAD_ARTIFACTS"
+    export INSTALL_TURBOVNC_VIRTUALGL="$INSTALL_TURBOVNC_VIRTUALGL"
 
     # Summary
     printf "Installing: Core"
@@ -202,6 +213,9 @@ interactive_setup() {
     fi
     if [[ "$DOWNLOAD_ARTIFACTS" == "y" ]]; then
         printf " + ML artifacts"
+    fi
+    if [[ "$INSTALL_TURBOVNC_VIRTUALGL" == "y" ]]; then
+        printf " + TurboVNC/VirtualGL"
     fi
     printf "\n\n"
 
