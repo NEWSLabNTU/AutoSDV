@@ -13,9 +13,6 @@
 [submodule "src/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
 	url = https://github.com/NEWSLabNTU/zed-ros2-wrapper.git
-[submodule "AutoSDV-book"]
-	path = book
-	url = https://github.com/NEWSLabNTU/AutoSDV-book.git
 [submodule "src/sensor_component/external/ros2_mpu9250_driver"]
 	path = src/sensor_component/external/ros2_mpu9250_driver
 	url = https://github.com/NEWSLabNTU/ros2_mpu9250_driver.git
