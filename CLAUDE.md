@@ -6,6 +6,55 @@ Guidance for Claude Code when working with this repository.
 
 AutoSDV is a software-defined autonomous vehicle platform built on ROS 2 and Autoware. Supports multiple LiDAR configurations (Robin-W, Velodyne 32C, Blickfeld Cube1) for small-scale autonomous vehicles.
 
+## Versioning
+
+AutoSDV uses [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH[-PRERELEASE]`
+
+### Single Source of Truth: `versions.yaml`
+
+All version information is centralized in `versions.yaml` at the repo root:
+- **AutoSDV version**: Project version and release channel (stable/development)
+- **Autoware version**: Pinned Autoware base version
+- **ROS**: Distribution, installation type, RMW implementation
+- **NVIDIA stack**: CUDA, cuDNN, TensorRT versions (AMD64 and ARM64/Jetson)
+- **JetPack/L4T**: Jetson platform versions
+- **Tool versions**: clang-format, etc.
+- **Package checksums**: SHA256 for verification
+
+### Version Helper Scripts
+
+```bash
+# Get a specific version value
+./scripts/version/get-version.sh autosdv.version      # Returns "0.1.0-dev"
+./scripts/version/get-version.sh autoware.version     # Returns "2025.02"
+./scripts/version/get-version.sh nvidia_amd64.cuda    # Returns "12.3"
+
+# Export all versions as environment variables
+source ./scripts/version/export-versions.sh
+echo $AUTOSDV_VERSION    # 0.1.0-dev
+echo $AUTOWARE_VERSION   # 2025.02
+echo $CUDA_VERSION_AMD64 # 12.3
+```
+
+### Version Bumping Guidelines
+
+| Change Type | Version Bump |
+|-------------|--------------|
+| Breaking changes (vehicle interface, sensor configs, launch API) | MAJOR |
+| Autoware base upgrade | MAJOR |
+| New sensor/feature support | MINOR |
+| New launch parameters | MINOR |
+| Bug fixes, parameter tuning | PATCH |
+| Documentation only | PATCH |
+
+### Branch Strategy
+
+| Branch | Version | Channel |
+|--------|---------|---------|
+| `main` | `X.Y.Z` (stable) | `stable` |
+| `develop` | `X.Y.Z-dev` | `development` |
+| `release/X.Y` | `X.Y.Z-rc.N` | `stable` |
+
 ## Essential Commands
 
 ### Build & Run

@@ -90,7 +90,6 @@ Each completed step creates a marker file in `.markers/`. When you re-run setup:
 scripts/setup/
 ├── setup.sh              # Entry point (handles sudo keep-alive)
 ├── justfile              # Recipe definitions
-├── config.env            # Configuration variables
 ├── README.md             # This file
 ├── .gitignore            # Ignores .markers/
 ├── .markers/             # Checkpoint files (auto-created)
@@ -103,6 +102,12 @@ scripts/setup/
 └── files/                # Static files
     ├── 99-ublox-gps.rules
     └── artifacts.yaml    # ML model download manifest
+
+# Root-level version configuration
+versions.yaml             # Single source of truth for all versions
+scripts/version/          # Version helper scripts
+├── get-version.sh        # Get individual version values
+└── export-versions.sh    # Export all versions as env vars
 ```
 
 ## Compared to Ansible

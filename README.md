@@ -42,17 +42,31 @@ technologies.
 
 ## Releases
 
-This project is released based on avaialble Autoware releases.
+AutoSDV uses [Semantic Versioning](https://semver.org/). All version dependencies are defined in [`versions.yaml`](versions.yaml).
 
+| Version                                                             | Autoware | CUDA (x86) | JetPack | Status      |
+|---------------------------------------------------------------------|----------|------------|---------|-------------|
+| [v0.1.0](https://github.com/NEWSLabNTU/AutoSDV/releases/tag/v0.1.0) | 2025.02  | 12.3       | 6.0     | Stable      |
+| [develop](https://github.com/NEWSLabNTU/AutoSDV/tree/develop)       | 2025.02  | 12.3       | 6.0     | Development |
+
+### Installation
+
+**Stable release:**
+```sh
+git clone -b v0.1.0 --recurse-submodules git@github.com:NEWSLabNTU/AutoSDV.git
+```
+
+**Development version:**
+```sh
+git clone -b develop --recurse-submodules git@github.com:NEWSLabNTU/AutoSDV.git
+```
+
+### Legacy Releases
+
+Previous releases based on Autoware version naming:
 - [2025.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2025.02)
 - [2024.11](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.11)
 - [2024.02](https://github.com/NEWSLabNTU/F1EIGHTH/tree/2024.02)
-
-Please download and checkout to the release branch using this command.
-
-```sh
-git clone -b 2025.02 --recurse-submodules git@github.com:NEWSLabNTU/F1EIGHTH.git
-```
 
 ## License
 

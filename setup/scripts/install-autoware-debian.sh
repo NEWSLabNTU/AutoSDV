@@ -4,15 +4,24 @@
 
 set -e
 
-DATA_DIR="${DATA_DIR:-$(dirname "$0")/../../data}"
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+DATA_DIR="${DATA_DIR:-${SCRIPT_DIR}/../../data}"
 ARCH="${ARCH:-$(uname -m)}"
+
+# Source version information from versions.yaml
+source "${SCRIPT_DIR}/../../scripts/version/export-versions.sh"
 
 echo "Installing Autoware Debian packages..."
 echo "  Architecture: ${ARCH}"
 echo "  Data directory: ${DATA_DIR}"
+echo "  Autoware version: ${AUTOWARE_VERSION}"
+echo "  Package version: ${AUTOWARE_PACKAGE_VERSION}"
 
 # Create directory
 mkdir -p "${DATA_DIR}/autoware-debian"
+
+# URL-encode the release tag (replace / with %2F)
+ROSDEBIAN_RELEASE_ENCODED="${AUTOWARE_ROSDEBIAN_RELEASE//\//%2F}"
 
 # Detect JetPack 6.0 (Jetson Linux 36.3)
 IS_JETPACK_6_0=false
@@ -25,17 +34,17 @@ fi
 
 # Download and install architecture-specific package
 if [[ "${ARCH}" == "x86_64" ]]; then
-    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_amd64.deb"
-    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_2025.2-1_amd64.deb"
-    DEB_SHA256="bccfd4d0818794f9efdc0cacfb3e229e987b3551e04441159922556fed385891"
+    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/${ROSDEBIAN_RELEASE_ENCODED}/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_amd64.deb"
+    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_amd64.deb"
+    DEB_SHA256="${CHECKSUM_AUTOWARE_DEB_AMD64}"
 elif [[ "${ARCH}" == "aarch64" ]] && [[ "${IS_JETPACK_6_0}" == "true" ]]; then
-    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_jetpack6.0.deb"
-    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_2025.2-1_jetpack6.0.deb"
-    DEB_SHA256="6da04e1f55bedf93b13f4c3b79ab700787a426697d8d260f7b08d45536eb0b3d"
+    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/${ROSDEBIAN_RELEASE_ENCODED}/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_jetpack6.0.deb"
+    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_jetpack6.0.deb"
+    DEB_SHA256="${CHECKSUM_AUTOWARE_DEB_JETPACK60}"
 elif [[ "${ARCH}" == "aarch64" ]]; then
-    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/rosdebian%2F2025.02-1/autoware-localrepo_2025.2-1_arm64.deb"
-    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_2025.2-1_arm64.deb"
-    DEB_SHA256=""  # TODO: Add checksum when available
+    DEB_URL="https://github.com/NEWSLabNTU/autoware/releases/download/${ROSDEBIAN_RELEASE_ENCODED}/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_arm64.deb"
+    DEB_FILE="${DATA_DIR}/autoware-debian/autoware-localrepo_${AUTOWARE_PACKAGE_VERSION}_arm64.deb"
+    DEB_SHA256="${CHECKSUM_AUTOWARE_DEB_ARM64}"
 else
     echo "Error: Unsupported architecture: ${ARCH}"
     exit 1
