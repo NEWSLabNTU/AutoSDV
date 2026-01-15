@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    # Robin-W (128-beam) LiDAR Configuration
+    sensor: velodyne
+    N_SCAN: 128
+    Horizon_SCAN: 1024
+    lidarMinRange: 0.5
+    lidarMaxRange: 200.0

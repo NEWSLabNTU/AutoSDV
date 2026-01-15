@@ -1,0 +1,167 @@
+<?xml version="1.0"?>
+<!--
+LIO-SAM Mapping Launch for AutoSDV
+===================================
+This launch file integrates LIO-SAM SLAM with AutoSDV sensor stack for map creation.
+
+Usage:
+    ros2 launch autosdv_launch lio_sam_mapping.launch.xml sensor_suite:=robin_zed
+    ros2 launch autosdv_launch lio_sam_mapping.launch.xml lidar_model:=vlp32c imu_source:=mpu9250
+    ros2 launch autosdv_launch lio_sam_mapping.launch.xml params_file:=/path/to/custom_params.yaml
+
+Features:
+    - Automatic topic remapping from AutoSDV to LIO-SAM
+    - Sensor-specific parameter configuration
+    - GNSS integration for outdoor mapping
+    - RViz visualization
+    - PCD map export
+
+Output:
+    - Point cloud map saved to ~/Downloads/LOAM/ (configurable in params)
+    - Real-time odometry on /lio_sam/mapping/odometry
+    - Global map on /lio_sam/mapping/map_global
+-->
+
+<launch>
+  <!-- ========================================
+       Launch Arguments
+       ======================================== -->
+
+  <!-- Sensor Configuration -->
+  <arg name="lidar_model" default="robin-w"
+       description="LiDAR model: robin-w, vlp32c, or cube1"/>
+  <arg name="imu_source" default="mpu9250"
+       description="IMU source: mpu9250 or zed"/>
+  <arg name="use_gnss" default="true"
+       description="Enable GNSS for outdoor mapping"/>
+  <arg name="gnss_receiver" default="garmin"
+       description="GNSS receiver: ublox, septentrio, or garmin"/>
+
+  <!-- Sensor Suite (alternative to individual sensor args) -->
+  <arg name="sensor_suite" default=""
+       description="Predefined sensor suite (overrides individual args): robin_zed, vlp32c_zed_mpu, etc."/>
+
+  <!-- LIO-SAM Configuration -->
+  <let name="lio_sam_share" value="$(find-pkg-share lio_sam)"/>
+  <let name="autosdv_share" value="$(find-pkg-share autosdv_launch)"/>
+
+  <arg name="params_file" default=""
+       description="Path to custom LIO-SAM parameters file"/>
+  <let name="params_file_resolved"
+       value="$(var params_file)"
+       if="$(eval '&quot;$(var params_file)&quot; != &quot;&quot;')"/>
+  <let name="params_file_resolved"
+       value="$(var autosdv_share)/config/localization/lio_sam.param.yaml"
+       unless="$(eval '&quot;$(var params_file)&quot; != &quot;&quot;')"/>
+
+  <arg name="save_pcd" default="true"
+       description="Save point cloud map to PCD file"/>
+  <arg name="pcd_output_dir" default="$(env HOME)/Downloads/LOAM/"
+       description="Output directory for PCD files"/>
+
+  <!-- Visualization -->
+  <arg name="rviz" default="true"
+       description="Launch RViz for visualization"/>
+  <let name="rviz_config" value="$(var lio_sam_share)/config/rviz2.rviz"/>
+
+  <!-- Robot URDF -->
+  <let name="urdf_file" value="$(var lio_sam_share)/config/robot.urdf.xacro"/>
+
+  <!-- ========================================
+       Topic Remapping Variables
+       ======================================== -->
+
+  <!-- IMU topic: Always use corrected IMU from autoware_imu_corrector -->
+  <let name="imu_topic" value="/sensing/imu/imu_data"/>
+
+  <!-- LiDAR topic: Concatenated point cloud from all LiDARs -->
+  <let name="lidar_topic" value="/sensing/lidar/concatenated/pointcloud"/>
+
+  <!-- GNSS topic: Select based on receiver type -->
+  <let name="gnss_topic" value="/sensing/gnss/ublox/nav_sat_fix"
+       if="$(eval &quot;'$(var gnss_receiver)'=='ublox'&quot;)"/>
+  <let name="gnss_topic" value="/sensing/gnss/septentrio/nav_sat_fix"
+       if="$(eval &quot;'$(var gnss_receiver)'=='septentrio'&quot;)"/>
+  <let name="gnss_topic" value="/sensing/gnss/garmin/fix"
+       if="$(eval &quot;'$(var gnss_receiver)'=='garmin'&quot;)"/>
+
+  <!-- ========================================
+       Parameter File Includes
+       ======================================== -->
+
+  <!-- Load sensor-specific parameter overrides based on lidar_model -->
+  <include file="$(var autosdv_share)/config/localization/lio_sam/$(var lidar_model)_params.yaml"
+           if="$(eval 'import os; os.path.exists(&quot;$(var autosdv_share)/config/localization/lio_sam/$(var lidar_model)_params.yaml&quot;)')"/>
+
+  <!-- ========================================
+       TF Static Transform
+       ======================================== -->
+
+  <!-- Static transform: map -> odom (LIO-SAM manages this internally) -->
+  <node pkg="tf2_ros" exec="static_transform_publisher" name="map_odom_publisher"
+        args="0 0 0 0 0 0 map odom" output="screen">
+    <param from="$(var params_file_resolved)"/>
+  </node>
+
+  <!-- ========================================
+       Robot State Publisher
+       ======================================== -->
+
+  <!-- Publish robot description for visualization -->
+  <node pkg="robot_state_publisher" exec="robot_state_publisher"
+        name="robot_state_publisher" output="screen">
+    <param name="robot_description" value="$(command 'cat $(var urdf_file)')"/>
+  </node>
+
+  <!-- ========================================
+       LIO-SAM Nodes
+       ======================================== -->
+
+  <!-- IMU Preintegration Node -->
+  <node pkg="lio_sam" exec="lio_sam_imuPreintegration"
+        name="lio_sam_imuPreintegration" output="screen">
+    <param from="$(var params_file_resolved)"/>
+    <param name="savePCD" value="$(var save_pcd)"/>
+    <param name="savePCDDirectory" value="$(var pcd_output_dir)"/>
+    <remap from="/imu/data" to="$(var imu_topic)"/>
+  </node>
+
+  <!-- Image Projection Node (point cloud preprocessing) -->
+  <node pkg="lio_sam" exec="lio_sam_imageProjection"
+        name="lio_sam_imageProjection" output="screen">
+    <param from="$(var params_file_resolved)"/>
+    <param name="savePCD" value="$(var save_pcd)"/>
+    <param name="savePCDDirectory" value="$(var pcd_output_dir)"/>
+    <remap from="/points" to="$(var lidar_topic)"/>
+    <remap from="/imu/data" to="$(var imu_topic)"/>
+  </node>
+
+  <!-- Feature Extraction Node -->
+  <node pkg="lio_sam" exec="lio_sam_featureExtraction"
+        name="lio_sam_featureExtraction" output="screen">
+    <param from="$(var params_file_resolved)"/>
+    <param name="savePCD" value="$(var save_pcd)"/>
+    <param name="savePCDDirectory" value="$(var pcd_output_dir)"/>
+  </node>
+
+  <!-- Map Optimization Node (main SLAM node) -->
+  <node pkg="lio_sam" exec="lio_sam_mapOptimization"
+        name="lio_sam_mapOptimization" output="screen">
+    <param from="$(var params_file_resolved)"/>
+    <param name="savePCD" value="$(var save_pcd)"/>
+    <param name="savePCDDirectory" value="$(var pcd_output_dir)"/>
+    <param name="useImuHeadingInitialization" value="$(var use_gnss)"/>
+    <param name="useGpsElevation" value="$(var use_gnss)"/>
+    <remap from="/imu/data" to="$(var imu_topic)"/>
+    <remap from="odometry/gpsz" to="$(var gnss_topic)" if="$(var use_gnss)"/>
+  </node>
+
+  <!-- ========================================
+       Visualization
+       ======================================== -->
+
+  <!-- RViz2 for visualization (optional) -->
+  <node pkg="rviz2" exec="rviz2" name="rviz2"
+        args="-d $(var rviz_config)" output="screen" if="$(var rviz)"/>
+
+</launch>

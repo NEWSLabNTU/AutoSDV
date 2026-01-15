@@ -58,6 +58,13 @@ default:
 	@echo 'make test-logging-simulation'
 	@echo '    Run full logging simulation test (launch + rosbag + drive + record).'
 	@echo
+	@echo 'make lio-sam-mapping'
+	@echo '    Launch LIO-SAM mapping for point cloud map creation.'
+	@echo '    Use ARGS="..." to pass launch arguments (e.g., ARGS="lidar_model:=vlp32c").'
+	@echo
+	@echo 'make record-mapping'
+	@echo '    Record rosbag for offline LIO-SAM mapping.'
+	@echo
 	@echo 'make clean'
 	@echo '    Clean up built binaries.'
 
@@ -208,3 +215,31 @@ test-logging-simulation:
 run-drive:
 	source install/setup.bash && \
 	python3 ./scripts/testing/drive/run.py
+
+# LIO-SAM Mapping Targets
+.PHONY: lio-sam-mapping
+lio-sam-mapping:
+	@echo "Launching LIO-SAM mapping..."
+	@echo "Use ARGS to pass launch arguments, e.g.:"
+	@echo "  make lio-sam-mapping ARGS=\"lidar_model:=vlp32c imu_source:=mpu9250\""
+	@echo ""
+	source install/setup.bash && \
+	ros2 launch autosdv_launch lio_sam_mapping.launch.xml $(ARGS)
+
+.PHONY: record-mapping
+record-mapping:
+	@echo "Recording rosbag for LIO-SAM mapping..."
+	@echo "Recording topics: LiDAR, IMU, GNSS, TF"
+	@echo "Press Ctrl+C to stop recording."
+	@echo ""
+	@mkdir -p rosbags
+	@TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	source install/setup.bash && \
+	ros2 bag record \
+		/sensing/lidar/concatenated/pointcloud \
+		/sensing/imu/imu_data \
+		/sensing/gnss/garmin/fix \
+		/sensing/gnss/ublox/nav_sat_fix \
+		/sensing/gnss/septentrio/nav_sat_fix \
+		/tf /tf_static \
+		-o rosbags/mapping_$$TIMESTAMP

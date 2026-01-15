@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    # Velodyne VLP-32C (32-beam) LiDAR Configuration
+    sensor: velodyne
+    N_SCAN: 32
+    Horizon_SCAN: 1800
+    lidarMinRange: 1.0
+    lidarMaxRange: 150.0

@@ -1,0 +1,8 @@
+/**:
+  ros__parameters:
+    # Blickfeld Cube1 (64-beam) LiDAR Configuration
+    sensor: velodyne
+    N_SCAN: 64
+    Horizon_SCAN: 1024
+    lidarMinRange: 0.5
+    lidarMaxRange: 100.0

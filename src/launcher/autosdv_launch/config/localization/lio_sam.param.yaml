@@ -1,0 +1,94 @@
+/**:
+  ros__parameters:
+
+    # Topics (will be remapped by launch file)
+    pointCloudTopic: "/points"                   # Remapped to /sensing/lidar/concatenated/pointcloud
+    imuTopic: "/imu/data"                        # Remapped to /sensing/imu/imu_data
+    odomTopic: "odometry/imu"                    # IMU pre-preintegration odometry
+    gpsTopic: "odometry/gpsz"                    # GPS odometry, remapped to /sensing/gnss/<receiver>/nav_sat_fix
+
+    # Frames (matching AutoSDV frame conventions)
+    lidarFrame: "sensor_kit_base_link"           # Main sensor frame in AutoSDV
+    baselinkFrame: "base_link"                   # Vehicle base frame
+    odometryFrame: "odom"                        # Odometry frame
+    mapFrame: "map"                              # Global map frame
+
+    # GPS Settings (enable for outdoor mapping)
+    useImuHeadingInitialization: true            # Use GPS heading for initialization
+    useGpsElevation: true                        # Use GPS elevation (set false if GPS vertical accuracy is poor)
+    gpsCovThreshold: 2.0                         # m^2, GPS covariance threshold
+    poseCovThreshold: 25.0                       # m^2, pose covariance threshold
+
+    # Export settings
+    savePCD: true                                # Save map as PCD file
+    savePCDDirectory: "/home/aeon/Downloads/LOAM/"  # Output directory (will be cleared on start!)
+
+    # Sensor Settings - Robin-W (128-beam)
+    # NOTE: These are overridden by launch file based on lidar_model argument
+    sensor: velodyne                             # velodyne format for Robin-W/VLP-32C
+    N_SCAN: 128                                  # Robin-W: 128, VLP-32C: 32, Cube1: 64
+    Horizon_SCAN: 1024                           # Robin-W: 1024, VLP-32C: 1800, Cube1: 1024
+    downsampleRate: 1                            # Downsample factor (1 = no downsampling)
+    lidarMinRange: 0.5                           # Minimum range (m) - Robin-W: 0.5, VLP-32C: 1.0
+    lidarMaxRange: 200.0                         # Maximum range (m) - Robin-W: 200, VLP-32C: 150
+
+    # IMU Settings - MPU9250
+    # Values from LIO-SAM defaults (should be calibrated for your specific IMU)
+    # For ZED IMU, increase noise parameters (typically 0.01 for both)
+    imuAccNoise: 3.9939570888238808e-03          # Accelerometer noise std
+    imuGyrNoise: 1.5636343949698187e-03          # Gyroscope noise std
+    imuAccBiasN: 6.4356659353532566e-05          # Accelerometer bias noise std
+    imuGyrBiasN: 3.5640318696367613e-05          # Gyroscope bias noise std
+
+    imuGravity: 9.80511                          # Gravity constant (m/s^2)
+    imuRPYWeight: 0.01                           # RPY regularization weight
+
+    # Extrinsic: LiDAR to IMU transformation
+    # AutoSDV: IMU is at [0, 0, -0.055] relative to sensor_kit_base_link
+    # These are default identity transforms - adjust based on your calibration
+    extrinsicTrans:  [ 0.0,  0.0,  0.0 ]         # Translation [x, y, z] in meters
+    extrinsicRot:    [-1.0,  0.0,  0.0,          # Rotation matrix (row-major)
+                       0.0,  1.0,  0.0,
+                       0.0,  0.0, -1.0 ]
+    extrinsicRPY:    [ 0.0,  1.0,  0.0,          # Alternative: RPY rotation matrix
+                      -1.0,  0.0,  0.0,
+                       0.0,  0.0,  1.0 ]
+
+    # LOAM feature thresholds (tune for your environment)
+    edgeThreshold: 1.0                           # Edge feature threshold
+    surfThreshold: 0.1                           # Surface feature threshold
+    edgeFeatureMinValidNum: 10                   # Minimum edge features
+    surfFeatureMinValidNum: 100                  # Minimum surface features
+
+    # Voxel filter parameters (outdoor mapping)
+    odometrySurfLeafSize: 0.4                    # Odometry surface voxel size (outdoor: 0.4, indoor: 0.2)
+    mappingCornerLeafSize: 0.2                   # Mapping corner voxel size (outdoor: 0.2, indoor: 0.1)
+    mappingSurfLeafSize: 0.4                     # Mapping surface voxel size (outdoor: 0.4, indoor: 0.2)
+
+    # Robot motion constraints (for 2D ground robots)
+    z_tollerance: 1000.0                         # Z-axis tolerance (m) - large value = no constraint
+    rotation_tollerance: 1000.0                  # Rotation tolerance (rad) - large value = no constraint
+
+    # CPU Parameters (adjust based on your system)
+    numberOfCores: 4                             # CPU cores for optimization (adjust to your system)
+    mappingProcessInterval: 0.15                 # Mapping frequency (seconds) - lower = more frequent updates
+
+    # Keyframe parameters (tune for map quality vs. size)
+    surroundingkeyframeAddingDistThreshold: 1.0  # Distance threshold for adding keyframes (m)
+    surroundingkeyframeAddingAngleThreshold: 0.2 # Angle threshold for adding keyframes (rad)
+    surroundingKeyframeDensity: 2.0              # Keyframe density (m)
+    surroundingKeyframeSearchRadius: 50.0        # Local map radius (m)
+
+    # Loop closure (important for large outdoor maps)
+    loopClosureEnableFlag: true                  # Enable loop closure detection
+    loopClosureFrequency: 1.0                    # Loop closure check frequency (Hz)
+    surroundingKeyframeSize: 50                  # Submap size for loop closure
+    historyKeyframeSearchRadius: 15.0            # Loop search radius (m)
+    historyKeyframeSearchTimeDiff: 30.0          # Loop search time difference (seconds)
+    historyKeyframeSearchNum: 25                 # Number of history keyframes for loop closure
+    historyKeyframeFitnessScore: 0.3             # ICP fitness score threshold (lower = stricter)
+
+    # Visualization parameters
+    globalMapVisualizationSearchRadius: 1000.0   # Global map visualization radius (m)
+    globalMapVisualizationPoseDensity: 10.0      # Keyframe density for visualization (m)
+    globalMapVisualizationLeafSize: 1.0          # Point cloud density for visualization (m)
