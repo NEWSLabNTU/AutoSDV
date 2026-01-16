@@ -40,6 +40,18 @@ technologies.
   </tr>
 </table>
 
+## Quick Start
+
+AutoSDV uses [Just](https://just.systems) for command running. Run `just` to see all available commands.
+
+```bash
+just setup    # Interactive setup (first time)
+just build    # Build all packages
+just launch   # Launch AutoSDV system
+```
+
+See [`.justfile-reference.md`](.justfile-reference.md) for complete command reference.
+
 ## Releases
 
 AutoSDV uses [Semantic Versioning](https://semver.org/). All version dependencies are defined in [`versions.yaml`](versions.yaml).

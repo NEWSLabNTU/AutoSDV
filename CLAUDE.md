@@ -61,26 +61,30 @@ echo $CUDA_VERSION_AMD64 # 12.3
 ```bash
 ./setup.sh              # Interactive setup (ROS 2, dependencies)
 ./setup.sh status       # Check installation status
-make build              # Build all packages
-make test               # Run tests
-make launch             # Launch system (web UI: http://localhost:8081)
-make launch ARGS="..."  # Launch with parameters
-make run-rviz           # Launch RViz
-make clean              # Remove build artifacts
-make checkout           # Update git submodules
+just build              # Build all packages
+just test               # Run tests
+just launch             # Launch system (web UI: http://localhost:8081)
+just launch ARGS="..."  # Launch with parameters
+just run-rviz           # Launch RViz
+just clean              # Remove build artifacts
+just checkout           # Update git submodules
+just --list             # Show all available commands
 ```
 
 ### Control Testing
 ```bash
-make test-control       # PID controller + speedometer (tmux)
-make plot-test          # PlotJuggler visualization
-make controller         # Keyboard manual control
+just run-controller     # Keyboard manual control
+just run-plotjuggler    # PlotJuggler visualization
+just play-basic-control # Launch vehicle control test
 ```
 
-### Manual
+### Manual Build
 ```bash
 source install/setup.bash
 colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+# Or use justfile
+just build
 ```
 
 ## Architecture
@@ -214,7 +218,7 @@ launch:
 
 1. Copy existing preset: `cp lidar_only_preset.yaml custom_preset.yaml`
 2. Modify parameter defaults in the new file
-3. Use with: `make launch ARGS="perception_preset:=custom"`
+3. Use with: `just launch perception_preset:=custom`
 
 **Note**: Preset files must use `<name>_preset.yaml` naming convention.
 
@@ -247,7 +251,7 @@ localization_preset:=default            # Default: gyro_odom
 localization_preset:=eagleye            # GNSS-based odometry (requires GNSS)
 
 # Example: Use camera-lidar fusion
-make launch ARGS="perception_preset:=camera_lidar_fusion sensor_suite:=robin_zed"
+just launch perception_preset:=camera_lidar_fusion sensor_suite:=robin_zed
 ```
 
 #### Sensor Configuration
