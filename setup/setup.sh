@@ -140,7 +140,7 @@ interactive_setup() {
 
     printf "${YELLOW}Optional:${NC} Autoware Debian packages (~2-3 GB)\n"
     printf "You can skip and build from source instead.\n"
-    if ask_yes_no "Install Autoware Debian packages?" "n"; then
+    if ask_yes_no "Install Autoware Debian packages?" "y"; then
         INSTALL_AUTOWARE="y"
     fi
     printf "\n"
@@ -179,7 +179,7 @@ interactive_setup() {
     printf "${YELLOW}Optional:${NC} TurboVNC + VirtualGL (for hardware-accelerated VNC)\n"
     printf "Required for ZED camera usage in VNC sessions.\n"
     printf "You can skip and install later with: just turbovnc-virtualgl\n\n"
-    if ask_yes_no "Install TurboVNC + VirtualGL?" "n"; then
+    if ask_yes_no "Install TurboVNC + VirtualGL?" "y"; then
         INSTALL_TURBOVNC_VIRTUALGL="y"
     fi
     printf "\n"
