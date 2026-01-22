@@ -18,7 +18,7 @@ Prepare infrastructure and test environment for AR tag-based localization integr
 
 ### Task 1.1: Review Autoware AR Tag Localizer
 
-**Location:** `~/repos/autoware/2025.02-ws/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/`
+**Location:** `/opt/autoware/1.5.0/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/`
 
 **Description:**
 Study Autoware's AR tag localizer implementation to understand input/output topics, parameter configuration, and integration points.
@@ -27,12 +27,12 @@ Study Autoware's AR tag localizer implementation to understand input/output topi
 
 1. Read the AR tag localizer documentation:
 ```bash
-cat ~/repos/autoware/2025.02-ws/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/README.md
+cat /opt/autoware/1.5.0/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/autoware_ar_tag_based_localizer/README.md
 ```
 
 2. Review source code:
 ```bash
-cd ~/repos/autoware/2025.02-ws/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/
+cd /opt/autoware/1.5.0/src/universe/autoware.universe/localization/autoware_landmark_based_localizer/
 find . -name "*.cpp" -o -name "*.hpp" | xargs cat
 ```
 

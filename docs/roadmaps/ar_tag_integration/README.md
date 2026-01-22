@@ -292,9 +292,9 @@ flowchart TB
 ### Software Dependencies
 
 **ROS 2 Packages (Autoware):**
-- `autoware_ar_tag_based_localizer` ✅ (in Autoware 2025.02)
-- `autoware_landmark_manager` ✅ (in Autoware 2025.02)
-- `autoware_ekf_localizer` ✅ (in Autoware 2025.02)
+- `autoware_ar_tag_based_localizer` ✅ (in Autoware 1.5.0)
+- `autoware_landmark_manager` ✅ (in Autoware 1.5.0)
+- `autoware_ekf_localizer` ✅ (in Autoware 1.5.0)
 - `aruco` library ✅ (dependency of AR tag localizer)
 
 **Isaac ROS:**

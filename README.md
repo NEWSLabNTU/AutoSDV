@@ -58,7 +58,7 @@ AutoSDV uses [Semantic Versioning](https://semver.org/). All version dependencie
 
 | Version                                                             | Autoware | CUDA (x86) | JetPack | Status      |
 |---------------------------------------------------------------------|----------|------------|---------|-------------|
-| [v0.1.0](https://github.com/NEWSLabNTU/AutoSDV/releases/tag/v0.1.0) | 2025.02  | 12.3       | 6.0     | Stable      |
+| [v0.1.0](https://github.com/NEWSLabNTU/AutoSDV/releases/tag/v0.1.0) | 1.5.0 | 12.4 | 6.2 | Stable |
 | [develop](https://github.com/NEWSLabNTU/AutoSDV/tree/develop)       | 1.5.0    | 12.4       | 6.2     | Development |
 
 ### Installation
@@ -87,12 +87,12 @@ file](LICENSE.txt). If you use this project in your work, please cite
 it as follows:
 
 ```latex
-@misc{autosdv2025,
+@misc{autosdv150,
   author = {Hsiang-Jui Lin, Chi-Sheng Shih},
-  title = {AutoSDV: A Software-Defined Vehicle Platform for Research and Education},
-  year = {2025},
+  title = {AutoSDV: A Software-Defined Vehicle Platform for Research and Education (Autoware 1.5.0)},
+  year = {2026},
   institution = {National Taiwan University},
   url = {https://github.com/NEWSLabNTU/AutoSDV},
-  note = {Accessed: 2025-04-28}
+  note = {Accessed: 2026-01-22}
 }
 ```

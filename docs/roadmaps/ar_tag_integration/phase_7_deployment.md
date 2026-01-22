@@ -115,7 +115,7 @@ Step-by-step guide for setting up AR tag-based localization in AutoSDV for camer
 ### Software Requirements
 - AutoSDV with AR tag integration (Phase 1-6 complete)
 - ROS 2 Humble
-- Autoware 2025.02
+- Autoware 1.5.0
 
 ## Step 1: Generate AR Tags
 
