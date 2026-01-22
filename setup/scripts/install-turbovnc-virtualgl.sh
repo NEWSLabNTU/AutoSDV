@@ -14,15 +14,6 @@ echo "This installs TurboVNC and VirtualGL for hardware-accelerated"
 echo "remote desktop sessions (required for ZED camera in VNC)."
 echo ""
 
-# Only x86_64 is supported for now
-ARCH="${ARCH:-$(uname -m)}"
-if [[ "$ARCH" != "x86_64" ]]; then
-    echo "Warning: TurboVNC/VirtualGL packages are typically only available for x86_64."
-    echo "Your architecture: $ARCH"
-    echo "You may need to build from source for other architectures."
-    exit 1
-fi
-
 echo "Adding TurboVNC APT repository..."
 # Add TurboVNC GPG key
 wget -q -O- https://packagecloud.io/dcommander/turbovnc/gpgkey | \
