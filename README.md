@@ -59,7 +59,7 @@ AutoSDV uses [Semantic Versioning](https://semver.org/). All version dependencie
 | Version                                                             | Autoware | CUDA (x86) | JetPack | Status      |
 |---------------------------------------------------------------------|----------|------------|---------|-------------|
 | [v0.1.0](https://github.com/NEWSLabNTU/AutoSDV/releases/tag/v0.1.0) | 2025.02  | 12.3       | 6.0     | Stable      |
-| [develop](https://github.com/NEWSLabNTU/AutoSDV/tree/develop)       | 2025.02  | 12.3       | 6.0     | Development |
+| [develop](https://github.com/NEWSLabNTU/AutoSDV/tree/develop)       | 1.5.0    | 12.4       | 6.2     | Development |
 
 ### Installation
 

@@ -172,15 +172,7 @@ interactive_setup() {
     fi
     printf "\n"
 
-    # ML model artifacts download
-    DOWNLOAD_ARTIFACTS="n"
-    printf "${YELLOW}Optional:${NC} ML model artifacts (YOLOX, CenterPoint, ~2-5 GB)\n"
-    printf "Required for perception features (object detection, tracking).\n"
-    printf "You can skip and download later with: just download-artifacts\n\n"
-    if ask_yes_no "Download ML model artifacts?" "n"; then
-        DOWNLOAD_ARTIFACTS="y"
-    fi
-    printf "\n"
+
 
     # TurboVNC + VirtualGL (for hardware-accelerated VNC)
     INSTALL_TURBOVNC_VIRTUALGL="n"
@@ -197,7 +189,7 @@ interactive_setup() {
     export CONFIGURE_CYCLONEDDS_SYSCTL="$CONFIGURE_CYCLONEDDS_SYSCTL"
     export SKIP_BLICKFELD="$([[ "$INSTALL_BLICKFELD" == "n" ]] && echo "1" || echo "0")"
     export AUTOSDV_ACCEPT_BLICKFELD_EULA="$ACCEPT_BLICKFELD_EULA"
-    export DOWNLOAD_ARTIFACTS="$DOWNLOAD_ARTIFACTS"
+
     export INSTALL_TURBOVNC_VIRTUALGL="$INSTALL_TURBOVNC_VIRTUALGL"
 
     # Summary
@@ -210,9 +202,6 @@ interactive_setup() {
     fi
     if [[ "$INSTALL_BLICKFELD" == "y" ]]; then
         printf " + Blickfeld"
-    fi
-    if [[ "$DOWNLOAD_ARTIFACTS" == "y" ]]; then
-        printf " + ML artifacts"
     fi
     if [[ "$INSTALL_TURBOVNC_VIRTUALGL" == "y" ]]; then
         printf " + TurboVNC/VirtualGL"
@@ -269,13 +258,7 @@ main() {
         just "$@"
     fi
 
-    # After successful setup, download artifacts if requested
-    if [[ "$recipe" == "setup" ]] && [[ "${DOWNLOAD_ARTIFACTS:-n}" == "y" ]]; then
-        printf "\n${YELLOW}→${NC} Downloading ML model artifacts...\n"
-        just download-artifacts || {
-            printf "${YELLOW}Warning: Artifact download failed. You can retry later with: just download-artifacts${NC}\n"
-        }
-    fi
+
 
     # After successful setup, show direnv instructions
     if [[ "$recipe" == "setup" ]]; then

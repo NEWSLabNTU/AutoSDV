@@ -1,31 +1,17 @@
 # versions.yaml - Single source of truth for all AutoSDV versions
 # This file is read by setup scripts, CI, and documentation generators.
-#
-# Version Format: MAJOR.MINOR.PATCH[-PRERELEASE]
-#   - MAJOR: Breaking changes (vehicle interface, sensor configs, launch API, Autoware upgrade)
-#   - MINOR: New features, sensor support, non-breaking enhancements
-#   - PATCH: Bug fixes, parameter tuning, documentation
-#   - PRERELEASE: dev, alpha, beta, rc.1, rc.2, etc. (empty for stable)
 
 # =============================================================================
 # AutoSDV Project Version
 # =============================================================================
 autosdv:
   version: "0.1.0-dev"
-  # Pre-release identifier (empty string for stable releases)
-  prerelease: "dev"
-  # Release channel: stable, development
-  channel: "development"
 
 # =============================================================================
 # Autoware Base
 # =============================================================================
 autoware:
-  version: "2025.02"
-  # rosdebian release tag (for package downloads)
-  rosdebian_release: "rosdebian/2025.02-1"
-  # Package version in .deb filename
-  package_version: "2025.2-1"
+  version: "1.5.0"
 
 # =============================================================================
 # ROS 2
@@ -34,36 +20,3 @@ ros:
   distro: "humble"
   installation_type: "desktop"  # desktop, ros-base
   rmw_implementation: "rmw_cyclonedds_cpp"
-
-# =============================================================================
-# NVIDIA Stack - AMD64 (Desktop/Server)
-# =============================================================================
-nvidia_amd64:
-  cuda: "12.3"
-  cudnn: "8.9.5.29-1+cuda12.2"
-  tensorrt: "8.6.1.6-1+cuda12.0"
-
-# =============================================================================
-# NVIDIA Stack - ARM64 (Jetson)
-# =============================================================================
-nvidia_arm64:
-  # JetPack 6.0 / L4T R36.3
-  jetpack: "6.0"
-  l4t: "36.3"
-  cuda: "12.2"
-  cudnn: "8.9.6.50-1+cuda12.2"
-  tensorrt: "8.6.2.2-1+cuda12.0"
-
-# =============================================================================
-# Tool Versions
-# =============================================================================
-tools:
-  pre_commit_clang_format: "17.0.5"
-
-# =============================================================================
-# Package Checksums (SHA256 for verification)
-# =============================================================================
-checksums:
-  autoware_deb_amd64: "bccfd4d0818794f9efdc0cacfb3e229e987b3551e04441159922556fed385891"
-  autoware_deb_arm64: ""  # TODO: Add when available
-  autoware_deb_jetpack60: "6da04e1f55bedf93b13f4c3b79ab700787a426697d8d260f7b08d45536eb0b3d"

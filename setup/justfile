@@ -75,9 +75,7 @@ _setup-turbovnc-virtualgl:
 # Alias for setup (resume from where it left off due to markers)
 resume: setup
 
-# Download ML model artifacts (optional, large download)
-download-artifacts: _init
-    @just _run artifacts "{{scripts_dir}}/download-artifacts.sh"
+
 
 # Install ZED SDK (optional, for ZED camera users)
 install-zed-sdk: _init
@@ -137,12 +135,10 @@ dev-tools: _init ros2
     #!/usr/bin/env bash
     [[ -f "{{marker_dir}}/dev-tools" ]] && printf "{{green}}✓{{nc}} dev-tools already done\n" && exit 0
     set -e
-    # Source version information
-    source "{{root_dir}}/../scripts/version/export-versions.sh"
     printf "{{yellow}}→{{nc}} Installing dev tools...\n"
     sudo apt-get update
     sudo apt-get install -y git-lfs golang
-    pip3 install --user pre-commit clang-format=="${PRE_COMMIT_CLANG_FORMAT_VERSION}"
+    pip3 install --user pre-commit 'clang-format==17.0.5'
     # Check if plotjuggler is held before installing
     if ! apt-mark showhold | grep -q "ros-humble-plotjuggler-ros"; then
         sudo apt-get install -y ros-humble-plotjuggler-ros || true
