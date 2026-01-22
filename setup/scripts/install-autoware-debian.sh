@@ -95,6 +95,13 @@ fi
 echo "  Updating apt cache after localrepo installation..."
 sudo apt update
 
+# Fix: If time-daemon is not provided by any package, install chrony.
+# This is to satisfy the time-daemon dependency of autoware-full-1-5-0.
+if ! apt-cache search --names-only '^time-daemon$' | grep -q 'time-daemon'; then
+    echo "  'time-daemon' not found in any package. Installing 'chrony' as a replacement."
+    sudo apt install -y chrony
+fi
+
 echo "  Installing autoware-full-1-5-0..."
 sudo apt install -y autoware-full-1-5-0
 
