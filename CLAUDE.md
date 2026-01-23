@@ -65,17 +65,37 @@ just build              # Build all packages
 just test               # Run tests
 just launch             # Launch system (web UI: http://localhost:8081)
 just launch ARGS="..."  # Launch with parameters
-just run-rviz           # Launch RViz
 just clean              # Remove build artifacts
 just checkout           # Update git submodules
 just --list             # Show all available commands
 ```
 
+### Tools
+```bash
+just tool-rviz          # Launch RViz
+just tool-plotjuggler   # PlotJuggler visualization
+just tool-controller    # Keyboard manual control
+just tool-tui           # Drive monitor TUI (pose, speed, states)
+```
+
 ### Control Testing
 ```bash
-just run-controller     # Keyboard manual control
-just run-plotjuggler    # PlotJuggler visualization
-just play-basic-control # Launch vehicle control test
+just control-basic      # Launch vehicle control test
+just control-straight   # Run 10m straight trajectory
+just control-circle     # Run circular trajectory
+```
+
+### Rosbag
+```bash
+just bag-record         # Record outdoor sensor topics
+just bag-play           # Play most recent recording
+```
+
+### Simulation
+```bash
+just launch-sim-planning  # Autoware planning simulator
+just launch-sim-logging   # Logging simulation (rosbag replay)
+just sim-coss-park        # Full COSS Park simulation scenario
 ```
 
 ### Manual Build
