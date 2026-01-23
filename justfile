@@ -39,15 +39,11 @@ launch ARGS="":
     #!/usr/bin/env bash
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
-            --web-ui \
-            --web-ui-addr 0.0.0.0 \
-            --web-ui-port 8081 \
+            --web-addr 0.0.0.0:8081 \
             autosdv_launch autosdv.launch.yaml {{ARGS}}; \
     else \
         play_launch launch \
-            --web-ui \
-            --web-ui-addr 0.0.0.0 \
-            --web-ui-port 8081 \
+            --web-addr 0.0.0.0:8081 \
             autosdv_launch autosdv.launch.yaml \
             rviz:=false {{ARGS}}; \
     fi
@@ -55,9 +51,7 @@ launch ARGS="":
 # Launch Autoware planning simulator with AutoSDV vehicle
 launch-planning-simulation:
     play_launch launch \
-        --web-ui \
-        --web-ui-addr 0.0.0.0 \
-        --web-ui-port 8081 \
+        --web-addr 0.0.0.0:8081 \
         autoware_launch planning_simulator.launch.xml \
         map_path:={{justfile_directory()}}/data/COSS-map-planning \
         vehicle_model:=autosdv_vehicle \
@@ -66,9 +60,7 @@ launch-planning-simulation:
 # Launch only ZED camera node for testing
 launch-zed-only:
     play_launch launch \
-        --web-ui \
-        --web-ui-addr 0.0.0.0 \
-        --web-ui-port 8081 \
+        --web-addr 0.0.0.0:8081 \
         zed_wrapper zed_camera.launch.py camera_model:=zedxm
 
 # Launch logging simulation for rosbag replay testing
@@ -76,15 +68,11 @@ launch-logging-simulation ARGS="":
     #!/usr/bin/env bash
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
-            --web-ui \
-            --web-ui-addr 0.0.0.0 \
-            --web-ui-port 8081 \
+            --web-addr 0.0.0.0:8081 \
             autosdv_launch logging_simulation.launch.yaml {{ARGS}}; \
     else \
         play_launch launch \
-            --web-ui \
-            --web-ui-addr 0.0.0.0 \
-            --web-ui-port 8081 \
+            --web-addr 0.0.0.0:8081 \
             autosdv_launch logging_simulation.launch.yaml \
             rviz:=false {{ARGS}}; \
     fi
