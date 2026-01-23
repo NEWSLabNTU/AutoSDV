@@ -26,13 +26,13 @@ All version information is centralized in `versions.yaml` at the repo root:
 ```bash
 # Get a specific version value
 ./scripts/version/get-version.sh autosdv.version      # Returns "0.1.0-dev"
-./scripts/version/get-version.sh autoware.version     # Returns "2025.02"
+./scripts/version/get-version.sh autoware.version     # Returns "1.5.0"
 ./scripts/version/get-version.sh nvidia_amd64.cuda    # Returns "12.3"
 
 # Export all versions as environment variables
 source ./scripts/version/export-versions.sh
 echo $AUTOSDV_VERSION    # 0.1.0-dev
-echo $AUTOWARE_VERSION   # 2025.02
+echo $AUTOWARE_VERSION   # 1.5.0
 echo $CUDA_VERSION_AMD64 # 12.3
 ```
 
@@ -357,7 +357,9 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 
 ## Important Notes
 
-- Source ROS: `source /opt/ros/humble/setup.bash`
+- **Autoware 1.5.0**: Installed at `/opt/autoware/1.5.0/` via the setup script (autoware-localrepo)
+- Source Autoware environment: `source /opt/autoware/1.5.0/setup.bash` (includes ROS 2)
+- Source ROS only: `source /opt/ros/humble/setup.bash`
 - Requires ROS 2 Humble, Ubuntu, NVIDIA GPU
 - Uses colcon (not catkin)
 - Logs: `play_log/latest/`
