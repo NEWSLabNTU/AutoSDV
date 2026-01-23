@@ -111,7 +111,7 @@ launch:
       value: ./data/COSS-map-planning
     -
       name: data_path
-      value: ./data
+      value: /opt/autoware/1.5.0/data
     -
       name: launch_vehicle
       value: "true"
