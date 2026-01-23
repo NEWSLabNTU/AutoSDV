@@ -85,7 +85,12 @@ colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=
 
 # Or use justfile
 just build
+
+# Build specific package (must include all standard flags)
+colcon build --base-paths src --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release --packages-select <package_name>
 ```
+
+**Important**: Always use `--base-paths src` and other standard flags from `just build` when running colcon commands manually.
 
 ## Architecture
 
