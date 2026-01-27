@@ -145,12 +145,13 @@ interactive_setup() {
     fi
     printf "\n"
 
-    # Isaac ROS Visual SLAM (Jetson ARM64 only)
+    # Isaac ROS Visual SLAM + Global Localization (Jetson ARM64 only)
     INSTALL_ISAAC_ROS="n"
     if [[ "$(uname -m)" == "aarch64" ]]; then
-        printf "${YELLOW}Optional:${NC} Isaac ROS Visual SLAM (GPU-accelerated localization)\n"
-        printf "Enables pose_source:=isaac for camera-based SLAM with ZED.\n"
-        if ask_yes_no "Install Isaac ROS Visual SLAM?" "y"; then
+        printf "${YELLOW}Optional:${NC} Isaac ROS Visual Localization (GPU-accelerated)\n"
+        printf "Includes cuVSLAM (visual odometry) and cuVGL (global localization).\n"
+        printf "Enables camera-only localization without LiDAR/GNSS.\n"
+        if ask_yes_no "Install Isaac ROS Visual Localization?" "y"; then
             INSTALL_ISAAC_ROS="y"
         fi
         printf "\n"
@@ -209,7 +210,7 @@ interactive_setup() {
         printf " + Autoware"
     fi
     if [[ "$INSTALL_ISAAC_ROS" == "y" ]]; then
-        printf " + Isaac ROS"
+        printf " + Isaac Visual Localization"
     fi
     if [[ "$CONFIGURE_CYCLONEDDS_SYSCTL" == "y" ]]; then
         printf " + CycloneDDS sysctl"
