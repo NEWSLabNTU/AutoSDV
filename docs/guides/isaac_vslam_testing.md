@@ -56,21 +56,36 @@ source install/setup.bash
 
 ### Installation Methods by Platform
 
-**For Jetson AGX Orin (arm64):** Use APT binary packages
+**For Jetson AGX Orin (arm64):** Use the setup script (recommended) or APT packages
 **For x86_64 systems:** Build from source (APT packages not available for amd64)
-
-Follow the official Isaac ROS 3.2 installation guide at:
-**https://nvidia-isaac-ros.github.io/v/release-3.2/getting_started/dev_env_setup.html**
 
 ---
 
-### For Jetson AGX Orin (arm64) - APT Installation
+### For Jetson AGX Orin (arm64) - Setup Script (Recommended)
+
+The easiest way to install Isaac ROS on Jetson is via the AutoSDV setup script:
+
+```bash
+cd ~/AutoSDV
+./setup.sh isaac-ros
+```
+
+This automatically:
+- Configures the NVIDIA Isaac ROS APT repository
+- Installs `ros-humble-isaac-ros-visual-slam`
+- Installs `ros-humble-isaac-ros-image-proc`
+- Verifies the installation
+
+**Note:** Isaac ROS is also offered as an option during `./setup.sh` interactive setup.
+
+### For Jetson AGX Orin (arm64) - Manual APT Installation
+
+If you prefer manual installation:
 
 **1. Configure Isaac ROS APT Repository:**
 
 ```bash
-# Add NVIDIA Isaac ROS repository
-sudo apt update && sudo apt install -y curl gnupg software-properties-common
+sudo apt update && sudo apt install -y curl gnupg
 curl -fsSL https://isaac.download.nvidia.com/isaac-ros/repos.key | \
   sudo gpg --dearmor -o /usr/share/keyrings/nvidia-isaac-ros.gpg
 
@@ -83,15 +98,10 @@ sudo apt update
 **2. Install Isaac ROS Visual SLAM Packages:**
 
 ```bash
-# Install Visual SLAM package
-sudo apt install -y ros-humble-isaac-ros-visual-slam
-
-# Install image processing package (for RGB8 to Mono8 conversion)
-sudo apt install -y ros-humble-isaac-ros-image-proc
+sudo apt install -y ros-humble-isaac-ros-visual-slam ros-humble-isaac-ros-image-proc
 
 # Verify installation
 ros2 pkg list | grep isaac_ros
-# Should show: isaac_ros_visual_slam, isaac_ros_image_proc
 ```
 
 ---

@@ -32,7 +32,7 @@ default:
     @just --list
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian python-deps ublox-udev _setup-cyclonedds-sysctl _setup-turbovnc-virtualgl ros-deps
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-isaac-ros python-deps ublox-udev _setup-cyclonedds-sysctl _setup-turbovnc-virtualgl ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -72,6 +72,17 @@ _setup-turbovnc-virtualgl:
         printf "{{yellow}}⊘{{nc}} turbovnc-virtualgl skipped (user choice)\n"
     fi
 
+# Conditional Isaac ROS install (based on INSTALL_ISAAC_ROS env var, ARM64 only)
+_setup-isaac-ros:
+    #!/usr/bin/env bash
+    if [[ "$(uname -m)" != "aarch64" ]]; then
+        printf "{{yellow}}⊘{{nc}} isaac-ros skipped (x86_64 not supported via APT)\n"
+    elif [[ "${INSTALL_ISAAC_ROS:-n}" == "y" ]]; then
+        just isaac-ros
+    else
+        printf "{{yellow}}⊘{{nc}} isaac-ros skipped (user choice)\n"
+    fi
+
 # Alias for setup (resume from where it left off due to markers)
 resume: setup
 
@@ -84,6 +95,10 @@ install-zed-sdk: _init
 # Install TurboVNC + VirtualGL (optional, for hardware-accelerated VNC)
 turbovnc-virtualgl: _init
     @just _run turbovnc-virtualgl "{{scripts_dir}}/install-turbovnc-virtualgl.sh"
+
+# Install NVIDIA Isaac ROS Visual SLAM (optional, for Jetson ARM64 only)
+isaac-ros: _init ros2
+    @just _run isaac-ros "{{scripts_dir}}/install-isaac-ros.sh"
 
 # === Individual Setup Steps ===
 
@@ -252,6 +267,14 @@ status:
             printf "  {{yellow}}○{{nc}} %s (optional)\n" "$step"
         fi
     done
+    # Isaac ROS (ARM64 only)
+    if [[ "$(uname -m)" == "aarch64" ]]; then
+        if [[ -f "{{marker_dir}}/isaac-ros" ]]; then
+            printf "  {{green}}✓{{nc}} isaac-ros\n"
+        else
+            printf "  {{yellow}}○{{nc}} isaac-ros (optional, run: ./setup.sh isaac-ros)\n"
+        fi
+    fi
     echo ""
     echo "Configuration:"
     if [[ -f "{{marker_dir}}/cyclonedds-sysctl" ]]; then

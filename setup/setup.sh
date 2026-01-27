@@ -145,6 +145,17 @@ interactive_setup() {
     fi
     printf "\n"
 
+    # Isaac ROS Visual SLAM (Jetson ARM64 only)
+    INSTALL_ISAAC_ROS="n"
+    if [[ "$(uname -m)" == "aarch64" ]]; then
+        printf "${YELLOW}Optional:${NC} Isaac ROS Visual SLAM (GPU-accelerated localization)\n"
+        printf "Enables pose_source:=isaac for camera-based SLAM with ZED.\n"
+        if ask_yes_no "Install Isaac ROS Visual SLAM?" "y"; then
+            INSTALL_ISAAC_ROS="y"
+        fi
+        printf "\n"
+    fi
+
     # System-wide CycloneDDS kernel buffer configuration
     CONFIGURE_CYCLONEDDS_SYSCTL="n"
     printf "${YELLOW}System Configuration:${NC} CycloneDDS kernel buffers (recommended)\n"
@@ -189,13 +200,16 @@ interactive_setup() {
     export CONFIGURE_CYCLONEDDS_SYSCTL="$CONFIGURE_CYCLONEDDS_SYSCTL"
     export SKIP_BLICKFELD="$([[ "$INSTALL_BLICKFELD" == "n" ]] && echo "1" || echo "0")"
     export AUTOSDV_ACCEPT_BLICKFELD_EULA="$ACCEPT_BLICKFELD_EULA"
-
+    export INSTALL_ISAAC_ROS="$INSTALL_ISAAC_ROS"
     export INSTALL_TURBOVNC_VIRTUALGL="$INSTALL_TURBOVNC_VIRTUALGL"
 
     # Summary
     printf "Installing: Core"
     if [[ "$INSTALL_AUTOWARE" == "y" ]]; then
         printf " + Autoware"
+    fi
+    if [[ "$INSTALL_ISAAC_ROS" == "y" ]]; then
+        printf " + Isaac ROS"
     fi
     if [[ "$CONFIGURE_CYCLONEDDS_SYSCTL" == "y" ]]; then
         printf " + CycloneDDS sysctl"
