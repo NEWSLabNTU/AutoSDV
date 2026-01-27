@@ -336,9 +336,9 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 
 ### Main Documentation Book (MkDocs)
 - **Framework**: MkDocs with Material theme (following Autoware conventions)
-- **Setup**: `cd book && make setup` (installs dependencies)
-- **Build**: `cd book && make build` (builds to `site/`)
-- **Serve**: `cd book && make serve` (http://localhost:8000)
+- **Setup**: `cd book && just setup` (installs dependencies)
+- **Build**: `cd book && just build` (builds to `site/`)
+- **Serve**: `cd book && just serve` (http://localhost:3000)
 - **Source**: `book/src/` (Markdown files)
 - **Config**: `book/mkdocs.yml`
 
