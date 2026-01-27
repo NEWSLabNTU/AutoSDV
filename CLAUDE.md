@@ -160,6 +160,32 @@ Write temp files to `./tmp/` (gitignored). Do NOT use system `/tmp/`.
 - New files require rebuild to create symlinks
 - First launch compiles TensorRT models (10-30 min)
 
+### ROS 2 Launch Testing
+
+**IMPORTANT**: When testing launch files, use `play_launch` instead of `ros2 launch`:
+
+```bash
+# PREFERRED: play_launch supports multi-stage kill (SIGINT → SIGTERM → SIGKILL)
+play_launch launch autosdv_launch logging_simulation.launch.yaml
+
+# If you must use ros2 launch directly, kill by process group (PGID) to avoid orphans:
+ros2 launch autosdv_launch logging_simulation.launch.yaml &
+LAUNCH_PID=$!
+# ... do testing ...
+kill -- -$(ps -o pgid= -p $LAUNCH_PID | tr -d ' ')  # Kill entire process group
+```
+
+**Why this matters**: Killing `ros2 launch` with SIGKILL (`kill -9`) leaves child processes as orphans, which jam the system. These orphan nodes continue running and consume resources.
+
+**Cleaning up orphans** (if they occur):
+```bash
+# List orphan nodes
+ros2 node list
+
+# Kill all ROS-related processes
+ps aux | grep -E "ros|component_container|autoware" | grep -v grep | awk '{print $2}' | xargs -r kill -9
+```
+
 ### Python Packages
 Standard ROS 2 conventions: setup.py/setup.cfg, test files for copyright/flake8/pep257.
 
@@ -293,12 +319,22 @@ imu_source:=mpu9250|zed
 gnss_receiver:=garmin|ublox|septentrio
 ```
 
+#### Localization (pose_source)
+```bash
+# pose_source options:
+pose_source:=ndt      # Default: LiDAR NDT scan matching (requires point cloud map)
+pose_source:=isaac    # cuVSLAM visual odometry only (relative tracking, manual init)
+pose_source:=visual   # cuVGL + cuVSLAM (camera-only, auto init from visual map)
+
+# For visual localization, specify map directory:
+visual_map_dir:=/path/to/visual_map  # Contains cuvgl_map/, cuvslam_map/
+```
+
 #### System Features
 ```bash
 # Localization
 use_gnss:=false                  # Indoor operation (no GNSS)
 use_ntrip:=true                  # RTK positioning (ublox only)
-pose_source:=ndt|isaac           # Localization method (NDT or Visual SLAM)
 use_mapless_mode:=true           # Indoor operation without localization
 
 # Perception
@@ -374,6 +410,13 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 - **Steering reversed**: Left/right inverted in manual control
 - **Network monitor errors**: AWS Greengrass socket errors (non-critical, ignore)
 - **ZED in VNC**: Requires TurboVNC with VirtualGL for hardware acceleration
+- **Isaac ROS GXF libraries**: If `pose_source:=visual` or `pose_source:=isaac` fails with "libgxf_*.so not found", the GXF library paths are not in `LD_LIBRARY_PATH`. Re-source the setup files:
+  ```bash
+  source /opt/ros/humble/setup.bash
+  source /opt/autoware/1.5.0/setup.bash
+  source install/setup.bash
+  ```
+  GXF libraries are located at `/opt/ros/humble/share/*/gxf/lib/` and should be added by Isaac ROS environment hooks.
 
 ## Important Notes
 
