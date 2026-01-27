@@ -2,7 +2,7 @@
 
 **Goal**: Enable camera-only global localization for AutoSDV using NVIDIA cuVGL, eliminating the need for LiDAR-based NDT map matching.
 
-**Status**: Planning
+**Status**: Implementation Complete (Phases 1-4) - Awaiting Testing
 
 ---
 
@@ -250,70 +250,76 @@ ros2 service call /visual_pose_initializer_bridge/trigger_initialization std_srv
 
 ---
 
-## Phase 4: AutoSDV Launch Integration
+## Phase 4: AutoSDV Launch Integration ✅ Complete
 
 **Objective**: Integrate cuVGL into AutoSDV launch system with new `pose_source:=visual` option.
 
-### 4.1 Launch Parameter Design
+### 4.1 Implementation
 
+**New Package:** `src/localization/autosdv_visual_localization_launch/`
+
+This package provides an entry point launch file that orchestrates:
+1. cuVGL (global localization from visual map)
+2. cuVSLAM (continuous visual odometry)
+3. Pose Initializer Bridge (Autoware integration)
+
+**Launch Files:**
+- `visual_localization.launch.xml` - Entry point, includes all components
+- `visual_global_localization.launch.xml` - cuVGL component with image converters
+
+**Main Launch Integration:**
+
+`autosdv.launch.yaml` now supports:
 ```yaml
-# New pose_source option: "visual" (camera-only, cuVGL + cuVSLAM)
 pose_source:
   - ndt        # LiDAR NDT (default, requires point cloud map)
   - isaac      # cuVSLAM only (relative tracking, manual init)
   - visual     # cuVGL + cuVSLAM (full camera-only solution)
 ```
 
-### 4.2 Launch File Structure
-
-```xml
-<!-- autosdv.launch.yaml additions -->
-
-<!-- Visual Global Localization (cuVGL + cuVSLAM) -->
-<group if="$(eval '\"$(var pose_source)\" == \"visual\"')">
-
-  <!-- cuVGL for initial pose -->
-  <include file="$(find-pkg-share autosdv_visual_localization_launch)/launch/visual_global_localization.launch.xml">
-    <arg name="map_dir" value="$(var visual_map_dir)"/>
-    <arg name="camera_namespace" value="/sensing/camera/$(var camera_model)/zed_node"/>
-  </include>
-
-  <!-- Pose initializer bridge -->
-  <include file="$(find-pkg-share visual_pose_initializer_bridge)/launch/visual_pose_initializer.launch.xml"/>
-
-  <!-- cuVSLAM for continuous tracking (existing) -->
-  <include file="$(find-pkg-share autosdv_isaac_slam_launch)/launch/isaac_slam_with_zed.launch.xml">
-    <arg name="camera_namespace" value="/sensing/camera/$(var camera_model)/zed_node"/>
-    <arg name="enable_imu_fusion" value="true"/>
-  </include>
-
-</group>
-```
-
-### 4.3 New Launch Arguments
-
+New argument:
 ```yaml
-# Visual map directory (for cuVGL)
-- arg:
-    name: visual_map_dir
-    default: "$(find-pkg-share autosdv_launch)/data/visual_maps/default"
-    description: "Path to cuVGL visual map directory"
+visual_map_dir:
+  description: "Path to visual map directory for pose_source:=visual"
 ```
+
+### 4.2 Usage
+
+```bash
+# Camera-only localization (full solution)
+just launch pose_source:=visual visual_map_dir:=/path/to/visual_map
+
+# From autosdv.launch.yaml documentation
+just launch ARGS="pose_source:=visual visual_map_dir:=/path/to/visual_map"
+```
+
+### 4.3 Feature Toggles
+
+The entry launch file supports selective enabling of components:
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `enable_global_localization` | true | Enable cuVGL |
+| `enable_visual_slam` | true | Enable cuVSLAM |
+| `enable_pose_initializer` | true | Enable pose init bridge |
+| `enable_imu_fusion` | true | Enable IMU fusion in cuVSLAM |
+| `auto_initialize` | true | Auto-init on first cuVGL pose |
 
 ### Work Items
 
-- [ ] **4.1** Create `autosdv_visual_localization_launch` package
-- [ ] **4.2** Add `pose_source:=visual` option to `autosdv.launch.yaml`
-- [ ] **4.3** Add `visual_map_dir` argument
-- [ ] **4.4** Configure cuVGL node with ZED camera topics
-- [ ] **4.5** Wire up pose initializer bridge
-- [ ] **4.6** Disable NDT when using visual localization
+- [x] **4.1** Create `autosdv_visual_localization_launch` package
+- [x] **4.2** Add `pose_source:=visual` option to `autosdv.launch.yaml`
+- [x] **4.3** Add `visual_map_dir` argument
+- [x] **4.4** Configure cuVGL node with ZED camera topics
+- [x] **4.5** Wire up pose initializer bridge
+- [x] **4.6** NDT bypassed when using visual localization (via pose_source switch)
 
 ### Success Criteria
-- [ ] `just launch pose_source:=visual` starts all required nodes
-- [ ] cuVGL initializes pose automatically on startup
-- [ ] cuVSLAM takes over for continuous tracking
-- [ ] System works without LiDAR
+- [x] `autosdv_visual_localization_launch` package builds successfully
+- [x] Main launch file accepts `pose_source:=visual`
+- [ ] `just launch pose_source:=visual` starts all required nodes (needs testing with visual map)
+- [ ] cuVGL initializes pose automatically on startup (needs testing)
+- [ ] cuVSLAM takes over for continuous tracking (needs testing)
 
 ---
 

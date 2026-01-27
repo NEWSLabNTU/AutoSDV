@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Visual Localization Entry Point
+
+  Launches complete camera-only localization stack:
+  1. cuVGL - Global localization (initial pose from visual map)
+  2. cuVSLAM - Visual odometry (continuous tracking)
+  3. Pose Initializer Bridge - Connects cuVGL to Autoware
+
+  Usage:
+    ros2 launch autosdv_visual_localization_launch visual_localization.launch.xml \
+      map_dir:=/path/to/visual_map
+
+  From autosdv.launch.yaml:
+    pose_source:=visual visual_map_dir:=/path/to/visual_map
+-->
+<launch>
+  <!-- Required Arguments -->
+  <arg name="map_dir" description="Path to visual map directory (contains cuvgl_map/, cuvslam_map/)"/>
+
+  <!-- Camera Configuration -->
+  <arg name="camera_namespace" default="/sensing/camera/zedxm" description="ZED camera namespace"/>
+  <arg name="camera_model" default="zedxm" description="Camera model for frame names"/>
+
+  <!-- Feature Toggles -->
+  <arg name="enable_global_localization" default="true" description="Enable cuVGL global localization"/>
+  <arg name="enable_visual_slam" default="true" description="Enable cuVSLAM visual odometry"/>
+  <arg name="enable_pose_initializer" default="true" description="Enable pose initializer bridge"/>
+
+  <!-- cuVSLAM Configuration -->
+  <arg name="enable_imu_fusion" default="true" description="Enable IMU fusion in cuVSLAM"/>
+  <arg name="enable_slam_visualization" default="false" description="Enable SLAM visualization"/>
+
+  <!-- Pose Initializer Configuration -->
+  <arg name="auto_initialize" default="true" description="Auto-initialize on first cuVGL pose"/>
+
+  <!-- ========================================== -->
+  <!-- 1. Visual Global Localization (cuVGL)     -->
+  <!-- ========================================== -->
+  <group if="$(var enable_global_localization)">
+    <include file="$(find-pkg-share autosdv_visual_localization_launch)/launch/visual_global_localization.launch.py">
+      <arg name="map_dir" value="$(var map_dir)/cuvgl_map"/>
+      <arg name="camera_namespace" value="$(var camera_namespace)"/>
+      <arg name="camera_model" value="$(var camera_model)"/>
+    </include>
+  </group>
+
+  <!-- ========================================== -->
+  <!-- 2. Visual SLAM (cuVSLAM)                  -->
+  <!-- ========================================== -->
+  <group if="$(var enable_visual_slam)">
+    <include file="$(find-pkg-share autosdv_isaac_slam_launch)/launch/isaac_slam_with_zed.launch.py">
+      <arg name="camera_namespace" value="$(var camera_namespace)"/>
+      <arg name="enable_imu_fusion" value="$(var enable_imu_fusion)"/>
+      <arg name="enable_visualization" value="$(var enable_slam_visualization)"/>
+    </include>
+  </group>
+
+  <!-- ========================================== -->
+  <!-- 3. Pose Initializer Bridge                -->
+  <!-- ========================================== -->
+  <group if="$(var enable_pose_initializer)">
+    <include file="$(find-pkg-share visual_pose_initializer_bridge)/launch/visual_pose_initializer.launch.xml">
+      <arg name="auto_initialize" value="$(var auto_initialize)"/>
+      <arg name="pose_topic" value="/visual_localization/visual_global_localization_node/pose"/>
+    </include>
+  </group>
+</launch>
