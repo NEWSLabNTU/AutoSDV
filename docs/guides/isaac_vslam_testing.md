@@ -402,10 +402,21 @@ grep "^set(PACKAGE_VERSION" /usr/local/zed/zed-config-version.cmake
 
 ---
 
+## Visual Global Localization (cuVGL)
+
+For camera-only global localization (automatic initial pose without GNSS or manual input), see:
+- **Roadmap**: `docs/roadmaps/visual_global_localization.md`
+- **Usage**: `pose_source:=visual` (includes cuVGL + cuVSLAM)
+
+cuVGL provides automatic startup localization using pre-built visual maps, eliminating the need for LiDAR-based NDT or manual pose initialization.
+
+---
+
 ## References
 
 - **Isaac ROS 3.2 Documentation**: https://nvidia-isaac-ros.github.io/v/release-3.2/
 - **Isaac ROS Visual SLAM**: https://nvidia-isaac-ros.github.io/v/release-3.2/repositories_and_packages/isaac_ros_visual_slam/
+- **Isaac ROS Visual Global Localization**: https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_mapping_and_localization/isaac_ros_visual_global_localization/
 - **ZED ROS2 Wrapper**: https://github.com/stereolabs/zed-ros2-wrapper
-- **AutoSDV Isaac SLAM Integration**: `docs/isaac_ros_visual_slam_integration_plan.md`
-- **AutoSDV Simulation Testing**: `docs/simulation_testing.md`
+- **AutoSDV Isaac SLAM Integration**: `docs/design/isaac_vslam_integration.md`
+- **AutoSDV Visual Global Localization Roadmap**: `docs/roadmaps/visual_global_localization.md`

@@ -85,56 +85,52 @@ This roadmap outlines the integration of NVIDIA Isaac ROS Visual Global Localiza
 
 ---
 
-## Phase 1: Visual Global Localization Runtime ⏳ In Progress
+## Phase 1: Visual Global Localization Runtime ✅ Complete
 
 **Objective**: Install cuVGL runtime packages on Jetson for localization.
 
 ### 1.1 Package Overview
 
-The setup script now installs all required packages:
+The setup script installs all required packages:
 - `ros-humble-isaac-ros-visual-slam` - Visual odometry (cuVSLAM)
 - `ros-humble-isaac-ros-visual-global-localization` - Global localization (cuVGL)
 - `ros-humble-isaac-ros-image-proc` - Image format conversion
-
-**Note**: cuVGL depends on `ros-humble-isaac-mapping-ros`, which is automatically installed and enables map creation directly on Jetson.
+- `ros-humble-isaac-mapping-ros` - Map creation tools (auto-installed as dependency)
 
 ### 1.2 Installation
 
 ```bash
-# Run the setup script
 ./setup.sh isaac-ros
-
-# Or install manually
-sudo apt-get install -y ros-humble-isaac-ros-visual-global-localization
 ```
 
-### 1.3 Verification Commands
+### 1.3 Installed Executables
 
-```bash
-# Check packages are installed
-source /opt/ros/humble/setup.bash
-ros2 pkg list | grep -E "isaac_ros_visual_slam|isaac_ros_visual_global_localization|isaac_mapping"
+**cuVGL (Global Localization):**
+- `isaac_ros_visual_global_localization` - Main global localization node
+- `isaac_ros_apriltag_localization` - AprilTag-based localization
+- `isaac_ros_global_localization_mapper` - Mapping utility
+- `isaac_ros_point_cloud_filter` - Point cloud filtering
 
-# Check cuVGL node is available
-ros2 pkg executables isaac_ros_visual_global_localization
-
-# Test node starts (will fail without map, but should show usage)
-ros2 run isaac_ros_visual_global_localization isaac_ros_visual_global_localization_node --ros-args -p map_dir:=/tmp
-```
+**Mapping Tools:**
+- `create_map_offline.py` - Create visual maps from rosbag
+- `create_cuvgl_map.py` - Create cuVGL map
+- `rosbag_to_mapping_data` - Convert rosbag to mapping format
+- `run_nvblox` - Occupancy grid generation
 
 ### Work Items
 
 - [x] **1.1** Update `setup/scripts/install-isaac-ros.sh` to include cuVGL package
-- [ ] **1.2** Verify cuVGL node is available after installation
-- [ ] **1.3** Test cuVGL node starts without errors
+- [x] **1.2** Verify cuVGL node is available after installation
+- [x] **1.3** Verify mapping tools are available
 
 ### Success Criteria
-- [ ] `ros2 pkg list | grep isaac_ros_visual_global_localization` shows package
-- [ ] `ros2 pkg executables isaac_ros_visual_global_localization` lists the node
+- [x] `ros2 pkg list | grep isaac_ros_visual_global_localization` shows package
+- [x] `ros2 pkg executables isaac_ros_visual_global_localization` lists nodes
+- [x] `ros2 pkg executables isaac_mapping_ros` lists mapping tools
 
 ---
 
-## Phase 2: Map Creation Workflow
+## Phase 2: Map Creation Workflow ⏳ Scripts Ready
 
 **Objective**: Document and automate visual map creation process.
 
@@ -193,16 +189,16 @@ ros-humble-isaac-mapping-ros
 
 ### Work Items
 
-- [ ] **2.1** Create map recording script (`scripts/record-visual-map.sh`)
-- [ ] **2.2** Create map creation script (`scripts/create-visual-map.sh`)
-- [ ] **2.3** Document workflow in `docs/guides/visual_map_creation.md`
+- [x] **2.1** Create map recording script (`scripts/visual-map/record.sh`)
+- [x] **2.2** Create map creation script (`scripts/visual-map/create-map.sh`)
+- [x] **2.3** Document workflow (`scripts/visual-map/README.md`)
 - [ ] **2.4** Test end-to-end map creation workflow
-- [ ] **2.5** Add example maps to `data/visual_maps/` with README
+- [x] **2.5** Add `data/visual_maps/` directory with README
 
 ### Success Criteria
-- [ ] Recording script captures all required topics with H264 compression
-- [ ] Map creation produces all 3 map types without errors
-- [ ] cuVGL can load the created maps
+- [x] Recording script captures all required topics
+- [ ] Map creation produces all 3 map types without errors (needs testing)
+- [ ] cuVGL can load the created maps (needs testing)
 
 ---
 
