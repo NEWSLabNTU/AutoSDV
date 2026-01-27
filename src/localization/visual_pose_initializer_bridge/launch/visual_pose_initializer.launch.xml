@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+  <!-- Arguments -->
+  <arg name="auto_initialize" default="true" description="Auto-initialize on first cuVGL pose"/>
+  <arg name="initialization_method" default="1" description="0=AUTO (NDT refine), 1=DIRECT"/>
+  <arg name="pose_topic" default="/visual_localization/pose" description="cuVGL pose topic"/>
+  <arg name="initialize_service" default="/localization/initialize" description="Autoware init service"/>
+
+  <!-- Visual Pose Initializer Bridge Node -->
+  <node pkg="visual_pose_initializer_bridge" exec="visual_pose_initializer_bridge_node"
+        name="visual_pose_initializer_bridge" output="screen">
+    <param from="$(find-pkg-share visual_pose_initializer_bridge)/config/visual_pose_initializer.yaml"/>
+    <param name="auto_initialize" value="$(var auto_initialize)"/>
+    <param name="initialization_method" value="$(var initialization_method)"/>
+    <param name="pose_topic" value="$(var pose_topic)"/>
+    <param name="initialize_service" value="$(var initialize_service)"/>
+  </node>
+</launch>
