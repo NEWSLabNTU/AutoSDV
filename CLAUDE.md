@@ -150,6 +150,57 @@ data/
 - Preset files: `src/launcher/autosdv_launch/config/{perception,localization}/preset/`
 - Web UI: http://localhost:8081 (via play_launch)
 
+### Isaac Visual Localization
+
+Camera-only localization using NVIDIA Isaac ROS (cuVGL + cuVSLAM). Eliminates need for LiDAR NDT.
+
+**Architecture:**
+```
+pose_source:=visual
+       │
+       ├── cuVGL (Global Localization)
+       │   └── Initial pose from visual map keyframes
+       │   └── Publishes: /visual_localization/.../pose
+       │
+       ├── cuVSLAM (Visual Odometry)
+       │   └── Continuous tracking via stereo camera + IMU
+       │   └── Publishes: /localization/pose_estimator/pose_with_covariance
+       │
+       └── Pose Initializer Bridge
+           └── Calls /localization/initialize on first cuVGL pose
+```
+
+**Packages:**
+```
+src/localization/
+├── autosdv_visual_localization_launch/   # Entry point for pose_source:=visual
+│   ├── launch/visual_localization.launch.xml
+│   └── launch/visual_global_localization.launch.py
+├── autosdv_isaac_slam_launch/            # cuVSLAM wrapper
+│   └── launch/isaac_slam_with_zed.launch.py
+└── visual_pose_initializer_bridge/       # cuVGL → Autoware bridge
+```
+
+**Usage:**
+```bash
+# Full visual localization (requires visual map)
+just launch pose_source:=visual visual_map_dir:=/path/to/visual_map
+
+# Visual odometry only (no global init, manual pose required)
+just launch pose_source:=isaac
+```
+
+**Creating Visual Maps:**
+```bash
+# 1. Record rosbag with ZED stereo + IMU
+./scripts/visual-map/record.sh ./data/visual_maps/my_location
+
+# 2. Create map (generates cuvgl_map/, cuvslam_map/, occupancy_map/)
+./scripts/visual-map/create-map.sh ./data/visual_maps/my_location_recording
+```
+
+**Roadmap:** See `docs/roadmaps/visual_global_localization.md`
+
 ## Development
 
 ### Temporary Files
