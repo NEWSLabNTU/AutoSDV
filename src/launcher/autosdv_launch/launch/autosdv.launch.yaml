@@ -90,7 +90,7 @@ launch:
     if: "$(eval '\"$(var pose_source)\" == \"isaac\"')"
     children:
     - include:
-        file: "$(find-pkg-share autosdv_isaac_slam_launch)/launch/isaac_slam_with_zed.launch.py"
+        file: "$(find-pkg-share autoware_isaac_localization_launch)/launch/isaac_slam.launch.py"
         arg:
         - name: camera_namespace
           value: /sensing/camera/$(var camera_model)/$(var camera_model)
@@ -105,7 +105,7 @@ launch:
     if: "$(eval '\"$(var pose_source)\" == \"visual\"')"
     children:
     - include:
-        file: "$(find-pkg-share autosdv_visual_localization_launch)/launch/visual_localization.launch.xml"
+        file: "$(find-pkg-share autoware_isaac_localization_launch)/launch/visual_localization.launch.xml"
         arg:
         - name: map_dir
           value: $(var visual_map_dir)

@@ -172,13 +172,12 @@ pose_source:=visual
 
 **Packages:**
 ```
-src/localization/
-├── autosdv_visual_localization_launch/   # Entry point for pose_source:=visual
-│   ├── launch/visual_localization.launch.xml
+src/localization/autoware_isaac_localization/  # Standalone repo (github.com/NEWSLabNTU/autoware_isaac_localization)
+├── autoware_isaac_localization_launch/        # cuVSLAM + cuVGL launch files
+│   ├── launch/visual_localization.launch.xml  # Entry point for pose_source:=visual
+│   ├── launch/isaac_slam.launch.py            # cuVSLAM wrapper
 │   └── launch/visual_global_localization.launch.py
-├── autosdv_isaac_slam_launch/            # cuVSLAM wrapper
-│   └── launch/isaac_slam_with_zed.launch.py
-└── visual_pose_initializer_bridge/       # cuVGL → Autoware bridge
+└── autoware_isaac_pose_bridge/                # cuVGL → Autoware pose initializer bridge
 ```
 
 **Usage:**

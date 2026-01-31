@@ -1,4 +1,0 @@
-/**:
-  ros__parameters:
-    # Queue size for subscriber and publisher
-    queue_size: 10

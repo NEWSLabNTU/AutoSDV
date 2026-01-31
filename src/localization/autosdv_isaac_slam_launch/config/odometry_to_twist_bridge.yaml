@@ -1,8 +1,0 @@
-/**:
-  ros__parameters:
-    # Queue size for subscriber and publisher
-    queue_size: 10
-
-    # Output frame ID for twist message (vehicle body frame)
-    # Twist is expressed in base_link frame (vehicle's local coordinate frame)
-    output_frame_id: "base_link"

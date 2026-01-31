@@ -37,3 +37,6 @@
 [submodule "src/sensor_component/external/autoware_zed"]
 	path = src/sensor_component/external/autoware_zed
 	url = https://github.com/NEWSLabNTU/autoware_zed.git
+[submodule "src/localization/autoware_isaac_localization"]
+	path = src/localization/autoware_isaac_localization
+	url = https://github.com/NEWSLabNTU/autoware_isaac_localization.git

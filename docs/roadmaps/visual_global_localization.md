@@ -22,6 +22,13 @@ This roadmap outlines the integration of NVIDIA Isaac ROS Visual Global Localiza
 
 ### Architecture
 
+![Camera-Only Localization Pipeline](visual_localization_architecture.svg)
+
+*Diagram source: [visual_localization_architecture.typ](visual_localization_architecture.typ)*
+
+<details>
+<summary>Text version (for terminals)</summary>
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    Camera-Only Localization Pipeline                     │
@@ -70,6 +77,8 @@ This roadmap outlines the integration of NVIDIA Isaac ROS Visual Global Localiza
 │                                                                         │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+</details>
 
 ### Platform Requirements
 
