@@ -53,7 +53,7 @@ launch:
 - arg:
     name: pose_source
     default: "ndt"
-    description: "Pose estimation source: ndt (LiDAR NDT), isaac (Visual SLAM), visual (cuVGL + cuVSLAM)"
+    description: "Pose estimation source: ndt, cuda_ndt, isaac, visual"
 
 - arg:
     name: visual_map_dir

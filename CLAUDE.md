@@ -372,9 +372,10 @@ gnss_receiver:=garmin|ublox|septentrio
 #### Localization (pose_source)
 ```bash
 # pose_source options:
-pose_source:=ndt      # Default: LiDAR NDT scan matching (requires point cloud map)
-pose_source:=isaac    # cuVSLAM visual odometry only (relative tracking, manual init)
-pose_source:=visual   # cuVGL + cuVSLAM (camera-only, auto init from visual map)
+pose_source:=ndt       # Default: LiDAR NDT scan matching (Autoware, requires point cloud map)
+pose_source:=cuda_ndt  # CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)
+pose_source:=isaac     # cuVSLAM visual odometry only (relative tracking, manual init)
+pose_source:=visual    # cuVGL + cuVSLAM (camera-only, auto init from visual map)
 
 # For visual localization, specify map directory:
 visual_map_dir:=/path/to/visual_map  # Contains cuvgl_map/, cuvslam_map/
