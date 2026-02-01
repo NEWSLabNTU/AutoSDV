@@ -20,3 +20,6 @@ tmp/
 
 # play records
 play_log/
+
+# downloaded datasets
+data/leodrive-busood/

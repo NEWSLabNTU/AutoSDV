@@ -1,6 +1,7 @@
 /zed-sdk/
 /blickfeld-scanner-lib/
 /autoware-debian/
+/rosbags/
 /yabloc_pose_initializer/
 /image_projection_based_fusion/
 /lidar_apollo_instance_segmentation/
