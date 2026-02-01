@@ -9,12 +9,12 @@
 # Size: ~10.9GB
 # Source: https://autowarefoundation.github.io/autoware-documentation/main/datasets/
 #
-# Usage: ./scripts/download-leodrive-busood.sh [output_dir]
+# Usage: ./scripts/leodrive-dataset/download.sh [output_dir]
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 OUTPUT_DIR="${1:-$REPO_ROOT/data/leodrive-busood}"
 S3_BUCKET="s3://autoware-files/collected_data/2022-08-22_leo_drive_isuzu_bags/"

@@ -1,0 +1,53 @@
+# Leo Drive Bus-ODD Dataset Tools
+# Usage: just <recipe>
+
+set shell := ["bash", "-cu"]
+
+script_dir := justfile_directory()
+repo_root := script_dir / "../.."
+install_dir := script_dir / "install"
+
+# Pinned versions
+rosbags_version := "0.11.0"
+
+# Default recipe
+default:
+    @just --list
+
+# Install Python dependencies (rosbags for migration)
+setup-python:
+    pip install rosbags=={{rosbags_version}}
+
+# Download the Leo Drive Bus-ODD dataset (~10.9GB)
+download output_dir=(repo_root / "data/leodrive-busood"):
+    {{script_dir}}/download.sh {{output_dir}}
+
+# Build applanix_msgs package (for rosbag playback)
+build-applanix:
+    #!/usr/bin/env bash
+    set -e
+    cd {{script_dir}}
+    source /opt/ros/humble/setup.bash
+    colcon build \
+        --base-paths applanix/applanix_msgs \
+        --install-base {{install_dir}} \
+        --build-base {{script_dir}}/build \
+        --symlink-install \
+        --cmake-args -DCMAKE_BUILD_TYPE=Release
+    echo ""
+    echo "Built applanix_msgs to: {{install_dir}}"
+    echo "Source with: source {{install_dir}}/setup.bash"
+
+# Clean build artifacts
+clean:
+    rm -rf {{script_dir}}/build {{script_dir}}/install {{script_dir}}/log
+
+# Migrate rosbag to Autoware 1.5.0 format
+migrate input_bag output_bag:
+    {{script_dir}}/migrate-to-autoware15.py {{input_bag}} {{output_bag}}
+
+# Full setup: install Python deps, build ROS packages, download dataset
+setup:
+    just setup-python
+    just build-applanix
+    just download

@@ -43,3 +43,6 @@
 [submodule "src/localization/cuda_ndt_matcher"]
 	path = src/localization/cuda_ndt_matcher
 	url = https://github.com/NEWSLabNTU/cuda_ndt_matcher.git
+[submodule "scripts/leodrive-dataset/applanix"]
+	path = scripts/leodrive-dataset/applanix
+	url = https://github.com/autowarefoundation/applanix.git
