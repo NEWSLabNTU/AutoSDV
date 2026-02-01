@@ -142,6 +142,8 @@ data/
 ├── COSS-map-planning/              # Default map
 ├── models/                         # ML models (YOLOX, CenterPoint)
 └── zed-sdk/                        # ZED calibration
+scripts/
+└── leodrive-bus-launch/            # Leo Drive Bus-ODD dataset tools (submodule)
 ```
 
 ### Key Files
@@ -199,6 +201,40 @@ just launch pose_source:=isaac
 ```
 
 **Roadmap:** See `docs/roadmaps/visual_global_localization.md`
+
+### Leo Drive Bus-ODD Dataset
+
+The `scripts/leodrive-bus-launch` submodule provides tools for the [Leo Drive Bus-ODD dataset](https://autowarefoundation.github.io/autoware-documentation/main/datasets/) - an Autoware dataset with camera streams for testing visual localization.
+
+**Sensors in dataset:**
+| Sensor | Model | Quantity |
+|--------|-------|----------|
+| LiDAR | Velodyne VLP16 | 1 (front) |
+| LiDAR | Velodyne VLP32C | 2 (left, right) |
+| Camera | Lucid Vision Triton 5.4MP | 3 |
+| GNSS/INS | Applanix POS LV 120 | 1 |
+
+**Usage:**
+```bash
+cd scripts/leodrive-bus-launch
+
+# Full setup (download ~10.9GB + migrate to Autoware 1.5.0)
+just setup
+
+# Or step by step:
+just setup-python    # Install rosbags Python package
+just build           # Build ROS packages (applanix_msgs, sensor_kit, vehicle)
+just download        # Download dataset
+just migrate-all     # Migrate rosbags from autoware_auto_* to autoware_* msgs
+
+# Play a migrated rosbag
+just play data/all-sensors-bag1_migrated
+```
+
+**Packages included:**
+- `leodrive_bus_sensor_kit_launch` - Sensor kit configuration
+- `leodrive_bus_vehicle_launch` - Vehicle description (Isuzu bus)
+- `applanix_msgs` - Applanix GNSS/INS message definitions
 
 ## Development
 
