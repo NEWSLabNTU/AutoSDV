@@ -1,6 +1,6 @@
 #!/bin/bash
 # Play rosbag for logging simulation testing
-# Usage: ./scripts/play_rosbag.sh [rosbag_path]
+# Usage: ./scripts/rosbag/play_rosbag.sh [rosbag_path]
 
 set -e
 

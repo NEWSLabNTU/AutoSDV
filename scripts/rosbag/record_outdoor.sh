@@ -1,6 +1,6 @@
 #!/bin/bash
 # Record outdoor sensor topics for AutoSDV
-# Usage: ./scripts/record_outdoor.sh [output_dir]
+# Usage: ./scripts/rosbag/record_outdoor.sh [output_dir]
 #
 # This script records sensor topics listed in outdoor_topics.txt plus /clock
 # for time synchronization during playback.

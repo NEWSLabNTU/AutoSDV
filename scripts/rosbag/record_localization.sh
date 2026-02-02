@@ -1,6 +1,6 @@
 #!/bin/bash
 # Record localization-related topics for logging simulation testing
-# Usage: ./scripts/record_localization.sh
+# Usage: ./scripts/rosbag/record_localization.sh
 
 set -e
 
