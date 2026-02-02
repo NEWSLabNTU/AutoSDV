@@ -167,11 +167,11 @@ bag-play:
 # ============================================================================
 
 # Run COSS Park simulation (launch + rosbag feed + localization recording)
-# Requires: rosbag data from NTU COSS Park (download from GitHub releases)
+# Requires: rosbag data from NTU COSS Park (run ./scripts/download-test-rosbag.sh)
 sim-coss-park:
     #!/usr/bin/env bash
     source install/setup.bash && \
     parallel --line-buffer ::: \
         "just launch-sim-logging" \
-        "sleep 40 && ros2 bag play rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \
+        "sleep 40 && ros2 bag play data/rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \
         "sleep 45 && ./scripts/record_localization.sh"
