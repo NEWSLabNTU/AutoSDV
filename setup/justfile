@@ -210,6 +210,9 @@ ros-deps: _init ros2-dev-tools
     printf "{{yellow}}→{{nc}} Installing ROS dependencies...\n"
     cd "{{root_dir}}/.."
     source /opt/ros/humble/setup.sh
+    if [[ -f /opt/autoware/1.5.0/setup.sh ]]; then
+        source /opt/autoware/1.5.0/setup.sh
+    fi
     rosdep update --rosdistro=humble
     rosdep install -y --from-paths src --ignore-src -r
     touch "{{marker_dir}}/ros-deps"
