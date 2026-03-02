@@ -24,7 +24,8 @@ build:
     colcon build \
         --base-paths src \
         --symlink-install \
-        --cmake-args -DCMAKE_BUILD_TYPE=Release
+        --cmake-args -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_DISABLE_FIND_PACKAGE_isaac_ros_common=TRUE
 
 # Run tests for packages in src/ directory
 test:
