@@ -145,17 +145,16 @@ interactive_setup() {
     fi
     printf "\n"
 
-    # Isaac ROS Visual SLAM + Global Localization (Jetson ARM64 only)
+    # Isaac ROS Visual SLAM + Global Localization (requires NVIDIA GPU)
     INSTALL_ISAAC_ROS="n"
-    if [[ "$(uname -m)" == "aarch64" ]]; then
-        printf "${YELLOW}Optional:${NC} Isaac ROS Visual Localization (GPU-accelerated)\n"
-        printf "Includes cuVSLAM (visual odometry) and cuVGL (global localization).\n"
-        printf "Enables camera-only localization without LiDAR/GNSS.\n"
-        if ask_yes_no "Install Isaac ROS Visual Localization?" "y"; then
-            INSTALL_ISAAC_ROS="y"
-        fi
-        printf "\n"
+    printf "${YELLOW}Optional:${NC} Isaac ROS Visual Localization (GPU-accelerated)\n"
+    printf "Includes cuVSLAM (visual odometry) and cuVGL (global localization).\n"
+    printf "Enables camera-only localization without LiDAR/GNSS.\n"
+    printf "Requires NVIDIA GPU (Ampere or newer for x86_64).\n"
+    if ask_yes_no "Install Isaac ROS Visual Localization?" "y"; then
+        INSTALL_ISAAC_ROS="y"
     fi
+    printf "\n"
 
     # System-wide CycloneDDS kernel buffer configuration
     CONFIGURE_CYCLONEDDS_SYSCTL="n"

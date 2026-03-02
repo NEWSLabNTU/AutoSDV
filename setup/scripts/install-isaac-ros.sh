@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install NVIDIA Isaac ROS packages for Visual SLAM and Global Localization
-# Requires: ARM64 (Jetson) with JetPack 6.x and ROS 2 Humble
+# Requires: NVIDIA GPU + ROS 2 Humble (supports both x86_64 and ARM64/Jetson)
 
 set -eo pipefail
 
@@ -9,13 +9,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m'
-
-# Check architecture
-if [[ "$(uname -m)" != "aarch64" ]]; then
-    printf "${RED}Error:${NC} Isaac ROS APT packages only available for ARM64 (Jetson)\n"
-    printf "For x86_64, build from source: https://nvidia-isaac-ros.github.io\n"
-    exit 1
-fi
 
 # Check ROS 2 is installed
 if [[ ! -f /opt/ros/humble/setup.bash ]]; then
