@@ -5,11 +5,13 @@
 # This script downloads the outdoor_20251226_153115 rosbag from Synology Drive
 # and extracts it to data/rosbags/
 #
+# Requires: synology-dl (cargo install synology-dl)
+#
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Configuration
 SHARE_URL="https://newslabn.csie.ntu.edu.tw/drive/d/s/16OFeybLzjWqa1S6lryLhYaSNQZ5RQtZ/dHSz8tnPGB0V2njaH5qFdmCo1996Zvlg-zLegeIV83gw"
@@ -61,6 +63,12 @@ verify_checksum() {
     fi
 }
 
+# Check dependency
+if ! command -v synology-dl &>/dev/null; then
+    log_error "synology-dl not found. Install it with: cargo install synology-dl"
+    exit 1
+fi
+
 # Check if rosbag already exists with correct checksum
 DB3_PATH="$OUTPUT_DIR/$ROSBAG_NAME/$DB3_FILE"
 if [ -f "$DB3_PATH" ]; then
@@ -79,8 +87,8 @@ fi
 mkdir -p "$OUTPUT_DIR"
 
 # Download
-log_info "Downloading rosbag..."
-"$SCRIPT_DIR/utils/synology-drive-download.sh" -f "$SHARE_URL" "$OUTPUT_DIR"
+log_info "Downloading rosbag from Synology Drive..."
+synology-dl -f "$SHARE_URL" "$OUTPUT_DIR"
 
 # Extract
 ZIP_PATH="$OUTPUT_DIR/$ZIP_NAME"
