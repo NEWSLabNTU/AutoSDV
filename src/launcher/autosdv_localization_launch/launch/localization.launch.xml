@@ -1,0 +1,129 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- ── Config ─────────────────────────────────────────────────────── -->
+  <arg name="loc_config_path"
+       default="$(find-pkg-share autosdv_launch)/config/localization"/>
+  <arg name="map_path"
+       description="Path to map directory (pointcloud map, visual map, etc.)"/>
+
+  <!-- ── Pose / Twist source selection ─────────────────────────────── -->
+  <arg name="pose_source"  default="ndt"
+       description="Pose estimator key: ndt, cuda_ndt, eagleye, visual, isaac"/>
+  <arg name="twist_source" default="gyro_odom"
+       description="Twist estimator: gyro_odom, eagleye"/>
+
+  <!-- ── Topics ────────────────────────────────────────────────────── -->
+  <arg name="input_pointcloud"
+       default="/sensing/lidar/concatenated/pointcloud"/>
+  <arg name="localization_pointcloud_container_name"
+       default="/pointcloud_container"/>
+
+  <!-- ── System ────────────────────────────────────────────────────── -->
+  <arg name="use_sim_time"     default="false"/>
+  <arg name="system_run_mode"  default="online"
+       description="online | logging_simulation"/>
+  <arg name="gnss_enabled"     default="true"
+       description="GNSS available for automatic pose initialization"/>
+  <arg name="initial_pose"     default="[]"
+       description="Optional fixed initial pose [x,y,z,qx,qy,qz,qw]"/>
+  <arg name="vehicle_model"    default="sample_vehicle"/>
+
+  <!-- ── Resolve empty strings to defaults ───────────────────────── -->
+  <!-- use_gnss may arrive as "" from sensor suite resolution pattern -->
+  <let name="resolved_gnss_enabled" value="$(var gnss_enabled)"
+       unless="$(eval &quot;'$(var gnss_enabled)' == ''&quot;)"/>
+  <let name="resolved_gnss_enabled" value="true"
+       if="$(eval &quot;'$(var gnss_enabled)' == ''&quot;)"/>
+
+  <!-- ── Global parameters ─────────────────────────────────────────── -->
+  <group scoped="false">
+    <include file="$(find-pkg-share autoware_global_parameter_loader)/launch/global_params.launch.py">
+      <arg name="use_sim_time"  value="$(var use_sim_time)"/>
+      <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    </include>
+  </group>
+
+  <!-- ── Plugin resolution ─────────────────────────────────────────── -->
+  <let name="pose_estimator_pkg"
+       value="$(find-pkg-share $(var pose_source)_pose_estimator_launch)"/>
+
+  <!-- ── Localization namespace ─────────────────────────────────────── -->
+  <group>
+    <push-ros-namespace namespace="localization"/>
+
+    <!-- Pointcloud downsampling (shared by LiDAR-based plugins) -->
+    <group>
+      <push-ros-namespace namespace="util"/>
+      <include file="$(find-pkg-share autosdv_localization_launch)/launch/common/util/pointcloud_downsample.launch.xml">
+        <arg name="input_pointcloud"
+             value="$(var input_pointcloud)"/>
+        <arg name="localization_pointcloud_container_name"
+             value="$(var localization_pointcloud_container_name)"/>
+        <arg name="crop_box_param_path"
+             value="$(var loc_config_path)/ndt_scan_matcher/pointcloud_preprocessor/crop_box_filter_measurement_range.param.yaml"/>
+        <arg name="voxel_grid_param_path"
+             value="$(var loc_config_path)/ndt_scan_matcher/pointcloud_preprocessor/voxel_grid_filter.param.yaml"/>
+        <arg name="random_downsample_param_path"
+             value="$(var loc_config_path)/ndt_scan_matcher/pointcloud_preprocessor/random_downsample_filter.param.yaml"/>
+      </include>
+    </group>
+
+    <!-- Pose estimator — fully delegated to plugin -->
+    <group>
+      <push-ros-namespace namespace="pose_estimator"/>
+      <include file="$(var pose_estimator_pkg)/launch/pose_estimator.launch.xml">
+        <arg name="input_pointcloud"
+             value="$(var input_pointcloud)"/>
+        <arg name="output_pose_with_covariance"
+             value="/localization/pose_estimator/pose_with_covariance"/>
+        <arg name="config_dir"
+             value="$(var loc_config_path)"/>
+        <arg name="map_path"
+             value="$(var map_path)"/>
+        <arg name="localization_pointcloud_container_name"
+             value="$(var localization_pointcloud_container_name)"/>
+        <arg name="use_sim_time"
+             value="$(var use_sim_time)"/>
+      </include>
+    </group>
+
+    <!-- Twist estimator — internal sub-launch keyed by twist_source -->
+    <group>
+      <push-ros-namespace namespace="twist_estimator"/>
+      <include file="$(find-pkg-share autosdv_localization_launch)/launch/twist_estimator/$(var twist_source).launch.xml"/>
+    </group>
+
+    <!-- EKF + stop filter + twist2accel + pose instability detector -->
+    <group>
+      <push-ros-namespace namespace="pose_twist_fusion_filter"/>
+      <include file="$(find-pkg-share autosdv_localization_launch)/launch/common/pose_twist_fusion_filter.launch.xml">
+        <arg name="ekf_localizer_param_path"
+             value="$(var loc_config_path)/ekf_localizer.param.yaml"/>
+        <arg name="stop_filter_param_path"
+             value="$(var loc_config_path)/stop_filter.param.yaml"/>
+        <arg name="twist2accel_param_path"
+             value="$(var loc_config_path)/twist2accel.param.yaml"/>
+        <arg name="pose_instability_detector_param_path"
+             value="$(var loc_config_path)/pose_instability_detector.param.yaml"/>
+      </include>
+    </group>
+
+    <!-- Localization error monitor -->
+    <include file="$(find-pkg-share autosdv_localization_launch)/launch/common/localization_error_monitor.launch.xml">
+      <arg name="localization_error_monitor_param_path"
+           value="$(var loc_config_path)/localization_error_monitor.param.yaml"/>
+    </include>
+
+    <!-- Pose initializer — plugin declares its own capability flags -->
+    <group>
+      <push-ros-namespace namespace="util"/>
+      <include file="$(var pose_estimator_pkg)/launch/pose_initializer.launch.xml">
+        <arg name="config_file"       value="$(var loc_config_path)/pose_initializer.param.yaml"/>
+        <arg name="gnss_enabled"      value="$(var resolved_gnss_enabled)"/>
+        <arg name="initial_pose"      value="$(var initial_pose)"/>
+        <arg name="system_run_mode"   value="$(var system_run_mode)"/>
+      </include>
+    </group>
+
+  </group>
+</launch>

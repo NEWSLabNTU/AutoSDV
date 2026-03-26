@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>autosdv_localization_launch</name>
+  <version>0.1.0</version>
+  <description>Modular localization orchestrator for AutoSDV</description>
+  <maintainer email="autosdv@todo.todo">AutoSDV</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>autoware_ekf_localizer</exec_depend>
+  <exec_depend>autoware_stop_filter</exec_depend>
+  <exec_depend>autoware_twist2accel</exec_depend>
+  <exec_depend>autoware_pose_instability_detector</exec_depend>
+  <exec_depend>autoware_localization_error_monitor</exec_depend>
+  <exec_depend>autoware_gyro_odometer</exec_depend>
+  <exec_depend>autoware_global_parameter_loader</exec_depend>
+  <exec_depend>autoware_pointcloud_preprocessor</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

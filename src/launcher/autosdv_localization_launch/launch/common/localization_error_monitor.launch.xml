@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="localization_error_monitor_param_path"/>
+
+  <include file="$(find-pkg-share autoware_localization_error_monitor)/launch/localization_error_monitor.launch.xml">
+    <arg name="param_file" value="$(var localization_error_monitor_param_path)"/>
+  </include>
+</launch>

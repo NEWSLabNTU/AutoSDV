@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!-- Pose estimator plugin: Autoware NDT (ndt_pose_estimator_launch)
+     Wraps autoware_ndt_scan_matcher with the shared pointcloud downsampler. -->
+<launch>
+  <!-- Standard interface (required by all plugins) -->
+  <arg name="input_pointcloud"/>
+  <arg name="output_pose_with_covariance"
+       default="/localization/pose_estimator/pose_with_covariance"/>
+  <arg name="config_dir"/>
+  <arg name="map_path"/>
+  <arg name="localization_pointcloud_container_name"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <!-- NDT scan matcher
+       Input pointcloud comes from orchestrator's pointcloud_downsample at
+       /localization/util/downsample/pointcloud -->
+  <include file="$(find-pkg-share autoware_ndt_scan_matcher)/launch/ndt_scan_matcher.launch.xml">
+    <arg name="input_pointcloud"
+         value="/localization/util/downsample/pointcloud"/>
+    <arg name="input_initial_pose_topic"
+         value="/localization/pose_twist_fusion_filter/biased_pose_with_covariance"/>
+    <arg name="input_regularization_pose_topic"
+         value="/sensing/gnss/pose_with_covariance"/>
+    <arg name="input_service_trigger_node"
+         value="/localization/pose_estimator/trigger_node"/>
+    <arg name="output_pose_topic"
+         value="/localization/pose_estimator/pose"/>
+    <arg name="output_pose_with_covariance_topic"
+         value="$(var output_pose_with_covariance)"/>
+    <arg name="client_map_loader"
+         value="/map/get_differential_pointcloud_map"/>
+    <arg name="param_file"
+         value="$(var config_dir)/ndt_scan_matcher/ndt_scan_matcher.param.yaml"/>
+  </include>
+</launch>

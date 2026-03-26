@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- Pose initializer for NDT.
+     ndt_enabled=true: pose_initializer will call ndt_align_srv for localization init. -->
+<launch>
+  <arg name="config_file"/>
+  <arg name="gnss_enabled"/>
+  <arg name="initial_pose"/>
+  <arg name="system_run_mode"/>
+
+  <let name="stop_check_enabled"
+       if="$(eval &quot;'$(var system_run_mode)' == 'online'&quot;)"
+       value="true"/>
+  <let name="stop_check_enabled"
+       unless="$(eval &quot;'$(var system_run_mode)' == 'online'&quot;)"
+       value="false"/>
+  <let name="initial_pose_enable"
+       value="$(eval &quot;len($(var initial_pose)) == 7&quot;)"/>
+  <let name="initial_pose_value"
+       value="$(var initial_pose)"
+       if="$(var initial_pose_enable)"/>
+  <let name="initial_pose_value"
+       value="[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]"
+       unless="$(var initial_pose_enable)"/>
+
+  <include file="$(find-pkg-share autoware_pose_initializer)/launch/pose_initializer.launch.xml">
+    <arg name="user_defined_initial_pose/enable" value="$(var initial_pose_enable)"/>
+    <arg name="user_defined_initial_pose/pose"   value="$(var initial_pose_value)"/>
+    <arg name="ndt_enabled"         value="true"/>
+    <arg name="yabloc_enabled"      value="false"/>
+    <arg name="gnss_enabled"        value="$(var gnss_enabled)"/>
+    <arg name="ekf_enabled"         value="true"/>
+    <arg name="stop_check_enabled"  value="$(var stop_check_enabled)"/>
+    <arg name="config_file"         value="$(var config_file)"/>
+    <arg name="sub_gnss_pose_cov"   value="/sensing/gnss/pose_with_covariance"/>
+  </include>
+
+  <group if="$(var gnss_enabled)">
+    <include file="$(find-pkg-share autoware_automatic_pose_initializer)/launch/automatic_pose_initializer.launch.xml"/>
+  </group>
+</launch>
