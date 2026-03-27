@@ -66,21 +66,23 @@ printf "${YELLOW}→${NC} Updating package lists...\n"
 sudo apt-get update
 printf "${GREEN}✓${NC} Isaac ROS repository configured\n"
 
-printf "${YELLOW}→${NC} Installing Isaac ROS Visual SLAM and Global Localization packages...\n"
+printf "${YELLOW}→${NC} Installing Isaac ROS packages...\n"
 
-# Install Isaac ROS Visual SLAM and Global Localization packages
+# Install Isaac ROS Visual SLAM and image processing packages.
+# Note: ros-humble-isaac-ros-visual-global-localization is NOT installed here
+# because it pulls in ros-humble-isaac-ros-data-replayer which depends on
+# ros-humble-foxglove-bridge (not available for Humble). The visual global
+# localization package is built from source via the autoware_isaac_localization
+# submodule in src/localization/ instead.
 sudo apt-get install -y \
     ros-humble-isaac-ros-visual-slam \
-    ros-humble-isaac-ros-visual-global-localization \
     ros-humble-isaac-ros-image-proc
 
 # Verify installation
 printf "${YELLOW}→${NC} Verifying installation...\n"
 
-# Verify packages using a subshell to avoid environment issues
 PACKAGES=(
     "isaac_ros_visual_slam"
-    "isaac_ros_visual_global_localization"
     "isaac_ros_image_proc"
 )
 
@@ -93,7 +95,10 @@ for pkg in "${PACKAGES[@]}"; do
     fi
 done
 
-printf "${GREEN}✓${NC} Isaac ROS Visual SLAM and Global Localization installation complete\n"
+printf "${GREEN}✓${NC} Isaac ROS installation complete\n"
+printf "\n"
+printf "Note: isaac_ros_visual_global_localization is built from source\n"
+printf "      (src/localization/autoware_isaac_localization) via 'just build'\n"
 printf "\nUsage:\n"
 printf "  pose_source:=isaac   - Visual odometry only (requires manual init)\n"
 printf "  pose_source:=visual  - Full visual localization (auto init + tracking)\n"
