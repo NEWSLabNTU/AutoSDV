@@ -145,14 +145,11 @@ control-circle:
     ros2 run control_test trajectory_player --ros-args -p trajectory_file:=circle.yaml
 
 # ============================================================================
-# Data Commands - Download datasets and install tools
+# Data Commands - Download datasets
 # ============================================================================
 
-# Install data download tools (synology-dl)
-install-deps:
-    cargo install synology-dl
-
 # Download test rosbag (outdoor_20251226_153115) from Synology Drive
+# Automatically installs synology-dl via cargo if not found.
 download-data:
     ./scripts/rosbag/download-test-rosbag.sh
 

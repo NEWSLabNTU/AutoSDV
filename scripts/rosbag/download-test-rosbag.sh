@@ -65,8 +65,12 @@ verify_checksum() {
 
 # Check dependency
 if ! command -v synology-dl &>/dev/null; then
-    log_error "synology-dl not found. Install it with: cargo install synology-dl"
-    exit 1
+    log_info "synology-dl not found. Installing via cargo..."
+    if ! command -v cargo &>/dev/null; then
+        log_error "cargo not found. Install Rust first: https://rustup.rs/"
+        exit 1
+    fi
+    cargo install synology-dl || { log_error "Failed to install synology-dl"; exit 1; }
 fi
 
 # Check if rosbag already exists with correct checksum
