@@ -14,9 +14,9 @@ add_library(${PROJECT_NAME}_core
   src/blickfeld_driver_point_cloud_parser.cpp
   src/blickfeld_driver_utils.cpp
 )
-target_link_libraries(${PROJECT_NAME}_core 
+target_link_libraries(${PROJECT_NAME}_core
   blickfeld-scanner
-  ${cv_bridge_LIBRARIES}
+  cv_bridge::cv_bridge
 )
 
 install(TARGETS ${PROJECT_NAME}_core

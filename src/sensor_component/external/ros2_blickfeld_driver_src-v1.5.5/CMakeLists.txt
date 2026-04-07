@@ -50,6 +50,7 @@ set(dependencies
   diagnostic_updater
   geometry_msgs
   rclcpp
+  rclcpp_components
   sensor_msgs
   std_msgs
   std_srvs
