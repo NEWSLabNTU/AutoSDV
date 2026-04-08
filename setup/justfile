@@ -176,7 +176,8 @@ python-deps: _init
     pip3 install --user \
         Adafruit-PCA9685==1.0.1 \
         simple-pid==2.0.1 \
-        'play_launch>=0.5.0,<0.6.0'
+        'play_launch>=0.5.0,<0.6.0' \
+        colcon-cargo-ros2
     touch "{{marker_dir}}/python-deps"
     printf "{{green}}✓{{nc}} python-deps done\n"
 
