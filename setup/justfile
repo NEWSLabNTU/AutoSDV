@@ -32,7 +32,7 @@ default:
     @just --list
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-isaac-ros python-deps ublox-udev ros-deps
+setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-isaac-ros rust python-deps ublox-udev ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -167,8 +167,23 @@ blickfeld: _init
 autoware-debian: _init ros2
     @just _run autoware-debian "{{scripts_dir}}/install-autoware-debian.sh"
 
+# Install Rust toolchain via rustup (needed for cuda_ndt_matcher and colcon-cargo-ros2)
+rust: _init
+    #!/usr/bin/env bash
+    [[ -f "{{marker_dir}}/rust" ]] && printf "{{green}}✓{{nc}} rust already done\n" && exit 0
+    set -e
+    if command -v rustup &>/dev/null; then
+        printf "{{green}}✓{{nc}} Rust already installed ($(rustc --version))\n"
+    else
+        printf "{{yellow}}→{{nc}} Installing Rust via rustup...\n"
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        source "$HOME/.cargo/env"
+        printf "{{green}}✓{{nc}} Rust installed ($(rustc --version))\n"
+    fi
+    touch "{{marker_dir}}/rust"
+
 # Install AutoSDV Python dependencies
-python-deps: _init
+python-deps: _init rust
     #!/usr/bin/env bash
     [[ -f "{{marker_dir}}/python-deps" ]] && printf "{{green}}✓{{nc}} python-deps already done\n" && exit 0
     set -e
