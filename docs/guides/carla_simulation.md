@@ -1,53 +1,21 @@
 # CARLA Simulation Guide
 
-This guide covers using the CARLA simulator with AutoSDV, including vehicle profile creation and scenario configuration.
+This guide covers using the CARLA simulator with AutoSDV for vehicle physics
+tuning and scenario configuration. For general simulation setup and the
+Autoware bridge, see [Simulation Guide](./simulation_testing.md#tier-3-carla-simulation).
 
 ## Overview
 
-[CARLA](https://carla.org/) is an open-source autonomous driving simulator built on Unreal Engine. It provides:
+[CARLA](https://carla.org/) is an open-source autonomous driving simulator
+built on Unreal Engine. AutoSDV uses CARLA 0.9.16 via the
+[autoware_carla_bridge](https://github.com/jerry73204/autoware_carla_bridge),
+a native Rust ROS 2 bridge that provides full sensor simulation (3D LiDAR,
+camera, IMU, GNSS) and end-to-end autonomous driving with Autoware 1.5.0.
 
-- Photorealistic rendering with weather/lighting control
-- Comprehensive Python API for vehicle and world control
-- OpenSCENARIO support for complex scenario scripting
-- Traffic Manager for multi-vehicle simulation
-- SUMO co-simulation for large-scale traffic
+## Setup
 
-### Why CARLA for AutoSDV?
-
-| Feature | Benefit |
-|---------|---------|
-| Fine-grained vehicle control | Direct throttle/steering/brake API |
-| Multi-vehicle simulation | Traffic Manager + SUMO co-sim |
-| Physics customization | Match real vehicle dynamics |
-| Scenario scripting | OpenSCENARIO + Python |
-| Autoware integration | Via carla-autoware bridge |
-
-## Installation
-
-### Prerequisites
-
-- Ubuntu 22.04 or Windows 11
-- NVIDIA GPU with latest drivers
-- Python 3.8+
-
-### Option 1: Pre-built Package (Recommended)
-
-```bash
-# Download CARLA 0.9.15
-wget https://carla-releases.s3.us-east-005.backblazeb2.com/Linux/CARLA_0.9.15.tar.gz
-tar -xzf CARLA_0.9.15.tar.gz -C ~/carla
-
-# Install Python API
-pip install carla==0.9.15
-
-# Run CARLA server
-cd ~/carla
-./CarlaUE4.sh -quality-level=Epic -RenderOffScreen
-```
-
-### Option 2: Source Build (For Custom Vehicles)
-
-See [CARLA Build Guide](https://carla.readthedocs.io/en/latest/build_linux/).
+See [Simulation Guide — CARLA](./simulation_testing.md#tier-3-carla-simulation)
+for installation and running the demo.
 
 ## Vehicle Profiles
 

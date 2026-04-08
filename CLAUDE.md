@@ -93,10 +93,13 @@ just bag-play           # Play most recent recording
 
 ### Simulation
 ```bash
-just launch-sim-planning  # Autoware planning simulator
+just launch-sim-planning  # Autoware planning simulator (no sensors needed)
 just launch-sim-logging   # Logging simulation (rosbag replay)
 just sim-coss-park        # Full COSS Park simulation scenario
+just download-data        # Download test rosbag (~2.8 GB)
 ```
+See `docs/guides/simulation_testing.md` for the full simulation guide
+(planning sim, rosbag replay, CARLA integration).
 
 ### Manual Build
 ```bash
