@@ -187,6 +187,8 @@ python-deps: _init rust
     #!/usr/bin/env bash
     [[ -f "{{marker_dir}}/python-deps" ]] && printf "{{green}}✓{{nc}} python-deps already done\n" && exit 0
     set -e
+    # Ensure cargo is on PATH (may have been installed by the rust recipe)
+    [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
     printf "{{yellow}}→{{nc}} Installing Python dependencies...\n"
     pip3 install --user \
         Adafruit-PCA9685==1.0.1 \
