@@ -202,6 +202,33 @@ just launch pose_source:=isaac
 
 **Roadmap:** See `docs/roadmaps/visual_global_localization.md`
 
+### CUDA NDT Localization
+
+CUDA-accelerated NDT scan matching for faster localization on NVIDIA GPUs. This package is **maintained by AutoSDV** (not upstream Autoware).
+
+**Package location:**
+```
+src/localization/cuda_ndt_matcher/  # AutoSDV-maintained, can be modified directly
+├── cuda_ndt_matcher/               # Core CUDA NDT implementation
+└── cuda_ndt_matcher_launch/        # Launch files and config
+```
+
+**Usage:**
+```bash
+# Use CUDA NDT instead of standard NDT
+just launch pose_source:=cuda_ndt
+
+# In logging simulation
+just launch-sim-logging pose_source:=cuda_ndt
+```
+
+**Performance:** 1.3-1.6x faster than standard NDT, 57% less CPU usage on Jetson platforms.
+
+**Development notes:**
+- This package can be freely modified for AutoSDV-specific optimizations
+- Uses same input/output interfaces as standard Autoware NDT
+- Config files: `src/launcher/autosdv_launch/config/localization/ndt_scan_matcher/`
+
 ### Leo Drive Bus-ODD Dataset
 
 The `scripts/leodrive-bus-launch` submodule provides tools for the [Leo Drive Bus-ODD dataset](https://autowarefoundation.github.io/autoware-documentation/main/datasets/) - an Autoware dataset with camera streams for testing visual localization.
@@ -261,7 +288,23 @@ LAUNCH_PID=$!
 kill -- -$(ps -o pgid= -p $LAUNCH_PID | tr -d ' ')  # Kill entire process group
 ```
 
-**Why this matters**: Killing `ros2 launch` with SIGKILL (`kill -9`) leaves child processes as orphans, which jam the system. These orphan nodes continue running and consume resources.
+**Killing play_launch by PGID** (for scripts/background processes):
+```bash
+# Start play_launch and capture PGID
+setsid bash -c "play_launch launch autosdv_launch logging_simulation.launch.yaml" &
+sleep 2
+PLAY_PID=$(pgrep -f "play_launch.*logging_simulation" | head -1)
+PGID=$(ps -o pgid= -p $PLAY_PID | tr -d " ")
+echo $PGID > /tmp/sim_pgid.txt
+
+# Later, kill by PGID (kills entire process group including child nodes)
+kill -- -$(cat /tmp/sim_pgid.txt)
+
+# Or directly if you have the PGID
+kill -- -$PGID
+```
+
+**Why this matters**: Killing `ros2 launch` or `play_launch` with SIGKILL (`kill -9`) by PID only kills the parent process, leaving child processes (component_containers, nodes) as orphans. These orphan nodes continue running and consume resources. Always kill by PGID to terminate the entire process group.
 
 **Cleaning up orphans** (if they occur):
 ```bash

@@ -56,11 +56,11 @@ graph and verify structural equivalence.
 
 Available rosbags under `rosbags/`:
 
-| Bag | Date |
-|-----|------|
+| Bag                                 | Date                     |
+|-------------------------------------|--------------------------|
 | `localization_test_20260205_084127` | 2026-02-05 (most recent) |
-| `localization_test_20260204_225143` | 2026-02-04 |
-| `localization_test_20260204_105613` | 2026-02-04 |
+| `localization_test_20260204_225143` | 2026-02-04               |
+| `localization_test_20260204_105613` | 2026-02-04               |
 
 The regression procedure for each phase that changes launch wiring:
 

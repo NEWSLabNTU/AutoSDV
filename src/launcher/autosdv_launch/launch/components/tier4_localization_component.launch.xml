@@ -19,8 +19,17 @@
     </include>
   </group>
 
-  <!-- Standard Autoware localization stack (ndt, yabloc, eagleye) -->
-  <group unless="$(eval '\'$(var pose_source)\' == \'cuda_ndt\'')">
+  <!-- Standard Autoware NDT localization stack (uses local util.launch.xml to fix name collision) -->
+  <group if="$(eval '\'$(var pose_source)\' == \'ndt\'')">
+    <include file="$(find-pkg-share cuda_ndt_matcher_launch)/launch/autoware_localization.launch.xml">
+      <arg name="input_pointcloud" value="$(var input_pointcloud)"/>
+      <arg name="localization_pointcloud_container_name" value="$(var localization_pointcloud_container_name)"/>
+      <arg name="localization_config_path" value="$(var loc_config_path)"/>
+    </include>
+  </group>
+
+  <!-- Other Autoware localization stacks (yabloc, eagleye) -->
+  <group if="$(eval '\'$(var pose_source)\' not in [\'cuda_ndt\', \'ndt\']')">
     <include file="$(find-pkg-share tier4_localization_launch)/launch/localization.launch.xml">
       <arg name="pose_source" value="$(var pose_source)"/>
       <arg name="twist_source" value="$(var twist_source)"/>
