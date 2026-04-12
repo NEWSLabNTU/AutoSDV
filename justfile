@@ -58,6 +58,7 @@ clean:
 # Launch AutoSDV system with web UI at http://localhost:8081
 launch ARGS="":
     #!/usr/bin/env bash
+    source install/setup.bash && \
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
             --web-addr 0.0.0.0:8081 \
@@ -71,6 +72,8 @@ launch ARGS="":
 
 # Launch Autoware planning simulator with AutoSDV vehicle
 launch-sim-planning:
+    #!/usr/bin/env bash
+    source install/setup.bash && \
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         autoware_launch planning_simulator.launch.xml \
@@ -81,6 +84,7 @@ launch-sim-planning:
 # Launch logging simulation for rosbag replay testing
 launch-sim-logging ARGS="":
     #!/usr/bin/env bash
+    source install/setup.bash && \
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
             --web-addr 0.0.0.0:8081 \
@@ -94,6 +98,8 @@ launch-sim-logging ARGS="":
 
 # Launch only ZED camera node for testing
 launch-zed:
+    #!/usr/bin/env bash
+    source install/setup.bash && \
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         zed_wrapper zed_camera.launch.py camera_model:=zedxm
@@ -130,6 +136,8 @@ tool-tui:
 
 # Launch vehicle control test (basic_control.launch.xml)
 control-basic:
+    #!/usr/bin/env bash
+    source install/setup.bash && \
     play_launch launch control_test basic_control.launch.xml
 
 # Run trajectory player with straight_10m.yaml (10m straight line)

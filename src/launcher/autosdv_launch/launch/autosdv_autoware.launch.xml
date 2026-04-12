@@ -28,6 +28,9 @@
   <arg name="launch_api" default="true" description="launch api"/>
   <!-- Global parameters -->
   <arg name="use_sim_time" default="false" description="use_sim_time"/>
+  <!-- Localization -->
+  <arg name="pose_source" default="ndt" description="select pose_estimator: ndt, yabloc, eagleye"/>
+  <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing built-in NDT node"/>
   <!-- Vehicle -->
   <arg name="vehicle_id" default="$(env VEHICLE_ID default)" description="vehicle specific ID"/>
   <arg name="launch_vehicle_interface" default="true" description="launch vehicle interface"/>
@@ -104,7 +107,10 @@
   <!-- Localization -->
   <!-- AutoSDV: Use autosdv_launch's localization component with custom config -->
   <group if="$(var launch_localization)">
-    <include file="$(find-pkg-share autosdv_launch)/launch/components/tier4_localization_component.launch.xml"/>
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/tier4_localization_component.launch.xml">
+      <arg name="pose_source" value="$(var pose_source)"/>
+      <arg name="pose_source_package" value="$(var pose_source_package)"/>
+    </include>
   </group>
 
   <!-- Perception -->

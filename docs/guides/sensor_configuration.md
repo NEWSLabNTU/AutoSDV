@@ -162,12 +162,15 @@ When running indoors:
 
 ## Localization Sources
 
-### NDT Scan Matching (Default)
+### CUDA NDT Scan Matching (Default)
 
 ```bash
-make launch ARGS="pose_source:=ndt"
+make launch  # cuda_ndt is the default pose_source
+# Or explicitly: make launch ARGS="pose_source:=cuda_ndt"
+# Fallback to Autoware NDT: make launch ARGS="pose_source:=ndt"
 ```
 
+- CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)
 - Tuned for VLP-32C LiDAR on COSS map (NTU Campus)
 - Resolution: 2.0m, Score threshold: 2.2, Voxel size: 0.5m, Points: 3000
 - See `docs/research/localization/ndt_parameter_tuning_coss_map.md` for tuning details

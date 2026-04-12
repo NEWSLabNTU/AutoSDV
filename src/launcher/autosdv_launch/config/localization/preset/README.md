@@ -86,8 +86,9 @@ To create a custom preset:
 
 Localization presets work together with other localization parameters:
 
-- **`pose_source`**: Selects pose estimation method (`ndt`, `isaac`)
-  - `ndt`: LiDAR-based NDT scan matching
+- **`pose_source`**: Selects pose estimation method (`cuda_ndt`, `ndt`, `isaac`, `visual`)
+  - `cuda_ndt`: CUDA-accelerated NDT scan matching (default, 1.3-1.6x faster)
+  - `ndt`: Autoware NDT scan matching (OpenMP CPU, fallback)
   - `isaac`: Visual SLAM using Isaac ROS
 
 - **`use_gnss`**: Enables GNSS subsystem
@@ -106,12 +107,12 @@ Localization presets work together with other localization parameters:
 
 ### Outdoor with RTK
 ```bash
-make launch ARGS="localization_preset:=default pose_source:=ndt use_gnss:=true use_ntrip:=true"
+make launch ARGS="localization_preset:=default use_gnss:=true use_ntrip:=true"
 ```
 
 ### Indoor without GNSS
 ```bash
-make launch ARGS="localization_preset:=default pose_source:=ndt use_gnss:=false use_mapless_mode:=true"
+make launch ARGS="localization_preset:=default use_gnss:=false use_mapless_mode:=true"
 ```
 
 ### Visual SLAM
@@ -121,7 +122,7 @@ make launch ARGS="localization_preset:=default pose_source:=isaac use_gnss:=fals
 
 ### Eagleye with GNSS
 ```bash
-make launch ARGS="localization_preset:=eagleye pose_source:=ndt use_gnss:=true use_ntrip:=true"
+make launch ARGS="localization_preset:=eagleye use_gnss:=true use_ntrip:=true"
 ```
 
 ## Notes

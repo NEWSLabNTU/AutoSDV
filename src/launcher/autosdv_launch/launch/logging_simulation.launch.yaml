@@ -53,7 +53,12 @@ launch:
 - arg:
     name: pose_source
     default: "ndt"
-    description: "Pose estimation source: ndt, cuda_ndt, isaac, visual"
+    description: "Pose estimation source: ndt (default), yabloc, eagleye, isaac, visual"
+
+- arg:
+    name: pose_source_package
+    default: "cuda_ndt_matcher_launch"
+    description: "External package replacing built-in NDT node (empty string uses built-in Autoware NDT)"
 
 - arg:
     name: visual_map_dir
@@ -230,6 +235,9 @@ launch:
     -
       name: pose_source
       value: $(var pose_source)
+    -
+      name: pose_source_package
+      value: $(var pose_source_package)
     -
       name: twist_source
       value: $(var twist_source)
