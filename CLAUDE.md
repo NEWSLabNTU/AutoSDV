@@ -38,22 +38,22 @@ echo $CUDA_VERSION_AMD64 # 12.3
 
 ### Version Bumping Guidelines
 
-| Change Type | Version Bump |
-|-------------|--------------|
-| Breaking changes (vehicle interface, sensor configs, launch API) | MAJOR |
-| Autoware base upgrade | MAJOR |
-| New sensor/feature support | MINOR |
-| New launch parameters | MINOR |
-| Bug fixes, parameter tuning | PATCH |
-| Documentation only | PATCH |
+| Change Type                                                      | Version Bump |
+|------------------------------------------------------------------|--------------|
+| Breaking changes (vehicle interface, sensor configs, launch API) | MAJOR        |
+| Autoware base upgrade                                            | MAJOR        |
+| New sensor/feature support                                       | MINOR        |
+| New launch parameters                                            | MINOR        |
+| Bug fixes, parameter tuning                                      | PATCH        |
+| Documentation only                                               | PATCH        |
 
 ### Branch Strategy
 
-| Branch | Version | Channel |
-|--------|---------|---------|
-| `main` | `X.Y.Z` (stable) | `stable` |
-| `develop` | `X.Y.Z-dev` | `development` |
-| `release/X.Y` | `X.Y.Z-rc.N` | `stable` |
+| Branch        | Version          | Channel       |
+|---------------|------------------|---------------|
+| `main`        | `X.Y.Z` (stable) | `stable`      |
+| `develop`     | `X.Y.Z-dev`      | `development` |
+| `release/X.Y` | `X.Y.Z-rc.N`     | `stable`      |
 
 ## Essential Commands
 
@@ -328,17 +328,17 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
   - Multi-mode controllers, PCA9685 I2C, hall effect sensor, PID tuning
 
 ### Legacy Guides (docs/)
-| Guide | Description |
-|-------|-------------|
-| [docs/guides/sensor_configuration.md](docs/guides/sensor_configuration.md) | Sensor suites, NTRIP/RTK, localization |
-| [docs/guides/vehicle_calibration.md](docs/guides/vehicle_calibration.md) | PWM control, PID tuning, testing tools |
-| [docs/guides/zed_camera.md](docs/guides/zed_camera.md) | ZED setup, troubleshooting |
-| [docs/guides/lidar_integration.md](docs/guides/lidar_integration.md) | Robin-W, Velodyne, TensorRT |
-| [docs/guides/control_testing.md](docs/guides/control_testing.md) | Control system testing procedures |
-| [docs/guides/mrm_configuration.md](docs/guides/mrm_configuration.md) | MRM (emergency stop) configuration |
-| [docs/guides/isaac_vslam_testing.md](docs/guides/isaac_vslam_testing.md) | Isaac SLAM testing |
-| [docs/design/isaac_vslam_integration.md](docs/design/isaac_vslam_integration.md) | Isaac SLAM architecture |
-| [docs/research/localization/ndt_parameter_tuning_coss_map.md](docs/research/localization/ndt_parameter_tuning_coss_map.md) | NDT tuning research |
+| Guide                                                                                                                      | Description                            |
+|----------------------------------------------------------------------------------------------------------------------------|----------------------------------------|
+| [docs/guides/sensor_configuration.md](docs/guides/sensor_configuration.md)                                                 | Sensor suites, NTRIP/RTK, localization |
+| [docs/guides/vehicle_calibration.md](docs/guides/vehicle_calibration.md)                                                   | PWM control, PID tuning, testing tools |
+| [docs/guides/zed_camera.md](docs/guides/zed_camera.md)                                                                     | ZED setup, troubleshooting             |
+| [docs/guides/lidar_integration.md](docs/guides/lidar_integration.md)                                                       | Robin-W, Velodyne, TensorRT            |
+| [docs/guides/control_testing.md](docs/guides/control_testing.md)                                                           | Control system testing procedures      |
+| [docs/guides/mrm_configuration.md](docs/guides/mrm_configuration.md)                                                       | MRM (emergency stop) configuration     |
+| [docs/guides/isaac_vslam_testing.md](docs/guides/isaac_vslam_testing.md)                                                   | Isaac SLAM testing                     |
+| [docs/design/isaac_vslam_integration.md](docs/design/isaac_vslam_integration.md)                                           | Isaac SLAM architecture                |
+| [docs/research/localization/ndt_parameter_tuning_coss_map.md](docs/research/localization/ndt_parameter_tuning_coss_map.md) | NDT tuning research                    |
 
 ## Known Issues
 
