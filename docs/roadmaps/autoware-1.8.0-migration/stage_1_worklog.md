@@ -1,6 +1,6 @@
 # Phase 1 — Execution Worklog (redacted)
 
-Traceable record of the Phase 1 audit: commands and migration-relevant results, so every value in `phase_1_audit.md` is reproducible. Run **2026-07-02** on the ARM64 build server.
+Traceable record of the Phase 1 audit: commands and migration-relevant results, so every value in `stage_1_audit.md` is reproducible. Run **2026-07-02** on the ARM64 build server.
 
 **Redaction policy:** this file records only migration-relevant, non-identifying facts (git SHAs, branch/tag names, public URLs, generic outcomes). Host-identifying or security-sensitive specifics — account names, UIDs, exact driver builds, container UID-map state, raw system error strings, machine specs — are deliberately **excluded** and kept out-of-band.
 
@@ -23,15 +23,15 @@ upstream/galactic       ahead=230  mb=8fc2c06
 ```
 → true divergence = 3 (doc's "~300" matched `main`, a wrong base).
 
-| Fork | upstream base | merge-base | ahead |
-|------|---------------|-----------|-------|
-| zed-ros2-wrapper | master | a66e227 | 1 |
-| CalibrationTools | tier4/universe | 2bfceec | 3 |
-| seyond_ros_driver | main | ff961b0 | 7 |
-| ros2_mpu9250_driver | main | 482aa09 | 3 |
-| ros-nmea-reader | main | c584054 | 0 |
+| Fork                | upstream base  | merge-base | ahead |
+|---------------------|----------------|------------|-------|
+| zed-ros2-wrapper    | master         | a66e227    | 1     |
+| CalibrationTools    | tier4/universe | 2bfceec    | 3     |
+| seyond_ros_driver   | main           | ff961b0    | 7     |
+| ros2_mpu9250_driver | main           | 482aa09    | 3     |
+| ros-nmea-reader     | main           | c584054    | 0     |
 
-Commit SHAs and per-commit KEEP/RE-VERIFY classification: see `phase_1_audit.md` → *Commit classification*.
+Commit SHAs and per-commit KEEP/RE-VERIFY classification: see `stage_1_audit.md` → *Commit classification*.
 
 ## 4. Upstreamed-checks / target tags
 ```
@@ -57,7 +57,7 @@ curl -sIL .../zedsdk/5.4/l4t39.2/jetsons         → 206 → ZED_SDK_Tegra_L4T39
 Web: Isaac ROS docs — all packages tested on ROS 2 Jazzy; JP7 supported (Thor-focused) → jazzy blocker resolved.
 
 ## 7. CUDA-13 build-half spike
-Outcome: **blocked (infra)** — no usable container runtime for the build account, and the host driver predates the CUDA-13 runtime. The arm64 noble CUDA-13 image exists. Details and remediation: `phase_1_audit.md` §1.2.4. Host-specific diagnostics kept out-of-band.
+Outcome: **blocked (infra)** — no usable container runtime for the build account, and the host driver predates the CUDA-13 runtime. The arm64 noble CUDA-13 image exists. Details and remediation: `stage_1_audit.md` §1.2.4. Host-specific diagnostics kept out-of-band.
 
 ## 8. Closing the 3 RE-VERIFY commits (against the target tree, git+grep, no build)
 
@@ -83,4 +83,4 @@ git show d434e57:.../ceres_intrinsic_camera_calibrator/CMakeLists.txt → still 
 Result: zed KEEP, CalibrationTools 235de71 KEEP, 150f466 **OBSOLETE**. No commit left at RE-VERIFY.
 
 ## Result
-All findings folded into `phase_1_audit.md`. Scratch clones disposable; reproducibility = the SHAs + commands above. Only the two migration docs changed; nothing committed.
+All findings folded into `stage_1_audit.md`. Scratch clones disposable; reproducibility = the SHAs + commands above. Only the two migration docs changed; nothing committed.
