@@ -11,8 +11,10 @@
 # relative to map-frame yaw, e.g. the sample_sensor_kit Tamagawa unit --
 # see wheel_imu_odom.py docstring), SCAN_MIN_HEIGHT/SCAN_MAX_HEIGHT
 # (defaults -0.15/0.15, unchanged for COSS -- see Step 2 frame-fix note
-# below for why the sample-site sensor_kit needs different values). All
-# default to
+# below for why the sample-site sensor_kit needs different values),
+# PF_MAX_RANGE/PF_SQUASH/PF_DISP_X/PF_DISP_Y/PF_DISP_THETA/SCAN_RANGE_MAX
+# (PF tuning passthroughs, defaults preserve the untuned vendored values
+# -- see the tuning note above the env-var block below). All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #
@@ -110,6 +112,24 @@ IMU_TOPIC="${IMU_TOPIC:-/sensing/camera/zedxm/imu/data}"
 IMU_YAW_SIGN="${IMU_YAW_SIGN:-1.0}"
 SCAN_MIN_HEIGHT="${SCAN_MIN_HEIGHT:--0.15}"
 SCAN_MAX_HEIGHT="${SCAN_MAX_HEIGHT:-0.15}"
+# PF tuning passthroughs (defaults preserve the untuned vendored values --
+# see PF_* below and pf_params.yaml generation). Motivated by the
+# longitudinal-corridor-aliasing diagnosis: PF tracks well through curves
+# but diverges on long straights, where down-corridor beams don't reach
+# far enough to disambiguate position along the corridor axis, and a
+# peaky sensor-model likelihood lets resampling collapse onto an aliased
+# (wrong) hypothesis. PF_MAX_RANGE/SCAN_RANGE_MAX raise the beam range so
+# down-corridor structure (mapped from later scans, in the
+# scan-accumulated grid) becomes visible; PF_SQUASH flattens the
+# likelihood (fewer overconfident resampling collapses); PF_DISP_*
+# lowers motion-model noise to trust the now-validated wheel+IMU
+# odometry prior more.
+PF_MAX_RANGE="${PF_MAX_RANGE:-30.0}"
+PF_SQUASH="${PF_SQUASH:-2.2}"
+PF_DISP_X="${PF_DISP_X:-0.05}"
+PF_DISP_Y="${PF_DISP_Y:-0.025}"
+PF_DISP_THETA="${PF_DISP_THETA:-0.25}"
+SCAN_RANGE_MAX="${SCAN_RANGE_MAX:-30.0}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -164,20 +184,23 @@ source "$REPO_DIR/install/setup.bash"
 set -u
 
 # --- Step 0: write pf_params.yaml (vendored config/localize.yaml + overrides) ---
+# NOTE: heredoc is unquoted (variable substitution) so PF_* env overrides
+# above reach the tuned parameters; all other values stay literal (no `$`
+# in them) so this is safe.
 mkdir -p "$REPO_DIR/tmp"
-cat > "$PARAMS_FILE" <<'EOF'
+cat > "$PARAMS_FILE" <<EOF
 particle_filter:
   ros__parameters:
     scan_topic: '/scan'
     odometry_topic: '/odom'
     angle_step: 18
     max_particles: 4000
-    squash_factor: 2.2
+    squash_factor: $PF_SQUASH
     viz: 1
     max_viz_particles: 60
     range_method: 'cddt'
     theta_discretization: 112
-    max_range: 30.0
+    max_range: $PF_MAX_RANGE
     fine_timing: 0
     publish_odom: 1
     z_short: 0.01
@@ -185,9 +208,9 @@ particle_filter:
     z_rand: 0.12
     z_hit: 0.75
     sigma_hit: 8.0
-    motion_dispersion_x: 0.05
-    motion_dispersion_y: 0.025
-    motion_dispersion_theta: 0.25
+    motion_dispersion_x: $PF_DISP_X
+    motion_dispersion_y: $PF_DISP_Y
+    motion_dispersion_theta: $PF_DISP_THETA
     rangelib_variant: 2
 EOF
 
@@ -223,7 +246,7 @@ setsid ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node --ros-args 
     -p target_frame:=base_link \
     -p min_height:="$SCAN_MIN_HEIGHT" -p max_height:="$SCAN_MAX_HEIGHT" \
     -p angle_min:=-3.14159 -p angle_max:=3.14159 \
-    -p angle_increment:=0.0043 -p range_min:=0.1 -p range_max:=30.0 \
+    -p angle_increment:=0.0043 -p range_min:=0.1 -p range_max:="$SCAN_RANGE_MAX" \
     -p use_sim_time:=true \
     > "$SCAN_LOG" 2>&1 &
 SCAN_PID=$!
