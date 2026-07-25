@@ -5,7 +5,10 @@
 # wheel_imu_odom.py), seed it with the first GT pose, replay the outdoor
 # bag, and record /pf/viz/inferred_pose (+ /pf/pose/odom) for Task 4.
 #
-# Env overrides: BAG, OUT, RATE, MAP_YAML, GT_BAG, INITPOSE_DELAY.
+# Env overrides: BAG, OUT (alias OUT_BAG), RATE, MAP_YAML, GT_BAG,
+# INITPOSE_DELAY, POINTCLOUD_TOPIC, VELOCITY_TOPIC, IMU_TOPIC. All default to
+# the COSS outdoor-bag values below, so an unmodified invocation is
+# byte-identical to the original COSS run.
 #
 # --- particle_filter.py source findings (src/localization/external/particle_filter) ---
 #
@@ -69,11 +72,14 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_DIR"
 
 BAG="${BAG:-$REPO_DIR/data/rosbags/outdoor_20251226_153115}"
-OUT="${OUT:-$REPO_DIR/data/rosbags/phase3/pf_run}"
+OUT="${OUT_BAG:-${OUT:-$REPO_DIR/data/rosbags/phase3/pf_run}}"
 RATE="${RATE:-1.0}"
 MAP_YAML="${MAP_YAML:-$REPO_DIR/data/COSS-map-planning/occupancy_grid.yaml}"
 GT_BAG="${GT_BAG:-$REPO_DIR/data/rosbags/phase3/ndt_gt}"
 INITPOSE_DELAY="${INITPOSE_DELAY:-5}"
+POINTCLOUD_TOPIC="${POINTCLOUD_TOPIC:-/sensing/lidar/velodyne_points}"
+VELOCITY_TOPIC="${VELOCITY_TOPIC:-/vehicle/status/velocity_status}"
+IMU_TOPIC="${IMU_TOPIC:-/sensing/camera/zedxm/imu/data}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -182,7 +188,7 @@ lifecycle_set_retry /map_server activate
 # is incompatible with particle_filter's default RELIABLE subscription
 # (Attempt 1 finding above). The QoS bridge in Step 2b fixes this.
 setsid ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node --ros-args \
-    -r /pointcloud_to_laserscan/input/pointcloud:=/sensing/lidar/velodyne_points \
+    -r /pointcloud_to_laserscan/input/pointcloud:="$POINTCLOUD_TOPIC" \
     -r /pointcloud_to_laserscan/output/laserscan:=/scan_raw \
     -p min_height:=-0.15 -p max_height:=0.15 \
     -p angle_min:=-3.14159 -p angle_max:=3.14159 \
@@ -233,6 +239,7 @@ BRIDGE_PID=$!
 
 # --- Step 3: wheel+IMU odometry ---
 setsid python3 "$SCRIPT_DIR/wheel_imu_odom.py" --ros-args -p use_sim_time:=true \
+    -p velocity_topic:="$VELOCITY_TOPIC" -p imu_topic:="$IMU_TOPIC" \
     > "$ODOM_LOG" 2>&1 &
 ODOM_PID=$!
 sleep 2
