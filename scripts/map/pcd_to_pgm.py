@@ -21,9 +21,13 @@ OCCUPIED, FREE, UNKNOWN = 0, 254, 205
 
 
 def read_pcd(path):
-    """Read PCD v0.7 (ascii or binary), return float32 array (N, 3) = x,y,z."""
+    """Read PCD v0.7 (ascii or binary), return float32 array (N, 3) = x,y,z.
+
+    Supports mixed field types (e.g., x/y/z as F, padding as U). x, y, z must
+    be FLOAT32; other fields are skipped.
+    """
     with open(path, "rb") as f:
-        fields, sizes, types, data_mode = [], [], [], None
+        fields, sizes, types, counts, data_mode = [], [], [], [], None
         n_points = 0
         while True:
             line = f.readline().decode("ascii", errors="replace").strip()
@@ -36,6 +40,8 @@ def read_pcd(path):
                 sizes = [int(v) for v in rest.split()]
             elif key == "TYPE":
                 types = rest.split()
+            elif key == "COUNT":
+                counts = [int(v) for v in rest.split()]
             elif key == "POINTS":
                 n_points = int(rest)
             elif key == "DATA":
@@ -43,17 +49,51 @@ def read_pcd(path):
                 break
         if data_mode not in ("ascii", "binary"):
             raise ValueError(f"unsupported PCD DATA mode: {data_mode}")
-        if any(t != "F" or s != 4 for t, s in zip(types, sizes)):
-            raise ValueError("only all-FLOAT32 PCD files are supported")
+
+        # Ensure x, y, z are FLOAT32
+        for field in ("x", "y", "z"):
+            if field not in fields:
+                raise ValueError(f"missing required field: {field}")
+            idx = fields.index(field)
+            if types[idx] != "F" or sizes[idx] != 4:
+                raise ValueError(f"field {field} must be FLOAT32 (TYPE F, SIZE 4)")
+
         n_fields = len(fields)
         if data_mode == "binary":
-            raw = np.frombuffer(f.read(4 * n_fields * n_points), np.float32)
-            pts = raw.reshape(n_points, n_fields)
+            # Build structured dtype from field specs
+            dtype_fields = []
+            for fname, fsize, ftype, fcount in zip(fields, sizes, types, counts):
+                # Map PCD type to numpy dtype
+                if ftype == "F":
+                    base_dtype = f"f{fsize}"  # f4 for float32, f8 for float64
+                elif ftype == "U":
+                    base_dtype = f"u{fsize}"  # u1, u2, u4 for uint8, uint16, uint32
+                elif ftype == "I":
+                    base_dtype = f"i{fsize}"  # i1, i2, i4 for int8, int16, int32
+                else:
+                    raise ValueError(f"unsupported PCD type: {ftype}")
+
+                if fcount > 1:
+                    dtype_fields.append((fname, base_dtype, (fcount,)))
+                else:
+                    dtype_fields.append((fname, base_dtype))
+
+            struct_dtype = np.dtype(dtype_fields)
+            raw = np.frombuffer(f.read(struct_dtype.itemsize * n_points), struct_dtype)
+
+            # Extract x, y, z as float32
+            xyz = np.column_stack([
+                raw["x"].astype(np.float32),
+                raw["y"].astype(np.float32),
+                raw["z"].astype(np.float32)
+            ])
+            return np.ascontiguousarray(xyz)
         else:
+            # ASCII mode: use loadtxt and extract by column index
             pts = np.loadtxt(f, dtype=np.float32, max_rows=n_points)
             pts = pts.reshape(n_points, n_fields)
-    idx = [fields.index(a) for a in ("x", "y", "z")]
-    return np.ascontiguousarray(pts[:, idx])
+            idx = [fields.index(a) for a in ("x", "y", "z")]
+            return np.ascontiguousarray(pts[:, idx])
 
 
 def rasterize(points, z_min, z_max, resolution, min_points):

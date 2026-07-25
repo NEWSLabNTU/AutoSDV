@@ -70,6 +70,59 @@ def test_read_pcd_xyzrgb(tmp_path):
     np.testing.assert_allclose(out, pts[:, :3])
 
 
+def test_read_pcd_with_padding_field(tmp_path):
+    """Autoware sample maps have a uint padding field `_` — must be skipped."""
+    pts = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], np.float32)
+    pad = np.zeros((2, 2), np.uint8)  # 2-byte padding per point
+    header = (
+        "VERSION 0.7\nFIELDS x y z _\nSIZE 4 4 4 2\nTYPE F F F U\n"
+        "COUNT 1 1 1 1\nWIDTH 2\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 2\nDATA binary\n"
+    )
+    p = tmp_path / "pad.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        for row, prow in zip(pts, pad):
+            f.write(row.tobytes()); f.write(prow.tobytes())
+    out = read_pcd(p)
+    assert out.shape == (2, 3)
+    np.testing.assert_allclose(out, pts)
+
+
+def test_read_pcd_rejects_non_float_xyz(tmp_path):
+    """x/y/z typed anything but FLOAT32 must raise, even when other fields parse."""
+    header = (
+        "VERSION 0.7\nFIELDS x y z\nSIZE 4 4 8\nTYPE F F F\n"
+        "COUNT 1 1 1\nWIDTH 1\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 1\nDATA binary\n"
+    )
+    p = tmp_path / "bad.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        f.write(b"\x00" * 16)
+    with pytest.raises(ValueError):
+        read_pcd(p)
+
+
+def test_read_pcd_count_subarray(tmp_path):
+    """A non-xyz field with COUNT>1 must parse as a subarray and be skipped."""
+    header = (
+        "VERSION 0.7\nFIELDS x y z extra\nSIZE 4 4 4 4\nTYPE F F F F\n"
+        "COUNT 1 1 1 3\nWIDTH 2\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 2\nDATA binary\n"
+    )
+    pts = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], np.float32)
+    extra = np.zeros((2, 3), np.float32)
+    p = tmp_path / "count.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        for row, erow in zip(pts, extra):
+            f.write(row.tobytes()); f.write(erow.tobytes())
+    out = read_pcd(p)
+    assert out.shape == (2, 3)
+    np.testing.assert_allclose(out, pts)
+
+
 def test_rasterize_wall_occupied_ground_free(wall_cloud):
     grid, origin = rasterize(wall_cloud, z_min=0.2, z_max=0.5,
                              resolution=0.1, min_points=1)
