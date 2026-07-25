@@ -121,13 +121,29 @@ def stats(errors):
     }
 
 
-def _read_bag(bag_path, topic, msg_field):
+def _read_bag(bag_path, topic, msg_field, time_source="stamp"):
     """Read a rosbag2 topic into a list of (t, x, y, yaw) tuples.
 
     msg_field selects the pose accessor: 'odometry' for
     nav_msgs/Odometry (pose.pose), 'pose_stamped' for
     geometry_msgs/PoseStamped (pose). Imported lazily so plain-shell
     unit tests never need rosbag2_py/rclpy installed.
+
+    time_source selects the alignment clock: 'stamp' (default) uses each
+    message's own `header.stamp` (its publisher's clock at the moment it
+    was generated). 'bag' instead uses the rosbag2 storage receive-time
+    recorded for that message (the same clock `ros2 bag play --clock`
+    uses to pace playback). These normally agree; they can diverge when a
+    bag is itself a *replay-then-record* of an earlier bag (a two-hop
+    "GT bag used as the PF replay source" chain, as in the Phase 3b
+    sample-site run): the recorded message content still carries the
+    *original* source bag's sim-time stamp, while the enclosing bag's own
+    storage clock reflects the wall-clock time it was captured at. A
+    consumer that replays that enclosing bag (and stamps its own output
+    via sim time, e.g. the particle filter) ends up on the *storage*
+    clock basis, not the original content-stamp basis, so alignment
+    against a `stamp`-sourced GT track produces zero overlapping pairs.
+    See docs/reports/2dlidar-phase3b-sample-site.md for the concrete case.
     """
     import rosbag2_py
     from rclpy.serialization import deserialize_message
@@ -151,9 +167,12 @@ def _read_bag(bag_path, topic, msg_field):
 
     reader.set_filter(rosbag2_py.StorageFilter(topics=[topic]))
 
+    if time_source not in ("stamp", "bag"):
+        raise ValueError("time_source must be 'stamp' or 'bag', got %r" % time_source)
+
     track = []
     while reader.has_next():
-        (name, data, _bag_t_ns) = reader.read_next()
+        (name, data, bag_t_ns) = reader.read_next()
         if name != topic:
             continue
         msg = deserialize_message(data, msg_type)
@@ -161,8 +180,11 @@ def _read_bag(bag_path, topic, msg_field):
             pose = msg.pose.pose
         else:
             pose = msg.pose
-        stamp = msg.header.stamp
-        t = stamp.sec + stamp.nanosec * 1e-9
+        if time_source == "bag":
+            t = bag_t_ns * 1e-9
+        else:
+            stamp = msg.header.stamp
+            t = stamp.sec + stamp.nanosec * 1e-9
         yaw = quat_to_yaw(
             pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w
         )
@@ -172,12 +194,12 @@ def _read_bag(bag_path, topic, msg_field):
     return track
 
 
-def read_gt_bag(bag_path):
-    return _read_bag(bag_path, "/localization/kinematic_state", "odometry")
+def read_gt_bag(bag_path, time_source="stamp"):
+    return _read_bag(bag_path, "/localization/kinematic_state", "odometry", time_source=time_source)
 
 
-def read_pf_bag(bag_path):
-    return _read_bag(bag_path, "/pf/viz/inferred_pose", "pose_stamped")
+def read_pf_bag(bag_path, time_source="stamp"):
+    return _read_bag(bag_path, "/pf/viz/inferred_pose", "pose_stamped", time_source=time_source)
 
 
 def _fmt_stats_table(s):
@@ -212,18 +234,35 @@ def _threshold_table(s):
     return "\n".join(lines), all_pass
 
 
-def generate_report(gt_bag, pf_bag, full_stats, motion_stats, motion_window_actual, all_pass, notes):
+def generate_report(gt_bag, pf_bag, full_stats, motion_stats, motion_window_actual,
+                     all_pass, notes, motion_window_cfg=(MOTION_WINDOW_START_S, MOTION_WINDOW_END_S)):
     overall = "PASS" if all_pass else "FAIL"
     threshold_table, _ = _threshold_table(full_stats)
-    if motion_window_actual:
-        w_start, w_end = motion_window_actual
-        window_heading = "## Motion-Window Statistics (%.1fs–%.1fs, %.1f s of motion data, source-bag sim time)" % (
-            w_start, w_end, w_end - w_start,
-        )
+    window_section = []
+    if motion_window_cfg is None:
+        window_section = [
+            "## Motion-Window Statistics",
+            "",
+            "_Motion-window analysis disabled (`--no-motion-window`); this bag moves "
+            "throughout the recording, so a fixed stationary/motion split is not "
+            "meaningful here. Only full-overlap statistics are reported._",
+        ]
     else:
-        window_heading = "## Motion-Window Statistics (%.0fs–%.0fs configured, source-bag sim time)" % (
-            MOTION_WINDOW_START_S, MOTION_WINDOW_END_S,
-        )
+        cfg_start, cfg_end = motion_window_cfg
+        if motion_window_actual:
+            w_start, w_end = motion_window_actual
+            window_heading = "## Motion-Window Statistics (%.1fs–%.1fs, %.1f s of motion data, source-bag sim time)" % (
+                w_start, w_end, w_end - w_start,
+            )
+        else:
+            window_heading = "## Motion-Window Statistics (%.0fs–%.0fs configured, source-bag sim time)" % (
+                cfg_start, cfg_end,
+            )
+        window_section = [
+            window_heading,
+            "",
+            _fmt_stats_table(motion_stats) if motion_stats else "_No pairs fell in the motion window._",
+        ]
     parts = [
         "# Phase 3: MCL (particle_filter) vs NDT Ground Truth Comparison",
         "",
@@ -238,9 +277,7 @@ def generate_report(gt_bag, pf_bag, full_stats, motion_stats, motion_window_actu
         "",
         _fmt_stats_table(full_stats),
         "",
-        window_heading,
-        "",
-        _fmt_stats_table(motion_stats) if motion_stats else "_No pairs fell in the motion window._",
+    ] + window_section + [
         "",
         "## Thresholds (applied to full-overlap stats)",
         "",
@@ -260,9 +297,38 @@ def main(argv=None):
     parser.add_argument("pf_bag", help="Path to PF rosbag2 (geometry_msgs/PoseStamped on /pf/viz/inferred_pose)")
     parser.add_argument("--out", default=None, help="Path to write the markdown report")
     parser.add_argument("--max-dt", type=float, default=0.1, help="Max |dt| (s) for nearest-timestamp pairing")
+    parser.add_argument(
+        "--gt-time-source", choices=["stamp", "bag"], default="stamp",
+        help="Clock basis for the GT track: 'stamp' (default, header.stamp -- "
+             "COSS behavior unchanged) or 'bag' (rosbag2 storage receive-time). "
+             "Use 'bag' when the GT bag is itself the bag that was replayed to "
+             "produce the PF run (a replay-then-record chain), which puts the "
+             "PF track's timestamps on the GT bag's storage clock rather than "
+             "its message content clock -- see _read_bag() docstring.",
+    )
+    window_group = parser.add_mutually_exclusive_group()
+    window_group.add_argument(
+        "--no-motion-window", action="store_true",
+        help="Disable the motion-window section entirely (for bags that move "
+             "throughout, where a fixed stationary/motion split is meaningless). "
+             "Default behavior (COSS motion window) is unchanged when omitted.",
+    )
+    window_group.add_argument(
+        "--motion-window", type=float, nargs=2, metavar=("START", "END"), default=None,
+        help="Override the motion-window bounds (source-bag sim-time seconds). "
+             "Default: %.0f %.0f (COSS bag stationary/motion split)."
+             % (MOTION_WINDOW_START_S, MOTION_WINDOW_END_S),
+    )
     args = parser.parse_args(argv)
 
-    gt = read_gt_bag(args.gt_bag)
+    if args.no_motion_window:
+        motion_window_cfg = None
+    elif args.motion_window:
+        motion_window_cfg = (args.motion_window[0], args.motion_window[1])
+    else:
+        motion_window_cfg = (MOTION_WINDOW_START_S, MOTION_WINDOW_END_S)
+
+    gt = read_gt_bag(args.gt_bag, time_source=args.gt_time_source)
     pf = read_pf_bag(args.pf_bag)
 
     errors = align_tracks(gt, pf, max_dt=args.max_dt)
@@ -271,28 +337,32 @@ def main(argv=None):
     # Motion-window subset: re-align restricted to PF samples whose GT
     # partner timestamp falls in the motion window. Re-derive from raw
     # tracks so the window is applied in source-bag sim time consistently.
-    gt_times = [p[0] for p in gt]
-    t0 = gt_times[0]
-    gt_window = [p for p in gt if MOTION_WINDOW_START_S <= (p[0] - t0) <= MOTION_WINDOW_END_S]
-    pf_window = [p for p in pf if MOTION_WINDOW_START_S <= (p[0] - t0) <= MOTION_WINDOW_END_S]
     motion_stats = None
     motion_window_actual = None
-    if gt_window and pf_window:
-        try:
-            motion_errors = align_tracks(gt_window, pf_window, max_dt=args.max_dt)
-            motion_stats = stats(motion_errors)
-            # Report the actual data extent inside the configured window,
-            # not the configured bounds themselves — both bags may end
-            # (or the window may start) before/after the nominal bounds.
-            gt_rel = [p[0] - t0 for p in gt_window]
-            pf_rel = [p[0] - t0 for p in pf_window]
-            motion_window_actual = (max(min(gt_rel), min(pf_rel)), min(max(gt_rel), max(pf_rel)))
-        except ValueError:
-            motion_stats = None
+    if motion_window_cfg is not None:
+        w_start, w_end = motion_window_cfg
+        gt_times = [p[0] for p in gt]
+        t0 = gt_times[0]
+        gt_window = [p for p in gt if w_start <= (p[0] - t0) <= w_end]
+        pf_window = [p for p in pf if w_start <= (p[0] - t0) <= w_end]
+        if gt_window and pf_window:
+            try:
+                motion_errors = align_tracks(gt_window, pf_window, max_dt=args.max_dt)
+                motion_stats = stats(motion_errors)
+                # Report the actual data extent inside the configured window,
+                # not the configured bounds themselves — both bags may end
+                # (or the window may start) before/after the nominal bounds.
+                gt_rel = [p[0] - t0 for p in gt_window]
+                pf_rel = [p[0] - t0 for p in pf_window]
+                motion_window_actual = (max(min(gt_rel), min(pf_rel)), min(max(gt_rel), max(pf_rel)))
+            except ValueError:
+                motion_stats = None
 
     _, all_pass = _threshold_table(full_stats)
 
-    if motion_window_actual:
+    if motion_window_cfg is None:
+        motion_duration_text = None
+    elif motion_window_actual:
         motion_duration_text = "%.1f s of overlapping motion data, %.1fs-%.1fs" % (
             motion_window_actual[1] - motion_window_actual[0],
             motion_window_actual[0],
@@ -301,9 +371,17 @@ def main(argv=None):
     else:
         motion_duration_text = "~40s configured, but no overlapping pairs were found"
 
-    notes = "\n".join([
-        "- Replay rate: 1.0x for both GT and PF recordings, sourced from the same "
-        "outdoor bag with `--clock` (sim time), so cross-bag timestamps are directly comparable.",
+    notes_lines = [
+        "- Replay rate: 1.0x for both GT and PF recordings, replayed with `--clock` "
+        "(sim time).",
+        "- GT time source: `--gt-time-source=%s` (%s)." % (
+            args.gt_time_source,
+            "message `header.stamp` -- default, unchanged from the COSS run"
+            if args.gt_time_source == "stamp"
+            else "rosbag2 storage receive-time, used because the GT bag was itself "
+                 "replayed to produce the PF run; see _read_bag() docstring in "
+                 "compare_poses.py for why header.stamp would give zero overlap here",
+        ),
         "- PF params: `range_method=cddt`, particle count per vendored `config/localize.yaml` "
         "default (4000), `max_range=30.0` (outdoor VLP-32C), `scan_topic=/scan`, "
         "`odometry_topic=/odom`.",
@@ -318,28 +396,37 @@ def main(argv=None):
         "- `/scan` was bridged from `/sensing/lidar/velodyne_points` via `pointcloud_to_laserscan` "
         "with a z-band filter (see Task 3); QoS was bridged from `pointcloud_to_laserscan`'s "
         "best-effort publisher to `particle_filter`'s reliable-QoS subscription.",
-        "- Vehicle stationary until ~116s into the source bag, then in motion for the "
-        "remainder of the recording (%s); thresholds gate on full-overlap stats per the "
-        "plan, motion-window stats are reported separately for diagnostic context."
-        % motion_duration_text,
-        "- **Likely cause of FAIL (diagnostic, not a fix):** translational error is small "
-        "(~1 m) at the start of the GT/PF overlap and grows roughly monotonically to "
-        "10-25+ m by the end of the run (motion-window mean error exceeds the full-overlap "
-        "mean), i.e. the error pattern looks like unbounded drift/divergence rather than a "
-        "fixed frame offset. Plausible contributors: (1) the synthesized wheel+IMU odometry "
-        "feeding PF's motion model has no absolute correction and can accumulate heading "
-        "error, which a particle filter with too few effective particles or a poor "
-        "sensor model may fail to correct via scan matching; (2) `range_method=cddt` / "
-        "particle count / sensor-model noise parameters were carried over from the vendored "
-        "indoor defaults and are not tuned for this outdoor VLP-32C + COSS map scenario; "
-        "(3) possible scan-to-map mismatches (z-band filter choices, `max_range=30.0`) "
-        "reducing effective localization likelihood signal. PF parameter tuning is "
-        "explicitly out of scope for this gate per the plan and is deferred to a "
-        "Phase-3 follow-up.",
-    ])
+    ]
+    if motion_window_cfg is not None:
+        notes_lines.append(
+            "- Vehicle stationary until ~%.0fs into the source bag, then in motion for the "
+            "remainder of the recording (%s); thresholds gate on full-overlap stats per the "
+            "plan, motion-window stats are reported separately for diagnostic context."
+            % (motion_window_cfg[0], motion_duration_text)
+        )
+    if not all_pass:
+        notes_lines.append(
+            "- **Diagnostic note (not a fix):** the run above FAILs the Phase 3 gate. "
+            "Full-overlap trans. mean=%.2f m, p95=%.2f m, yaw mean|err|=%.3f rad "
+            "(thresholds: mean<%.1f m, p95<%.1f m, yaw<%.1f rad). Plausible contributors: "
+            "(1) the synthesized wheel+IMU odometry feeding PF's motion model has no "
+            "absolute correction and can accumulate heading error, which a particle filter "
+            "with too few effective particles or a poor sensor model may fail to correct via "
+            "scan matching; (2) `range_method=cddt` / particle count / sensor-model noise "
+            "parameters were carried over from vendored defaults and may not be tuned for "
+            "this scenario; (3) possible scan-to-map mismatches (z-band filter choice, "
+            "`max_range`) reducing effective localization likelihood signal; (4) ground-truth "
+            "quality itself (see report notes on the GT source) may be a contributing factor. "
+            "PF parameter tuning is explicitly out of scope for this gate and is deferred to "
+            "a Phase-3 follow-up."
+            % (full_stats["trans_mean"], full_stats["trans_p95"], full_stats["yaw_mean_abs"],
+               TRANS_MEAN_THRESHOLD, TRANS_P95_THRESHOLD, YAW_MEAN_ABS_THRESHOLD)
+        )
+    notes = "\n".join(notes_lines)
 
     report = generate_report(
-        args.gt_bag, args.pf_bag, full_stats, motion_stats, motion_window_actual, all_pass, notes
+        args.gt_bag, args.pf_bag, full_stats, motion_stats, motion_window_actual, all_pass, notes,
+        motion_window_cfg=motion_window_cfg,
     )
 
     if args.out:

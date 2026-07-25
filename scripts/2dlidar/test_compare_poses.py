@@ -10,7 +10,9 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
-from compare_poses import align_tracks, stats, yaw_error, quat_to_yaw, _threshold_table  # noqa: E402
+from compare_poses import (  # noqa: E402
+    align_tracks, stats, yaw_error, quat_to_yaw, _threshold_table, generate_report,
+)
 
 
 def test_align_tracks_nearest_timestamp_pairing():
@@ -99,3 +101,39 @@ def test_threshold_table_yaw_row_escapes_pipes():
     # renderer treats them as literal text, not column separators —
     # otherwise this row renders with 6 cells instead of 4.
     assert "\\|yaw\\|" in yaw_row
+
+
+def test_generate_report_no_motion_window_omits_coss_window():
+    # --no-motion-window (motion_window_cfg=None) must drop the COSS-tuned
+    # motion-window section entirely -- for a bag that moves throughout
+    # (e.g. the sample-site bag), the fixed 116s-156s split is meaningless
+    # and must not appear in the report, regardless of default behavior.
+    fake_stats = {
+        "n": 4, "trans_mean": 0.5, "trans_rms": 0.5, "trans_max": 0.5,
+        "trans_p95": 0.5, "yaw_mean_abs": 0.1, "yaw_max_abs": 0.1,
+    }
+    report = generate_report(
+        "gt_bag", "pf_bag", fake_stats, motion_stats=None, motion_window_actual=None,
+        all_pass=True, notes="n/a", motion_window_cfg=None,
+    )
+    assert "116" not in report
+    assert "156" not in report
+    assert "Motion-Window Statistics" in report
+    assert "disabled" in report.lower()
+
+
+def test_generate_report_default_motion_window_unchanged():
+    # Default (motion_window_cfg omitted / COSS bounds) behavior must be
+    # byte-identical to before the --no-motion-window flag was added, so
+    # the COSS run reproduces unchanged.
+    fake_stats = {
+        "n": 4, "trans_mean": 0.5, "trans_rms": 0.5, "trans_max": 0.5,
+        "trans_p95": 0.5, "yaw_mean_abs": 0.1, "yaw_max_abs": 0.1,
+    }
+    report = generate_report(
+        "gt_bag", "pf_bag", fake_stats, motion_stats=None, motion_window_actual=None,
+        all_pass=True, notes="n/a",
+    )
+    assert "116s" in report
+    assert "156s" in report
+    assert "configured, source-bag sim time" in report
