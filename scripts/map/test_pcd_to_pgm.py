@@ -123,6 +123,57 @@ def test_read_pcd_count_subarray(tmp_path):
     np.testing.assert_allclose(out, pts)
 
 
+def test_read_pcd_no_count_line(tmp_path):
+    """PCD header without a COUNT line must default to COUNT=1 per field."""
+    pts = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], np.float32)
+    header = (
+        "VERSION 0.7\nFIELDS x y z\nSIZE 4 4 4\nTYPE F F F\n"
+        "WIDTH 2\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 2\nDATA binary\n"
+    )
+    p = tmp_path / "nocount.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        f.write(pts.tobytes())
+    out = read_pcd(p)
+    assert out.shape == (2, 3)
+    np.testing.assert_allclose(out, pts)
+
+
+def test_read_pcd_duplicate_padding_fields(tmp_path):
+    """Multiple `_` padding fields must be uniquified, not collide in the dtype."""
+    pts = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], np.float32)
+    pad = np.zeros((2, 2), np.uint16)  # two 2-byte padding columns per point
+    header = (
+        "VERSION 0.7\nFIELDS x y z _ _\nSIZE 4 4 4 2 2\nTYPE F F F U U\n"
+        "COUNT 1 1 1 1 1\nWIDTH 2\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 2\nDATA binary\n"
+    )
+    p = tmp_path / "dup.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        for row, prow in zip(pts, pad):
+            f.write(row.tobytes()); f.write(prow.tobytes())
+    out = read_pcd(p)
+    assert out.shape == (2, 3)
+    np.testing.assert_allclose(out, pts)
+
+
+def test_read_pcd_missing_xyz_raises(tmp_path):
+    """FIELDS lacking y must raise even though x and z are present."""
+    header = (
+        "VERSION 0.7\nFIELDS x z\nSIZE 4 4\nTYPE F F\n"
+        "COUNT 1 1\nWIDTH 1\nHEIGHT 1\nVIEWPOINT 0 0 0 1 0 0 0\n"
+        "POINTS 1\nDATA binary\n"
+    )
+    p = tmp_path / "missing.pcd"
+    with open(p, "wb") as f:
+        f.write(header.encode())
+        f.write(b"\x00" * 8)
+    with pytest.raises(ValueError):
+        read_pcd(p)
+
+
 def test_rasterize_wall_occupied_ground_free(wall_cloud):
     grid, origin = rasterize(wall_cloud, z_min=0.2, z_max=0.5,
                              resolution=0.1, min_points=1)

@@ -149,7 +149,7 @@ Two supported grid-authoring paths:
    Lanelet2 map already share one georeferenced frame, the generated grid is
    aligned to the vector map by construction — no re-mapping, no manual
    alignment. Implemented as a small Python script
-   (`scripts/2d-map/pcd-to-pgm.py`, open3d/numpy/PIL) rather than a canned
+   (`scripts/map/pcd_to_pgm.py`, numpy/PIL) rather than a canned
    `pcd2pgm` package, for control over thresholds and unknown-space handling.
    Caveats: sloped sites need ground-relative slicing; survey-day clutter
    (parked cars) becomes phantom occupancy — erase manually if it disturbs

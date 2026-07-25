@@ -58,7 +58,7 @@ if ! echo "$HZ_OUT" | grep -q "average rate"; then
     echo "FAIL: no /scan"; exit 1
 fi
 echo "--- sample message ---"
-HEADER=$(timeout 10 ros2 topic echo /scan --once --field header 2>/dev/null) || HEADER=""
+HEADER=$(timeout 10 ros2 topic echo /scan --once --field header 2>&1) || HEADER=""
 if [ -z "$HEADER" ]; then
     echo "FAIL: could not read /scan header"; exit 1
 fi

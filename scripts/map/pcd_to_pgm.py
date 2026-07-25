@@ -50,6 +50,21 @@ def read_pcd(path):
         if data_mode not in ("ascii", "binary"):
             raise ValueError(f"unsupported PCD DATA mode: {data_mode}")
 
+        if not counts:
+            counts = [1] * len(fields)
+        if len(sizes) != len(fields):
+            raise ValueError(
+                f"PCD header: SIZE has {len(sizes)} entries but FIELDS has {len(fields)}"
+            )
+        if len(types) != len(fields):
+            raise ValueError(
+                f"PCD header: TYPE has {len(types)} entries but FIELDS has {len(fields)}"
+            )
+        if len(counts) != len(fields):
+            raise ValueError(
+                f"PCD header: COUNT has {len(counts)} entries but FIELDS has {len(fields)}"
+            )
+
         # Ensure x, y, z are FLOAT32
         for field in ("x", "y", "z"):
             if field not in fields:
@@ -57,6 +72,24 @@ def read_pcd(path):
             idx = fields.index(field)
             if types[idx] != "F" or sizes[idx] != 4:
                 raise ValueError(f"field {field} must be FLOAT32 (TYPE F, SIZE 4)")
+
+        # Uniquify duplicate non-xyz field names (e.g. repeated "_" padding
+        # fields) so the structured dtype below doesn't collide on name.
+        # x/y/z are guaranteed unique by PCD convention and must keep their
+        # exact names so they remain findable after this pass.
+        seen = {}
+        unique_fields = []
+        for fname in fields:
+            if fname in ("x", "y", "z"):
+                unique_fields.append(fname)
+                continue
+            if fname not in seen:
+                seen[fname] = 1
+                unique_fields.append(fname)
+            else:
+                seen[fname] += 1
+                unique_fields.append(f"{fname}_{seen[fname]}")
+        fields = unique_fields
 
         n_fields = len(fields)
         if data_mode == "binary":

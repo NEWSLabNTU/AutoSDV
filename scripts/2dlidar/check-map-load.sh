@@ -36,7 +36,7 @@ lifecycle_set_retry activate
 
 # map_server publishes /map latched (transient_local); match QoS or echo hangs.
 INFO=$(timeout 10 ros2 topic echo /map --once --field info \
-    --qos-durability transient_local --qos-reliability reliable 2>/dev/null) || INFO=""
+    --qos-durability transient_local --qos-reliability reliable 2>&1) || INFO=""
 echo "$INFO"
 WIDTH=$(echo "$INFO" | awk '/^width:/ {print $2}')
 if [ -z "$WIDTH" ] || [ "$WIDTH" -le 0 ]; then
