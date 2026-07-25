@@ -6,6 +6,19 @@ Integrates VelocityReport.longitudinal_velocity with the IMU yaw rate into a
 unicycle-model nav_msgs/Odometry on /odom (frame odom -> base_link). Built for
 particle_filter's motion model during rosbag replay; intentionally minimal —
 no TF broadcast, no covariance tuning (PF uses pose deltas only).
+
+`imu_yaw_sign` (double, default 1.0): multiplies angular_velocity.z before
+integration. Some IMUs (e.g. the sample_sensor_kit Tamagawa unit) report
+z-axis rate in a z-down (NED-style) mounting convention, which is
+sign-inverted relative to the map yaw convention this integrator assumes
+(z-up, positive=CCW). Root-caused via dead-reckoning: GT total yaw over a
+28s run was +1.486 rad vs IMU-integrated -1.535 rad; negating omega drops
+final dead-reckoning error from 229.6 m to 4.05 m (mean 0.79 m). Setting
+`imu_yaw_sign:=-1.0` compensates for exactly this case. The correct
+long-term fix is a TF-aware axis mapping (transform the IMU's angular
+velocity vector through its static orientation relative to base_link
+instead of assuming raw z passthrough); that is deferred — this parameter
+is a pragmatic workaround for the one IMU mounting convention seen so far.
 """
 import math
 
@@ -45,6 +58,7 @@ if rclpy is not None:
             self.declare_parameter("velocity_topic", "/vehicle/status/velocity_status")
             self.declare_parameter("imu_topic", "/sensing/camera/zedxm/imu/data")
             self.declare_parameter("odom_topic", "/odom")
+            self.declare_parameter("imu_yaw_sign", 1.0)
 
             self.x = 0.0
             self.y = 0.0
@@ -62,7 +76,8 @@ if rclpy is not None:
                 Odometry, self.get_parameter("odom_topic").value, 10)
 
         def on_imu(self, msg: "Imu"):
-            self.omega = msg.angular_velocity.z
+            sign = self.get_parameter("imu_yaw_sign").value
+            self.omega = sign * msg.angular_velocity.z
 
         def on_velocity(self, msg: "VelocityReport"):
             stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9

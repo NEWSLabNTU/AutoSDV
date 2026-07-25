@@ -6,7 +6,10 @@
 # bag, and record /pf/viz/inferred_pose (+ /pf/pose/odom) for Task 4.
 #
 # Env overrides: BAG, OUT (alias OUT_BAG), RATE, MAP_YAML, GT_BAG,
-# INITPOSE_DELAY, POINTCLOUD_TOPIC, VELOCITY_TOPIC, IMU_TOPIC. All default to
+# INITPOSE_DELAY, POINTCLOUD_TOPIC, VELOCITY_TOPIC, IMU_TOPIC, IMU_YAW_SIGN
+# (default 1.0; set -1.0 to compensate for IMUs whose z-rate is inverted
+# relative to map-frame yaw, e.g. the sample_sensor_kit Tamagawa unit --
+# see wheel_imu_odom.py docstring). All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #
@@ -80,6 +83,7 @@ INITPOSE_DELAY="${INITPOSE_DELAY:-5}"
 POINTCLOUD_TOPIC="${POINTCLOUD_TOPIC:-/sensing/lidar/velodyne_points}"
 VELOCITY_TOPIC="${VELOCITY_TOPIC:-/vehicle/status/velocity_status}"
 IMU_TOPIC="${IMU_TOPIC:-/sensing/camera/zedxm/imu/data}"
+IMU_YAW_SIGN="${IMU_YAW_SIGN:-1.0}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -240,6 +244,7 @@ BRIDGE_PID=$!
 # --- Step 3: wheel+IMU odometry ---
 setsid python3 "$SCRIPT_DIR/wheel_imu_odom.py" --ros-args -p use_sim_time:=true \
     -p velocity_topic:="$VELOCITY_TOPIC" -p imu_topic:="$IMU_TOPIC" \
+    -p imu_yaw_sign:="$IMU_YAW_SIGN" \
     > "$ODOM_LOG" 2>&1 &
 ODOM_PID=$!
 sleep 2
