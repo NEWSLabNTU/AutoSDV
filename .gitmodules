@@ -51,4 +51,5 @@
 	url = https://github.com/CL2-UWaterloo/particle_filter.git
 [submodule "src/localization/external/range_libc"]
 	path = src/localization/external/range_libc
-	url = https://github.com/kctess5/range_libc.git
+	url = https://github.com/NEWSLabNTU/range_libc.git
+	branch = autosdv
