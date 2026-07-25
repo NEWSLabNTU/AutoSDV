@@ -30,3 +30,4 @@
 *.tmp
 
 sample-rosbag-replay/
+rosbags/phase3/
