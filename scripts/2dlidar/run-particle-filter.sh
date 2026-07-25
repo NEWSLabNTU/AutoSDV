@@ -14,7 +14,9 @@
 # below for why the sample-site sensor_kit needs different values),
 # PF_MAX_RANGE/PF_SQUASH/PF_DISP_X/PF_DISP_Y/PF_DISP_THETA/SCAN_RANGE_MAX
 # (PF tuning passthroughs, defaults preserve the untuned vendored values
-# -- see the tuning note above the env-var block below). All default to
+# -- see the tuning note above the env-var block below), PF_INIT_TIMEOUT_S
+# (default 60; raise for large/fine-resolution grids whose CDDT precompute
+# takes longer). All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #
@@ -130,6 +132,13 @@ PF_DISP_X="${PF_DISP_X:-0.05}"
 PF_DISP_Y="${PF_DISP_Y:-0.025}"
 PF_DISP_THETA="${PF_DISP_THETA:-0.25}"
 SCAN_RANGE_MAX="${SCAN_RANGE_MAX:-30.0}"
+# particle_filter's CDDT range-method precompute cost scales with grid
+# cell count (theta_discretization x width x height); a finer-resolution
+# grid (e.g. Phase 3c Lever 2's 0.05 m grid, ~4x the cells of the 0.1 m
+# grid) can take noticeably longer than the original 60s timeout allowed
+# for. Override PF_INIT_TIMEOUT_S for such runs rather than lowering
+# fidelity to fit the old timeout.
+PF_INIT_TIMEOUT_S="${PF_INIT_TIMEOUT_S:-60}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -309,8 +318,8 @@ PF_PID=$!
 echo "Waiting for particle_filter to finish initializing..."
 elapsed=0
 while ! grep -q "Finished initializing" "$PF_LOG" 2>/dev/null; do
-    if [ "$elapsed" -ge 60 ]; then
-        echo "FAIL: particle_filter did not finish initializing within 60s"
+    if [ "$elapsed" -ge "$PF_INIT_TIMEOUT_S" ]; then
+        echo "FAIL: particle_filter did not finish initializing within ${PF_INIT_TIMEOUT_S}s"
         echo "See $PF_LOG"
         exit 1
     fi
