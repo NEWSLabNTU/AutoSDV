@@ -9,10 +9,34 @@
 # INITPOSE_DELAY, POINTCLOUD_TOPIC, VELOCITY_TOPIC, IMU_TOPIC, IMU_YAW_SIGN
 # (default 1.0; set -1.0 to compensate for IMUs whose z-rate is inverted
 # relative to map-frame yaw, e.g. the sample_sensor_kit Tamagawa unit --
-# see wheel_imu_odom.py docstring). All default to
+# see wheel_imu_odom.py docstring), SCAN_MIN_HEIGHT/SCAN_MAX_HEIGHT
+# (defaults -0.15/0.15, unchanged for COSS -- see Step 2 frame-fix note
+# below for why the sample-site sensor_kit needs different values). All
+# default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #
+# --- Frame-fix note (sample-site second root cause) ---
+# pointcloud_to_laserscan's default target_frame is "" (empty), which
+# means "keep the input cloud's own frame" -- it flattens the cloud
+# in SENSOR frame (e.g. velodyne_top), not robot/base_link frame.
+# particle_filter assumes /scan is already in the robot's frame (it does
+# no tf2 lookups at all -- see the particle_filter source-finding notes
+# above). For sample_sensor_kit, sensor_kit_base_link -> velodyne_top_base_link
+# has yaw=1.575 rad (+90 deg, from
+# /opt/autoware/1.5.0/share/sample_sensor_kit_description/config/sensor_kit_calibration.yaml),
+# so a /scan built in sensor frame is rotated ~90 deg from base_link,
+# which PF's sensor model then scores against particles expressed in
+# base_link/map frame -- producing a large systematic yaw error
+# independent of anything odometry-related. Fix: set
+# `target_frame:=base_link` on pointcloud_to_laserscan so it transforms
+# the cloud into base_link (via tf2, using /tf_static from the bag) BEFORE
+# flattening. This also means the z-band filter (min_height/max_height)
+# is now measured in base_link frame, not sensor frame, so its defaults
+# must shift by the sensor's height above base_link (~2.0-2.1 m for
+# sample_sensor_kit's velodyne_top -- see SCAN_MIN_HEIGHT/SCAN_MAX_HEIGHT
+# above). COSS callers are unaffected (defaults unchanged, COSS's sensor
+# kit was not audited for this issue and is out of scope here).
 # --- particle_filter.py source findings (src/localization/external/particle_filter) ---
 #
 # 1. Map acquisition: get_omap() calls the nav_msgs/GetMap service at
@@ -84,6 +108,8 @@ POINTCLOUD_TOPIC="${POINTCLOUD_TOPIC:-/sensing/lidar/velodyne_points}"
 VELOCITY_TOPIC="${VELOCITY_TOPIC:-/vehicle/status/velocity_status}"
 IMU_TOPIC="${IMU_TOPIC:-/sensing/camera/zedxm/imu/data}"
 IMU_YAW_SIGN="${IMU_YAW_SIGN:-1.0}"
+SCAN_MIN_HEIGHT="${SCAN_MIN_HEIGHT:--0.15}"
+SCAN_MAX_HEIGHT="${SCAN_MAX_HEIGHT:-0.15}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -194,7 +220,8 @@ lifecycle_set_retry /map_server activate
 setsid ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node --ros-args \
     -r /pointcloud_to_laserscan/input/pointcloud:="$POINTCLOUD_TOPIC" \
     -r /pointcloud_to_laserscan/output/laserscan:=/scan_raw \
-    -p min_height:=-0.15 -p max_height:=0.15 \
+    -p target_frame:=base_link \
+    -p min_height:="$SCAN_MIN_HEIGHT" -p max_height:="$SCAN_MAX_HEIGHT" \
     -p angle_min:=-3.14159 -p angle_max:=3.14159 \
     -p angle_increment:=0.0043 -p range_min:=0.1 -p range_max:=30.0 \
     -p use_sim_time:=true \
