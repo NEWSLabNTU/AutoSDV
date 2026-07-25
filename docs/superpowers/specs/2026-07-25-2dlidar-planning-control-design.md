@@ -132,6 +132,31 @@ lane_departure_checker, control_validator, control_evaluator. AEB and
 collision_detector become functional via the scan-derived cloud (see §3).
 `obstacle_collision_checker` and `predicted_path_checker` stay disabled.
 
+## Map workflow
+
+The 2D variant replaces the PCD geometry map with a 2D occupancy grid
+(`.pgm` + `.yaml`) consumed by `particle_filter`; the Lanelet2 `.osm` vector
+map is unchanged and remains the planning input. PCD served only NDT and
+pointcloud-map perception filters — both absent in this variant.
+
+Two supported grid-authoring paths:
+
+1. **Existing sites with a PCD map (preferred): slice the PCD.**
+   Crop the point cloud to a z-band at the 2D LiDAR mounting height
+   (± ~15 cm, relative to local ground), project to XY, rasterize at 0.05 m
+   (cell occupied if ≥ N points in band), write `.pgm` + `.yaml` with
+   `origin: [x_min, y_min, 0]` in the map frame. Because the PCD and the
+   Lanelet2 map already share one georeferenced frame, the generated grid is
+   aligned to the vector map by construction — no re-mapping, no manual
+   alignment. Implemented as a small Python script
+   (`scripts/2d-map/pcd-to-pgm.py`, open3d/numpy/PIL) rather than a canned
+   `pcd2pgm` package, for control over thresholds and unknown-space handling.
+   Caveats: sloped sites need ground-relative slicing; survey-day clutter
+   (parked cars) becomes phantom occupancy — erase manually if it disturbs
+   MCL; glass/fences may mismatch the 2D scanner's returns.
+2. **New sites without a PCD: teleop lap + `slam_toolbox`**, then author or
+   align the Lanelet2 map to the grid frame (as in the original design doc).
+
 ## Vendoring / merge-back plan
 
 - Roboracer (F1TENTH) packages needed by the localization side
@@ -174,3 +199,6 @@ Revise `docs/design/f1tenth-2dlidar-integration.typ`:
   obstacle path; grid serves goal search / velocity limiting.
 - Add the module keep/degrade/disable table and the forked component-launch
   note (finding 6).
+- Update the Maps section: PCD-slice workflow as the preferred grid source
+  for existing sites (frame-aligned by construction); slam_toolbox for new
+  sites only.
