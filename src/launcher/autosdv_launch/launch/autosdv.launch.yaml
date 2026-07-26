@@ -48,13 +48,22 @@ launch:
 
 - arg:
     name: pose_source
-    default: "ndt"
-    description: "Pose estimation source: ndt (default), yabloc, eagleye, isaac, visual"
+    default: "cuda_ndt"
+    description: "Pose estimation source: cuda_ndt (default, CUDA NDT), ndt (built-in Autoware CPU NDT), isaac, visual"
 
 - arg:
     name: pose_source_package
-    default: "cuda_ndt_matcher_launch"
-    description: "External package replacing built-in NDT node (empty string uses built-in Autoware NDT)"
+    default: "auto"
+    description: "Package providing launch/pose_estimator.launch.xml. 'auto' derives it from pose_source (cuda_ndt -> cuda_ndt_matcher_launch, anything else -> built-in Autoware NDT); set explicitly to override, empty string forces built-in NDT"
+
+# Resolve 'auto' into a concrete package name. Without this, pose_source_package
+# defaulted to cuda_ndt_matcher_launch regardless of pose_source, and because the
+# selector in pose_twist_estimator.launch.xml splits pose_source on underscores
+# ('cuda_ndt' -> {'cuda','ndt'}), pose_source:=ndt silently ran the CUDA plugin
+# too -- contradicting its documented "built-in Autoware NDT" meaning.
+- let:
+    name: resolved_pose_source_package
+    value: "$(eval \"('cuda_ndt_matcher_launch' if '$(var pose_source)' == 'cuda_ndt' else '') if '$(var pose_source_package)' == 'auto' else '$(var pose_source_package)'\")"
 
 - arg:
     name: visual_map_dir
@@ -203,7 +212,7 @@ launch:
       value: $(var pose_source)
     -
       name: pose_source_package
-      value: $(var pose_source_package)
+      value: $(var resolved_pose_source_package)
     -
       name: twist_source
       value: $(var twist_source)
