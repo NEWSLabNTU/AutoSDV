@@ -248,6 +248,26 @@ fixes, is a viable localization source on this site.
 
 ### What is NOT established
 
+- **Initialization is an oracle, not a real capability.** Every run in this
+  report seeds the filter by reading the first `/localization/kinematic_state`
+  pose out of the NDT ground-truth bag and publishing it on `/initialpose`
+  (`run-particle-filter.sh:499-536`). That pose is not available on a real
+  vehicle. So these numbers measure **tracking accuracy given a correct
+  starting pose**, and say nothing about global localization. The comparison
+  between configurations remains fair — baseline and fixed got the same
+  oracle — but the headline 0.79 m must not be read as end-to-end
+  localization capability. By contrast the NDT ground-truth runs initialized
+  legitimately, from `gnss_poser` via `autoware_pose_initializer`, with no
+  human input. Closing this gap is the first Phase 4 task; see
+  `docs/superpowers/plans/` for the GNSS-initialization plan.
+- **Convergence time is excluded from the metric.** The oracle pose is
+  published a few seconds into the replay, so the filter briefly runs on its
+  global-initialization spread first: for seed 1, poses #0-#4 sit up to
+  11.4 m from truth over the first 0.9 s, reaching 0.41 m by pose #5. Those
+  early poses fall outside the paired comparison window (241 published
+  poses, 236 aligned pairs), so they do not enter the 0.79 m mean. Identical
+  treatment for both configurations, but it means the metric characterises
+  steady-state tracking only.
 - **One bag, one site, one map.** Every number in this report — offline
   and end-to-end — comes from `data/rosbags/phase3/sample_ndt_gt` against
   `occupancy_grid_scanaccum_mh1r05.yaml`, the official Autoware sample
@@ -288,3 +308,28 @@ fixes, is a viable localization source on this site.
 - `.superpowers/sdd/p3e-task-{1,2,3,4,5}-report.md` — full task-level
   detail (implementation choices, alternatives considered and rejected,
   full test lists) behind every number summarised here.
+
+---
+
+## Naming
+
+The localization stack described here is referred to as **AutoSDV 2D-MCL**:
+the vendored Roboracer `particle_filter` (fork
+`NEWSLabNTU/particle_filter@autosdv`) with the three Phase 3e sensor-model
+fixes enabled. The name distinguishes it from nav2's AMCL (used only as the
+Phase 3c Lever 4 cross-check) and from unmodified upstream `particle_filter`,
+which is what "upstream" means in every table above.
+
+## Regenerating the trajectory figures
+
+`scripts/2dlidar/plot_trajectories.py` renders all three views — NDT alone,
+2D-MCL alone, and the overlay — with elapsed-time markers so the tracks can
+be compared in time as well as space:
+
+```bash
+bash -c 'source /opt/autoware/1.5.0/setup.bash && \
+    python3 scripts/2dlidar/plot_trajectories.py --prefix 2dlidar-phase3e-trajectories'
+```
+
+Defaults point at the seed-1 fixed run and the sample-site ground-truth bag;
+`--mcl-bag`, `--gt-bag`, `--map` and `--mark-every` override them.

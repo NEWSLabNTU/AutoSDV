@@ -388,7 +388,14 @@ an RViz impression.
   odometry message halves the pose and TF publish rate (≈10 Hz instead of
   ≈20 Hz), because the filter has no predict-only publish path. The
   `ekf_localizer` bridge described above must be checked against that rate
-  before it is relied on. Details:
+  before it is relied on.
+
+  #text(fill: c-new)[*Open gap — initialization.*] The measured runs seed the
+  filter with the first NDT ground-truth pose, an oracle unavailable on a
+  real vehicle, so the figures above characterise *tracking given a correct
+  starting pose*, not global localization. NDT itself initialises properly
+  from `gnss_poser` through `autoware_pose_initializer`; the 2D-MCL variant
+  must reuse that same path, which is the first Phase 4 task. Details:
   `docs/research/localization/2d_mcl_algorithm.md`,
   `docs/reports/2dlidar-phase3e-model-fixes.md`.
 ]
