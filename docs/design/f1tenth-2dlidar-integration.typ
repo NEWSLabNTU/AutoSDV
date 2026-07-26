@@ -350,7 +350,38 @@ phases 3–4 turns localization sign-off into a measured comparison rather than
 an RViz impression.
 
 // ─────────────────────────────────────────────────────────────
+= Phase 3 Outcome — Localization Verdict
+
+#box(inset: 8pt, radius: 3pt, fill: c-new-b, width: 100%)[
+  #set text(9.5pt)
+  *The MCL localization path did not pass its Phase 3 gate, and the cause is
+  now measured rather than suspected.* Runs on both the COSS site and the
+  official Autoware sample site failed the accuracy thresholds
+  (mean < 1.0 m, p95 < 2.5 m, yaw < 0.2 rad); nav2 AMCL on identical inputs
+  scored ~2.5× better and still failed. Phase 3d instrumentation then showed
+  *the measurement model itself is mis-specified*: evaluated in log space over
+  a 601×601 pose grid, its global maximum sits 29–30 m from the true pose,
+  with a 47–50 nat gap — and it does so even while the filter is tracking to
+  0.4 m. Numerical underflow was excluded (0 of 361,201 poses underflow).
+
+  Two implementation defects account for most of it: the `z_short` mixture
+  component is unnormalised, so the configured 75% hit weight degrades to
+  6.8–25.4% depending on range and map resolution; and a no-return beam
+  scores 1.87× a perfectly matching beam, with ~30% of beams non-finite in
+  practice. Both are fixable and are Phase 3e's first targets.
+
+  *Consequence for this design:* the localization column of the architecture
+  is not yet delivered. Planning and control integration should proceed on
+  NDT / `cuda_ndt`, with 2D MCL scoped to smaller, structured, low-speed
+  sites until Phase 3e demonstrates otherwise. Details:
+  `docs/research/localization/2d_mcl_algorithm.md`,
+  `docs/reports/2dlidar-phase3d-instrumentation.md`.
+]
+
 = Open Risks
+
+Risks below are the original design-time list. Those that Phase 3 has now
+*resolved into measured findings* are marked; the rest still stand.
 
 #table(
   columns: (1.35fr, 1fr),
@@ -358,7 +389,8 @@ an RViz impression.
   [*Covariance realism* — `ekf_localizer` trusts the relay's reported covariance; bad values destabilize the fusion.], [Tune PF covariance; validate `kinematic_state` against RViz ground truth before enabling planning.],
   [*2D perception gap* — planner is blind to obstacles outside the scan plane.], [Ship a 2D obstacle-stop node; keep speeds low; document the limitation.],
   [*Pose initialization* — PF needs a 2D initial pose; no NDT auto-init.], [Manual RViz 2D-pose-estimate, or GNSS via `pose_initializer` when available.],
-  [*Odom quality* — PF's motion model leans on `/odom`; poor wheel odometry degrades MCL.], [Validate `/odom` drift over a straight run in Phase 3 before trusting MCL.],
+  [*Odom quality* — PF's motion model leans on `/odom`; poor wheel odometry degrades MCL. #text(fill: c-new)[*Resolved (Phase 3): not the bottleneck.*]], [Measured: wheel+IMU dead reckoning holds 0.79 m mean over a 28 s drive once the IMU yaw-rate sign is corrected. The failure lies in the measurement model, not the motion model.],
+  [#text(fill: c-new)[*New (Phase 3d): measurement-model mis-specification*] — the beam model's likelihood maximum is 29–30 m from truth (47–50 nat gap); unnormalised `z_short` and no-return beams outscoring matches.], [Phase 3e: normalise `p_short`, drop non-finite beams, update on new scans only. Re-measure with the frozen-field script (GT-to-argmax gap in nats) before any end-to-end run; N ≥ 5 seeds for accuracy claims.],
   [*Planner fit* — Autoware defaults tuned for full-size vehicles.], [Set vehicle footprint, min turning radius, and velocity limits for the platform.],
 )
 
