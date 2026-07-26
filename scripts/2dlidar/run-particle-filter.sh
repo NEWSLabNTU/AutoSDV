@@ -14,7 +14,10 @@
 # below for why the sample-site sensor_kit needs different values),
 # PF_MAX_RANGE/PF_SQUASH/PF_DISP_X/PF_DISP_Y/PF_DISP_THETA/SCAN_RANGE_MAX
 # (PF tuning passthroughs, defaults preserve the untuned vendored values
-# -- see the tuning note above the env-var block below), PF_INIT_TIMEOUT_S
+# -- see the tuning note above the env-var block below), PF_USE_ESS_GATE
+# (default false)/PF_ESS_RATIO (default 0.5) (Phase 3c Lever 3
+# effective-sample-size resampling gate -- see the note above the
+# env-var block below), PF_INIT_TIMEOUT_S
 # (default 60; raise for large/fine-resolution grids whose CDDT precompute
 # takes longer). All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
@@ -112,8 +115,14 @@ POINTCLOUD_TOPIC="${POINTCLOUD_TOPIC:-/sensing/lidar/velodyne_points}"
 VELOCITY_TOPIC="${VELOCITY_TOPIC:-/vehicle/status/velocity_status}"
 IMU_TOPIC="${IMU_TOPIC:-/sensing/camera/zedxm/imu/data}"
 IMU_YAW_SIGN="${IMU_YAW_SIGN:-1.0}"
-SCAN_MIN_HEIGHT="${SCAN_MIN_HEIGHT:--0.15}"
-SCAN_MAX_HEIGHT="${SCAN_MAX_HEIGHT:-0.15}"
+# ROS 2 rejects integer literals for double-typed parameters (rclcpp
+# raises InvalidParameterTypeException, e.g. "range_max" on
+# pointcloud_to_laserscan) -- normalize every double-typed env override
+# below to decimal form with printf so a caller passing e.g.
+# SCAN_RANGE_MAX=60 (no decimal) can't crash the node it's forwarded to.
+to_float() { printf '%.6f' "$1"; }
+SCAN_MIN_HEIGHT="$(to_float "${SCAN_MIN_HEIGHT:--0.15}")"
+SCAN_MAX_HEIGHT="$(to_float "${SCAN_MAX_HEIGHT:-0.15}")"
 # PF tuning passthroughs (defaults preserve the untuned vendored values --
 # see PF_* below and pf_params.yaml generation). Motivated by the
 # longitudinal-corridor-aliasing diagnosis: PF tracks well through curves
@@ -126,12 +135,21 @@ SCAN_MAX_HEIGHT="${SCAN_MAX_HEIGHT:-0.15}"
 # likelihood (fewer overconfident resampling collapses); PF_DISP_*
 # lowers motion-model noise to trust the now-validated wheel+IMU
 # odometry prior more.
-PF_MAX_RANGE="${PF_MAX_RANGE:-30.0}"
-PF_SQUASH="${PF_SQUASH:-2.2}"
-PF_DISP_X="${PF_DISP_X:-0.05}"
-PF_DISP_Y="${PF_DISP_Y:-0.025}"
-PF_DISP_THETA="${PF_DISP_THETA:-0.25}"
-SCAN_RANGE_MAX="${SCAN_RANGE_MAX:-30.0}"
+PF_MAX_RANGE="$(to_float "${PF_MAX_RANGE:-30.0}")"
+PF_SQUASH="$(to_float "${PF_SQUASH:-2.2}")"
+PF_DISP_X="$(to_float "${PF_DISP_X:-0.05}")"
+PF_DISP_Y="$(to_float "${PF_DISP_Y:-0.025}")"
+PF_DISP_THETA="$(to_float "${PF_DISP_THETA:-0.25}")"
+SCAN_RANGE_MAX="$(to_float "${SCAN_RANGE_MAX:-30.0}")"
+# Phase 3c Lever 3: effective-sample-size (ESS) resampling gate
+# (particle_filter submodule, branch autosdv). Resample only when
+# N_eff = 1/sum(w^2) < PF_ESS_RATIO * max_particles, instead of every
+# update -- aims to stop the particle filter from collapsing onto an
+# aliased (wrong) hypothesis on featureless corridor segments via a
+# resampling step driven by a peaked-but-wrong likelihood. Default
+# (false) preserves upstream behavior (always resample).
+PF_USE_ESS_GATE="${PF_USE_ESS_GATE:-false}"
+PF_ESS_RATIO="$(to_float "${PF_ESS_RATIO:-0.5}")"
 # particle_filter's CDDT range-method precompute cost scales with grid
 # cell count (theta_discretization x width x height); a finer-resolution
 # grid (e.g. Phase 3c Lever 2's 0.05 m grid, ~4x the cells of the 0.1 m
@@ -221,6 +239,8 @@ particle_filter:
     motion_dispersion_y: $PF_DISP_Y
     motion_dispersion_theta: $PF_DISP_THETA
     rangelib_variant: 2
+    use_ess_gate: $PF_USE_ESS_GATE
+    ess_threshold_ratio: $PF_ESS_RATIO
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
@@ -259,6 +279,21 @@ setsid ros2 run pointcloud_to_laserscan pointcloud_to_laserscan_node --ros-args 
     -p use_sim_time:=true \
     > "$SCAN_LOG" 2>&1 &
 SCAN_PID=$!
+
+# --- Step 2a: verify pointcloud_to_laserscan actually stayed up. A bad
+# param (e.g. an int literal for a double-typed param like range_max --
+# rclcpp raises InvalidParameterTypeException and the node process exits)
+# otherwise fails silently here: no /scan ever appears, particle_filter
+# still starts and idles waiting on lidar_initialized, and the whole run
+# looks like an ordinary (if bad) result -- 0 inferred_pose messages --
+# rather than the void/infra failure it actually is. Fail loud instead.
+sleep 2
+if ! kill -0 "$SCAN_PID" 2>/dev/null; then
+    echo "FAIL: scan converter did not start (see scan log)"
+    echo "Scan log: $SCAN_LOG"
+    tail -n 20 "$SCAN_LOG" || true
+    exit 1
+fi
 
 # --- Step 2b: QoS bridge /scan_raw (BEST_EFFORT) -> /scan (RELIABLE) ---
 BRIDGE_SCRIPT="$REPO_DIR/tmp/scan_qos_bridge.py"
