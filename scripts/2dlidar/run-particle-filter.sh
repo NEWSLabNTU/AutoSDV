@@ -28,7 +28,10 @@
 # p_short normalisation -- see the passthrough block below), PF_SKIP_NONFINITE
 # (default false) (Phase 3e Task 3: drop non-finite/no-return observed beams
 # from sensor-model evaluation entirely instead of letting them fall into the
-# max-range table bucket -- see the passthrough block below).
+# max-range table bucket -- see the passthrough block below), PF_RANDOM_SEED
+# (default -1, meaning "do not seed" -- today's behavior) (Phase 3e Task 5:
+# seeds numpy's global RNG in particle_filter's __init__ when >= 0, making a
+# run reproducible -- see the passthrough block below).
 #
 # NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
 # this filter's actual likelihood dynamic range, measured at 47-50 nats
@@ -251,6 +254,13 @@ PF_UPDATE_ON_SCAN_ONLY="${PF_UPDATE_ON_SCAN_ONLY:-false}"
 # when PF_SKIP_NONFINITE=true -- inert (cannot trigger, defaults
 # unaffected) when skip_nonfinite_beams is false.
 PF_MIN_FINITE_BEAMS="${PF_MIN_FINITE_BEAMS:-10}"
+# Phase 3e Task 5 passthrough (particle_filter submodule, branch autosdv,
+# particle_filter/particle_filter.py). PF_RANDOM_SEED (default -1) seeds
+# numpy's global RNG once during particle_filter's __init__ when >= 0, so a
+# run becomes reproducible (particle init/resampling/motion noise all draw
+# from numpy's global RNG). Default (-1) preserves today's behavior exactly
+# -- unseeded, OS-entropy-derived randomness, unchanged run-to-run.
+PF_RANDOM_SEED="${PF_RANDOM_SEED:--1}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -350,6 +360,7 @@ particle_filter:
     lf_res_m: $PF_LF_RES_M
     lf_period_s: $PF_LF_PERIOD_S
     lf_log_floor: $PF_LF_LOG_FLOOR
+    random_seed: $PF_RANDOM_SEED
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
