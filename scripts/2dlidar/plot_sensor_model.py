@@ -798,19 +798,16 @@ def reconstruct_frozen_scan(bag_path, time_rel_s, min_height, max_height,
     }
 
 
-def evaluate_frozen_field(map_yaml, gt_x, gt_y, gt_theta, downsampled_angles,
-                           window_m, field_res_m, max_range_m, theta_discretization=112):
-    """Raycast a fine pose grid (heading fixed at `gt_theta`) centred on
-    (gt_x, gt_y) against the map via range_libc directly -- the SAME
-    PyCDDTCast + calc_range_repeat_angles path get_omap()/MCL() use
-    (particle_filter.py:292-324, 645), just evaluated over a pose grid
-    instead of the particle set.
+def load_range_method(map_yaml, max_range_m, theta_discretization=112):
+    """Load the map and build the range_libc raycaster ONCE, so callers that
+    need to evaluate multiple poses/scans against the SAME map (e.g.
+    `score_sensor_model.py`'s multi-timestamp sweep) can reuse it instead of
+    paying `PyOMap`'s per-cell Cython load loop again for every timestamp
+    (the dominant cost noted in the Phase 3d report).
 
-    Returns (predicted_ranges_m (num_poses, num_beams), xs, ys, resolution),
-    where xs/ys are the grid's metric coordinates (map frame) and
-    predicted_ranges_m[i] pairs with (xs.ravel()[i], ys.ravel()[i]) under
-    `numpy.meshgrid` row-major flattening (matches build_likelihood_field's
-    layout in particle_filter.py:757-759).
+    Returns (range_method, resolution) -- the same `range_libc.PyCDDTCast`
+    instance and map resolution `evaluate_frozen_field` would have built
+    internally.
     """
     import range_libc
 
@@ -819,7 +816,23 @@ def evaluate_frozen_field(map_yaml, gt_x, gt_y, gt_theta, downsampled_angles,
     resolution = float(map_msg.info.resolution)
     max_range_px = int(round(max_range_m / resolution))
     range_method = range_libc.PyCDDTCast(oMap, max_range_px, theta_discretization)
+    return range_method, resolution
 
+
+def evaluate_pose_grid(range_method, resolution, gt_x, gt_y, gt_theta, downsampled_angles,
+                        window_m, field_res_m):
+    """Raycast a fine pose grid (heading fixed at `gt_theta`) centred on
+    (gt_x, gt_y) against an ALREADY-BUILT `range_method` (see
+    `load_range_method`) -- the SAME PyCDDTCast + calc_range_repeat_angles
+    path get_omap()/MCL() use (particle_filter.py:292-324, 645), just
+    evaluated over a pose grid instead of the particle set.
+
+    Returns (predicted_ranges_m (num_poses, num_beams), xs, ys), where xs/ys
+    are the grid's metric coordinates (map frame) and predicted_ranges_m[i]
+    pairs with (xs.ravel()[i], ys.ravel()[i]) under `numpy.meshgrid`
+    row-major flattening (matches build_likelihood_field's layout in
+    particle_filter.py:757-759).
+    """
     n = int(round(window_m / field_res_m)) + 1
     num_rays = downsampled_angles.shape[0]
     num_poses = n * n
@@ -837,6 +850,32 @@ def evaluate_frozen_field(map_yaml, gt_x, gt_y, gt_theta, downsampled_angles,
         queries, np.ascontiguousarray(downsampled_angles, dtype=np.float32), ranges,
     )
     predicted = ranges.reshape(num_poses, num_rays).astype(np.float64)
+    return predicted, xs, ys
+
+
+def evaluate_frozen_field(map_yaml, gt_x, gt_y, gt_theta, downsampled_angles,
+                           window_m, field_res_m, max_range_m, theta_discretization=112):
+    """Raycast a fine pose grid (heading fixed at `gt_theta`) centred on
+    (gt_x, gt_y) against the map via range_libc directly -- the SAME
+    PyCDDTCast + calc_range_repeat_angles path get_omap()/MCL() use
+    (particle_filter.py:292-324, 645), just evaluated over a pose grid
+    instead of the particle set.
+
+    Returns (predicted_ranges_m (num_poses, num_beams), xs, ys, resolution),
+    where xs/ys are the grid's metric coordinates (map frame) and
+    predicted_ranges_m[i] pairs with (xs.ravel()[i], ys.ravel()[i]) under
+    `numpy.meshgrid` row-major flattening (matches build_likelihood_field's
+    layout in particle_filter.py:757-759).
+
+    Kept for backward compatibility (single-call convenience); internally
+    just chains `load_range_method` + `evaluate_pose_grid` so existing
+    callers/tests see identical behaviour.
+    """
+    range_method, resolution = load_range_method(map_yaml, max_range_m, theta_discretization)
+    predicted, xs, ys = evaluate_pose_grid(
+        range_method, resolution, gt_x, gt_y, gt_theta, downsampled_angles,
+        window_m, field_res_m,
+    )
     return predicted, xs, ys, resolution
 
 
