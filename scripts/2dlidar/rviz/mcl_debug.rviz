@@ -92,6 +92,10 @@ Visualization Manager:
     # costmap colour scheme so 100 (best pose) reads hot/bright and 0
     # (floor-clipped) reads cool/dark; alpha ~0.6 so the underlying map
     # (and particles/scan) stay visible underneath.
+    # If this layer looks uniformly black with a few isolated hot pixels,
+    # that is the lf_log_floor default (20.0 nats) clipping a field whose
+    # real dynamic range is 47-50 nats -- raise PF_LF_LOG_FLOOR (e.g.
+    # 120.0) rather than suspecting underflow. Phase 3d Task 5b refs.
     - Alpha: 0.6
       Class: rviz_default_plugins/Map
       Color Scheme: costmap

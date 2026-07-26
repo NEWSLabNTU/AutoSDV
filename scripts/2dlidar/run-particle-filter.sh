@@ -23,7 +23,17 @@
 # (default 40.0)/PF_LF_RES_M (default 0.5)/PF_LF_PERIOD_S (default
 # 1.0)/PF_LF_LOG_FLOOR (default 20.0) (Phase 3d Task 4 live
 # likelihood-field debug grid on /pf/debug/likelihood_field -- see the
-# passthrough block below). All default to
+# passthrough block below).
+#
+# NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
+# this filter's actual likelihood dynamic range, measured at 47-50 nats
+# between the true pose and the field's argmax (Phase 3d Task 5b). At the
+# default, nearly every cell -- including the true pose -- clips to 0 and
+# the overlay looks uniformly black with a few isolated hot pixels. That
+# is a display artifact, not underflow. Raise it (e.g. 120.0) to see the
+# field's structure. See docs/reports/2dlidar-phase3d-instrumentation.md.
+#
+# All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #

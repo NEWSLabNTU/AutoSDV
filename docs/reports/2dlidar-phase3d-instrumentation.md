@@ -104,7 +104,7 @@ dominant cost.
 ```bash
 python3 scripts/2dlidar/plot_mcl_diagnostics.py \
     tmp/mcl_diag.jsonl --gt-bag data/rosbags/phase3/sample_ndt_gt \
-    --out docs/reports/assets/2dlidar-phase3d-mcl-diagnostics.png
+    --out-dir docs/reports/assets --prefix 2dlidar-phase3d
 ```
 
 ---
