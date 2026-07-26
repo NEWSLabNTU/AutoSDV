@@ -218,8 +218,39 @@ PF_LAMBDA_SHORT="$(to_float "${PF_LAMBDA_SHORT:-1.0}")"
 # observed beams fall into the max-range sensor-model bucket, unchanged.
 # PF_SKIP_NONFINITE=true drops non-finite beams (and their predicted-range
 # columns) from the sensor-model evaluation entirely -- see
-# docs/research/localization/2d_mcl_algorithm.md sec 5.2.
+# docs/research/localization/2d_mcl_algorithm.md sec 5.2. PF_MIN_FINITE_BEAMS
+# (default 10) (Phase 3e Task 3 robustness guard) skips the correction
+# entirely when fewer than this many finite beams survive masking -- only
+# reachable when PF_SKIP_NONFINITE=true. PF_UPDATE_ON_SCAN_ONLY (default
+# false) (Phase 3e Task 4: docs/research/localization/2d_mcl_algorithm.md
+# sec 5.3) gates the MCL correction to run once per scan instead of once per
+# odometry message (odom arrives ~2x scan rate, so the default double-counts
+# each scan into the likelihood); odometry deltas accumulate across the
+# skipped odom callbacks via an exact rotation composition. NOTE: pose/tf
+# publishing only happens on a correction, so enabling this also drops the
+# publish rate from odom rate to scan rate.
 PF_SKIP_NONFINITE="${PF_SKIP_NONFINITE:-false}"
+# Phase 3e Task 4 passthrough (particle_filter submodule, branch autosdv,
+# particle_filter/particle_filter.py). odomCB fires at odom rate (~20 Hz)
+# while scans arrive at ~10 Hz, so upstream's "correct on every odomCB"
+# double-counts each scan into the likelihood (see
+# docs/research/localization/2d_mcl_algorithm.md sec 5.3).
+# PF_UPDATE_ON_SCAN_ONLY=true gates the correction to run only once per
+# not-yet-consumed scan; odometry deltas accumulate (exact rotation
+# composition, not approximated) across the skipped odomCB calls -- see
+# compose_odometry_delta()/should_run_correction() in the fork. NOTE:
+# pose/tf publishing only happens on a correction, so this also drops the
+# publish rate from odom rate to scan rate -- see the Task 4 report.
+# Default (false) preserves today's behavior exactly.
+PF_UPDATE_ON_SCAN_ONLY="${PF_UPDATE_ON_SCAN_ONLY:-false}"
+# Phase 3e Task 3 robustness guard (flagged during Task 3 review):
+# PF_MIN_FINITE_BEAMS is the minimum surviving finite-beam count (after
+# skip_nonfinite_beams masking) required to run the sensor-model
+# evaluation; below it, the correction is skipped for that update (uniform
+# weights) instead of letting a handful of beams dominate. Only reachable
+# when PF_SKIP_NONFINITE=true -- inert (cannot trigger, defaults
+# unaffected) when skip_nonfinite_beams is false.
+PF_MIN_FINITE_BEAMS="${PF_MIN_FINITE_BEAMS:-10}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -301,6 +332,8 @@ particle_filter:
     sensor_model_variant: '$PF_SENSOR_MODEL_VARIANT'
     sensor_model_lambda_short: $PF_LAMBDA_SHORT
     skip_nonfinite_beams: $PF_SKIP_NONFINITE
+    min_finite_beams: $PF_MIN_FINITE_BEAMS
+    update_on_new_scan_only: $PF_UPDATE_ON_SCAN_ONLY
     motion_dispersion_x: $PF_DISP_X
     motion_dispersion_y: $PF_DISP_Y
     motion_dispersion_theta: $PF_DISP_THETA
