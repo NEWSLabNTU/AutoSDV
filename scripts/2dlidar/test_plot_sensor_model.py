@@ -16,6 +16,7 @@ from plot_sensor_model import (  # noqa: E402
     sensor_model_table,
     sensor_model_table_reference_loop,
     mixture_mass_breakdown,
+    mixture_mass_breakdown_normalized_short,
     noreturn_ratio,
     build_scan_ranges,
     decimate_scan,
@@ -152,6 +153,58 @@ def test_algorithm_doc_cross_check_effective_z_hit():
         d_px = int(round(d_m / resolution))
         got_pct = breakdown["hit"][d_px] * 100
         assert got_pct == pytest.approx(exp_pct, abs=0.3), f"d={d_m}m: got {got_pct:.2f}%"
+
+
+def test_mixture_mass_breakdown_normalized_short_sums_to_one():
+    max_range_px = 1200  # 60 m / 0.05 m
+    breakdown = mixture_mass_breakdown_normalized_short(
+        max_range_px, 0.75, 0.01, 0.07, 0.12, 8.0, lambda_short=1.0,
+    )
+    d_px = 400  # 20 m
+    total = breakdown["hit"][d_px] + breakdown["short"][d_px] + breakdown["max"][d_px] \
+        + breakdown["rand"][d_px]
+    assert total == pytest.approx(1.0, rel=1e-9)
+
+
+def test_mixture_mass_breakdown_normalized_short_effective_z_hit_stays_flat():
+    # Phase 3e Task 2, sec 5.1's canonical fix: unlike upstream (25.4% ->
+    # 6.8% from 10m to 50m), effective z_hit stays flat across d.
+    resolution = 0.05
+    max_range_px = int(round(60.0 / resolution))
+    breakdown = mixture_mass_breakdown_normalized_short(
+        max_range_px, 0.75, 0.01, 0.07, 0.12, 8.0, lambda_short=1.0,
+    )
+    shares = [breakdown["hit"][int(round(d_m / resolution))] for d_m in (10, 20, 50)]
+    assert max(shares) - min(shares) < 1e-6, shares
+    assert all(abs(s - 0.75) < 0.05 for s in shares), shares
+
+
+def test_mixture_mass_breakdown_normalized_short_matches_fork_build_table():
+    # Cross-check this plotting-side re-derivation against the vendored
+    # fork's particle_filter.sensor_model.build_table (the function that
+    # actually runs online), so the two never silently drift apart.
+    fork_path = (
+        Path(__file__).resolve().parents[2]
+        / "src" / "localization" / "external" / "particle_filter"
+    )
+    if str(fork_path) not in sys.path:
+        sys.path.insert(0, str(fork_path))
+    from particle_filter.sensor_model import build_table as fork_build_table
+
+    max_range_px = 50
+    z_hit, z_short, z_max, z_rand, sigma_hit, lambda_short = 0.75, 0.01, 0.07, 0.12, 8.0, 0.7
+    table = fork_build_table(max_range_px, z_hit, z_short, z_max, z_rand, sigma_hit,
+                              variant="normalized_short", lambda_short=lambda_short)
+    breakdown = mixture_mass_breakdown_normalized_short(
+        max_range_px, z_hit, z_short, z_max, z_rand, sigma_hit, lambda_short,
+    )
+    d_px = 30
+    assert table[d_px, d_px] > 0  # sanity: table is populated
+    np.testing.assert_allclose(
+        breakdown["hit"][d_px] + breakdown["short"][d_px] + breakdown["max"][d_px]
+        + breakdown["rand"][d_px],
+        1.0, rtol=1e-9,
+    )
 
 
 def test_algorithm_doc_cross_check_noreturn_ratio_at_20m():

@@ -19,6 +19,7 @@ from score_sensor_model import (  # noqa: E402
     apply_skip_nonfinite_mask,
     build_table,
     build_upstream_table,
+    build_normalized_short_table,
     VARIANT_BUILDERS,
     summarize,
     NumpyEncoder,
@@ -210,12 +211,38 @@ def test_build_table_upstream_matches_direct_call():
 
 def test_build_table_unknown_variant_raises_clear_error():
     with pytest.raises(ValueError, match="unknown --variant"):
-        build_table("normalized_short", 20, 0.75, 0.01, 0.07, 0.12, 3.0)
+        build_table("bogus", 20, 0.75, 0.01, 0.07, 0.12, 3.0)
 
 
-def test_variant_registry_only_has_upstream_for_this_task():
-    assert set(VARIANT_BUILDERS) == {"upstream"}
+def test_variant_registry_has_upstream_and_normalized_short():
+    assert set(VARIANT_BUILDERS) == {"upstream", "normalized_short"}
     assert VARIANT_BUILDERS["upstream"] is build_upstream_table
+    assert VARIANT_BUILDERS["normalized_short"] is build_normalized_short_table
+
+
+def test_build_table_normalized_short_matches_fork_direct_call():
+    fork_path = (
+        Path(__file__).resolve().parents[2]
+        / "src" / "localization" / "external" / "particle_filter"
+    )
+    if str(fork_path) not in sys.path:
+        sys.path.insert(0, str(fork_path))
+    from particle_filter.sensor_model import build_table as fork_build_table
+
+    table = build_table("normalized_short", max_range_px=20, z_hit=0.75, z_short=0.01,
+                         z_max=0.07, z_rand=0.12, sigma_px=3.0, lambda_short=0.5)
+    expected = fork_build_table(20, 0.75, 0.01, 0.07, 0.12, 3.0,
+                                 variant="normalized_short", lambda_short=0.5)
+    np.testing.assert_array_equal(table, expected)
+
+
+def test_build_table_normalized_short_default_lambda_short_is_one():
+    table_default = build_table("normalized_short", max_range_px=20, z_hit=0.75,
+                                 z_short=0.01, z_max=0.07, z_rand=0.12, sigma_px=3.0)
+    table_explicit = build_table("normalized_short", max_range_px=20, z_hit=0.75,
+                                  z_short=0.01, z_max=0.07, z_rand=0.12, sigma_px=3.0,
+                                  lambda_short=1.0)
+    np.testing.assert_array_equal(table_default, table_explicit)
 
 
 # ---------------------------------------------------------------------------

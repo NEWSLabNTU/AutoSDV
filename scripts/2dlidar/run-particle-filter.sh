@@ -23,7 +23,9 @@
 # (default 40.0)/PF_LF_RES_M (default 0.5)/PF_LF_PERIOD_S (default
 # 1.0)/PF_LF_LOG_FLOOR (default 20.0) (Phase 3d Task 4 live
 # likelihood-field debug grid on /pf/debug/likelihood_field -- see the
-# passthrough block below).
+# passthrough block below), PF_SENSOR_MODEL_VARIANT (default "upstream")/
+# PF_LAMBDA_SHORT (default 1.0, 1/pixel) (Phase 3e Task 2 sensor-model
+# p_short normalisation -- see the passthrough block below).
 #
 # NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
 # this filter's actual likelihood dynamic range, measured at 47-50 nats
@@ -197,6 +199,16 @@ PF_LF_WINDOW_M="$(to_float "${PF_LF_WINDOW_M:-40.0}")"
 PF_LF_RES_M="$(to_float "${PF_LF_RES_M:-0.5}")"
 PF_LF_PERIOD_S="$(to_float "${PF_LF_PERIOD_S:-1.0}")"
 PF_LF_LOG_FLOOR="$(to_float "${PF_LF_LOG_FLOOR:-20.0}")"
+# Phase 3e Task 2: sensor-model variant passthrough (particle_filter
+# submodule, branch autosdv, particle_filter/sensor_model.py). Default
+# ("upstream") preserves today's (unnormalised p_short) table exactly.
+# PF_SENSOR_MODEL_VARIANT=normalized_short switches to the per-column-
+# normalised short-reading component (docs/research/localization/
+# 2d_mcl_algorithm.md sec 5.1); PF_LAMBDA_SHORT (1/pixel) only affects
+# that variant -- see sensor_model.py's module docstring for why its
+# value is resolution-dependent.
+PF_SENSOR_MODEL_VARIANT="${PF_SENSOR_MODEL_VARIANT:-upstream}"
+PF_LAMBDA_SHORT="$(to_float "${PF_LAMBDA_SHORT:-1.0}")"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -275,6 +287,8 @@ particle_filter:
     z_rand: 0.12
     z_hit: 0.75
     sigma_hit: 8.0
+    sensor_model_variant: '$PF_SENSOR_MODEL_VARIANT'
+    sensor_model_lambda_short: $PF_LAMBDA_SHORT
     motion_dispersion_x: $PF_DISP_X
     motion_dispersion_y: $PF_DISP_Y
     motion_dispersion_theta: $PF_DISP_THETA

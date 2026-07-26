@@ -191,6 +191,52 @@ def mixture_mass_breakdown(max_range_px, z_hit, z_short, z_max, z_rand, sigma_hi
     }
 
 
+def mixture_mass_breakdown_normalized_short(max_range_px, z_hit, z_short, z_max, z_rand,
+                                             sigma_hit, lambda_short=1.0):
+    """Same as `mixture_mass_breakdown`, but for the Phase 3e Task 2
+    "normalized_short" variant (docs/research/localization/
+    2d_mcl_algorithm.md sec 5.1's canonical fix): the short-reading term is
+    a per-column-normalised truncated exponential,
+    `eta * lambda_short * exp(-lambda_short * r)` for `0 <= r <= d`, whose
+    mass no longer scales with `d` the way the upstream ramp's does. This
+    is a standalone re-derivation for plotting (matches
+    `particle_filter.sensor_model.build_table(..., variant="normalized_short")`
+    in the vendored fork; see `test_plot_sensor_model.py` for the
+    cross-check against the fork's implementation).
+    """
+    table_width = int(max_range_px) + 1
+    r_idx = np.arange(table_width, dtype=np.float64)[:, None]
+    d_idx = np.arange(table_width, dtype=np.float64)[None, :]
+
+    diff = r_idx - d_idx
+    hit_term = z_hit * np.exp(-(diff * diff) / (2.0 * sigma_hit * sigma_hit)) \
+        / (sigma_hit * np.sqrt(2.0 * np.pi))
+
+    short_mask = r_idx < d_idx
+    with np.errstate(divide="ignore", invalid="ignore"):
+        denom = 1.0 - np.exp(-lambda_short * d_idx)
+        eta = np.where(d_idx == 0, 0.0, 1.0 / np.where(d_idx == 0, 1.0, denom))
+        short_term = np.where(
+            short_mask,
+            z_short * eta * lambda_short * np.exp(-lambda_short * r_idx),
+            0.0,
+        )
+
+    max_mask = (r_idx == float(max_range_px))
+    max_term = np.where(max_mask, z_max, 0.0)
+
+    rand_mask = r_idx < float(max_range_px)
+    rand_term = np.where(rand_mask, z_rand / float(max_range_px), 0.0)
+
+    total = (hit_term + short_term + max_term + rand_term).sum(axis=0)
+    return {
+        "hit": hit_term.sum(axis=0) / total,
+        "short": short_term.sum(axis=0) / total,
+        "max": max_term.sum(axis=0) / total,
+        "rand": rand_term.sum(axis=0) / total,
+    }
+
+
 def noreturn_ratio(table, max_range_px):
     """P(no-return) / P(perfect match), per column d.
 
@@ -407,6 +453,50 @@ def plot_mixture_mass(ax, resolution, max_range, z_hit, z_short, z_max, z_rand, 
     ax.legend(loc="center right", frameon=False, fontsize=8)
 
 
+def plot_mixture_mass_comparison(axes, resolution, max_range, z_hit, z_short, z_max, z_rand,
+                                  sigma_px, lambda_short=1.0, d_range_m=(5, 55)):
+    """Phase 3e Task 2: upstream vs normalized_short mixture-mass
+    breakdown, side by side, so the effective-weight repair (sec 5.1) is
+    directly visible -- configured z_hit=0.75 degrades to 6.8% by 50m
+    under "upstream" but stays close to 0.75 across the whole range under
+    "normalized_short". `axes` is a length-2 sequence of matplotlib Axes.
+    """
+    max_range_px = int(round(max_range / resolution))
+    upstream = mixture_mass_breakdown(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px)
+    normalized = mixture_mass_breakdown_normalized_short(
+        max_range_px, z_hit, z_short, z_max, z_rand, sigma_px, lambda_short,
+    )
+
+    d_lo_px = int(round(d_range_m[0] / resolution))
+    d_hi_px = int(round(d_range_m[1] / resolution))
+    d_px = np.arange(d_lo_px, d_hi_px + 1)
+    d_m = d_px * resolution
+
+    for ax, breakdown, title in (
+        (axes[0], upstream, "upstream (unnormalised p_short)"),
+        (axes[1], normalized, f"normalized_short (lambda_short={lambda_short:g} /px)"),
+    ):
+        ax.stackplot(
+            d_m,
+            breakdown["hit"][d_px] * 100,
+            breakdown["short"][d_px] * 100,
+            breakdown["max"][d_px] * 100,
+            breakdown["rand"][d_px] * 100,
+            colors=[COLOR_HIT, COLOR_SHORT, COLOR_MAX, COLOR_RAND],
+            labels=["hit (Gaussian)", "short", "max-range", "rand"],
+            zorder=3,
+        )
+        ax.axhline(z_hit * 100, color="0.2", linewidth=1.2, linestyle="--", zorder=4,
+                   label=f"configured z_hit={z_hit:g}")
+        ax.set_xlabel("predicted range d (m)")
+        ax.set_ylim(0, 100)
+        ax.set_title(title, fontsize=10)
+        ax.grid(True, axis="y", **GRID_KW)
+
+    axes[0].set_ylabel("effective mixture-weight share of column (%)")
+    axes[1].legend(loc="center right", frameon=False, fontsize=8)
+
+
 def plot_noreturn_ratio(ax, resolution, max_range, z_hit, z_short, z_max, z_rand, sigma_px,
                          d_range_m=(5, 55)):
     max_range_px = int(round(max_range / resolution))
@@ -435,7 +525,7 @@ def plot_noreturn_ratio(ax, resolution, max_range, z_hit, z_short, z_max, z_rand
 
 
 def render_all_figures(resolution, max_range, z_hit, z_short, z_max, z_rand, sigma_px,
-                        out_dir, prefix):
+                        out_dir, prefix, lambda_short=1.0):
     plt = _mpl()
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -458,6 +548,22 @@ def render_all_figures(resolution, max_range, z_hit, z_short, z_max, z_rand, sig
     fig.suptitle(params, fontsize=8, color="0.4", y=0.995)
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     path = out_dir / f"{prefix}-sensor-model-mixture-mass.png"
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+    written.append(path)
+
+    # 2b. mixture mass -- upstream vs normalized_short comparison
+    # (Phase 3e Task 2, sec 5.1's canonical fix).
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
+    plot_mixture_mass_comparison(axes, resolution, max_range, z_hit, z_short, z_max, z_rand,
+                                  sigma_px, lambda_short=lambda_short)
+    fig.suptitle(
+        params + f", lambda_short={lambda_short:g} /px\n"
+        "Effective mixture-weight breakdown: upstream vs. normalized_short (sec 5.1)",
+        fontsize=9, y=1.0,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
+    path = out_dir / f"{prefix}-sensor-model-mixture-mass-comparison.png"
     fig.savefig(path, dpi=150)
     plt.close(fig)
     written.append(path)
@@ -980,6 +1086,9 @@ def main(argv=None):
     ap.add_argument("--z-max", type=float, default=0.07)
     ap.add_argument("--z-rand", type=float, default=0.12)
     ap.add_argument("--sigma-px", type=float, default=8.0, help="sigma_hit, in map pixels")
+    ap.add_argument("--lambda-short", type=float, default=1.0,
+                     help="1/pixel decay rate for the normalized_short mixture-mass "
+                          "comparison figure (Phase 3e Task 2)")
     ap.add_argument("--out-dir", type=Path, default=Path("docs/reports/assets"))
     ap.add_argument("--prefix", default="2dlidar-phase3d")
 
@@ -1014,6 +1123,7 @@ def main(argv=None):
     written = render_all_figures(
         args.resolution, args.max_range, args.z_hit, args.z_short, args.z_max,
         args.z_rand, args.sigma_px, args.out_dir, args.prefix,
+        lambda_short=args.lambda_short,
     )
 
     max_range_px = int(round(args.max_range / args.resolution))

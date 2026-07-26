@@ -56,25 +56,51 @@ import plot_sensor_model as psm  # noqa: E402
 # ---------------------------------------------------------------------------
 # Variant registry -- table builders.
 #
-# `upstream` is the ONLY variant implemented by this task; it reuses
-# plot_sensor_model.sensor_model_table with the same defaults Phase 3d used
-# (z_hit=0.75, z_short=0.01, z_max=0.07, z_rand=0.12, sigma_px=8.0). A future
-# `normalized_short` variant plugs in here as another VARIANT_BUILDERS entry
-# without touching score_timestamp/run's control flow.
+# `upstream` reuses plot_sensor_model.sensor_model_table with the same
+# defaults Phase 3d used (z_hit=0.75, z_short=0.01, z_max=0.07, z_rand=0.12,
+# sigma_px=8.0). `normalized_short` (Phase 3e Task 2) reuses the vendored
+# fork's particle_filter.sensor_model.build_table -- the SAME function
+# wired into precompute_sensor_model() -- so this harness scores the exact
+# arithmetic that would run online, not a re-derivation of it. Neither
+# addition touches score_timestamp/run's control flow.
 # ---------------------------------------------------------------------------
 
-def build_upstream_table(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px):
+def build_upstream_table(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px,
+                          lambda_short=1.0):
     """upstream variant: identical arithmetic to Phase 3d's
     `precompute_sensor_model` port (plot_sensor_model.sensor_model_table)."""
     return psm.sensor_model_table(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px)
 
 
+def build_normalized_short_table(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px,
+                                  lambda_short=1.0):
+    """normalized_short variant (Phase 3e Task 2): per-column-normalised
+    truncated-exponential short-reading component, via the vendored fork's
+    `particle_filter.sensor_model.build_table` -- the exact function
+    `precompute_sensor_model()` calls online (see
+    src/localization/external/particle_filter/particle_filter/sensor_model.py).
+    """
+    fork_path = (
+        Path(__file__).resolve().parents[2]
+        / "src" / "localization" / "external" / "particle_filter"
+    )
+    if str(fork_path) not in sys.path:
+        sys.path.insert(0, str(fork_path))
+    from particle_filter.sensor_model import build_table as fork_build_table
+    return fork_build_table(
+        max_range_px, z_hit, z_short, z_max, z_rand, sigma_px,
+        variant="normalized_short", lambda_short=lambda_short,
+    )
+
+
 VARIANT_BUILDERS = {
     "upstream": build_upstream_table,
+    "normalized_short": build_normalized_short_table,
 }
 
 
-def build_table(variant, max_range_px, z_hit, z_short, z_max, z_rand, sigma_px):
+def build_table(variant, max_range_px, z_hit, z_short, z_max, z_rand, sigma_px,
+                 lambda_short=1.0):
     """Dispatch to the variant's table builder. Raises ValueError on an
     unknown variant name (clear error, per the brief)."""
     try:
@@ -83,7 +109,7 @@ def build_table(variant, max_range_px, z_hit, z_short, z_max, z_rand, sigma_px):
         raise ValueError(
             f"unknown --variant '{variant}'; available: {sorted(VARIANT_BUILDERS)}"
         )
-    return builder(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px)
+    return builder(max_range_px, z_hit, z_short, z_max, z_rand, sigma_px, lambda_short)
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +319,7 @@ def run(args):
     max_range_px = int(round(args.max_range / resolution))
     table = build_table(
         args.variant, max_range_px, args.z_hit, args.z_short, args.z_max,
-        args.z_rand, args.sigma_px,
+        args.z_rand, args.sigma_px, args.lambda_short,
     )
 
     times = _parse_times(args.times)
@@ -332,6 +358,7 @@ def run(args):
             "z_max": args.z_max,
             "z_rand": args.z_rand,
             "sigma_px": args.sigma_px,
+            "lambda_short": args.lambda_short,
             "min_height": args.min_height,
             "max_height": args.max_height,
             "max_range_m": args.max_range,
@@ -426,6 +453,9 @@ def main(argv=None):
     ap.add_argument("--z-max", type=float, default=0.07)
     ap.add_argument("--z-rand", type=float, default=0.12)
     ap.add_argument("--sigma-px", type=float, default=8.0, help="sigma_hit, in map pixels")
+    ap.add_argument("--lambda-short", type=float, default=1.0,
+                     help="1/pixel decay rate for --variant normalized_short's "
+                          "short-reading component (ignored for --variant upstream)")
     ap.add_argument("--theta-discretization", type=int, default=112)
     ap.add_argument("--out-json", type=Path, required=True)
     ap.add_argument("--out-fig", type=Path, default=None)
