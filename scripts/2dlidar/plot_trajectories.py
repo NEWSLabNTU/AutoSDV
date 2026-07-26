@@ -56,11 +56,21 @@ def load_grid(map_yaml):
     return grid, [ox, ox + width * res, oy, oy + height * res]
 
 
-def time_markers(ax, track, colour, mark_every):
-    """Annotate a track with elapsed-time markers every mark_every seconds."""
-    t0 = track[0][0]
+def time_markers(ax, track, colour, mark_every, t0):
+    """Annotate a track with elapsed-time markers every mark_every seconds.
+
+    t0 is supplied by the caller and shared by every track in the figure (and
+    across the three figures), so a given label marks the same instant on both
+    tracks. Deriving it per-track instead would silently shift one track's
+    labels relative to the other whenever they start at different times --
+    which they do here, since 2D-MCL publishes from startup while the NDT
+    ground truth only begins once its own initialisation converges.
+    """
     span = track[-1][0] - t0
+    first = track[0][0] - t0
     for mark in range(0, int(span) + 1, mark_every):
+        if mark < first - mark_every:
+            continue          # this track had not started publishing yet
         idx = int(np.argmin([abs(row[0] - (t0 + mark)) for row in track]))
         x, y = track[idx][1], track[idx][2]
         ax.plot(x, y, marker="o", ms=7, mfc="white", mec=colour, mew=2, zorder=5)
@@ -77,7 +87,7 @@ def time_markers(ax, track, colour, mark_every):
     return span
 
 
-def draw(tracks, title, out_path, grid, extent, limits, mark_every):
+def draw(tracks, title, out_path, grid, extent, limits, mark_every, t0):
     """Draw one or more (track, label, colour) tuples onto the grid."""
     fig, ax = plt.subplots(figsize=(10, 11))
     ax.imshow(
@@ -89,7 +99,7 @@ def draw(tracks, title, out_path, grid, extent, limits, mark_every):
         xs = [row[1] for row in track]
         ys = [row[2] for row in track]
         ax.plot(xs, ys, "-", c=colour, lw=2.6, label=f"{label} ({len(track)} poses)", zorder=3)
-        spans.append(time_markers(ax, track, colour, mark_every))
+        spans.append(time_markers(ax, track, colour, mark_every, t0))
         ax.plot(xs[0], ys[0], marker="s", ms=11, mfc=colour, mec="k", zorder=7)
         ax.plot(xs[-1], ys[-1], marker="X", ms=13, mfc=colour, mec="k", zorder=7)
 
@@ -100,7 +110,7 @@ def draw(tracks, title, out_path, grid, extent, limits, mark_every):
     ax.set_xlabel("map x (m)")
     ax.set_ylabel("map y (m)")
     ax.set_title(f"{title}\nsquare = start, X = end, markers every {mark_every} s "
-                 f"({max(spans):.0f} s run)", fontsize=13)
+                 f"({max(spans):.0f} s run, shared clock)", fontsize=13)
     ax.legend(loc="lower right", fontsize=10)
     ax.grid(alpha=0.2)
     fig.tight_layout()
@@ -137,7 +147,10 @@ def main(argv=None):
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    common = dict(grid=grid, extent=extent, limits=limits, mark_every=args.mark_every)
+    # one clock for all three figures: earliest pose of either track
+    t0 = min(gt[0][0], mcl[0][0])
+    common = dict(grid=grid, extent=extent, limits=limits,
+                  mark_every=args.mark_every, t0=t0)
 
     draw([(gt, NDT_LABEL, NDT_COLOUR)], NDT_LABEL,
          out_dir / f"{args.prefix}-ndt.png", **common)
