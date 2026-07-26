@@ -48,7 +48,8 @@
 	url = https://github.com/jerry73204/leodrive-bus-launch.git
 [submodule "src/localization/external/particle_filter"]
 	path = src/localization/external/particle_filter
-	url = https://github.com/CL2-UWaterloo/particle_filter.git
+	url = https://github.com/NEWSLabNTU/particle_filter.git
+	branch = autosdv
 [submodule "src/localization/external/range_libc"]
 	path = src/localization/external/range_libc
 	url = https://github.com/NEWSLabNTU/range_libc.git
