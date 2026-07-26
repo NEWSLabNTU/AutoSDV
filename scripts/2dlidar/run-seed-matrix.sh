@@ -21,17 +21,27 @@
 #   setsid bash scripts/2dlidar/run-seed-matrix.sh > tmp/seedmatrix.log 2>&1 &
 # then poll data/rosbags/phase3/seedmatrix/results.jsonl (wc -l) rather
 # than waiting on the background job.
+#
+# Phase 4 Task 1: MATRIX_CONFIGS (default "upstream fixed", unchanged) and
+# MATRIX_OUT_SUBDIR (default "seedmatrix", unchanged) let a caller run a
+# separate matrix -- e.g. CONFIGS="fixed" with INITPOSE_SOURCE=gnss -- into
+# its own results.jsonl/output dir without touching the Phase 3e results.
+# INITPOSE_SOURCE itself is just forwarded to run-particle-filter.sh
+# (exported below); unset (the default) is byte-identical to every Phase 3e
+# invocation of this script.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$REPO_DIR"
 
-OUT_DIR="$REPO_DIR/data/rosbags/phase3/seedmatrix"
+MATRIX_OUT_SUBDIR="${MATRIX_OUT_SUBDIR:-seedmatrix}"
+OUT_DIR="$REPO_DIR/data/rosbags/phase3/$MATRIX_OUT_SUBDIR"
 RESULTS="$OUT_DIR/results.jsonl"
 mkdir -p "$OUT_DIR" "$REPO_DIR/tmp"
 
 SEEDS="1 2 3 4 5"
-CONFIGS="upstream fixed"
+CONFIGS="${MATRIX_CONFIGS:-upstream fixed}"
+export INITPOSE_SOURCE="${INITPOSE_SOURCE:-gt_bag}"
 
 # --- Sample-site env, common to both configurations (per task-5-brief) ---
 export BAG="${BAG:-$REPO_DIR/data/rosbags/phase3/sample_ndt_gt}"

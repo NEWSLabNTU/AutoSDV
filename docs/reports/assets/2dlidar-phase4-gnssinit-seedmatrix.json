@@ -1,0 +1,47 @@
+[
+  {
+    "config": "fixed",
+    "seed": 1,
+    "pairs": 224,
+    "trans_mean": 0.8008,
+    "trans_p95": 2.0489,
+    "trans_max": 2.6611,
+    "yaw_mean_abs": 0.0266
+  },
+  {
+    "config": "fixed",
+    "seed": 2,
+    "pairs": 229,
+    "trans_mean": 0.858,
+    "trans_p95": 2.0882,
+    "trans_max": 2.6731,
+    "yaw_mean_abs": 0.0281
+  },
+  {
+    "config": "fixed",
+    "seed": 3,
+    "pairs": 227,
+    "trans_mean": 0.7607,
+    "trans_p95": 1.9809,
+    "trans_max": 2.6273,
+    "yaw_mean_abs": 0.0263
+  },
+  {
+    "config": "fixed",
+    "seed": 4,
+    "pairs": 228,
+    "trans_mean": 0.7723,
+    "trans_p95": 2.0154,
+    "trans_max": 2.6604,
+    "yaw_mean_abs": 0.0267
+  },
+  {
+    "config": "fixed",
+    "seed": 5,
+    "pairs": 228,
+    "trans_mean": 0.7707,
+    "trans_p95": 1.9951,
+    "trans_max": 2.6025,
+    "yaw_mean_abs": 0.0257
+  }
+]

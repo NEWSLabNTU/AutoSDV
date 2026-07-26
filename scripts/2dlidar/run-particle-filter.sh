@@ -31,7 +31,12 @@
 # max-range table bucket -- see the passthrough block below), PF_RANDOM_SEED
 # (default -1, meaning "do not seed" -- today's behavior) (Phase 3e Task 5:
 # seeds numpy's global RNG in particle_filter's __init__ when >= 0, making a
-# run reproducible -- see the passthrough block below).
+# run reproducible -- see the passthrough block below), INITPOSE_SOURCE
+# (default "gt_bag"; also "gnss") / GNSS_BAG / GNSS_FIX_TOPIC /
+# MAP_PROJECTOR_INFO_YAML / LANELET2_MAP_OSM / PF_INIT_SPREAD_XY /
+# PF_INIT_SPREAD_THETA (Phase 4 Task 1: real gnss_poser-based /initialpose
+# seeding instead of the GT-bag oracle -- see the Step -1 block below and
+# scripts/2dlidar/gnss_init_seed.py).
 #
 # NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
 # this filter's actual likelihood dynamic range, measured at 47-50 nats
@@ -261,6 +266,31 @@ PF_MIN_FINITE_BEAMS="${PF_MIN_FINITE_BEAMS:-10}"
 # from numpy's global RNG). Default (-1) preserves today's behavior exactly
 # -- unseeded, OS-entropy-derived randomness, unchanged run-to-run.
 PF_RANDOM_SEED="${PF_RANDOM_SEED:--1}"
+# Phase 4 Task 1: replace the oracle GT-bag initialization with Autoware's
+# real GNSS auto-init path (gnss_poser -> gnss_init_seed.py, see that
+# script's header). INITPOSE_SOURCE=gt_bag (default) preserves every
+# Phase 3e run byte-for-byte (oracle: first /localization/kinematic_state
+# pose out of GT_BAG). INITPOSE_SOURCE=gnss instead runs the real
+# autoware_map_projection_loader + autoware_gnss_poser nodes against
+# GNSS_BAG's raw NavSatFix stream and seeds /initialpose from their output
+# -- no oracle, no human input. GNSS_BAG/GNSS_FIX_TOPIC/MAP_PROJECTOR_INFO_YAML/
+# LANELET2_MAP_OSM only matter when INITPOSE_SOURCE=gnss.
+INITPOSE_SOURCE="${INITPOSE_SOURCE:-gt_bag}"
+GNSS_BAG="${GNSS_BAG:-$REPO_DIR/data/sample-rosbag-replay/sample-rosbag-migrated}"
+GNSS_FIX_TOPIC="${GNSS_FIX_TOPIC:-/sensing/gnss/ublox/nav_sat_fix}"
+MAP_PROJECTOR_INFO_YAML="${MAP_PROJECTOR_INFO_YAML:-$REPO_DIR/data/sample-rosbag-replay/sample-map-rosbag/map_projector_info.yaml}"
+LANELET2_MAP_OSM="${LANELET2_MAP_OSM:-$REPO_DIR/data/sample-rosbag-replay/sample-map-rosbag/lanelet2_map.osm}"
+# Phase 4 Task 1: particle-init spread passthrough (particle_filter
+# submodule, branch autosdv). initialize_particles_pose() ignores the
+# /initialpose message's covariance entirely and always drew from a
+# hardcoded sigma=0.5m/0.4rad Gaussian -- fine for a centimetre-scale
+# oracle seed, badly undersized for a metre-scale GNSS seed. Left unset,
+# INITPOSE_SOURCE=gnss derives a sensible spread from gnss_poser's own
+# output covariance below (sqrt of the diagonal); INITPOSE_SOURCE=gt_bag
+# leaves both unset and they fall through to the fork's 0.5/0.4 defaults,
+# unchanged from every Phase 3e run. Set explicitly to override either way.
+PF_INIT_SPREAD_XY="${PF_INIT_SPREAD_XY:-}"
+PF_INIT_SPREAD_THETA="${PF_INIT_SPREAD_THETA:-}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -314,6 +344,44 @@ source /opt/autoware/1.5.0/setup.bash
 source "$REPO_DIR/install/setup.bash"
 set -u
 
+# --- Step -1 (only when INITPOSE_SOURCE=gnss): derive the seed pose AND
+# the particle-init spread from real gnss_poser output BEFORE writing
+# pf_params.yaml below, since init_spread_{xy,theta} are read once at
+# particle_filter startup (Step 4) -- they cannot be changed after the
+# node is up. See scripts/2dlidar/gnss_init_seed.py for what actually runs
+# (autoware_map_projection_loader + autoware_gnss_poser, real Autoware
+# nodes, no reimplemented projection math).
+GNSS_X="" ; GNSS_Y="" ; GNSS_Z="" ; GNSS_QX="" ; GNSS_QY="" ; GNSS_QZ="" ; GNSS_QW=""
+GNSS_COV_XX="" ; GNSS_COV_YY="" ; GNSS_COV_YAW="" ; GNSS_SRC_T0="" ; GNSS_SRC_T1=""
+if [ "$INITPOSE_SOURCE" = "gnss" ]; then
+    echo "Deriving GNSS seed pose from $GNSS_BAG ($GNSS_FIX_TOPIC) via gnss_poser..."
+    GNSS_SEED_LOG="$(mktemp "$REPO_DIR/tmp/run-pf-gnss-seed.XXXXXX.log")"
+    GNSS_SEED_OUT="$(python3 "$SCRIPT_DIR/gnss_init_seed.py" \
+        --gnss-bag "$GNSS_BAG" --gnss-topic "$GNSS_FIX_TOPIC" \
+        --map-projector-info "$MAP_PROJECTOR_INFO_YAML" \
+        --lanelet2-map "$LANELET2_MAP_OSM" 2>"$GNSS_SEED_LOG")" || {
+        echo "FAIL: gnss_init_seed.py did not produce a seed pose (see $GNSS_SEED_LOG)"
+        exit 1
+    }
+    read -r GNSS_X GNSS_Y GNSS_Z GNSS_QX GNSS_QY GNSS_QZ GNSS_QW \
+        GNSS_COV_XX GNSS_COV_YY GNSS_COV_YAW GNSS_SRC_T0 GNSS_SRC_T1 <<< "$GNSS_SEED_OUT"
+    if [ -z "${GNSS_X:-}" ]; then
+        echo "FAIL: could not parse gnss_init_seed.py output: '$GNSS_SEED_OUT' (see $GNSS_SEED_LOG)"
+        exit 1
+    fi
+    echo "GNSS-derived seed pose: x=$GNSS_X y=$GNSS_Y qz=$GNSS_QZ qw=$GNSS_QW cov_xx=$GNSS_COV_XX cov_yy=$GNSS_COV_YY cov_yaw=$GNSS_COV_YAW (source NavSatFix msgs at t=$GNSS_SRC_T0,$GNSS_SRC_T1 s from $GNSS_BAG start)"
+    if [ -z "$PF_INIT_SPREAD_XY" ]; then
+        PF_INIT_SPREAD_XY="$(python3 -c "import math; print(math.sqrt(max($GNSS_COV_XX, $GNSS_COV_YY)))")"
+        echo "PF_INIT_SPREAD_XY not set -- derived from gnss_poser covariance: $PF_INIT_SPREAD_XY m"
+    fi
+    if [ -z "$PF_INIT_SPREAD_THETA" ]; then
+        PF_INIT_SPREAD_THETA="$(python3 -c "import math; print(math.sqrt($GNSS_COV_YAW))")"
+        echo "PF_INIT_SPREAD_THETA not set -- derived from gnss_poser covariance: $PF_INIT_SPREAD_THETA rad"
+    fi
+fi
+PF_INIT_SPREAD_XY="$(to_float "${PF_INIT_SPREAD_XY:-0.5}")"
+PF_INIT_SPREAD_THETA="$(to_float "${PF_INIT_SPREAD_THETA:-0.4}")"
+
 # --- Step 0: write pf_params.yaml (vendored config/localize.yaml + overrides) ---
 # NOTE: heredoc is unquoted (variable substitution) so PF_* env overrides
 # above reach the tuned parameters; all other values stay literal (no `$`
@@ -361,6 +429,8 @@ particle_filter:
     lf_period_s: $PF_LF_PERIOD_S
     lf_log_floor: $PF_LF_LOG_FLOOR
     random_seed: $PF_RANDOM_SEED
+    init_spread_xy_m: $PF_INIT_SPREAD_XY
+    init_spread_theta_rad: $PF_INIT_SPREAD_THETA
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
@@ -483,9 +553,18 @@ while ! grep -q "Finished initializing" "$PF_LOG" 2>/dev/null; do
 done
 echo "particle_filter ready after ~${elapsed}s"
 
-# --- Step 5: extract the first GT pose for /initialpose ---
-POSE_EXTRACT_SCRIPT="$REPO_DIR/tmp/extract_first_pose.py"
-cat > "$POSE_EXTRACT_SCRIPT" <<'PYEOF'
+# --- Step 5: acquire the seed pose for /initialpose. gt_bag (default,
+# oracle): first /localization/kinematic_state pose out of GT_BAG. gnss:
+# already computed above (Step -1) from real gnss_poser output -- no
+# per-run bag read needed here. ---
+if [ "$INITPOSE_SOURCE" = "gnss" ]; then
+    GT_X="$GNSS_X"; GT_Y="$GNSS_Y"; GT_Z="$GNSS_Z"
+    GT_QX="$GNSS_QX"; GT_QY="$GNSS_QY"; GT_QZ="$GNSS_QZ"; GT_QW="$GNSS_QW"
+    INITPOSE_COV_XX="$GNSS_COV_XX"; INITPOSE_COV_YY="$GNSS_COV_YY"; INITPOSE_COV_YAW="$GNSS_COV_YAW"
+    echo "Using GNSS-derived seed pose for /initialpose: x=$GT_X y=$GT_Y qz=$GT_QZ qw=$GT_QW"
+else
+    POSE_EXTRACT_SCRIPT="$REPO_DIR/tmp/extract_first_pose.py"
+    cat > "$POSE_EXTRACT_SCRIPT" <<'PYEOF'
 import sys
 import rosbag2_py
 from rclpy.serialization import deserialize_message
@@ -509,16 +588,18 @@ while reader.has_next():
         break
 PYEOF
 
-POSE_LOG="$(mktemp "$REPO_DIR/tmp/run-pf-pose-extract.XXXXXX.log")"
-POSE_OUT="$(python3 "$POSE_EXTRACT_SCRIPT" "$GT_BAG" 2>>"$POSE_LOG")" || POSE_OUT=""
-read -r GT_X GT_Y GT_Z GT_QX GT_QY GT_QZ GT_QW <<< "$POSE_OUT"
+    POSE_LOG="$(mktemp "$REPO_DIR/tmp/run-pf-pose-extract.XXXXXX.log")"
+    POSE_OUT="$(python3 "$POSE_EXTRACT_SCRIPT" "$GT_BAG" 2>>"$POSE_LOG")" || POSE_OUT=""
+    read -r GT_X GT_Y GT_Z GT_QX GT_QY GT_QZ GT_QW <<< "$POSE_OUT"
 
-if [ -z "${GT_X:-}" ]; then
-    echo "FAIL: could not extract initial pose from $GT_BAG"
-    echo "Pose extraction log: $POSE_LOG"
-    exit 1
+    if [ -z "${GT_X:-}" ]; then
+        echo "FAIL: could not extract initial pose from $GT_BAG"
+        echo "Pose extraction log: $POSE_LOG"
+        exit 1
+    fi
+    echo "Initial pose from GT bag (oracle): x=$GT_X y=$GT_Y qz=$GT_QZ qw=$GT_QW"
+    INITPOSE_COV_XX="0.25"; INITPOSE_COV_YY="0.25"; INITPOSE_COV_YAW="0.068"
 fi
-echo "Initial pose from GT bag: x=$GT_X y=$GT_Y qz=$GT_QZ qw=$GT_QW"
 
 # --- Step 6: start recording the PF pose bag ---
 rm -rf "$OUT"
@@ -535,7 +616,7 @@ sleep 2
     ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
         "{header: {frame_id: 'map'}, pose: {pose: {position: {x: $GT_X, y: $GT_Y, z: 0.0}, \
         orientation: {x: $GT_QX, y: $GT_QY, z: $GT_QZ, w: $GT_QW}}, \
-        covariance: [0.25,0,0,0,0,0, 0,0.25,0,0,0,0, 0,0,0.25,0,0,0, 0,0,0,0.068,0,0, 0,0,0,0,0.068,0, 0,0,0,0,0,0.068]}}" \
+        covariance: [$INITPOSE_COV_XX,0,0,0,0,0, 0,$INITPOSE_COV_YY,0,0,0,0, 0,0,0.25,0,0,0, 0,0,0,0.068,0,0, 0,0,0,0,0.068,0, 0,0,0,0,0,$INITPOSE_COV_YAW]}}" \
         > /dev/null 2>&1
 ) &
 INITPOSE_PID=$!
