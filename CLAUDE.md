@@ -457,6 +457,10 @@ gnss_receiver:=garmin|ublox|septentrio
 # pose_source options:
 pose_source:=cuda_ndt  # Default: CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)
 pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
+# pose_source_package defaults to "auto" and is derived from pose_source
+# (cuda_ndt -> cuda_ndt_matcher_launch, otherwise built-in NDT). Set it
+# explicitly only to plug in a third-party estimator. See
+# docs/design/localization-method-switching.md.
 pose_source:=isaac     # cuVSLAM visual odometry only (relative tracking, manual init)
 pose_source:=visual    # cuVGL + cuVSLAM (camera-only, auto init from visual map)
 
