@@ -17,6 +17,9 @@ from plot_sensor_model import (  # noqa: E402
     sensor_model_table_reference_loop,
     mixture_mass_breakdown,
     noreturn_ratio,
+    build_scan_ranges,
+    decimate_scan,
+    frozen_field_grid,
 )
 
 
@@ -170,3 +173,162 @@ def test_noreturn_ratio_matches_doc_worked_example_raw_values():
     d_px = int(round(20 / resolution))
     assert table[d_px, d_px] == pytest.approx(0.007576, abs=2e-5)
     assert table[max_range_px, d_px] == pytest.approx(0.014141, abs=2e-5)
+
+
+# ---------------------------------------------------------------------------
+# 4. Part B frozen-scan pure functions: build_scan_ranges, decimate_scan,
+#    frozen_field_grid.
+# ---------------------------------------------------------------------------
+
+ANGLE_MIN, ANGLE_MAX, ANGLE_INC = -3.14159, 3.14159, 0.0043
+RANGES_SIZE = int(math.ceil((ANGLE_MAX - ANGLE_MIN) / ANGLE_INC))
+
+
+def test_build_scan_ranges_empty_points_all_inf():
+    ranges = build_scan_ranges(
+        np.zeros((0, 3)), min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    assert ranges.shape == (RANGES_SIZE,)
+    assert np.all(np.isinf(ranges))
+
+
+def test_build_scan_ranges_single_point_lands_in_expected_bin():
+    # A point straight ahead (+x axis, angle=0) at range 10m.
+    pts = np.array([[10.0, 0.0, 0.5]])
+    ranges = build_scan_ranges(
+        pts, min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    expected_idx = int((0.0 - ANGLE_MIN) / ANGLE_INC)
+    assert ranges[expected_idx] == pytest.approx(10.0)
+    # every other bin is still inf (use_inf default)
+    assert np.isinf(ranges).sum() == RANGES_SIZE - 1
+
+
+def test_build_scan_ranges_height_filter_drops_point():
+    pts = np.array([[10.0, 0.0, 5.0]])  # z=5.0, outside [0,1] band
+    ranges = build_scan_ranges(
+        pts, min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    assert np.all(np.isinf(ranges))
+
+
+def test_build_scan_ranges_range_min_and_max_filters():
+    pts = np.array([
+        [0.05, 0.0, 0.5],   # range 0.05 < range_min=0.1 -> dropped
+        [100.0, 0.0, 0.5],  # range 100 > range_max=60 -> dropped
+    ])
+    ranges = build_scan_ranges(
+        pts, min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    assert np.all(np.isinf(ranges))
+
+
+def test_build_scan_ranges_nan_point_dropped():
+    pts = np.array([[float("nan"), 0.0, 0.5]])
+    ranges = build_scan_ranges(
+        pts, min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    assert np.all(np.isinf(ranges))
+
+
+def test_build_scan_ranges_keeps_closest_point_per_bin():
+    # Two points at (numerically) the same angle bin, different ranges --
+    # the CLOSER one must win (matches the node's `if range < ranges[index]`).
+    pts = np.array([
+        [10.0, 0.0, 0.5],
+        [5.0, 0.0001, 0.5],  # same bin (angle ~0), closer
+    ])
+    ranges = build_scan_ranges(
+        pts, min_height=0.0, max_height=1.0,
+        angle_min=ANGLE_MIN, angle_max=ANGLE_MAX, angle_increment=ANGLE_INC,
+        range_min=0.1, range_max=60.0,
+    )
+    expected_idx = int((0.0 - ANGLE_MIN) / ANGLE_INC)
+    assert ranges[expected_idx] == pytest.approx(5.0, abs=0.001)
+
+
+def test_decimate_scan_matches_lidarCB_construction():
+    # particle_filter.py:432-439: angles = linspace(angle_min, angle_max,
+    # len(ranges)), NOT angle_min + k*angle_increment; both sliced [0::step].
+    ranges_size = 100
+    ranges = np.arange(ranges_size, dtype=np.float64)
+    angles, dec_ranges = decimate_scan(ranges, angle_min=-1.0, angle_max=1.0, angle_step=10)
+    expected_angles = np.linspace(-1.0, 1.0, ranges_size)[0::10]
+    np.testing.assert_allclose(angles, expected_angles, rtol=1e-6)
+    np.testing.assert_allclose(dec_ranges, ranges[0::10])
+    assert angles.dtype == np.float32
+    assert dec_ranges.dtype == np.float32
+
+
+def test_decimate_scan_length_with_non_multiple_step():
+    ranges = np.arange(1462, dtype=np.float64)
+    angles, dec_ranges = decimate_scan(ranges, ANGLE_MIN, ANGLE_MAX, angle_step=18)
+    assert angles.shape[0] == dec_ranges.shape[0] == len(range(0, 1462, 18))
+
+
+def test_frozen_field_grid_matches_direct_log_sum():
+    resolution = 0.05
+    max_range_px = 400  # 20 m
+    table = sensor_model_table(max_range_px, 0.75, 0.01, 0.07, 0.12, 8.0)
+
+    # 3 beams, all observing a perfect match to a 10m-predicting pose.
+    observed_m = np.array([10.0, 10.0, 10.0])
+    predicted_m = np.array([[10.0, 10.0, 10.0]])  # 1 pose x 3 beams
+
+    log_likelihood, raw_weight, probs = frozen_field_grid(
+        predicted_m, observed_m, resolution, table,
+    )
+    d_px = int(round(10.0 / resolution))
+    expected_cell = table[d_px, d_px]
+    np.testing.assert_allclose(probs, np.full((1, 3), expected_cell))
+    assert log_likelihood[0] == pytest.approx(3 * math.log(expected_cell), rel=1e-9)
+    assert raw_weight[0] == pytest.approx(expected_cell ** 3, rel=1e-9)
+
+
+def test_frozen_field_grid_noreturn_beam_clamps_to_max_range_px():
+    resolution = 0.05
+    max_range_px = 400
+    table = sensor_model_table(max_range_px, 0.75, 0.01, 0.07, 0.12, 8.0)
+
+    observed_m = np.array([np.inf])
+    predicted_m = np.array([[10.0]])
+    log_likelihood, raw_weight, probs = frozen_field_grid(
+        predicted_m, observed_m, resolution, table,
+    )
+    d_px = int(round(10.0 / resolution))
+    assert probs[0, 0] == pytest.approx(table[max_range_px, d_px])
+
+
+def test_frozen_field_grid_raw_product_underflows_but_log_likelihood_does_not():
+    # Craft a case that a raw float64 product of many small terms
+    # underflows to exactly 0.0 while the log-space sum stays finite and
+    # very negative -- this is the mechanism behind the phase's headline
+    # underflow-vs-misspecification question.
+    resolution = 0.05
+    max_range_px = 400
+    table = sensor_model_table(max_range_px, 0.75, 0.01, 0.07, 0.12, 8.0)
+
+    num_beams = 200
+    # observe 10m on every beam, but predict a very poor match (2m) so each
+    # beam's probability is tiny (off the Gaussian's tail, no short/rand
+    # mass since r > d here doesn't trigger the short ramp).
+    observed_m = np.full(num_beams, 10.0)
+    predicted_m = np.full((1, num_beams), 2.0)
+
+    log_likelihood, raw_weight, probs = frozen_field_grid(
+        predicted_m, observed_m, resolution, table,
+    )
+    assert np.all(probs < 1e-3)          # confirm these are indeed tiny per-beam terms
+    assert raw_weight[0] == 0.0          # underflowed to exactly 0 in float64
+    assert np.isfinite(log_likelihood[0])
+    assert log_likelihood[0] < -700      # deep in "would-underflow" territory
