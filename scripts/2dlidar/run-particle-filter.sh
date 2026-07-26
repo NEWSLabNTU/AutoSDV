@@ -19,7 +19,11 @@
 # effective-sample-size resampling gate -- see the note above the
 # env-var block below), PF_INIT_TIMEOUT_S
 # (default 60; raise for large/fine-resolution grids whose CDDT precompute
-# takes longer). All default to
+# takes longer), PF_LIKELIHOOD_FIELD (default false)/PF_LF_WINDOW_M
+# (default 40.0)/PF_LF_RES_M (default 0.5)/PF_LF_PERIOD_S (default
+# 1.0)/PF_LF_LOG_FLOOR (default 20.0) (Phase 3d Task 4 live
+# likelihood-field debug grid on /pf/debug/likelihood_field -- see the
+# passthrough block below). All default to
 # the COSS outdoor-bag values below, so an unmodified invocation is
 # byte-identical to the original COSS run.
 #
@@ -170,6 +174,19 @@ PF_DIAG_PATH="${PF_DIAG_PATH:-}"
 PF_DIAG_EVERY="${PF_DIAG_EVERY:-1}"
 PF_DIAG_BEAM_ARRAYS="${PF_DIAG_BEAM_ARRAYS:-false}"
 PF_DIAG_TOPICS="${PF_DIAG_TOPICS:-false}"
+# Phase 3d Task 4: live likelihood-field debug grid passthrough
+# (particle_filter submodule, branch autosdv). Disabled by default (no
+# publisher, no extra raycasts). When enabled, publishes a coarse
+# pose-grid likelihood surface centred on the inferred pose as
+# nav_msgs/OccupancyGrid on /pf/debug/likelihood_field, at most once
+# every PF_LF_PERIOD_S seconds -- see build_likelihood_field() in the
+# fork for the encoding (log-weight, max-subtracted, floor-clipped,
+# mapped to 0..100).
+PF_LIKELIHOOD_FIELD="${PF_LIKELIHOOD_FIELD:-false}"
+PF_LF_WINDOW_M="$(to_float "${PF_LF_WINDOW_M:-40.0}")"
+PF_LF_RES_M="$(to_float "${PF_LF_RES_M:-0.5}")"
+PF_LF_PERIOD_S="$(to_float "${PF_LF_PERIOD_S:-1.0}")"
+PF_LF_LOG_FLOOR="$(to_float "${PF_LF_LOG_FLOOR:-20.0}")"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -259,6 +276,11 @@ particle_filter:
     diag_every: $PF_DIAG_EVERY
     diag_beam_arrays: $PF_DIAG_BEAM_ARRAYS
     diag_topics: $PF_DIAG_TOPICS
+    likelihood_field_enable: $PF_LIKELIHOOD_FIELD
+    lf_window_m: $PF_LF_WINDOW_M
+    lf_res_m: $PF_LF_RES_M
+    lf_period_s: $PF_LF_PERIOD_S
+    lf_log_floor: $PF_LF_LOG_FLOOR
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
