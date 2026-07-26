@@ -29,8 +29,10 @@ try:
     import rclpy
     from rclpy.node import Node
     from rclpy.qos import QoSProfile, ReliabilityPolicy
+    from tf2_ros import TransformBroadcaster
 
     from autoware_vehicle_msgs.msg import VelocityReport
+    from geometry_msgs.msg import TransformStamped
     from nav_msgs.msg import Odometry
     from sensor_msgs.msg import Imu
 except ImportError as e:  # pytest runs outside a ROS env; node runtime must fail loudly
@@ -59,12 +61,25 @@ if rclpy is not None:
             self.declare_parameter("imu_topic", "/sensing/camera/zedxm/imu/data")
             self.declare_parameter("odom_topic", "/odom")
             self.declare_parameter("imu_yaw_sign", 1.0)
+            # Phase 3c Lever 4 (AMCL cross-check): AMCL is a lifecycle node
+            # that requires a live odom -> base_link TF (it has no other way
+            # to advance particles between scans -- it does not subscribe to
+            # /odom directly). This node only ever published an /odom TOPIC
+            # before, so AMCL would see a TF tree with a missing link.
+            # publish_tf (default False) broadcasts the same integrated pose
+            # as a TF transform in addition to the existing /odom topic;
+            # default-off so every existing caller (particle_filter, which
+            # never used TF) is byte-identical to before this parameter was
+            # added.
+            self.declare_parameter("publish_tf", False)
 
             self.x = 0.0
             self.y = 0.0
             self.theta = 0.0
             self.omega = 0.0
             self.last_stamp = None
+
+            self.tf_broadcaster = TransformBroadcaster(self)
 
             qos = QoSProfile(depth=50, reliability=ReliabilityPolicy.BEST_EFFORT)
             self.create_subscription(
@@ -100,6 +115,18 @@ if rclpy is not None:
             odom.twist.twist.linear.x = msg.longitudinal_velocity
             odom.twist.twist.angular.z = self.omega
             self.pub.publish(odom)
+
+            if self.get_parameter("publish_tf").value:
+                tf_msg = TransformStamped()
+                tf_msg.header.stamp = msg.header.stamp
+                tf_msg.header.frame_id = "odom"
+                tf_msg.child_frame_id = "base_link"
+                tf_msg.transform.translation.x = self.x
+                tf_msg.transform.translation.y = self.y
+                tf_msg.transform.translation.z = 0.0
+                tf_msg.transform.rotation.z = odom.pose.pose.orientation.z
+                tf_msg.transform.rotation.w = odom.pose.pose.orientation.w
+                self.tf_broadcaster.sendTransform(tf_msg)
 
 
 def main():

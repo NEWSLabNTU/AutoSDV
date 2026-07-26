@@ -121,12 +121,24 @@ def stats(errors):
     }
 
 
+# Maps --pf-type CLI choices to the msg_field accessor _read_bag()
+# understands. 'PoseStamped' / 'Odometry' preserve pre-existing behavior;
+# 'PoseWithCovarianceStamped' is new (Phase 3c Lever 4: nav2_amcl publishes
+# /amcl_pose as geometry_msgs/PoseWithCovarianceStamped, not PoseStamped).
+PF_TYPE_TO_MSG_FIELD = {
+    "PoseStamped": "pose_stamped",
+    "Odometry": "odometry",
+    "PoseWithCovarianceStamped": "pose_with_covariance_stamped",
+}
+
+
 def _read_bag(bag_path, topic, msg_field, time_source="stamp"):
     """Read a rosbag2 topic into a list of (t, x, y, yaw) tuples.
 
     msg_field selects the pose accessor: 'odometry' for
     nav_msgs/Odometry (pose.pose), 'pose_stamped' for
-    geometry_msgs/PoseStamped (pose). Imported lazily so plain-shell
+    geometry_msgs/PoseStamped (pose), 'pose_with_covariance_stamped' for
+    geometry_msgs/PoseWithCovarianceStamped (pose.pose). Imported lazily so plain-shell
     unit tests never need rosbag2_py/rclpy installed.
 
     time_source selects the alignment clock: 'stamp' (default) uses each
@@ -178,6 +190,8 @@ def _read_bag(bag_path, topic, msg_field, time_source="stamp"):
         msg = deserialize_message(data, msg_type)
         if msg_field == "odometry":
             pose = msg.pose.pose
+        elif msg_field == "pose_with_covariance_stamped":
+            pose = msg.pose.pose
         else:
             pose = msg.pose
         if time_source == "bag":
@@ -198,8 +212,19 @@ def read_gt_bag(bag_path, time_source="stamp"):
     return _read_bag(bag_path, "/localization/kinematic_state", "odometry", time_source=time_source)
 
 
-def read_pf_bag(bag_path, time_source="stamp"):
-    return _read_bag(bag_path, "/pf/viz/inferred_pose", "pose_stamped", time_source=time_source)
+def read_pf_bag(bag_path, time_source="stamp", topic="/pf/viz/inferred_pose", pf_type="PoseStamped"):
+    """Read the PF/localizer-under-test track.
+
+    topic/pf_type default to the vendored particle_filter's
+    /pf/viz/inferred_pose (geometry_msgs/PoseStamped) -- pre-existing
+    behavior, unchanged. Phase 3c Lever 4 (AMCL cross-check) passes
+    topic='/amcl_pose', pf_type='PoseWithCovarianceStamped'.
+    """
+    if pf_type not in PF_TYPE_TO_MSG_FIELD:
+        raise ValueError(
+            "pf_type must be one of %s, got %r" % (sorted(PF_TYPE_TO_MSG_FIELD), pf_type)
+        )
+    return _read_bag(bag_path, topic, PF_TYPE_TO_MSG_FIELD[pf_type], time_source=time_source)
 
 
 def _fmt_stats_table(s):
@@ -298,6 +323,19 @@ def main(argv=None):
     parser.add_argument("--out", default=None, help="Path to write the markdown report")
     parser.add_argument("--max-dt", type=float, default=0.1, help="Max |dt| (s) for nearest-timestamp pairing")
     parser.add_argument(
+        "--pf-topic", default="/pf/viz/inferred_pose",
+        help="Topic carrying the localizer-under-test track (default: "
+             "/pf/viz/inferred_pose, the vendored particle_filter's output). "
+             "Phase 3c Lever 4 (AMCL cross-check) uses /amcl_pose.",
+    )
+    parser.add_argument(
+        "--pf-type", choices=sorted(PF_TYPE_TO_MSG_FIELD), default="PoseStamped",
+        help="Message type of --pf-topic (default: PoseStamped, matching "
+             "particle_filter's /pf/viz/inferred_pose -- unchanged default "
+             "behavior). Use PoseWithCovarianceStamped for nav2_amcl's "
+             "/amcl_pose (Phase 3c Lever 4).",
+    )
+    parser.add_argument(
         "--gt-time-source", choices=["stamp", "bag"], default="stamp",
         help="Clock basis for the GT track: 'stamp' (default, header.stamp -- "
              "COSS behavior unchanged) or 'bag' (rosbag2 storage receive-time). "
@@ -329,7 +367,7 @@ def main(argv=None):
         motion_window_cfg = (MOTION_WINDOW_START_S, MOTION_WINDOW_END_S)
 
     gt = read_gt_bag(args.gt_bag, time_source=args.gt_time_source)
-    pf = read_pf_bag(args.pf_bag)
+    pf = read_pf_bag(args.pf_bag, topic=args.pf_topic, pf_type=args.pf_type)
 
     errors = align_tracks(gt, pf, max_dt=args.max_dt)
     full_stats = stats(errors)

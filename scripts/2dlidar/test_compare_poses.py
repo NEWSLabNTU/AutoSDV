@@ -12,6 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 from compare_poses import (  # noqa: E402
     align_tracks, stats, yaw_error, quat_to_yaw, _threshold_table, generate_report,
+    read_pf_bag, PF_TYPE_TO_MSG_FIELD,
 )
 
 
@@ -120,6 +121,60 @@ def test_generate_report_no_motion_window_omits_coss_window():
     assert "156" not in report
     assert "Motion-Window Statistics" in report
     assert "disabled" in report.lower()
+
+
+def test_read_pf_bag_default_topic_and_type_unchanged(monkeypatch):
+    # Default args must reach _read_bag exactly as before --pf-topic/--pf-type
+    # existed (Phase 3c Lever 4 addition) -- particle_filter callers see no
+    # behavior change.
+    captured = {}
+
+    def fake_read_bag(bag_path, topic, msg_field, time_source="stamp"):
+        captured["bag_path"] = bag_path
+        captured["topic"] = topic
+        captured["msg_field"] = msg_field
+        captured["time_source"] = time_source
+        return []
+
+    import compare_poses
+    monkeypatch.setattr(compare_poses, "_read_bag", fake_read_bag)
+    read_pf_bag("some_bag")
+    assert captured == {
+        "bag_path": "some_bag",
+        "topic": "/pf/viz/inferred_pose",
+        "msg_field": "pose_stamped",
+        "time_source": "stamp",
+    }
+
+
+def test_read_pf_bag_amcl_pose_with_covariance(monkeypatch):
+    # Phase 3c Lever 4: nav2_amcl publishes /amcl_pose as
+    # geometry_msgs/PoseWithCovarianceStamped, not PoseStamped.
+    captured = {}
+
+    def fake_read_bag(bag_path, topic, msg_field, time_source="stamp"):
+        captured["topic"] = topic
+        captured["msg_field"] = msg_field
+        return []
+
+    import compare_poses
+    monkeypatch.setattr(compare_poses, "_read_bag", fake_read_bag)
+    read_pf_bag("some_bag", topic="/amcl_pose", pf_type="PoseWithCovarianceStamped")
+    assert captured["topic"] == "/amcl_pose"
+    assert captured["msg_field"] == "pose_with_covariance_stamped"
+
+
+def test_read_pf_bag_unknown_type_raises():
+    with pytest.raises(ValueError):
+        read_pf_bag("some_bag", pf_type="NotAType")
+
+
+def test_pf_type_to_msg_field_covers_odometry_too():
+    # Odometry (nav_msgs/Odometry) was already a supported msg_field for GT
+    # bags before this change; confirm the new PF_TYPE_TO_MSG_FIELD mapping
+    # exposes it too, for parity/future flexibility.
+    assert PF_TYPE_TO_MSG_FIELD["Odometry"] == "odometry"
+    assert PF_TYPE_TO_MSG_FIELD["PoseStamped"] == "pose_stamped"
 
 
 def test_generate_report_default_motion_window_unchanged():
