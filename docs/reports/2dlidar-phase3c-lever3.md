@@ -212,3 +212,89 @@ implemented) does not close the gate and does not improve on the
 Phase 3c series' best result (Lever 2). Per the plan's early-exit rule
 (stop only on a full PASS), a follow-up compute-starvation diagnostic
 (see below) was run before handing off to Lever 4 (AMCL cross-check).
+
+## Follow-up diagnostic: replay-rate sensitivity
+
+**Hypothesis:** at ~4.3 m/s vehicle speed with `max_particles=4000` and
+`range_method=cddt` on a 8358x9788-cell grid (Lever 2's map), the PF's
+per-update compute cost might exceed the time available between scans
+in real-time replay, causing it to silently skip/drop scan updates
+(each `odomCB` triggers `update()`, which only proceeds if
+`not self.state_lock.locked()` — a busy PF logs "Concurrency error
+avoided" and skips the update rather than queuing it, so a
+compute-starved PF effectively runs on a sparser observation stream
+than intended). If true, slowing the bag replay rate should materially
+reduce error even with **no PF code change**.
+
+**Run:** Lever 2 configuration exactly (ESS gate off:
+`PF_USE_ESS_GATE=false`, same map `occupancy_grid_scanaccum_mh1r05.yaml`,
+same tuned params `PF_MAX_RANGE=60 SCAN_RANGE_MAX=60 PF_SQUASH=3.0
+PF_DISP_THETA=0.1 IMU_YAW_SIGN=-1.0`), `RATE=0.25` (4x slower than
+real-time, so any compute-starvation effect should show as a strong
+error reduction), `OUT_BAG=data/rosbags/phase3/sample_pf_run_rate025`
+(835 `/pf/viz/inferred_pose` messages recorded). Compared with
+`compare_poses.py --no-motion-window --gt-time-source bag`.
+
+| Metric | Lever 2 (rate 1.0, ESS off) | Rate-0.25 diagnostic (ESS off) |
+|---|---|---|
+| n (pairs) | 814 | 819 |
+| Trans. mean (m) | 17.4339 | 26.5074 |
+| Trans. RMS (m) | 29.8206 | 51.5614 |
+| Trans. max (m) | 61.5958 | 149.8223 |
+| Trans. p95 (m) | 61.0406 | 132.6250 |
+| Yaw mean \|err\| (rad) | 0.4862 | 0.8434 |
+
+**Compute starvation is ruled out.** Replaying 4x slower did not
+improve tracking — it measures *worse* on every full-overlap statistic
+(mean 26.51 m vs 17.43 m, p95 132.63 m vs 61.04 m, yaw 0.843 rad vs
+0.486 rad). If compute starvation (dropped scan updates at real-time
+rate) were the dominant cause of the corridor-aliasing collapse, the
+4x-slower run should have shown a clear, large improvement; it shows
+the opposite direction of effect. This is consistent with the collapse
+being a genuine sensor-model/likelihood-surface problem on the
+feature-poor straight, not an artifact of the PF failing to keep up
+with the replay clock.
+
+### Variance caveat
+
+Stepping back across the three most recent runs — all on the same map
+(`occupancy_grid_scanaccum_mh1r05.yaml`), same tuned baseline params,
+same GT/source bag — the full-overlap trans. mean lands at **17.43 m**
+(Lever 2, ESS gate off, rate 1.0), **26.44 m** (Lever 3, ESS gate on,
+rate 1.0), and **26.51 m** (this diagnostic, ESS gate off, rate 0.25).
+The Lever-3 (ESS-gate) and rate-0.25 (ESS-gate-off, different replay
+rate) numbers are within 0.3% of each other despite differing in two
+unrelated dimensions (resampling policy, replay rate) — while both
+differ from Lever 2 by ~50%. `particle_filter`'s MCL is stochastic
+(`np.random.normal` motion noise, `np.random.choice` resampling with no
+fixed seed anywhere in the vendored code or this project's launch
+scripts), and **each lever in this series has been evaluated with
+exactly one run (n=1 seed)**. Given that two configurations expected to
+differ (ESS gate on vs. off, different replay rate) landed almost
+identically while one configuration expected to be similar (Lever 2 vs.
+this diagnostic's nominal control) differs by ~50%, the honest
+conclusion is that **the specific mean/p95/yaw rankings between Lever 1,
+Lever 2, and Lever 3 in this report series are not statistically
+distinguishable from run-to-run variance** — they should not be read as
+"Lever 2 is measurably better than Lever 3" without further evidence.
+
+**Methodological consequence for future levers:** any future lever
+comparison in this series (Lever 4 / AMCL cross-check and beyond) must
+be evaluated over N&ge;5 seeded runs per configuration (or explicit
+fixed-seed runs, if `particle_filter` is extended to accept a seed
+parameter) before its effect on mean/p95/yaw can be claimed as real
+rather than noise. A single run is sufficient to establish gross
+pass/fail against the Phase 3 thresholds (all runs in this series FAIL
+by a wide margin, which is robust to this caveat) but not to rank
+FAILing runs against each other.
+
+**What IS robust across every run in this series** (Lever 1, Lever 2,
+Lever 3, and this diagnostic — 4 independent replays, 2 different maps,
+2 different resampling policies, 2 different replay rates): sub-meter
+tracking for approximately the first 28 s of the run (rel_t=5s and
+rel_t=14s errors are consistently 0.34-0.50 m across every run in the
+Phase 3b/3c series), then a collapse onset at the same corridor
+location (rel_t~28-43s), which never recovers to within the Phase 3
+gate thresholds by the end of the run. That qualitative signature —
+not the specific FAIL magnitude — is the reliable finding from Phase 3c
+to carry into Lever 4.
