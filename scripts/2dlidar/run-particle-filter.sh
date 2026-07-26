@@ -36,7 +36,17 @@
 # MAP_PROJECTOR_INFO_YAML / LANELET2_MAP_OSM / PF_INIT_SPREAD_XY /
 # PF_INIT_SPREAD_THETA (Phase 4 Task 1: real gnss_poser-based /initialpose
 # seeding instead of the GT-bag oracle -- see the Step -1 block below and
-# scripts/2dlidar/gnss_init_seed.py).
+# scripts/2dlidar/gnss_init_seed.py), PF_REQUIRE_INITIALPOSE (default
+# false) (Phase 4 Task 2: particle_filter submodule, branch autosdv --
+# gates MCL updates and pose/TF publication until a real /initialpose
+# seed arrives, instead of publishing a map-wide-centroid pose before any
+# seed is known; see docs/research/localization/
+# mcl_initialization_and_covariance.md). When INITPOSE_SOURCE=gnss, the
+# real 36-element gnss_poser covariance (not just its diagonal) is now
+# published on /initialpose so the fork's multivariate-normal sampler
+# (build_pose_covariance_marginal/sample_pose_particles) consumes it
+# directly -- PF_INIT_SPREAD_XY/PF_INIT_SPREAD_THETA remain the documented
+# fallback for when that covariance is absent/zero/non-PSD.
 #
 # NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
 # this filter's actual likelihood dynamic range, measured at 47-50 nats
@@ -291,6 +301,15 @@ LANELET2_MAP_OSM="${LANELET2_MAP_OSM:-$REPO_DIR/data/sample-rosbag-replay/sample
 # unchanged from every Phase 3e run. Set explicitly to override either way.
 PF_INIT_SPREAD_XY="${PF_INIT_SPREAD_XY:-}"
 PF_INIT_SPREAD_THETA="${PF_INIT_SPREAD_THETA:-}"
+# Phase 4 Task 2: require_initialpose passthrough (particle_filter
+# submodule, branch autosdv). Default (false) preserves every prior run
+# byte-for-byte: initialize_global() still runs unconditionally in the
+# constructor and update()/publish are never gated. Set true to skip the
+# map-wide global init and suppress MCL updates + pose/TF publication
+# until a real /initialpose seed arrives -- see
+# docs/research/localization/mcl_initialization_and_covariance.md
+# recommendation 1.
+PF_REQUIRE_INITIALPOSE="${PF_REQUIRE_INITIALPOSE:-false}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -353,6 +372,7 @@ set -u
 # nodes, no reimplemented projection math).
 GNSS_X="" ; GNSS_Y="" ; GNSS_Z="" ; GNSS_QX="" ; GNSS_QY="" ; GNSS_QZ="" ; GNSS_QW=""
 GNSS_COV_XX="" ; GNSS_COV_YY="" ; GNSS_COV_YAW="" ; GNSS_SRC_T0="" ; GNSS_SRC_T1=""
+GNSS_COV_FULL_STR=""
 if [ "$INITPOSE_SOURCE" = "gnss" ]; then
     echo "Deriving GNSS seed pose from $GNSS_BAG ($GNSS_FIX_TOPIC) via gnss_poser..."
     GNSS_SEED_LOG="$(mktemp "$REPO_DIR/tmp/run-pf-gnss-seed.XXXXXX.log")"
@@ -363,13 +383,26 @@ if [ "$INITPOSE_SOURCE" = "gnss" ]; then
         echo "FAIL: gnss_init_seed.py did not produce a seed pose (see $GNSS_SEED_LOG)"
         exit 1
     }
+    # Phase 4 Task 2: gnss_init_seed.py now appends the full 36-element
+    # row-major 6x6 covariance after src_t1 -- `read`'s last variable
+    # absorbs all remaining whitespace-separated fields as one string, so
+    # GNSS_COV_FULL_STR ends up holding all 36 numbers.
     read -r GNSS_X GNSS_Y GNSS_Z GNSS_QX GNSS_QY GNSS_QZ GNSS_QW \
-        GNSS_COV_XX GNSS_COV_YY GNSS_COV_YAW GNSS_SRC_T0 GNSS_SRC_T1 <<< "$GNSS_SEED_OUT"
+        GNSS_COV_XX GNSS_COV_YY GNSS_COV_YAW GNSS_SRC_T0 GNSS_SRC_T1 \
+        GNSS_COV_FULL_STR <<< "$GNSS_SEED_OUT"
     if [ -z "${GNSS_X:-}" ]; then
         echo "FAIL: could not parse gnss_init_seed.py output: '$GNSS_SEED_OUT' (see $GNSS_SEED_LOG)"
         exit 1
     fi
     echo "GNSS-derived seed pose: x=$GNSS_X y=$GNSS_Y qz=$GNSS_QZ qw=$GNSS_QW cov_xx=$GNSS_COV_XX cov_yy=$GNSS_COV_YY cov_yaw=$GNSS_COV_YAW (source NavSatFix msgs at t=$GNSS_SRC_T0,$GNSS_SRC_T1 s from $GNSS_BAG start)"
+    # shellcheck disable=SC2206
+    GNSS_COV_ARR=($GNSS_COV_FULL_STR)
+    if [ "${#GNSS_COV_ARR[@]}" -eq 36 ]; then
+        echo "Full GNSS covariance (36 elements) parsed -- will populate /initialpose's covariance field directly."
+    else
+        echo "WARN: could not parse full 36-element GNSS covariance (got ${#GNSS_COV_ARR[@]} elements) -- falling back to the derived-scalar diagonal for /initialpose's covariance field."
+        GNSS_COV_ARR=()
+    fi
     if [ -z "$PF_INIT_SPREAD_XY" ]; then
         PF_INIT_SPREAD_XY="$(python3 -c "import math; print(math.sqrt(max($GNSS_COV_XX, $GNSS_COV_YY)))")"
         echo "PF_INIT_SPREAD_XY not set -- derived from gnss_poser covariance: $PF_INIT_SPREAD_XY m"
@@ -431,6 +464,7 @@ particle_filter:
     random_seed: $PF_RANDOM_SEED
     init_spread_xy_m: $PF_INIT_SPREAD_XY
     init_spread_theta_rad: $PF_INIT_SPREAD_THETA
+    require_initialpose: $PF_REQUIRE_INITIALPOSE
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
@@ -562,6 +596,20 @@ if [ "$INITPOSE_SOURCE" = "gnss" ]; then
     GT_QX="$GNSS_QX"; GT_QY="$GNSS_QY"; GT_QZ="$GNSS_QZ"; GT_QW="$GNSS_QW"
     INITPOSE_COV_XX="$GNSS_COV_XX"; INITPOSE_COV_YY="$GNSS_COV_YY"; INITPOSE_COV_YAW="$GNSS_COV_YAW"
     echo "Using GNSS-derived seed pose for /initialpose: x=$GT_X y=$GT_Y qz=$GT_QZ qw=$GT_QW"
+    # Phase 4 Task 2: prefer publishing gnss_poser's real full 36-element
+    # covariance on /initialpose (so the fork's multivariate-normal
+    # sampler consumes the actual (x,y,yaw) marginal it reported,
+    # including any off-diagonal correlation) over the derived-scalar
+    # diagonal-only approximation used previously. Falls back to the
+    # scalar-derived diagonal (documented fallback) if the full
+    # covariance could not be parsed (see Step -1 above).
+    if [ "${#GNSS_COV_ARR[@]}" -eq 36 ]; then
+        INITPOSE_COV_LIST="$(IFS=,; echo "${GNSS_COV_ARR[*]}")"
+        echo "Publishing full gnss_poser covariance on /initialpose (36 elements)."
+    else
+        INITPOSE_COV_LIST="$INITPOSE_COV_XX,0,0,0,0,0, 0,$INITPOSE_COV_YY,0,0,0,0, 0,0,0.25,0,0,0, 0,0,0,0.068,0,0, 0,0,0,0,0.068,0, 0,0,0,0,0,$INITPOSE_COV_YAW"
+        echo "Publishing derived-scalar diagonal covariance on /initialpose (fallback)."
+    fi
 else
     POSE_EXTRACT_SCRIPT="$REPO_DIR/tmp/extract_first_pose.py"
     cat > "$POSE_EXTRACT_SCRIPT" <<'PYEOF'
@@ -599,6 +647,7 @@ PYEOF
     fi
     echo "Initial pose from GT bag (oracle): x=$GT_X y=$GT_Y qz=$GT_QZ qw=$GT_QW"
     INITPOSE_COV_XX="0.25"; INITPOSE_COV_YY="0.25"; INITPOSE_COV_YAW="0.068"
+    INITPOSE_COV_LIST="$INITPOSE_COV_XX,0,0,0,0,0, 0,$INITPOSE_COV_YY,0,0,0,0, 0,0,0.25,0,0,0, 0,0,0,0.068,0,0, 0,0,0,0,0.068,0, 0,0,0,0,0,$INITPOSE_COV_YAW"
 fi
 
 # --- Step 6: start recording the PF pose bag ---
@@ -616,7 +665,7 @@ sleep 2
     ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped \
         "{header: {frame_id: 'map'}, pose: {pose: {position: {x: $GT_X, y: $GT_Y, z: 0.0}, \
         orientation: {x: $GT_QX, y: $GT_QY, z: $GT_QZ, w: $GT_QW}}, \
-        covariance: [$INITPOSE_COV_XX,0,0,0,0,0, 0,$INITPOSE_COV_YY,0,0,0,0, 0,0,0.25,0,0,0, 0,0,0,0.068,0,0, 0,0,0,0,0.068,0, 0,0,0,0,0,$INITPOSE_COV_YAW]}}" \
+        covariance: [$INITPOSE_COV_LIST]}}" \
         > /dev/null 2>&1
 ) &
 INITPOSE_PID=$!

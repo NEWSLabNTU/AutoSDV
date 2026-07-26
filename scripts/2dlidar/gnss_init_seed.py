@@ -32,6 +32,8 @@
 # result" plumbing is new.
 #
 # Output line: x y z qx qy qz qw cov_xx cov_yy cov_yaw src_t0 src_t1
+#              cov_full[0..35] (Phase 4 Task 2: full row-major 6x6
+#              covariance, space-separated, appended after src_t1)
 # (src_t0/src_t1: elapsed seconds of the two source NavSatFix messages used,
 # relative to the source bag's first message -- for correlating the seed
 # against a ground-truth bag that shares the same replay start time.)
@@ -236,10 +238,21 @@ def main():
         p = result.pose.pose.position
         o = result.pose.pose.orientation
         cov = result.pose.covariance
+        # Phase 4 Task 2: emit the full 36-element row-major 6x6 covariance
+        # (not just the xx/yy/yaw-yaw diagonal already printed above for
+        # backward compatibility / the derived-scalar fallback) so the
+        # caller can populate /initialpose's covariance field directly and
+        # let the particle_filter fork's multivariate-normal sampler
+        # (build_pose_covariance_marginal/sample_pose_particles) consume
+        # gnss_poser's real (x, y, yaw) marginal -- including any
+        # off-diagonal correlation gnss_poser itself reports -- instead of
+        # only the diagonal-derived scalar spreads.
+        cov_full = " ".join(str(v) for v in cov)
         print(
             f"{p.x} {p.y} {p.z} {o.x} {o.y} {o.z} {o.w} "
             f"{cov[0]} {cov[7]} {cov[35]} "
-            f"{fixes[0][1]} {fixes[-1][1]}"
+            f"{fixes[0][1]} {fixes[-1][1]} "
+            f"{cov_full}"
         )
 
         node.destroy_node()
