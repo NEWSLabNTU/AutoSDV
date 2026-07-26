@@ -7,10 +7,10 @@
 [submodule "src/vehicle/autosdv_vehicle_launch"]
 	path = src/vehicle/autosdv_vehicle_launch
 	url = https://github.com/NEWSLabNTU/autosdv_vehicle_launch.git
-[submodule "src/gnss_locator"]
+[submodule "src/sensor_component/external/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
-[submodule "src/zed-ros2-wrapper"]
+[submodule "src/sensor_component/external/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
 	url = https://github.com/NEWSLabNTU/zed-ros2-wrapper.git
 [submodule "src/sensor_component/external/ros2_mpu9250_driver"]
