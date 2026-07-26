@@ -157,6 +157,19 @@ PF_ESS_RATIO="$(to_float "${PF_ESS_RATIO:-0.5}")"
 # for. Override PF_INIT_TIMEOUT_S for such runs rather than lowering
 # fidelity to fit the old timeout.
 PF_INIT_TIMEOUT_S="${PF_INIT_TIMEOUT_S:-60}"
+# Phase 3d: per-update diagnostics passthrough (particle_filter submodule,
+# branch autosdv). Defaults preserve today's behavior exactly -- no JSONL
+# file, no /pf/debug/* topics, zero measurable overhead.
+# PF_DIAG_ENABLE: append one JSON record per update (per PF_DIAG_EVERY) to
+#   PF_DIAG_PATH (auto-generated under ./tmp if empty).
+# PF_DIAG_TOPICS: publish the same per-update scalars as std_msgs/Float32
+#   on /pf/debug/{n_eff,weight_entropy,pose_cov_trace,update_hz,
+#   frac_clamped,frac_short} for live PlotJuggler inspection.
+PF_DIAG_ENABLE="${PF_DIAG_ENABLE:-false}"
+PF_DIAG_PATH="${PF_DIAG_PATH:-}"
+PF_DIAG_EVERY="${PF_DIAG_EVERY:-1}"
+PF_DIAG_BEAM_ARRAYS="${PF_DIAG_BEAM_ARRAYS:-false}"
+PF_DIAG_TOPICS="${PF_DIAG_TOPICS:-false}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -241,6 +254,11 @@ particle_filter:
     rangelib_variant: 2
     use_ess_gate: $PF_USE_ESS_GATE
     ess_threshold_ratio: $PF_ESS_RATIO
+    diag_enable: $PF_DIAG_ENABLE
+    diag_path: '$PF_DIAG_PATH'
+    diag_every: $PF_DIAG_EVERY
+    diag_beam_arrays: $PF_DIAG_BEAM_ARRAYS
+    diag_topics: $PF_DIAG_TOPICS
 EOF
 
 # --- Step 1: nav2_map_server on the COSS grid (lifecycle configure+activate) ---
