@@ -274,7 +274,7 @@ fork (opt-in via `sensor_model_variant=normalized_short`,
 three enabled, the offline GT-to-argmax gap collapses from 51.9 to 6.2
 nats (median, 5 frozen scans) and the end-to-end Phase 3 accuracy gate now
 passes 5/5 replay seeds (0.79 m mean translational error, down from 0/5
-passing and 26–36 m mean error upstream). See
+passing and a 26.0 m median, 15.9–36.0 m across seeds, upstream). See
 `docs/reports/2dlidar-phase3e-model-fixes.md` for the full measurement.
 5.4 and 5.5 remain open — they are inherent to the beam model's
 independence/clamping assumptions, not implementation bugs, and are out of

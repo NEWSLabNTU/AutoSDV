@@ -373,7 +373,7 @@ an RViz impression.
   mean < 1.0 m / p95 < 2.5 m / yaw < 0.2 rad: mean translational error
   0.79 m (range 0.76–0.81 m across seeds), p95 2.02 m (range 1.95–2.04 m),
   mean \|yaw\| error 0.026 rad (range 0.026–0.028 rad) — 5/5 seeds passing,
-  against 0/5 for the unfixed upstream model (25.8–36.0 m mean error). The
+  against 0/5 for the unfixed upstream model (15.9–36.0 m mean error). The
   offline sensor-model gap also collapsed, from a 51.9 nat median GT-to-argmax
   gap (~30 m offset) to 6.2 nats (~0.2 m offset).
 
@@ -382,8 +382,13 @@ an RViz impression.
   the vendored `particle_filter`, not just on NDT / `cuda_ndt` as a
   fallback. Caveats: this is measured on a single site (the official
   Autoware sample bag) with one map, not yet cross-validated on COSS or a
-  live run; and the three fixes live in the NEWSLabNTU fork
-  (`particle_filter`, branch `autosdv`), not upstream. Details:
+  live run; the three fixes live in the NEWSLabNTU fork
+  (`particle_filter`, branch `autosdv`), not upstream; and one fix has an
+  *interface consequence* — correcting once per scan instead of once per
+  odometry message halves the pose and TF publish rate (≈10 Hz instead of
+  ≈20 Hz), because the filter has no predict-only publish path. The
+  `ekf_localizer` bridge described above must be checked against that rate
+  before it is relied on. Details:
   `docs/research/localization/2d_mcl_algorithm.md`,
   `docs/reports/2dlidar-phase3e-model-fixes.md`.
 ]
