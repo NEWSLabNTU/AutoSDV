@@ -25,7 +25,10 @@
 # likelihood-field debug grid on /pf/debug/likelihood_field -- see the
 # passthrough block below), PF_SENSOR_MODEL_VARIANT (default "upstream")/
 # PF_LAMBDA_SHORT (default 1.0, 1/pixel) (Phase 3e Task 2 sensor-model
-# p_short normalisation -- see the passthrough block below).
+# p_short normalisation -- see the passthrough block below), PF_SKIP_NONFINITE
+# (default false) (Phase 3e Task 3: drop non-finite/no-return observed beams
+# from sensor-model evaluation entirely instead of letting them fall into the
+# max-range table bucket -- see the passthrough block below).
 #
 # NOTE on PF_LF_LOG_FLOOR: the default of 20.0 nats is far narrower than
 # this filter's actual likelihood dynamic range, measured at 47-50 nats
@@ -209,6 +212,14 @@ PF_LF_LOG_FLOOR="$(to_float "${PF_LF_LOG_FLOOR:-20.0}")"
 # value is resolution-dependent.
 PF_SENSOR_MODEL_VARIANT="${PF_SENSOR_MODEL_VARIANT:-upstream}"
 PF_LAMBDA_SHORT="$(to_float "${PF_LAMBDA_SHORT:-1.0}")"
+# Phase 3e Task 3: skip_nonfinite_beams passthrough (particle_filter
+# submodule, branch autosdv, particle_filter/particle_filter.py). Default
+# (false) preserves today's behavior exactly -- non-finite (no-return)
+# observed beams fall into the max-range sensor-model bucket, unchanged.
+# PF_SKIP_NONFINITE=true drops non-finite beams (and their predicted-range
+# columns) from the sensor-model evaluation entirely -- see
+# docs/research/localization/2d_mcl_algorithm.md sec 5.2.
+PF_SKIP_NONFINITE="${PF_SKIP_NONFINITE:-false}"
 INFERRED_POSE_THRESHOLD=200
 PARAMS_FILE="$REPO_DIR/tmp/pf_params.yaml"
 
@@ -289,6 +300,7 @@ particle_filter:
     sigma_hit: 8.0
     sensor_model_variant: '$PF_SENSOR_MODEL_VARIANT'
     sensor_model_lambda_short: $PF_LAMBDA_SHORT
+    skip_nonfinite_beams: $PF_SKIP_NONFINITE
     motion_dispersion_x: $PF_DISP_X
     motion_dispersion_y: $PF_DISP_Y
     motion_dispersion_theta: $PF_DISP_THETA
