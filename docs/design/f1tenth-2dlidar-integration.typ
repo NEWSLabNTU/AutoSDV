@@ -11,6 +11,8 @@
 #let c-off    = rgb("#6c757d")   // offline / one-time (gray)
 #let c-off-b  = rgb("#e4e6e9")
 #let c-drop   = rgb("#adb5bd")   // dropped (faded)
+#let c-fix    = rgb("#2f9e44")   // fixed / gate now passes (green)
+#let c-fix-b  = rgb("#d3f9d8")
 
 #let legend(color, body) = box(baseline: 0.15em)[#box(width: 0.85em, height: 0.85em, fill: color, radius: 1pt) #body]
 
@@ -352,30 +354,38 @@ an RViz impression.
 // ─────────────────────────────────────────────────────────────
 = Phase 3 Outcome — Localization Verdict
 
-#box(inset: 8pt, radius: 3pt, fill: c-new-b, width: 100%)[
+#box(inset: 8pt, radius: 3pt, fill: c-fix-b, width: 100%)[
   #set text(9.5pt)
-  *The MCL localization path did not pass its Phase 3 gate, and the cause is
-  now measured rather than suspected.* Runs on both the COSS site and the
-  official Autoware sample site failed the accuracy thresholds
-  (mean < 1.0 m, p95 < 2.5 m, yaw < 0.2 rad); nav2 AMCL on identical inputs
-  scored ~2.5× better and still failed. Phase 3d instrumentation then showed
-  *the measurement model itself is mis-specified*: evaluated in log space over
-  a 601×601 pose grid, its global maximum sits 29–30 m from the true pose,
-  with a 47–50 nat gap — and it does so even while the filter is tracking to
-  0.4 m. Numerical underflow was excluded (0 of 361,201 poses underflow).
+  *The MCL localization path failed its Phase 3 gate because the measurement
+  model was mis-specified — and Phase 3e found and fixed that
+  mis-specification.* Phase 3d instrumentation showed the beam model's
+  likelihood maximum sitting 29–30 m from the true pose (47–50 nat gap)
+  even while the filter tracked to 0.4 m, and traced it to two
+  implementation defects: an unnormalised `z_short` mixture component (the
+  configured 75% hit weight degraded to 6.8–25.4% depending on range) and
+  no-return beams outscoring perfectly matching ones (~30% of beams
+  non-finite in practice, each worth 1.87× a matching beam). Phase 3e
+  normalised `p_short`, dropped non-finite beams from the product, and
+  gated the correction step to run once per scan instead of twice.
 
-  Two implementation defects account for most of it: the `z_short` mixture
-  component is unnormalised, so the configured 75% hit weight degrades to
-  6.8–25.4% depending on range and map resolution; and a no-return beam
-  scores 1.87× a perfectly matching beam, with ~30% of beams non-finite in
-  practice. Both are fixable and are Phase 3e's first targets.
+  #text(fill: c-fix)[*The Phase 3 accuracy gate now passes.*] End-to-end,
+  5 replay seeds on the official Autoware sample site each meet
+  mean < 1.0 m / p95 < 2.5 m / yaw < 0.2 rad: mean translational error
+  0.79 m (range 0.76–0.81 m across seeds), p95 2.02 m (range 1.95–2.04 m),
+  mean \|yaw\| error 0.026 rad (range 0.026–0.028 rad) — 5/5 seeds passing,
+  against 0/5 for the unfixed upstream model (25.8–36.0 m mean error). The
+  offline sensor-model gap also collapsed, from a 51.9 nat median GT-to-argmax
+  gap (~30 m offset) to 6.2 nats (~0.2 m offset).
 
-  *Consequence for this design:* the localization column of the architecture
-  is not yet delivered. Planning and control integration should proceed on
-  NDT / `cuda_ndt`, with 2D MCL scoped to smaller, structured, low-speed
-  sites until Phase 3e demonstrates otherwise. Details:
+  *Consequence for this design:* 2D MCL is a viable localization source for
+  this build — the localization column of the architecture can proceed on
+  the vendored `particle_filter`, not just on NDT / `cuda_ndt` as a
+  fallback. Caveats: this is measured on a single site (the official
+  Autoware sample bag) with one map, not yet cross-validated on COSS or a
+  live run; and the three fixes live in the NEWSLabNTU fork
+  (`particle_filter`, branch `autosdv`), not upstream. Details:
   `docs/research/localization/2d_mcl_algorithm.md`,
-  `docs/reports/2dlidar-phase3d-instrumentation.md`.
+  `docs/reports/2dlidar-phase3e-model-fixes.md`.
 ]
 
 = Open Risks
@@ -390,7 +400,7 @@ Risks below are the original design-time list. Those that Phase 3 has now
   [*2D perception gap* — planner is blind to obstacles outside the scan plane.], [Ship a 2D obstacle-stop node; keep speeds low; document the limitation.],
   [*Pose initialization* — PF needs a 2D initial pose; no NDT auto-init.], [Manual RViz 2D-pose-estimate, or GNSS via `pose_initializer` when available.],
   [*Odom quality* — PF's motion model leans on `/odom`; poor wheel odometry degrades MCL. #text(fill: c-new)[*Resolved (Phase 3): not the bottleneck.*]], [Measured: wheel+IMU dead reckoning holds 0.79 m mean over a 28 s drive once the IMU yaw-rate sign is corrected. The failure lies in the measurement model, not the motion model.],
-  [#text(fill: c-new)[*New (Phase 3d): measurement-model mis-specification*] — the beam model's likelihood maximum is 29–30 m from truth (47–50 nat gap); unnormalised `z_short` and no-return beams outscoring matches.], [Phase 3e: normalise `p_short`, drop non-finite beams, update on new scans only. Re-measure with the frozen-field script (GT-to-argmax gap in nats) before any end-to-end run; N ≥ 5 seeds for accuracy claims.],
+  [*Measurement-model mis-specification* (found Phase 3d) — the beam model's likelihood maximum was 29–30 m from truth (47–50 nat gap); unnormalised `z_short` and no-return beams outscoring matches. #text(fill: c-fix)[*Resolved (Phase 3e): gate passes 5/5 seeds.*]], [Fixed: normalised `p_short`, dropped non-finite beams, gated correction to run once per scan (NEWSLabNTU fork, branch `autosdv`). Measured: offline gap 51.9→6.2 nats median; end-to-end 0.79 m mean / 2.02 m p95 / 0.026 rad yaw over 5 seeds (all pass), vs. 0/5 for upstream. Single-site result — not yet cross-validated on COSS or live hardware.],
   [*Planner fit* — Autoware defaults tuned for full-size vehicles.], [Set vehicle footprint, min turning radius, and velocity limits for the platform.],
 )
 

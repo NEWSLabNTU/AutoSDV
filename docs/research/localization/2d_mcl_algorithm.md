@@ -267,7 +267,20 @@ the actual normalised table column:
 
 ## 5. Structural defects this exposes
 
-### 5.1 `z_short` is unnormalised and swallows the model
+**Update (Phase 3e):** three of these five defects — 5.1, 5.2, 5.3 — are
+now **FIXED**, measured, and shipped in the `NEWSLabNTU/particle_filter@autosdv`
+fork (opt-in via `sensor_model_variant=normalized_short`,
+`skip_nonfinite_beams=true`, `update_on_new_scan_only=true`). With all
+three enabled, the offline GT-to-argmax gap collapses from 51.9 to 6.2
+nats (median, 5 frozen scans) and the end-to-end Phase 3 accuracy gate now
+passes 5/5 replay seeds (0.79 m mean translational error, down from 0/5
+passing and 26–36 m mean error upstream). See
+`docs/reports/2dlidar-phase3e-model-fixes.md` for the full measurement.
+5.4 and 5.5 remain open — they are inherent to the beam model's
+independence/clamping assumptions, not implementation bugs, and are out of
+scope for Phase 3e.
+
+### 5.1 `z_short` is unnormalised and swallows the model — **FIXED (Phase 3e)**
 
 The ramp `2·z_short·(d−r)/d` integrates to `z_short·d` — mass that grows linearly
 with predicted range **in pixels**. Because normalisation happens afterwards per
@@ -289,7 +302,25 @@ Canonical fix: normalise `p_short` per column before mixing (textbook uses
 `eta · lambda_short · exp(−lambda_short · r)` with `eta = 1/(1−exp(−lambda_short·d))`),
 so the configured weights mean what they say.
 
-### 5.2 A beam that sees nothing outscores a beam that matches
+**Fixed (Phase 3e Task 2):** implemented exactly as above —
+`sensor_model_variant=normalized_short` (`lambda_short=1.0`, 1/px) in the
+fork's `particle_filter/sensor_model.py`. Effective `z_hit` is now flat
+across range instead of range-dependent:
+
+| predicted range | effective `z_hit`, before | effective `z_hit`, after |
+|---|---|---|
+| 10 m | 25.4 % | 78.5 % |
+| 20 m | 15.2 % | 78.5 % |
+| 50 m | 6.8 % | 78.5 % |
+
+(78.5% vs. the configured 75% is a ~3.5-point discrete-grid Riemann
+overcounting artifact — the table is pixel-indexed while `eta` normalises
+a continuous integral — not a bug; see the Phase 3e report.) Offline gate,
+5 frozen scans, sample site: GT-to-argmax gap 51.92 → 7.07 nats (median),
+argmax distance from GT 29.67 → 0.20 m (median). Measurement:
+`docs/reports/2dlidar-phase3e-model-fixes.md`.
+
+### 5.2 A beam that sees nothing outscores a beam that matches — **FIXED (Phase 3e)**
 
 0.014141 versus 0.007576 (§4). Worse, with `inf` observed, a pose predicting 20 m
 scores 1.66x one predicting max range — the filter is rewarded for hypotheses that
@@ -299,7 +330,18 @@ this is a small constant bias; where the map is thin it is a large one.
 Canonical fix: drop non-finite beams from the product entirely, or give `p_max` mass
 only when the *predicted* range is also at max.
 
-### 5.3 Each scan is used twice
+**Fixed (Phase 3e Task 3):** implemented as an exact drop —
+`skip_nonfinite_beams=true` removes non-finite observed beams (and their
+predicted-range column) from the `eval_sensor_model` call entirely, for
+every particle, every update; the persistent ray-cast buffers are
+untouched, so only the ~15 ms evaluation stage is affected. ~30% of beams
+are non-finite in this dataset (measured 56–59 of 82, 68–72% finite,
+across 5 timestamps) — not an edge case, routine. Stacked on top of 5.1's
+fix, offline gate: GT-to-argmax gap 7.07 → 6.24 nats (median), local-max
+count (GT sitting at an actual peak of the likelihood surface) 1/5 → 2/5
+timestamps. Measurement: `docs/reports/2dlidar-phase3e-model-fixes.md`.
+
+### 5.3 Each scan is used twice — **FIXED (Phase 3e)**
 
 `update()` fires from `odomCB` at 20 Hz while scans arrive at 10 Hz, and
 `observation` is simply whatever `self.downsampled_ranges` currently holds.
@@ -310,7 +352,20 @@ squaring its likelihood — textbook overconfidence, and plausibly what the
 Canonical fix: run the correction step only on new scans (track the scan stamp), or
 run `update()` from `lidarCB` and accumulate odometry between scans.
 
-### 5.4 Beam independence fails hardest where we fail
+**Fixed (Phase 3e Task 4):** `update_on_new_scan_only=true` gates the
+correction step on the scan stamp; odometry deltas between corrections are
+composed via exact rotation composition (`compose_odometry_delta`, not a
+small-angle approximation — proven exact by induction and unit-tested to
+1e-9). Measured: 237 corrections over 237 unique scan stamps (zero
+double-counting), correction rate 8.3 Hz (sim time) vs. the previous
+~15 Hz odom-rate baseline. **Consequence:** since `publish_tf`/
+`visualize` live inside `update()` and no predict-only publish path was
+added, the pose/TF publish rate halves along with it — documented, not a
+data-quality regression (see the Phase 3e report). This is the fix that,
+combined with 5.1/5.2, took the end-to-end gate from 0/5 to 5/5 passing
+seeds.
+
+### 5.4 Beam independence fails hardest where we fail — still open
 
 82 beams along a corridor mostly strike the same two walls, so their errors are
 strongly correlated, yet the product treats them as 82 independent votes. The result
@@ -321,7 +376,7 @@ exactly the geometry where both our PF and nav2 AMCL collapsed
 Mitigations are approximate by nature: further beam decimation, likelihood
 tempering (what squash does), or an explicit correlated-noise model.
 
-### 5.5 Clamping discards the disambiguating beams
+### 5.5 Clamping discards the disambiguating beams — still open
 
 30% of returns exceed 30 m; everything past `max_range` lands in the pose-independent
 max-range bucket. The long down-corridor beams that could fix longitudinal position
