@@ -259,6 +259,22 @@ class MclPoseRelay(Node):
         self.declare_parameter('sensor_frame', 'laser')
         self.declare_parameter('unused_axis_variance', 1_000_000.0)
         self.declare_parameter('tf_timeout_sec', 0.2)
+        # Task 8 end-to-end diagnosis (2026-07-27): the map_frame -> sensor_frame
+        # lookup below is meant to recover particle_filter's OWN scan-accurate
+        # broadcast stamp (defect 2 in this module's docstring). It is only
+        # correct when nothing ELSE in the TF graph publishes into that same
+        # frame pair. Replaying a bag that was itself originally recorded from
+        # a real localized run (this repo's sample-site bag) puts a genuine,
+        # unrelated "map -> base_link" chain onto the graph, and the lookup
+        # silently resolves against THAT instead of failing over -- publishing
+        # a frozen/wrong stamp that wrecks a downstream EKF's delay
+        # compensation (confirmed via a three-way GT comparison: ~4 m raw
+        # filter vs ~92 m after this relay, same underlying estimate). Default
+        # ('tf') preserves every existing caller's behavior unchanged;
+        # 'header' skips the TF lookup and always uses the input message's own
+        # header.stamp, which is what a caller should set once it cannot
+        # guarantee sensor_frame is not also populated by an unrelated source.
+        self.declare_parameter('stamp_source', 'tf')  # 'tf' | 'header'
 
         self.input_topic = self.get_parameter('input_topic').value
         self.input_type = self.get_parameter('input_type').value
@@ -270,6 +286,10 @@ class MclPoseRelay(Node):
             self.get_parameter('unused_axis_variance').value)
         self.tf_timeout = Duration(
             seconds=float(self.get_parameter('tf_timeout_sec').value))
+        self.stamp_source = self.get_parameter('stamp_source').value
+        if self.stamp_source not in ('tf', 'header'):
+            raise ValueError(
+                f"stamp_source must be 'tf' or 'header', got {self.stamp_source!r}")
 
         if self.input_type not in ('odometry', 'pose_stamped'):
             raise ValueError(
@@ -357,21 +377,25 @@ class MclPoseRelay(Node):
         # available -- e.g. replaying a rosbag that only contains the pose
         # topics and no TF, as in this package's verification bag.
         stamp = header.stamp
-        try:
-            map_to_sensor = self.tf_buffer.lookup_transform(
-                self.map_frame, self.sensor_frame, Time(), timeout=self.tf_timeout)
-            stamp = map_to_sensor.header.stamp
-        except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
-                tf2_ros.ExtrapolationException):
-            if not self._warned_wall_clock_stamp:
-                self.get_logger().warn(
-                    f"mcl_pose_relay: no '{self.map_frame}' -> "
-                    f"'{self.sensor_frame}' TF available to recover the "
-                    f"scan-accurate stamp; falling back to this message's "
-                    f"own (wall-clock) header stamp. EKF delay "
-                    f"compensation may be degraded as a result. "
-                    f"(Warned once.)")
-                self._warned_wall_clock_stamp = True
+        if self.stamp_source == 'tf':
+            try:
+                map_to_sensor = self.tf_buffer.lookup_transform(
+                    self.map_frame, self.sensor_frame, Time(), timeout=self.tf_timeout)
+                stamp = map_to_sensor.header.stamp
+            except (tf2_ros.LookupException, tf2_ros.ConnectivityException,
+                    tf2_ros.ExtrapolationException):
+                if not self._warned_wall_clock_stamp:
+                    self.get_logger().warn(
+                        f"mcl_pose_relay: no '{self.map_frame}' -> "
+                        f"'{self.sensor_frame}' TF available to recover the "
+                        f"scan-accurate stamp; falling back to this message's "
+                        f"own (wall-clock) header stamp. EKF delay "
+                        f"compensation may be degraded as a result. "
+                        f"(Warned once.)")
+                    self._warned_wall_clock_stamp = True
+        # else: stamp_source == 'header' -- explicitly configured to skip the
+        # TF lookup entirely and always use the input message's own stamp;
+        # see the stamp_source declare_parameter comment for why.
 
         # Defect 1: correct covariance placement (or explicit "unknown"
         # covariance when the input carries none at all).

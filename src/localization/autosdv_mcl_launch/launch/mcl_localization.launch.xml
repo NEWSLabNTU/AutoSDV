@@ -31,7 +31,7 @@
 <launch>
   <!-- Sensor/vehicle input topics (sample_sensor_kit defaults, matching the
        Phase 4 gate reproduce block in docs/reports/2dlidar-phase4-init-gating.md) -->
-  <arg name="input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
+  <arg name="mcl_input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
        description="raw 3-D pointcloud flattened into /scan via pointcloud_to_laserscan"/>
   <arg name="velocity_topic" default="/vehicle/status/velocity_status"/>
   <arg name="imu_topic" default="/sensing/imu/tamagawa/imu_raw"/>
@@ -49,9 +49,15 @@
        description="z-band upper bound (base_link frame), sensor-kit specific"/>
   <arg name="scan_range_max" default="60.0"/>
 
-  <!-- particle_filter parameter file (Phase 4 gate defaults). Override with a
-       sibling copy for a different sensor kit / map resolution. -->
-  <arg name="mcl_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl.param.yaml"/>
+  <!-- particle_filter / pointcloud_to_laserscan parameter files (Phase 4 gate
+       defaults). Two files, not one, because both use "/**" wildcard node-name
+       matching (required so params still apply once these nodes run inside the
+       /localization namespace under the full stack - see the files'
+       headers), and a single YAML cannot repeat a top-level "/**" key.
+       Override either with a sibling copy for a different sensor kit / map
+       resolution. -->
+  <arg name="mcl_particle_filter_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_particle_filter.param.yaml"/>
+  <arg name="mcl_pointcloud_to_laserscan_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_pointcloud_to_laserscan.param.yaml"/>
   <arg name="require_initialpose" default="true"
        description="gate MCL updates/publication until a real /initialpose seed arrives (Phase 4 Task 2)"/>
 
@@ -62,10 +68,52 @@
   <arg name="map_frame" default="map"/>
   <!-- pointcloud_to_laserscan's target_frame:=base_link (below) means /scan is
        already expressed in base_link, so the relay's sensor->base composition
-       is an identity transform - no static laser->base_link TF is required. -->
+       is a free identity transform (no static laser->base_link TF needed). -->
   <arg name="sensor_frame" default="base_link"/>
 
+  <!-- Task 8 end-to-end diagnosis (2026-07-27): mcl_pose_relay's (T6) stamp
+       recovery does a SECOND lookup, map_frame -> sensor_frame, meant to
+       read back particle_filter's own scan-accurate broadcast stamp. With
+       sensor_frame="base_link" that lookup is "map -> base_link" - which is
+       NOT particle_filter's broadcast (its hardcoded child frame is
+       '/laser'; see particle_filter.py's publish_tf). Replaying the sample
+       bag (itself originally recorded from a REAL NDT+EKF run) puts a
+       genuine, unrelated "map -> base_link" chain onto the TF graph, so the
+       lookup silently resolved against THAT instead of failing over -
+       publishing a frozen/wrong stamp that wrecked ekf_localizer's delay
+       compensation. Confirmed via a three-way GT comparison on one seed:
+       GT vs /pf/viz/inferred_pose (raw filter) trans. mean 4.23 m; GT vs
+       this relay's own output 92.28 m, same underlying estimate - an
+       84x amplification entirely attributable to the corrupted stamp
+       ruining nearest-timestamp pairing (and, in the live EKF, its delay
+       compensation). An attempted fix pointing sensor_frame at "laser"
+       instead (so the lookup would target particle_filter's ACTUAL
+       broadcast) surfaced a second, independent defect: the sample bag's
+       own /tf_static carries a genuinely bogus 2020-04-03 timestamp (a
+       real-vehicle clock-not-yet-synced artifact baked into the recording),
+       which tf2 treats as an unrelated frame's earliest-available data and
+       then refuses the SAME lookup outright ("extrapolation into the
+       past"), dropping every message - worse than the original bug. Given
+       both TF-based paths are unreliable against this specific replayed
+       bag, stamp_source:=header below bypasses the TF lookup entirely and
+       uses the input message's own header.stamp, which get_clock().now()
+       already correctly resolves in sim time under use_sim_time - see
+       mcl_pose_relay.py's stamp_source parameter (added for this fix; 'tf'
+       remains the default there, preserving every other caller's existing
+       behavior byte for byte). -->
+  <arg name="stamp_source" default="header"/>
+
   <arg name="use_sim_time" default="true"/>
+  <!-- Namespace particle_filter's <executable> command must manually apply
+       (see the node's comment below for why it is an <executable>, not a
+       <node>, and therefore does not auto-inherit the ambient
+       push-ros-namespace like this file's other nodes do). This file is
+       only ever included from the forked pose_twist_estimator.launch.xml,
+       itself included from within tier4_localization_launch's
+       push-ros-namespace="localization" - confirmed empirically (Task 8)
+       via the equivalent <node>'s resolved name, /localization/particle_filter.
+       Override if this file is ever included somewhere else. -->
+  <arg name="particle_filter_ns" default="/localization"/>
 
   <!-- - pointcloud_to_laserscan: 3-D cloud -> 2-D LaserScan, in base_link
        frame (the sample-site frame fix - see this file's header). Publisher
@@ -73,9 +121,19 @@
        below re-publishes RELIABLE for particle_filter's default subscription
        QoS. -->
   <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
-    <remap from="/pointcloud_to_laserscan/input/pointcloud" to="$(var input_pointcloud)"/>
-    <remap from="/pointcloud_to_laserscan/output/laserscan" to="/scan_raw"/>
-    <param from="$(var mcl_param_file)"/>
+    <!-- ~/... (node-private, tilde-relative) topic names, not the absolute
+         /pointcloud_to_laserscan/... form scripts/2dlidar/run-particle-filter.sh
+         uses - that form only matched because the harness never namespaces
+         this node. Under the full stack this node runs inside the
+         /localization namespace (ambient push-ros-namespace), so an absolute
+         remap-from silently fails to match and the remap has no effect at
+         all (confirmed during Task 8 end-to-end verification: /scan_raw
+         never appeared and pointcloud_to_laserscan instead published under
+         its own default /localization/pointcloud_to_laserscan/output/laserscan
+         name). Tilde-relative resolves correctly in both cases. -->
+    <remap from="~/input/pointcloud" to="$(var mcl_input_pointcloud)"/>
+    <remap from="~/output/laserscan" to="/scan_raw"/>
+    <param from="$(var mcl_pointcloud_to_laserscan_param_file)"/>
     <param name="min_height" value="$(var scan_min_height)"/>
     <param name="max_height" value="$(var scan_max_height)"/>
     <param name="range_max" value="$(var scan_range_max)"/>
@@ -101,17 +159,37 @@
   </node>
 
   <!-- - particle_filter (vendored fork, NEWSLabNTU/particle_filter@autosdv).
-       Blocks on the nav_msgs/GetMap service at /map_server/map in __init__
-       - the map component (Task 1) must already have nav2_map_server
-       configured+activated before this node starts, which is guaranteed by
-       launch order in the top-level localization component (map loads
-       before pose_twist_estimator is included). Absolute /pf/... topic
-       names - see this file's header for the namespacing decision. -->
-  <node pkg="particle_filter" exec="particle_filter" name="particle_filter">
-    <param from="$(var mcl_param_file)"/>
-    <param name="require_initialpose" value="$(var require_initialpose)"/>
-    <param name="use_sim_time" value="$(var use_sim_time)"/>
-  </node>
+       Blocks on the nav_msgs/GetMap service at /map_server/map in __init__,
+       but only waits for the SERVICE to exist, not for nav2_map_server to
+       reach ACTIVE - calling GetMap before activation returns an EMPTY
+       grid (resolution 0.0), which crashes particle_filter with a
+       ZeroDivisionError (confirmed during Task 8 end-to-end verification:
+       the map component (Task 1) and this file are launch-tree siblings
+       with no ordering guarantee, so this race is not rare).
+
+       wait_for_active_map.sh polls for a real (nonzero-resolution) map
+       before starting the real process. This MUST be a <node>'s
+       launch-prefix in principle, but play_launch's Rust parser (this
+       repo's preferred launch runner per CLAUDE.md) silently drops
+       launch-prefix - confirmed empirically: the resolved process cmdline
+       had no wrapper in front of it, and the ZeroDivisionError still
+       occurred. Using <executable> instead (the same tool play_launch
+       already handles correctly for autosdv_map_component's own lifecycle
+       bringup script) sidesteps the gap; the cost is that <executable>
+       does not auto-apply the ambient push-ros-namespace the way <node>
+       does, so this command applies it manually via -r __ns - see the
+       particle_filter_ns arg above. Absolute /pf/... topic names - see
+       this file's header for the namespacing decision. -->
+  <executable
+    cmd="$(find-pkg-share autosdv_mcl_launch)/scripts/wait_for_active_map.sh
+         ros2 run particle_filter particle_filter --ros-args
+         -r __ns:=$(var particle_filter_ns) -r __node:=particle_filter
+         --params-file $(var mcl_particle_filter_param_file)
+         -p require_initialpose:=$(var require_initialpose)
+         -p use_sim_time:=$(var use_sim_time)"
+    name="particle_filter"
+    output="screen"
+  />
 
   <!-- - mcl_pose_relay: /pf/pose/odom -> the contract topic, fixing
        particle_filter's covariance-layout/stamp/frame-id/base-link defects
@@ -123,6 +201,7 @@
     <param name="base_frame" value="$(var base_frame)"/>
     <param name="map_frame" value="$(var map_frame)"/>
     <param name="sensor_frame" value="$(var sensor_frame)"/>
+    <param name="stamp_source" value="$(var stamp_source)"/>
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
 </launch>

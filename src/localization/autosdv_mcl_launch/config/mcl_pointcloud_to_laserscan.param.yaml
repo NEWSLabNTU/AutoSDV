@@ -1,0 +1,23 @@
+# AutoSDV 2D-MCL launch defaults (Task 7): pointcloud_to_laserscan_node.
+#
+# target_frame:=base_link is the sample-site frame fix (see
+# scripts/2dlidar/run-particle-filter.sh's "Frame-fix note"): flattening in
+# base_link, not sensor frame, keeps the z-band filter and the particle
+# filter's frame-naive sensor model correctly oriented.
+#
+# Top-level key is the "/**" wildcard -- see mcl_particle_filter.param.yaml
+# for why a literal node-name key breaks under the full stack's namespace.
+"/**":
+  ros__parameters:
+    target_frame: 'base_link'
+    # Sample-site sensor height above base_link (velodyne_top, ~2.0-2.1 m --
+    # see sample_sensor_kit_description/config/sensor_kit_calibration.yaml).
+    # Parameterised here (launch args), not hardcoded, because the band is
+    # sensor-kit specific -- see mcl_localization.launch.xml.
+    min_height: 1.91611
+    max_height: 2.21611
+    angle_min: -3.14159
+    angle_max: 3.14159
+    angle_increment: 0.0043
+    range_min: 0.1
+    range_max: 60.0

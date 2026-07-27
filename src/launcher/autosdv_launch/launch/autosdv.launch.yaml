@@ -4,6 +4,22 @@ launch:
     default: "false"
     description: "Enable simulation mode (disables PWM output to hardware)"
 
+# AutoSDV: map_path was hardcoded to ./data/COSS-map-planning below (not an
+# overridable arg) -- see logging_simulation.launch.yaml for the same fix
+# and rationale. Default unchanged.
+- arg:
+    name: map_path
+    default: "./data/COSS-map-planning"
+    description: "Map directory path, forwarded to autosdv_map_component (Task 1); must contain occupancy_grid.yaml for pose_source:=mcl"
+
+# AutoSDV: occupancy_grid_file was not forwarded from this top-level launch
+# either -- see logging_simulation.launch.yaml for the same fix and the
+# Task 8 rationale.
+- arg:
+    name: occupancy_grid_file
+    default: "occupancy_grid.yaml"
+    description: "2-D occupancy grid metadata file name within map_path (pose_source:=mcl only)"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -152,7 +168,10 @@ launch:
       value: autosdv_sensor_kit
     -
       name: map_path
-      value: ./data/COSS-map-planning
+      value: $(var map_path)
+    -
+      name: occupancy_grid_file
+      value: $(var occupancy_grid_file)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

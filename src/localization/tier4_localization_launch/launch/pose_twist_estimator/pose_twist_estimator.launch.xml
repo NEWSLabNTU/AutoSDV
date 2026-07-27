@@ -13,7 +13,9 @@
   <let name="is_external_plugin" value="$(eval &quot;'$(var pose_source_package)' != ''&quot;)"/>
 
   <!-- split string with underscores -->
-  <let name="available_args" value="[\'ndt\',\'yabloc\',\'eagleye\',\'artag\',\'lidar-marker\']"/>
+  <!-- AutoSDV: 'mcl' added (Phase 5 Task 8) - see
+       docs/design/localization-method-switching.md Sec 5.2 gap 16. -->
+  <let name="available_args" value="[\'ndt\',\'yabloc\',\'eagleye\',\'artag\',\'lidar-marker\',\'mcl\']"/>
   <let name="split_function" value="list(set('$(var pose_source)'.split('_')).intersection($(var available_args)))"/>
   <let name="pose_sources" value="$(eval $(var split_function))"/>
   <let name="multi_localizer_mode" value="$(eval &quot;len($(var pose_sources))> 1&quot;)"/>
@@ -23,6 +25,16 @@
   <let name="use_yabloc_pose" value="$(eval &quot;'yabloc' in $(var pose_sources)&quot;)"/>
   <let name="use_artag_pose" value="$(eval &quot;'artag' in $(var pose_sources)&quot;)"/>
   <let name="use_lidar_marker_pose" value="$(eval &quot;'lidar-marker' in $(var pose_sources)&quot;)"/>
+  <!-- AutoSDV: 2D-MCL pose source (Phase 5 Task 8). Isaac-style bypass - see
+       docs/design/localization-method-switching.md Sec 4: 2D-MCL can never
+       serve the plugin contract's PCD map-loader client, so this is a
+       sibling group like the built-in NDT group below, not a
+       push-ros-namespace pose_estimator plugin slot. 'mcl' is disjoint
+       from 'ndt' in available_args, so use_ndt_pose stays false for
+       pose_source:=mcl - that is what keeps pose_initializer's
+       ndt_enabled false below, so it does not block on the ndt_align
+       service we do not serve. -->
+  <let name="use_mcl_pose" value="$(eval &quot;'mcl' in $(var pose_sources)&quot;)"/>
   <let name="use_eagleye_pose" value="$(eval &quot;'eagleye' in $(var pose_sources)&quot;)"/>
   <let name="use_eagleye_twist" value="$(eval &quot;'eagleye' == '$(var twist_source)'&quot;)"/>
   <let name="use_gyro_odom_twist" value="$(eval &quot;'gyro_odom' == '$(var twist_source)'&quot;)"/>
@@ -62,6 +74,21 @@
       <arg name="output_pose_topic" value="/localization/pose_estimator/pose"/>
       <arg name="output_pose_with_covariance_topic" value="/localization/pose_estimator/pose_with_covariance"/>
       <arg name="client_map_loader" value="/map/get_differential_pointcloud_map"/>
+    </include>
+  </group>
+
+  <!-- AutoSDV: 2D-MCL Launch (as pose estimator), Isaac-style bypass.
+       Not push-ros-namespace'd: autosdv_mcl_launch's own launch file
+       decided (see its header) to accept particle_filter's hard-coded
+       absolute /pf/... topics and /map_server/map service client rather
+       than push a namespace that would not relocate them anyway. The
+       relay inside it publishes directly onto
+       /localization/pose_estimator/pose_with_covariance, the same
+       contract topic the built-in NDT group above publishes under its own
+       pushed namespace. -->
+  <group if="$(var use_mcl_pose)">
+    <include file="$(find-pkg-share autosdv_mcl_launch)/launch/mcl_localization.launch.xml">
+      <arg name="output_pose_with_covariance_topic" value="/localization/pose_estimator/pose_with_covariance"/>
     </include>
   </group>
 

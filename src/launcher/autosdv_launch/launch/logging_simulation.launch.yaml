@@ -8,6 +8,27 @@ launch:
     default: "true"
     description: "Enable simulation mode (disables PWM output to hardware)"
 
+# AutoSDV: map_path was hardcoded to ./data/COSS-map-planning below (not an
+# overridable arg), which made it impossible to point pose_source:=mcl (or
+# any pose source) at a different map directory - e.g. the sample-site map
+# used by the 2D-MCL Phase 3/4 gates - from the command line. Exposed as an
+# arg, default unchanged, so every existing invocation resolves identically.
+- arg:
+    name: map_path
+    default: "./data/COSS-map-planning"
+    description: "Map directory path, forwarded to autosdv_map_component (Task 1); must contain occupancy_grid.yaml for pose_source:=mcl"
+
+# AutoSDV: occupancy_grid_file was not forwarded from this top-level launch
+# at all (see autosdv_autoware.launch.xml's own arg comment for the full
+# rationale and the Task 8 numbers). Default unchanged (occupancy_grid.yaml,
+# deliberately neutral -- see docs/reports/2dlidar-phase5-mcl-pose-source.md);
+# name occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml explicitly
+# for Phase 4's validated accuracy on the sample site.
+- arg:
+    name: occupancy_grid_file
+    default: "occupancy_grid.yaml"
+    description: "2-D occupancy grid metadata file name within map_path (pose_source:=mcl only)"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -171,7 +192,10 @@ launch:
       value: autosdv_sensor_kit
     -
       name: map_path
-      value: ./data/COSS-map-planning
+      value: $(var map_path)
+    -
+      name: occupancy_grid_file
+      value: $(var occupancy_grid_file)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

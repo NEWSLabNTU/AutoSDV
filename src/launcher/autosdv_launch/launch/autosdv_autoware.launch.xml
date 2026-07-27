@@ -63,6 +63,20 @@
   <!-- Map -->
   <arg name="lanelet2_map_file" default="lanelet2_map.osm" description="lanelet2 map file name"/>
   <arg name="pointcloud_map_file" default="pointcloud_map.pcd" description="pointcloud map file name"/>
+  <!-- AutoSDV: occupancy_grid_file was not forwarded (autosdv_map_component's
+       own default, occupancy_grid.yaml, always won regardless of what a
+       caller wanted) - exposed here for pose_source:=mcl. Every Phase 4
+       accuracy result used occupancy_grid_scanaccum_mh1r05.yaml (Lever-2,
+       0.05 m/cell), not the coarser default occupancy_grid.yaml
+       (0.2 m/cell, 4.7M unknown cells raycast as free in range_libc - see
+       docs/research/localization/2d_mcl_algorithm.md Sec 5.2). Confirmed via
+       Task 8 end-to-end diagnosis: with the default grid, GT-vs-filter
+       trans. mean was 2.6-5.4 m; not forwarding this argument was the
+       reason nobody could reach the Phase 4 grid from `just launch`.
+       Default stays occupancy_grid.yaml (unchanged, still deliberately
+       neutral - see the Task 8 report for why) so this is additive, not a
+       behavior change for anyone not naming the argument. -->
+  <arg name="occupancy_grid_file" default="occupancy_grid.yaml" description="2-D occupancy grid metadata file name (pose_source:=mcl only); Phase 4's validated accuracy used occupancy_grid_scanaccum_mh1r05.yaml, not this default -- see docs/reports/2dlidar-phase5-mcl-pose-source.md"/>
   <!-- System -->
   <arg name="system_run_mode" default="online" description="run mode in system"/>
   <arg name="launch_system_monitor" default="true" description="launch system monitor"/>
@@ -122,6 +136,7 @@
       <arg name="map_path" value="$(var map_path)"/>
       <arg name="lanelet2_map_file" value="$(var lanelet2_map_file)"/>
       <arg name="pointcloud_map_file" value="$(var pointcloud_map_file)"/>
+      <arg name="occupancy_grid_file" value="$(var occupancy_grid_file)"/>
       <arg name="pose_source" value="$(var pose_source)"/>
     </include>
   </group>

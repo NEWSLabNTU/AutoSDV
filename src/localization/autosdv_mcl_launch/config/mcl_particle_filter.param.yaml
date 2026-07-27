@@ -1,4 +1,4 @@
-# AutoSDV 2D-MCL launch defaults (Task 7).
+# AutoSDV 2D-MCL launch defaults (Task 7): particle_filter.
 #
 # These are the Phase 4 gate parameters -- the configuration that passed
 # docs/reports/2dlidar-phase4-init-gating.md's end-to-end check on the
@@ -11,7 +11,15 @@
 #
 # NOTE: ROS 2 rejects int literals for double-typed parameters -- every
 # double below is written with an explicit decimal point.
-particle_filter:
+#
+# Top-level key is the "/**" wildcard, not the literal node name: when this
+# launch file is included from pose_twist_estimator.launch.xml under the
+# full stack, particle_filter runs under the /localization namespace
+# (push-ros-namespace upstream), so a literal "particle_filter:" key would
+# not match the node's fully-qualified name and every parameter would
+# silently resolve to None -- this was caught during Task 8 end-to-end
+# verification (particle_filter crashed on `squash_factor` being None).
+"/**":
   ros__parameters:
     scan_topic: '/scan'
     odometry_topic: '/odom'
@@ -59,22 +67,3 @@ particle_filter:
     # known. This is the Phase 4-gated behaviour; the launch file's
     # `require_initialpose` arg can override it.
     require_initialpose: true
-
-# pointcloud_to_laserscan_node -- target_frame:=base_link is the sample-site
-# frame fix (see scripts/2dlidar/run-particle-filter.sh's "Frame-fix note"):
-# flattening in base_link, not sensor frame, keeps the z-band filter and the
-# particle filter's frame-naive sensor model correctly oriented.
-pointcloud_to_laserscan:
-  ros__parameters:
-    target_frame: 'base_link'
-    # Sample-site sensor height above base_link (velodyne_top, ~2.0-2.1 m --
-    # see sample_sensor_kit_description/config/sensor_kit_calibration.yaml).
-    # Parameterised here (launch args), not hardcoded, because the band is
-    # sensor-kit specific -- see mcl_localization.launch.xml.
-    min_height: 1.91611
-    max_height: 2.21611
-    angle_min: -3.14159
-    angle_max: 3.14159
-    angle_increment: 0.0043
-    range_min: 0.1
-    range_max: 60.0
