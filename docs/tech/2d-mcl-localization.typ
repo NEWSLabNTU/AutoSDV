@@ -12,6 +12,10 @@
 #let c-off-b  = rgb("#e4e6e9")
 #let c-fix    = rgb("#2f9e44")   // fixed / verified
 #let c-fix-b  = rgb("#d3f9d8")
+#let c-drop   = rgb("#868e96")   // deleted under mcl
+#let c-drop-b = rgb("#e9ecef")
+#let c-mod    = rgb("#f08c00")   // modified
+#let c-mod-b  = rgb("#fff3bf")
 
 #let legend(color, body) = box(baseline: 0.15em)[#box(width: 0.85em, height: 0.85em, fill: color, radius: 1pt) #body]
 #let ok = text(fill: c-fix, weight: "bold")[✓]
@@ -358,6 +362,7 @@ reference rather than merely level with it.
 
 == 5.6 Interface adaptation: `mcl_pose_relay`
 
+#pagebreak(weak: true)
 An AutoSDV-authored node republishes the filter's pose as
 `PoseWithCovarianceStamped` on the contract topic, fixing four inherited
 interface defects rather than propagating them:
@@ -373,6 +378,154 @@ interface defects rather than propagating them:
 
 Publication is also not gated on subscriber count, unlike upstream, so a
 late-joining `ekf_localizer` still receives poses.
+
+= Changes to the Autoware stack
+
+This section is the change record: what the localization stack looks like with
+stock NDT, what it looks like under `pose_source:=mcl`, and every node that was
+deleted, added or modified to get there. Nothing here alters the `cuda_ndt` or
+`ndt` paths — those were verified byte-identical by topic and node list diff.
+
+#align(center, box(inset: 6pt, radius: 4pt, fill: c-off-b, width: 100%)[
+  #set align(left)
+  #set text(9pt)
+  *Change marks* #h(0.8em)
+  #legend(c-auto-b)[unchanged] #h(0.8em)
+  #legend(c-drop-b)[deleted for `mcl`] #h(0.8em)
+  #legend(c-new-b)[added] #h(0.8em)
+  #legend(c-mod-b)[modified]
+])
+
+== Before — stock NDT path
+
+#v(0.2em)
+#align(center, scale(76%, reflow: true)[
+#diagram(
+  spacing: (14mm, 9mm),
+  node-stroke: 0.6pt,
+  node-corner-radius: 3pt,
+  node-inset: 4.5pt,
+  {
+    let n(b) = text(7.5pt, b)
+    let d(b) = text(6pt, fill: rgb("#40484f"), b)
+    let t(b) = text(6pt, raw(b))
+
+    node((0, -1.4), n[pointcloud_map\_loader], fill: c-auto-b, name: <pcd>)
+    node((0, -0.4), n[lanelet2_map\_loader], fill: c-auto-b, name: <ll>)
+    node((0, 0.5), n[map_projection\_loader], fill: c-auto-b, name: <proj>)
+
+    node((1.7, -1.4), n[util.launch\ #d[voxel downsample]], fill: c-auto-b, name: <util>)
+    node((1.7, -0.3), n[*ndt_scan_matcher*\ #d[or cuda_ndt plugin\ serves ndt_align_srv,\ trigger_node]], fill: c-auto-b, name: <ndt>)
+
+    node((1.7, 1.3), n[map_height_fitter\ #d[target: pointcloud_map]], fill: c-auto-b, name: <fit>)
+    node((0, 1.3), n[pose_initializer\ #d[ndt_enabled: true]], fill: c-auto-b, name: <init>)
+
+    node((3.3, 0.4), n[ekf_localizer], fill: c-auto-b, name: <ekf>)
+    node((1.7, 2.3), n[voxel_based_compare\_map_filter], fill: c-auto-b, name: <cmp>)
+
+    edge(<pcd>, <util>, "->", label: t("pointcloud_map"), label-size: 5.5pt)
+    edge(<util>, <ndt>, "->", label: t("downsample/pointcloud"), label-size: 5.5pt)
+    edge(<pcd>, <ndt>, "->", label: t("get_differential_map"), label-size: 5.5pt, bend: -22deg)
+    edge(<ndt>, <ekf>, "->", label: t("pose_with_covariance"), label-size: 5.5pt)
+    edge(<init>, <ndt>, "->", label: t("ndt_align"), label-size: 5.5pt)
+    edge(<init>, <fit>, "->")
+    edge(<pcd>, <fit>, "->", label: t("height"), label-size: 5.5pt)
+    edge(<init>, <ekf>, "->", label: t("initialpose3d"), label-size: 5.5pt, bend: 20deg)
+    edge(<ll>, <ekf>, "->", label: t("vector_map"), label-size: 5.5pt)
+    edge(<proj>, <ll>, "->", label: t("projector_info"), label-size: 5.5pt)
+    edge(<pcd>, <cmp>, "->", label: t("map"), label-size: 5.5pt)
+  }
+)
+])
+
+== After — `pose_source:=mcl`
+
+#v(0.2em)
+#align(center, scale(76%, reflow: true)[
+#diagram(
+  spacing: (14mm, 9mm),
+  node-stroke: 0.6pt,
+  node-corner-radius: 3pt,
+  node-inset: 4.5pt,
+  {
+    let n(b) = text(7.5pt, b)
+    let d(b) = text(6pt, fill: rgb("#40484f"), b)
+    let t(b) = text(6pt, raw(b))
+
+    node((0, -1.4), n[pointcloud_map\_loader], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <pcd>)
+    node((0, -0.4), n[lanelet2_map\_loader], fill: c-auto-b, name: <ll>)
+    node((0, 0.5), n[map_projection\_loader], fill: c-auto-b, name: <proj>)
+    node((0, -2.4), n[*nav2_map_server*\ #d[occupancy grid,\ lifecycle-activated]], fill: c-new-b, name: <grid>)
+
+    node((1.7, -1.4), n[util.launch\ #d[voxel downsample]], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <util>)
+    node((1.7, -0.4), n[ndt_scan_matcher], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <ndt>)
+    node((1.7, -2.4), n[*particle_filter*\ #d[with scan chain,\ QoS bridge, odometry]], fill: c-new-b, name: <pf>)
+    node((3.2, -2.4), n[*mcl_pose_relay*], fill: c-new-b, name: <relay>)
+
+    node((1.7, 1.3), n[map_height_fitter\ #d[target: *vector_map*]], fill: c-mod-b, name: <fit>)
+    node((0, 1.3), n[pose_initializer\ #d[ndt_enabled: *false*]], fill: c-mod-b, name: <init>)
+
+    node((3.3, 0.4), n[ekf_localizer\ #d[ungated — see §6.3]], fill: c-auto-b, name: <ekf>)
+    node((1.7, 2.3), n[voxel_based_compare\_map_filter], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <cmp>)
+
+    edge(<grid>, <pf>, "->", label: t("GetMap"), label-size: 5.5pt)
+    edge(<pf>, <relay>, "->", label: t("/pf/pose/odom"), label-size: 5.5pt)
+    edge(<relay>, <ekf>, "->", label: t("pose_with_covariance"), label-size: 5.5pt)
+    edge(<init>, <pf>, "->", label: t("initialpose"), label-size: 5.5pt)
+    edge(<init>, <fit>, "->")
+    edge(<ll>, <fit>, "->", label: t("height"), label-size: 5.5pt)
+    edge(<init>, <ekf>, "->", label: t("initialpose3d"), label-size: 5.5pt, bend: 20deg)
+    edge(<ll>, <ekf>, "->", label: t("vector_map"), label-size: 5.5pt)
+    edge(<proj>, <ll>, "->", label: t("projector_info"), label-size: 5.5pt)
+  }
+)
+])
+
+Dashed grey nodes are *not launched* under `mcl` — they are drawn to make the
+deletion explicit rather than leaving the reader to spot an absence.
+
+== Change table
+
+#table(
+  columns: (auto, auto, 1fr),
+  align: (left, center, left),
+  table.header([*Node / artefact*], [*Change*], [*Detail*]),
+
+  table.cell(colspan: 3, fill: c-off-b)[*Map layer*],
+  [`pointcloud_map_loader`], [deleted], [Not composed under `mcl`. Stock Autoware runs it unconditionally with no disable argument, and a missing PCD *throws* and kills `map_container` — hence an AutoSDV-owned map component.],
+  [`nav2_map_server`], [added], [Serves the occupancy grid over `GetMap`. Node name must stay `map_server` (the filter hardcodes `/map_server/map`), and it is a lifecycle node, so bring-up configures then activates with retries.],
+  [`autosdv_map_component`\ `.launch.xml`], [added], [Replaces stock `tier4_map_component`. Splits `map_container` into `with_pcd` / `no_pcd` variants selected by sibling `<group if>` — because `play_launch` ignores `if=` on `<composable_node>` (filed upstream, fixed in `play_launch_parser`).],
+  [`lanelet2_map_loader`,\ `map_projection_loader`], [unchanged], [Both still required: the vector map is published only inside the projector-info callback, so `mcl` still needs `map_projector_info.yaml` even though the grid never reads it.],
+  [`config/map/*.param.yaml`], [modified], [Previously dead — the stock include passed no arguments, so `/opt` configs loaded. Now actually wired.],
+
+  table.cell(colspan: 3, fill: c-off-b)[*Pose estimator*],
+  [`ndt_scan_matcher`], [deleted], [`'mcl'` is disjoint from `'ndt'` in `available_args`, so `use_ndt_pose` stays false and neither the built-in matcher nor the plugin slot is instantiated.],
+  [`util.launch.xml`], [deleted], [The voxel-downsample chain is gated on `use_ndt_pose`; MCL consumes a `LaserScan`, not a downsampled cloud.],
+  [`particle_filter`, scan chain,\ `wheel_imu_odom`], [added], [Via `autosdv_mcl_launch`, included from a new `use_mcl_pose` branch.],
+  [`mcl_pose_relay`], [added], [Publishes the contract topic from outside the plugin slot, Isaac-style.],
+  [`pose_twist_estimator`\ `.launch.xml`], [modified], [Fork edit: `'mcl'` added to `available_args`, plus a `use_mcl_pose` group. The pre-existing `pose_source_package` plugin slot is untouched.],
+
+  table.cell(colspan: 3, fill: c-off-b)[*Pose initialization*],
+  [`pose_initializer`], [modified], [`ndt_enabled` follows `use_ndt_pose`, so it is false for `mcl` — which is what stops the initializer blocking on an `ndt_align_srv` that MCL does not serve.],
+  [`map_height_fitter`], [modified], [Target retargeted from `pointcloud_map` to `vector_map`. Measured before the change: its constructor blocked forever on an absent PCD, so `/localization/initialize` hung for its full timeout and `/initialpose` never even appeared.],
+  [`gnss_poser`,\ `automatic_pose_initializer`], [unchanged], [GNSS auto-init works as it does for NDT. Heading remains the weak point — see §7.],
+
+  table.cell(colspan: 3, fill: c-off-b)[*Perception and fusion*],
+  [`voxel_based_compare`\ `_map_filter`], [deleted], [`use_pointcloud_map` is forced false for `mcl`. Left enabled it attempts to load and hangs mid-construction waiting for a map that never arrives.],
+  [`gyro_odometer`], [unchanged], [Still the twist source.],
+  [`ekf_localizer`], [unchanged], [Consumes the same contract topic. *Not* gated on initialization, which is the cause of the residual transient in §6.3 — the one identified item still outstanding.],
+)
+
+== Launch-layer changes outside the diagram
+
+#table(
+  columns: (auto, auto, 1fr),
+  align: (left, center, left),
+  table.header([*File*], [*Change*], [*Detail*]),
+  [`autosdv.launch.yaml`,\ `logging_simulation.launch.yaml`], [modified], [`pose_source` default moved `ndt` → `cuda_ndt`; `pose_source_package` now defaults to the sentinel `auto`, resolved by a `let`. Previously `ndt` silently ran the CUDA plugin, and the documented workaround was impossible because `ros2 launch` rejects an empty argument value.],
+  [`autosdv_autoware.launch.xml`], [modified], [Includes the new map component; forwards `use_pointcloud_map` and `occupancy_grid_file`; retargets the height fitter.],
+  [`just map-check`], [added], [Validates a map directory against a `pose_source`, including a grid-versus-lanelet2 frame-extent comparison. It reports *cannot verify* rather than passing when the projection cannot be reproduced honestly.],
+)
 
 = Results
 
