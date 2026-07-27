@@ -494,3 +494,31 @@ bash -c 'source /opt/autoware/1.5.0/setup.bash && \
         --mcl-topic /localization/kinematic_state --mcl-type Odometry \
         --gt-time-source bag'
 ```
+
+## 13. The residual mean-error cause is a startup transient, not steady-state error
+
+Measured after the fine-grid matrix, comparing the one passing seed against a
+failing one:
+
+| seed | mean | max | poses > 20 m | when |
+|---|---|---|---|---|
+| 61 (passes all three) | 0.82 m | 3.21 m | **0 of 2239** | — |
+| 62 | 2.09 m | 116.36 m | 24 of 2238 | **t+5.7 s to t+6.3 s** |
+
+Seeds 62-65 each contain a single sub-second excursion reaching ~116 m. That is
+why p95 passes at 2.20 m on every seed while the mean fails at 2.26 m: 95% of
+poses are good, and a couple of dozen enormous outliers in a 0.6 s window drag
+the average. This is not the filter mis-localizing during the drive.
+
+The cause is the Phase 4 lesson recurring one layer up. `require_initialpose`
+gates *`particle_filter`* from publishing before it has been seeded, but nothing
+gates **`ekf_localizer`**, which holds and republishes the seed pose while the
+vehicle drives away, until the filter's first real pose arrives. Phase 4 never
+saw this because it scored the filter's own topic, which does not exist before
+initialization; Phase 5 scores `/localization/kinematic_state`, which does.
+
+Autoware has the native mechanism for this: `ekf_trigger_node`
+(`pose_initializer.launch.xml:19` remaps it to
+`/localization/pose_twist_fusion_filter/trigger_node`), which holds the EKF until
+initialization completes. Wiring it for `mcl` is the next task, and it is the
+last identified item between this phase and the gate.
