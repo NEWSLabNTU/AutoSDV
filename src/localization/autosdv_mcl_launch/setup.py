@@ -1,3 +1,6 @@
+import os
+from glob import glob
+
 from setuptools import setup
 
 package_name = 'autosdv_mcl_launch'
@@ -10,6 +13,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.xml')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,6 +29,8 @@ setup(
     entry_points={
         'console_scripts': [
             'mcl_pose_relay = autosdv_mcl_launch.mcl_pose_relay:main',
+            'scan_qos_bridge = autosdv_mcl_launch.scan_qos_bridge:main',
+            'mcl_wheel_imu_odom = autosdv_mcl_launch.wheel_imu_odom:main',
         ],
     },
 )

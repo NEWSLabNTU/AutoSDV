@@ -15,8 +15,13 @@
   <depend>tf2_ros</depend>
   <depend>geometry_msgs</depend>
   <depend>nav_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>autoware_vehicle_msgs</depend>
   <depend>python3-numpy</depend>
   <depend>python-transforms3d-pip</depend>
+
+  <exec_depend>pointcloud_to_laserscan</exec_depend>
+  <exec_depend>particle_filter</exec_depend>
 
   <test_depend>python3-pytest</test_depend>
 

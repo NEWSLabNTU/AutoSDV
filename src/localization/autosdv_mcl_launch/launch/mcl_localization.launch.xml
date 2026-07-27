@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<!--
+  autosdv_mcl_launch/launch/mcl_localization.launch.xml - Task 7.
+
+  Turns scripts/2dlidar/run-particle-filter.sh's node lineup (minus the
+  nav2_map_server bring-up, which src/launcher/autosdv_launch's
+  autosdv_map_component.launch.xml already owns for pose_source:=mcl - see
+  Task 1) into a real launch file: pointcloud_to_laserscan -> scan_qos_bridge
+  -> particle_filter, wheel_imu_odom (velocity+IMU -> /odom), and
+  mcl_pose_relay (-> the Autoware pose-estimator contract topic).
+
+  Included, unnamespaced, as a sibling group from the forked
+  tier4_localization_launch/launch/pose_twist_estimator/pose_twist_estimator.launch.xml
+  (Task 8) - the Isaac-style bypass documented in
+  docs/design/localization-method-switching.md Sec 4: the pose reaches the
+  contract topic from outside rather than through push-ros-namespace
+  pose_estimator.
+
+  /pf-namespace decision (Task 7 wrinkle 2): particle_filter's topic names
+  (/pf/pose/odom, /pf/viz/inferred_pose) and its nav2_map_server client
+  (/map_server/map) are hard-coded absolute strings in the vendored fork
+  (particle_filter.py), so a <push-ros-namespace> here would not relocate
+  them - only this launch file's own nodes (pointcloud_to_laserscan,
+  scan_qos_bridge, wheel_imu_odom, mcl_pose_relay) would move, splitting the
+  graph. Decision: accept the global /pf/... and /map_server/map names and
+  do NOT push a namespace, matching the Isaac bypass precedent (which is
+  also unnamespaced) and the fact that pose_source is a single active
+  selection - there is never more than one pose estimator's /pf/* graph
+  alive at once in this system.
+-->
+<launch>
+  <!-- Sensor/vehicle input topics (sample_sensor_kit defaults, matching the
+       Phase 4 gate reproduce block in docs/reports/2dlidar-phase4-init-gating.md) -->
+  <arg name="input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
+       description="raw 3-D pointcloud flattened into /scan via pointcloud_to_laserscan"/>
+  <arg name="velocity_topic" default="/vehicle/status/velocity_status"/>
+  <arg name="imu_topic" default="/sensing/imu/tamagawa/imu_raw"/>
+  <arg name="imu_yaw_sign" default="-1.0"
+       description="sample_sensor_kit Tamagawa IMU z-rate sign fix -- see wheel_imu_odom.py"/>
+
+  <!-- Sensor-kit-specific scan z-band, in base_link frame (pointcloud_to_laserscan's
+       target_frame is fixed to base_link below). Sample_sensor_kit's velodyne_top
+       sits ~1.9-2.2 m above base_link - see mcl_localization's config/mcl.param.yaml
+       and the Frame-fix note in scripts/2dlidar/run-particle-filter.sh. A different
+       sensor kit MUST override these two args, not edit this file. -->
+  <arg name="scan_min_height" default="1.91611"
+       description="z-band lower bound (base_link frame), sensor-kit specific"/>
+  <arg name="scan_max_height" default="2.21611"
+       description="z-band upper bound (base_link frame), sensor-kit specific"/>
+  <arg name="scan_range_max" default="60.0"/>
+
+  <!-- particle_filter parameter file (Phase 4 gate defaults). Override with a
+       sibling copy for a different sensor kit / map resolution. -->
+  <arg name="mcl_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl.param.yaml"/>
+  <arg name="require_initialpose" default="true"
+       description="gate MCL updates/publication until a real /initialpose seed arrives (Phase 4 Task 2)"/>
+
+  <!-- mcl_pose_relay output: the Autoware pose-estimator contract topic. -->
+  <arg name="output_pose_with_covariance_topic"
+       default="/localization/pose_estimator/pose_with_covariance"/>
+  <arg name="base_frame" default="base_link"/>
+  <arg name="map_frame" default="map"/>
+  <!-- pointcloud_to_laserscan's target_frame:=base_link (below) means /scan is
+       already expressed in base_link, so the relay's sensor->base composition
+       is an identity transform - no static laser->base_link TF is required. -->
+  <arg name="sensor_frame" default="base_link"/>
+
+  <arg name="use_sim_time" default="true"/>
+
+  <!-- - pointcloud_to_laserscan: 3-D cloud -> 2-D LaserScan, in base_link
+       frame (the sample-site frame fix - see this file's header). Publisher
+       QoS is hardcoded rclcpp::SensorDataQoS (BEST_EFFORT); scan_qos_bridge
+       below re-publishes RELIABLE for particle_filter's default subscription
+       QoS. -->
+  <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
+    <remap from="/pointcloud_to_laserscan/input/pointcloud" to="$(var input_pointcloud)"/>
+    <remap from="/pointcloud_to_laserscan/output/laserscan" to="/scan_raw"/>
+    <param from="$(var mcl_param_file)"/>
+    <param name="min_height" value="$(var scan_min_height)"/>
+    <param name="max_height" value="$(var scan_max_height)"/>
+    <param name="range_max" value="$(var scan_range_max)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- - scan_qos_bridge: /scan_raw (BEST_EFFORT) -> /scan (RELIABLE).
+       Promoted from the runtime-generated tmp/scan_qos_bridge.py heredoc
+       (Task 7 wrinkle 1). -->
+  <node pkg="autosdv_mcl_launch" exec="scan_qos_bridge" name="scan_qos_bridge">
+    <param name="input_topic" value="/scan_raw"/>
+    <param name="output_topic" value="/scan"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- - wheel_imu_odom: VelocityReport + Imu -> /odom (unicycle model). -->
+  <node pkg="autosdv_mcl_launch" exec="mcl_wheel_imu_odom" name="wheel_imu_odom">
+    <param name="velocity_topic" value="$(var velocity_topic)"/>
+    <param name="imu_topic" value="$(var imu_topic)"/>
+    <param name="odom_topic" value="/odom"/>
+    <param name="imu_yaw_sign" value="$(var imu_yaw_sign)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- - particle_filter (vendored fork, NEWSLabNTU/particle_filter@autosdv).
+       Blocks on the nav_msgs/GetMap service at /map_server/map in __init__
+       - the map component (Task 1) must already have nav2_map_server
+       configured+activated before this node starts, which is guaranteed by
+       launch order in the top-level localization component (map loads
+       before pose_twist_estimator is included). Absolute /pf/... topic
+       names - see this file's header for the namespacing decision. -->
+  <node pkg="particle_filter" exec="particle_filter" name="particle_filter">
+    <param from="$(var mcl_param_file)"/>
+    <param name="require_initialpose" value="$(var require_initialpose)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- - mcl_pose_relay: /pf/pose/odom -> the contract topic, fixing
+       particle_filter's covariance-layout/stamp/frame-id/base-link defects
+       (Task 6). -->
+  <node pkg="autosdv_mcl_launch" exec="mcl_pose_relay" name="mcl_pose_relay">
+    <param name="input_topic" value="/pf/pose/odom"/>
+    <param name="input_type" value="odometry"/>
+    <param name="output_topic" value="$(var output_pose_with_covariance_topic)"/>
+    <param name="base_frame" value="$(var base_frame)"/>
+    <param name="map_frame" value="$(var map_frame)"/>
+    <param name="sensor_frame" value="$(var sensor_frame)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+</launch>
