@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<launch>
+  <!--
+    autosdv_system_component.launch.xml ; fork of autoware_launch's
+    tier4_system_component.launch.xml, for one reason: to let the caller choose
+    the component_state_monitor topic list, which upstream hardcodes. See the
+    argument comment below. Everything else is upstream byte for byte; re-fork
+    from the installed file when the Autoware version changes.
+  -->
+  <arg name="use_sim_time" default="false"/>
+  <arg name="diagnostic_graph_aggregator_param_path" default="$(find-pkg-share autoware_diagnostic_graph_aggregator)/config/default.param.yaml"/>
+  <arg name="diagnostic_graph_aggregator_graph_path" default="$(find-pkg-share autoware_launch)/config/system/diagnostics/autoware-main.yaml"/>
+  <!-- AutoSDV: the only change from the stock component. Upstream hardcodes
+       this path in the include below, so a caller cannot swap the monitored
+       topic list; pose_source:=mcl needs to, because it monitors the 2-D
+       occupancy grid instead of the PCD map. Default is the stock file, so a
+       caller that does not set it gets upstream behaviour unchanged. -->
+  <arg name="component_state_monitor_topic_path" default="$(find-pkg-share autoware_launch)/config/system/component_state_monitor/topics.yaml"/>
+
+  <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
+
+  <include file="$(find-pkg-share tier4_system_launch)/launch/system.launch.xml">
+    <arg name="run_mode" value="$(var system_run_mode)"/>
+    <arg name="launch_system_monitor" value="$(var launch_system_monitor)"/>
+    <arg name="launch_dummy_diag_publisher" value="$(var launch_dummy_diag_publisher)"/>
+    <arg name="sensor_model" value="$(var sensor_model)"/>
+
+    <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
+    <arg name="duplicated_node_checker_param_path" value="$(find-pkg-share autoware_launch)/config/system/duplicated_node_checker/duplicated_node_checker.param.yaml"/>
+    <arg name="processing_time_checker_param_path" value="$(find-pkg-share autoware_launch)/config/system/processing_time_checker/processing_time_checker.param.yaml"/>
+    <arg name="pipeline_latency_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/pipeline_latency_monitor/pipeline_latency_monitor.param.yaml"/>
+    <arg name="mrm_comfortable_stop_operator_param_path" value="$(find-pkg-share autoware_launch)/config/system/mrm_comfortable_stop_operator/mrm_comfortable_stop_operator.param.yaml"/>
+    <arg name="mrm_emergency_stop_operator_param_path" value="$(find-pkg-share autoware_launch)/config/system/mrm_emergency_stop_operator/mrm_emergency_stop_operator.param.yaml"/>
+    <arg name="dummy_diag_publisher_param_path" value="$(find-pkg-share autoware_launch)/config/system/diagnostics/dummy_diag_publisher.param.yaml"/>
+    <arg name="system_monitor_cpu_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/cpu_monitor.param.yaml"/>
+    <arg name="system_monitor_gpu_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/gpu_monitor.param.yaml"/>
+    <arg name="system_monitor_hdd_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/hdd_monitor.param.yaml"/>
+    <arg name="system_monitor_mem_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/mem_monitor.param.yaml"/>
+    <arg name="system_monitor_net_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/net_monitor.param.yaml"/>
+    <arg name="system_monitor_ntp_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/ntp_monitor.param.yaml"/>
+    <arg name="system_monitor_process_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/process_monitor.param.yaml"/>
+    <arg name="system_monitor_voltage_monitor_param_path" value="$(find-pkg-share autoware_launch)/config/system/system_monitor/voltage_monitor.param.yaml"/>
+
+    <arg name="mrm_handler_param_path" value="$(find-pkg-share autoware_launch)/config/system/mrm_handler/mrm_handler.param.yaml"/>
+    <arg name="diagnostic_graph_aggregator_param_path" value="$(var diagnostic_graph_aggregator_param_path)"/>
+    <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
+    <arg name="command_mode_switcher_param_path" value="$(find-pkg-share autoware_launch)/config/system/command_mode/switcher.param.yaml"/>
+    <arg name="command_mode_decider_param_path" value="$(find-pkg-share autoware_launch)/config/system/command_mode/decider.param.yaml"/>
+    <arg name="availability_converter_param_path" value="$(find-pkg-share autoware_launch)/config/system/command_mode/converter.param.yaml"/>
+  </include>
+
+  <!-- For logging of diagnostics_graph error -->
+  <include file="$(find-pkg-share autoware_diagnostic_graph_utils)/launch/logging.launch.xml">
+    <arg name="root_path" value="/autoware/modes/autonomous"/>
+    <arg name="max_depth" value="3"/>
+    <arg name="show_rate" value="10.0"/>
+    <arg name="enable_terminal_log" value="true"/>
+  </include>
+</launch>

@@ -1,0 +1,31 @@
+# /autoware/map for pose_source:=mcl.
+#
+# The stock map.yaml requires BOTH the vector map and the PCD point-cloud map.
+# Under mcl there is no PCD -- autosdv_map_component deliberately does not start
+# pointcloud_map_loader, because a missing PCD kills map_container outright --
+# so /autoware/map/topic_rate_check/pointcloud_map can never pass and
+# /autoware/modes/autonomous can never become available. Measured: with an
+# otherwise healthy stack (localization INITIALIZED, route SET),
+# change_to_autonomous returns "The target mode is not available", and the
+# aggregator names /autoware/map/topic_rate_check/pointcloud_map among the
+# reasons.
+#
+# The 2-D occupancy grid is the geometry map for this method, so it is what the
+# check must require instead. Node name comes from component_state_monitor's
+# node_name_suffix (see ../component_state_monitor/topics-mcl.yaml).
+units:
+  - path: /autoware/map
+    type: and
+    list:
+      - { type: link, link: /autoware/map/topic_rate_check/vector_map }
+      - { type: link, link: /autoware/map/topic_rate_check/occupancy_grid }
+
+  - path: /autoware/map/topic_rate_check/vector_map
+    type: diag
+    node: topic_state_monitor_vector_map
+    name: map_topic_status
+
+  - path: /autoware/map/topic_rate_check/occupancy_grid
+    type: diag
+    node: topic_state_monitor_occupancy_grid
+    name: map_topic_status

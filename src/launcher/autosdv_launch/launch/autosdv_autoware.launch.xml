@@ -82,7 +82,24 @@
   <arg name="system_run_mode" default="online" description="run mode in system"/>
   <arg name="launch_system_monitor" default="true" description="launch system monitor"/>
   <arg name="launch_dummy_diag_publisher" default="false" description="launch dummy diag publisher"/>
-  <arg name="diagnostic_graph_aggregator_graph_path" default="$(find-pkg-share autoware_launch)/config/system/diagnostics/autoware-main.yaml" description="diagnostic graph config"/>
+  <!-- AutoSDV: the runtime health checks that gate autonomous mode are
+       method-dependent, because pose_source:=mcl deliberately has no PCD map
+       and no ndt_scan_matcher. With the stock graph, /autoware/map requires
+       /map/pointcloud_map and /autoware/localization requires
+       ndt_scan_matcher's scan_matching_status; under mcl neither can ever
+       report, so /autoware/modes/autonomous is permanently unavailable no
+       matter how good the pose is. Measured on the sample site: localization
+       INITIALIZED and route SET, yet change_to_autonomous returns "The target
+       mode is not available" with those two among the aggregator's stated
+       reasons. Resolve both config paths from pose_source; every non-mcl
+       method keeps the stock files byte for byte. See
+       docs/design/map-handling-per-localization-method.md. -->
+  <let name="diagnostic_graph_default"
+       value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/system/diagnostics/autosdv-mcl-main.yaml' if '$(var pose_source)' == 'mcl' else '$(find-pkg-share autoware_launch)/config/system/diagnostics/autoware-main.yaml'&quot;)"/>
+  <arg name="diagnostic_graph_aggregator_graph_path" default="$(var diagnostic_graph_default)" description="diagnostic graph config; resolved from pose_source unless set explicitly"/>
+  <let name="component_state_monitor_topic_default"
+       value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/system/component_state_monitor/topics-mcl.yaml' if '$(var pose_source)' == 'mcl' else '$(find-pkg-share autoware_launch)/config/system/component_state_monitor/topics.yaml'&quot;)"/>
+  <arg name="component_state_monitor_topic_path" default="$(var component_state_monitor_topic_default)" description="component state monitor topic list; resolved from pose_source unless set explicitly"/>
   <!-- Tools -->
   <arg name="rviz" default="true" description="launch rviz"/>
   <arg name="rviz_config_name" default="autoware.rviz" description="rviz config name"/>
@@ -125,7 +142,15 @@
 
   <!-- System -->
   <group if="$(var launch_system)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_system_component.launch.xml"/>
+    <!-- AutoSDV: forward both health-check config paths. The stock include
+         passed no arguments, so tier4_system_component resolved its own
+         defaults and every file under autosdv_launch/config/system was dead
+         config ; including a trajectory-topic fix that therefore never
+         applied. -->
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_system_component.launch.xml">
+      <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
+      <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
+    </include>
   </group>
 
   <!-- Map -->

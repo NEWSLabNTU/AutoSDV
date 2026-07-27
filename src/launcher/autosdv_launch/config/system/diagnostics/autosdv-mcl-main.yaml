@@ -1,0 +1,93 @@
+# Diagnostic graph for pose_source:=mcl.
+#
+# Same graph as the stock autoware-main.yaml, with two module files swapped for
+# mcl variants. Everything method-independent (control, perception, planning,
+# system, vehicle) is included from the installed autoware_launch rather than
+# copied, so this file cannot drift from the Autoware version in use -- an
+# earlier hand-copied tree under this directory did drift, and still names
+# pre-1.5.0 diagnostic nodes.
+#
+#   map        -> map-mcl.yaml         requires the 2-D occupancy grid, not a PCD
+#   localization -> localization-mcl.yaml  drops the ndt_scan_matcher check
+#
+# Selected automatically by pose_source; see autosdv_autoware.launch.xml.
+files:
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/control.yaml }
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/perception.yaml }
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/planning.yaml }
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/system.yaml }
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/vehicle.yaml }
+  - { path: $(dirname)/map-mcl.yaml }
+  - { path: $(dirname)/localization-mcl.yaml }
+
+units:
+  - path: /autoware/modes/local
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /autoware/control/local }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/remote
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /autoware/control/remote }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/stop
+    type: and
+    list:
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/autonomous
+    type: and
+    list:
+      - { type: link, link: /autoware/map }
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/pull_over
+    type: and
+    list:
+      - { type: link, link: /autoware/map }
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/modes/comfortable_stop
+    type: and
+    list:
+      - { type: link, link: /autoware/map }
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/modes/emergency_stop
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/debug/tools
+    type: and
+    list:
+      - { type: link, link: /autoware/system/service_log_checker }
+
+  - path: /adapi/mrm_request/delegate
+    type: diag
+    node: /adapi/node/mrm_request
+    name: delegate

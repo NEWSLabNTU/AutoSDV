@@ -1,0 +1,52 @@
+# /autoware/localization for pose_source:=mcl.
+#
+# Identical to the stock localization.yaml except for the scan-matching check.
+# Stock sources /autoware/localization/scan_matching_status from the
+# `ndt_scan_matcher` node, which does not exist under mcl, so it stays STALE
+# forever and blocks /autoware/modes/autonomous no matter how good the pose is.
+#
+# It is dropped rather than faked. particle_filter currently publishes no ROS
+# diagnostic of its own (its diagnostics.py writes a JSONL trace, not
+# diagnostic_msgs), so there is nothing honest to substitute. The consequence is
+# recorded as a gap: under mcl the graph has NO estimator-health signal, and a
+# silently diverging filter will not raise a diagnostic here. Everything else in
+# the localization branch still applies -- the map->base_link transform rate,
+# the fused-pose rate, the error-ellipse accuracy check and the EKF's own
+# status are all method-independent and are retained.
+units:
+  - path: /autoware/localization
+    type: and
+    list:
+      - type: link
+        link: /autoware/localization/state
+      - type: and
+        list:
+          - { type: link, link: /autoware/localization/topic_rate_check/transform }
+          - { type: link, link: /autoware/localization/topic_rate_check/pose_twist_fusion }
+          - { type: link, link: /autoware/localization/accuracy }
+          - { type: link, link: /autoware/localization/sensor_fusion_status }
+
+  - path: /autoware/localization/state
+    type: diag
+    node: /adapi/node/localization
+    name: state
+
+  - path: /autoware/localization/topic_rate_check/transform
+    type: diag
+    node: topic_state_monitor_transform_map_to_base_link
+    name: localization_topic_status
+
+  - path: /autoware/localization/topic_rate_check/pose_twist_fusion
+    type: diag
+    node: topic_state_monitor_pose_twist_fusion_filter_pose
+    name: localization_topic_status
+
+  - path: /autoware/localization/accuracy
+    type: diag
+    node: localization_error_monitor
+    name: ellipse_error_status
+
+  - path: /autoware/localization/sensor_fusion_status
+    type: diag
+    node: localization
+    name: ekf_localizer
