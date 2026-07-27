@@ -44,10 +44,20 @@ Three facts that shape everything below:
 Dropping the PCD also disturbs two things outside localization:
 
 - `voxel_based_compare_map_filter` in perception, enabled because
-  `use_pointcloud_map` defaults to `true` upstream. Note the AutoSDV presets set
-  this value but **it is never forwarded** (`autosdv_autoware.launch.xml:117-121`
-  passes only `data_path` and `pointcloud_container_name`), so the preset value
-  has no effect today — a pre-existing wiring gap that this work must close.
+  `use_pointcloud_map` defaults to `true`.
+
+  **Correction (Phase 5 Task 2):** an earlier draft of this document claimed the
+  presets' `use_pointcloud_map` was never forwarded, since
+  `autosdv_autoware.launch.xml` passes only `data_path` and
+  `pointcloud_container_name` to the perception component. That did not
+  reproduce — ROS 2's *global* launch configuration already carries the preset
+  value through for the real entry points, so the value does take effect. The
+  demonstrable problem is different and specific to this work: with the default
+  `lidar_only` preset (`use_pointcloud_map: true`) and `pose_source:=mcl`, the
+  compare-map filter still attempts to load and **hangs mid-construction**
+  waiting for a map that will never arrive. The fix is therefore to tie
+  `use_pointcloud_map` to `pose_source` (forced `false` for `mcl`) rather than to
+  repair a forwarding chain that was not broken.
 - `map_height_fitter`, used by `pose_initializer` and the RViz initial-pose
   adaptor to snap a 2-D click onto the PCD surface. For a planar filter the
   height is meaningless, so this should be bypassed rather than fed.
