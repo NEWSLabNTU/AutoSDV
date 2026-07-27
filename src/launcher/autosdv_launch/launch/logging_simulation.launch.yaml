@@ -29,6 +29,16 @@ launch:
     default: "occupancy_grid.yaml"
     description: "2-D occupancy grid metadata file name within map_path (pose_source:=mcl only)"
 
+# AutoSDV: particle_filter's RNG seed (pose_source:=mcl only). The param
+# file ships -1 (nondeterministic), which is right for operation but makes an
+# accuracy matrix unreproducible -- the phase-5 matrix labelled its runs
+# "seed N" while never applying a seed at all. Exposed here so a matrix can
+# set one per run; default unchanged.
+- arg:
+    name: mcl_random_seed
+    default: "-1"
+    description: "particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -196,6 +206,9 @@ launch:
     -
       name: occupancy_grid_file
       value: $(var occupancy_grid_file)
+    -
+      name: mcl_random_seed
+      value: $(var mcl_random_seed)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

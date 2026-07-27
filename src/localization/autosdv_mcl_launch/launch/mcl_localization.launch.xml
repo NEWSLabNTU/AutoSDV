@@ -60,6 +60,15 @@
   <arg name="mcl_pointcloud_to_laserscan_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_pointcloud_to_laserscan.param.yaml"/>
   <arg name="require_initialpose" default="true"
        description="gate MCL updates/publication until a real /initialpose seed arrives (Phase 4 Task 2)"/>
+  <!-- RNG seed for particle placement and resampling. -1 (the param file's
+       default) leaves the filter nondeterministic, which is right for
+       operation but useless for measurement: a run labelled "seed N" whose
+       seed was never applied is not reproducible and its spread across runs
+       is not seed spread. Exposed here, and plumbed up to the top-level
+       launch, so an accuracy matrix can set it per run; see
+       scripts/2dlidar/run-mcl-e2e-matrix.sh. -->
+  <arg name="mcl_random_seed" default="-1"
+       description="particle_filter RNG seed; -1 = nondeterministic (operational default)"/>
 
   <!-- mcl_pose_relay output: the Autoware pose-estimator contract topic. -->
   <arg name="output_pose_with_covariance_topic"
@@ -186,6 +195,7 @@
          -r __ns:=$(var particle_filter_ns) -r __node:=particle_filter
          --params-file $(var mcl_particle_filter_param_file)
          -p require_initialpose:=$(var require_initialpose)
+         -p random_seed:=$(var mcl_random_seed)
          -p use_sim_time:=$(var use_sim_time)"
     name="particle_filter"
     output="screen"

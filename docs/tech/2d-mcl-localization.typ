@@ -84,7 +84,9 @@ five seeds. Three terms recur in every results table below:
 / mean: the arithmetic mean, over every published pose in a run, of the
   planar distance between the MCL pose and the NDT pose at the same timestamp.
   It is sensitive to outliers: one large excursion moves it far more than it
-  moves the median, which is exactly what §6.3 traces.
+  moves the median, which is what made the harness defect described under
+  #emph[Why an earlier matrix reported a failing mean] visible in the mean
+  alone.
 / p95: the 95th percentile of that same per-pose distance — the value 95% of
   poses stay under. It reports typical behaviour with the worst 5% excluded, so
   a low p95 beside a high mean means "usually accurate, occasionally very wrong"
@@ -97,15 +99,17 @@ poses.
   columns: (auto, auto, auto, auto, auto),
   align: (left, right, right, right, center),
   table.header([*Metric*], [*Median*], [*Range*], [*Threshold*], [*Verdict*]),
-  [p95 translational], [2.198 m], [2.10–2.27], [< 2.5 m], [#ok 5/5],
-  [Mean \|yaw\| error], [0.054 rad], [0.032–0.058], [< 0.2 rad], [#ok 5/5],
-  [Mean translational], [2.255 m], [0.824–2.659], [< 1.0 m], [#no 1/5],
+  [Mean translational], [0.849 m], [0.830–0.872], [< 1.0 m], [#ok 5/5],
+  [p95 translational], [2.173 m], [2.11–2.24], [< 2.5 m], [#ok 5/5],
+  [Mean \|yaw\| error], [0.034 rad], [0.032–0.034], [< 0.2 rad], [#ok 5/5],
 )
 
-*The accuracy gate is not met on the mean.* Section 6.3 shows why: the failing
-metric is dominated by a single sub-second startup transient, not by
-steady-state error — 95% of poses are inside 2.2 m and heading is within
-0.054 rad on every seed. The cause is identified and its fix is known.
+*All three thresholds are met on all five seeds.* An earlier matrix reported
+the mean failing at 2.26 m; that number was an artefact of its own harness,
+which reused one launched stack across five replays and never applied the seed
+it labelled each run with. #emph[Numbers], under Results, gives the corrected
+figures, and #emph[Why an earlier matrix reported a failing mean] the
+diagnosis.
 
 = Target architecture
 
@@ -489,7 +493,7 @@ the dashed nodes as *present under `cuda_ndt`/`ndt`, absent under `mcl`*.
     node((2.9, 2.5), n[map_height_fitter\ #d[pointcloud_map → *vector_map*]], fill: c-mod-b, name: <fit>)
 
     // ── fusion + perception ──
-    node((5.6, 1.0), n[ekf_localizer\ #d[unchanged, *ungated* §6.3]], fill: c-auto-b, name: <ekf>)
+    node((5.6, 1.0), n[ekf_localizer\ #d[unchanged]], fill: c-auto-b, name: <ekf>)
     node((5.6, -0.6), n[voxel_based_compare\_map_filter\ #dd[use_pointcloud_map false]], fill: c-drop-b, stroke: gone, name: <cmp>)
     node((7.0, 1.0), n[planning → control\ → vehicle], fill: c-auto-b, name: <plan>)
 
@@ -567,7 +571,7 @@ from `ekf_localizer` rightwards is identical.
   table.cell(colspan: 3, fill: c-off-b)[*Perception and fusion*],
   [`voxel_based_compare`\ `_map_filter`], [deleted], [`use_pointcloud_map` is forced false for `mcl`. Left enabled it attempts to load and hangs mid-construction waiting for a map that never arrives.],
   [`gyro_odometer`], [unchanged], [Still the twist source.],
-  [`ekf_localizer`], [unchanged], [Consumes the same contract topic. *Not* gated on initialization, which is the cause of the residual transient in §6.3 — the one identified item still outstanding.],
+  [`ekf_localizer`], [unchanged], [Consumes the same contract topic, with no configuration change. Reached through `pose_initializer` by the ADAPI `/localization/initialize` call, so on a freshly launched stack its first published pose is already the seed.],
 )
 
 == Launch-layer changes outside the diagram
@@ -601,61 +605,91 @@ All figures and numbers come from the official Autoware sample site
 
 #figure(
   image("assets/mcl-integrated-mcl.png", width: 58%),
-  caption: [AutoSDV 2D-MCL (`pose_source:=mcl`, seed 61) as fused `kinematic_state`. Same extent, same shared clock.],
+  caption: [AutoSDV 2D-MCL (`pose_source:=mcl`, seed 4) as fused `kinematic_state`. Same extent, same shared clock.],
 )
 
 == Comparison
 
 #figure(
   image("assets/mcl-integrated-overlay.png", width: 58%),
-  caption: [Both paths on one axis. The 25 s–55 s markers pair between the two tracks, confirming agreement in time as well as in space. This seed's mean translational error is 0.824 m, p95 2.101 m, mean |yaw| 0.032 rad — the one seed of five meeting all three thresholds.],
+  caption: [Both paths on one axis. The 25 s–55 s markers pair between the two tracks, confirming agreement in time as well as in space. This seed's mean translational error is 0.849 m, p95 2.156 m, mean |yaw| 0.033 rad, worst pose 3.44 m — the median seed of the five, all of which meet all three thresholds.],
 )
 
 == Numbers
 
 Five seeds, fused `kinematic_state` versus NDT ground truth, aligned by nearest
-timestamp within 100 ms:
+timestamp within 100 ms. Each row is a separate launch of the whole stack with
+`mcl_random_seed` set to that seed and the value read back off the running node
+(2239 paired poses per run):
 
 #table(
-  columns: (auto, auto, auto, auto, auto),
-  align: (center, right, right, right, center),
-  table.header([*Seed*], [*Mean (m)*], [*p95 (m)*], [*Mean \|yaw\| (rad)*], [*All three*]),
-  [61], [0.824], [2.101], [0.032], [#ok],
-  [62], [2.086], [2.265], [0.049], [#no],
-  [63], [2.659], [2.198], [0.058], [#no],
-  [64], [2.547], [2.189], [0.055], [#no],
-  [65], [2.255], [2.223], [0.054], [#no],
-  [*median*], [*2.255*], [*2.198*], [*0.054*], [1/5],
+  columns: (auto, auto, auto, auto, auto, auto),
+  align: (center, right, right, right, right, center),
+  table.header([*Seed*], [*Mean (m)*], [*p95 (m)*], [*Max (m)*], [*Mean \|yaw\| (rad)*], [*All three*]),
+  [1], [0.831], [2.225], [3.00], [0.034], [#ok],
+  [2], [0.830], [2.112], [2.97], [0.034], [#ok],
+  [3], [0.872], [2.173], [3.12], [0.032], [#ok],
+  [4], [0.849], [2.156], [3.44], [0.033], [#ok],
+  [5], [0.865], [2.235], [3.24], [0.034], [#ok],
+  [*median*], [*0.849*], [*2.173*], [*3.12*], [*0.034*], [*5/5*],
 )
 
 Reporting median and range rather than a single run is deliberate: an earlier
 phase found three near-identical configurations spanning 17–27 m of mean error,
 so single-run comparisons cannot support a claim about this filter.
 
-=== 6.3 Why the mean fails while p95 and yaw pass
+=== Why an earlier matrix reported a failing mean
 
-The distributions are not merely shifted — the failing metric is driven by a
-handful of extreme outliers:
+The first end-to-end matrix put the median mean at 2.26 m and passed only one
+of five seeds. The cause was in the measurement, not the estimator, and the
+recorded bags show it directly. Two defects compounded:
+
+*The seed was never applied.* The ad-hoc driver used its seed number only to
+name output files. `random_seed` was never set on `particle_filter`, and no
+launch argument existed that could set it, so every run used the shipped
+`random_seed: -1` and seeded from entropy. The five rows were five
+nondeterministic repeats of one configuration, and none of them is
+reproducible.
+
+*One launched stack served all five replays.* `particle_filter` and
+`ekf_localizer` keep their converged pose between replays, so every run after
+the first began believing the vehicle was where the previous replay had
+finished:
 
 #table(
-  columns: (auto, auto, auto, auto, auto),
-  align: (center, right, right, right, left),
-  table.header([*Seed*], [*Mean*], [*Max*], [*Poses > 20 m*], [*When*]),
-  [61 (passes)], [0.82 m], [3.21 m], [*0* of 2239], [—],
-  [62], [2.09 m], [116.36 m], [24 of 2238], [t+5.7 s to t+6.3 s],
+  columns: (auto, auto, auto, auto),
+  align: (center, right, right, right),
+  table.header([*Run*], [*First EKF pose,\ from its own seed*],
+               [*…from the previous\ run's finish*], [*Poses before\ the new seed*]),
+  [1st on a fresh stack], [*0.00 m*], [117.86 m], [*0*],
+  [2nd], [116.12 m], [1.75 m], [206],
+  [3rd], [116.25 m], [1.64 m], [211],
+  [4th], [115.97 m], [1.91 m], [223],
+  [5th], [116.21 m], [1.68 m], [216],
 )
 
-Seeds 62–65 each contain one sub-second excursion reaching ~116 m. That is why
-p95 sits at 2.20 m on every seed while the mean fails: 95% of poses are good,
-and two dozen enormous outliers inside a 0.6 s window drag the average.
+Runs 2–5 start within 1.9 m of the previous run's finish line and 116 m from
+where their own ground truth begins, holding there until the seed lands ~5 s
+into replay. About two dozen of those pre-seed poses fall inside the
+ground-truth track's time span and were scored — precisely the "24 of 2238
+poses beyond 20 m in a 0.6 s window" that the earlier report presented as a
+startup transient. The first run of each matrix was clean, which is why
+exactly one seed passed.
 
-The cause is §5.4's lesson recurring one layer up. `require_initialpose` gates
-*the filter* from publishing before it is seeded, but nothing gates
-*`ekf_localizer`*, which holds and republishes the seed pose while the vehicle
-drives away, until the filter's first real pose arrives. Autoware's native
-mechanism for this is `ekf_trigger_node`, which `pose_initializer` uses to hold
-the EKF until initialization completes; wiring it for `mcl` is the remaining
-item between this work and the gate.
+That report attributed the transient to `ekf_localizer` not being gated on
+initialization, and named wiring Autoware's `ekf_trigger_node` as the fix.
+*That diagnosis was wrong.* On a fresh stack the EKF's first recorded pose is
+already at the seed, to two decimals, with no earlier pose in the recording at
+all; there was nothing for a trigger to gate. What the EKF did in the reused
+stack was correct behaviour given a stack that had been told, in a previous
+replay, that it was somewhere else.
+
+Both defects are now structurally prevented rather than remembered:
+`mcl_random_seed` is a real launch argument threaded down to the node, and
+`scripts/2dlidar/run-mcl-e2e-matrix.sh` launches and tears down a fresh stack
+per seed and asserts the seed readback, failing a cell instead of scoring it
+when the two disagree. The table above was produced under both guards; every
+result row records that they ran.
 
 = What is not established
 
@@ -676,6 +710,16 @@ item between this work and the gate.
   MCL at this speed and site rather than defects of this port.
 - *A residual 0.05–0.22 m offline offset* between the model's argmax and the true
   pose is unexplained.
+- *No `just` recipe builds a grid.* `scripts/map/pcd_to_pgm.py` works and is what
+  the Reproducing section calls, but the operator must already know the height
+  band to slice; nothing prints the z-distribution or refuses a bad band, and
+  the `autosdv_map.yaml` sidecar that the map-handling design specifies is not
+  emitted. `just map-survey` (a `slam_toolbox` path for sites with no PCD) is
+  not implemented either.
+- *Only the pose-estimator path is measured.* The gate scores
+  `kinematic_state` against NDT on a replayed bag. Nothing here exercises
+  planning or control on top of a 2-D MCL pose, and no run has been done on a
+  vehicle carrying an actual 2-D LiDAR.
 
 = Reproducing
 
@@ -683,12 +727,16 @@ item between this work and the gate.
 # validate a map directory for the method
 just map-check data/sample-rosbag-replay/sample-map-rosbag mcl
 
-# build a grid from an existing PCD map
-just map-grid-from-pcd <map_dir> --z-min <ground+0.2> --z-max <ground+0.5>
+# build a grid from an existing PCD map (no just recipe yet, see sec. 8)
+python3 scripts/map/pcd_to_pgm.py <map_dir>/pointcloud_map.pcd \
+    <map_dir>/occupancy_grid --z-min <ground+0.2> --z-max <ground+0.5>
 
 # replay with 2D-MCL
 just launch-sim-logging ARGS="pose_source:=mcl \
     occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml"
+
+# the five-seed accuracy matrix: fresh stack per seed, seed readback asserted
+SEEDS="1 2 3 4 5" scripts/2dlidar/run-mcl-e2e-matrix.sh
 
 # score a run against NDT ground truth
 python3 scripts/2dlidar/compare_poses.py <gt_bag> <mcl_bag> \
@@ -696,7 +744,7 @@ python3 scripts/2dlidar/compare_poses.py <gt_bag> <mcl_bag> \
 
 # regenerate this document's three figures
 python3 scripts/2dlidar/plot_trajectories.py \
-    --mcl-bag data/rosbags/phase5/mcl_e2e_s61 \
+    --mcl-bag data/rosbags/phase5-fresh/mcl_e2e_s4 \
     --mcl-topic /localization/kinematic_state --mcl-type Odometry \
     --out-dir docs/tech/assets --prefix mcl-integrated
 ```

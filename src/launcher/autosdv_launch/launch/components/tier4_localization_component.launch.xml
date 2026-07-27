@@ -10,6 +10,7 @@
 
   <!-- Pluggable pose source: external package providing launch/pose_estimator.launch.xml -->
   <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing the built-in NDT node. Empty string uses built-in Autoware NDT."/>
+  <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic"/>
 
   <include file="$(find-pkg-share tier4_localization_launch)/launch/localization.launch.xml">
     <arg name="pose_source" value="$(var pose_source)"/>
@@ -19,6 +20,7 @@
     <arg name="localization_pointcloud_container_name" value="$(var localization_pointcloud_container_name)"/>
     <arg name="initial_pose" value="$(var initial_pose)"/>
     <arg name="pose_source_package" value="$(var pose_source_package)"/>
+    <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
 
     <!-- parameter paths for common -->
     <arg name="localization_error_monitor_param_path" value="$(var loc_config_path)/localization_error_monitor.param.yaml"/>

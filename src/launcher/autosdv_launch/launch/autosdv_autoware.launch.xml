@@ -77,6 +77,7 @@
        neutral - see the Task 8 report for why) so this is additive, not a
        behavior change for anyone not naming the argument. -->
   <arg name="occupancy_grid_file" default="occupancy_grid.yaml" description="2-D occupancy grid metadata file name (pose_source:=mcl only); Phase 4's validated accuracy used occupancy_grid_scanaccum_mh1r05.yaml, not this default -- see docs/reports/2dlidar-phase5-mcl-pose-source.md"/>
+  <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic, which is the operational default; set one per run for a reproducible accuracy matrix"/>
   <!-- System -->
   <arg name="system_run_mode" default="online" description="run mode in system"/>
   <arg name="launch_system_monitor" default="true" description="launch system monitor"/>
@@ -158,6 +159,7 @@
     <include file="$(find-pkg-share autosdv_launch)/launch/components/tier4_localization_component.launch.xml">
       <arg name="pose_source" value="$(var pose_source)"/>
       <arg name="pose_source_package" value="$(var pose_source_package)"/>
+      <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
     </include>
   </group>
 

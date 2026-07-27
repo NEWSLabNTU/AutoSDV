@@ -510,6 +510,20 @@ why p95 passes at 2.20 m on every seed while the mean fails at 2.26 m: 95% of
 poses are good, and a couple of dozen enormous outliers in a 0.6 s window drag
 the average. This is not the filter mis-localizing during the drive.
 
+> **SUPERSEDED.** The diagnosis that followed here — that nothing gates
+> `ekf_localizer`, and that wiring `ekf_trigger_node` was the remaining item
+> before the gate — was **wrong**. The 116 m excursions were an artefact of
+> this section's own measurement harness: it reused one launched stack across
+> all five replays, so every run after the first began at the *previous* run's
+> finish line, and it never applied the seed each row is labelled with.
+> Re-measured with a fresh stack per seed and the seed asserted, the gate is
+> met on 5/5 seeds (median mean 0.849 m, p95 2.173 m, yaw 0.034 rad, worst
+> pose 3.44 m). See
+> [`2dlidar-phase5-measurement-correction.md`](2dlidar-phase5-measurement-correction.md).
+> The original text is kept below unedited, because the reasoning error is
+> instructive: every number in it is real, and the wrong conclusion was drawn
+> from real numbers by not asking what the harness itself contributed.
+
 The cause is the Phase 4 lesson recurring one layer up. `require_initialpose`
 gates *`particle_filter`* from publishing before it has been seeded, but nothing
 gates **`ekf_localizer`**, which holds and republishes the seed pose while the

@@ -10,6 +10,8 @@
 
   <!-- Pluggable pose source: when set, replaces the built-in NDT pose estimator node -->
   <arg name="pose_source_package" default="" description="External package providing launch/pose_estimator.launch.xml. When set, replaces the built-in pose estimator node."/>
+  <!-- AutoSDV: forwarded to autosdv_mcl_launch below (pose_source:=mcl only). -->
+  <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed; -1 = nondeterministic"/>
   <let name="is_external_plugin" value="$(eval &quot;'$(var pose_source_package)' != ''&quot;)"/>
 
   <!-- split string with underscores -->
@@ -89,6 +91,7 @@
   <group if="$(var use_mcl_pose)">
     <include file="$(find-pkg-share autosdv_mcl_launch)/launch/mcl_localization.launch.xml">
       <arg name="output_pose_with_covariance_topic" value="/localization/pose_estimator/pose_with_covariance"/>
+      <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
     </include>
   </group>
 
