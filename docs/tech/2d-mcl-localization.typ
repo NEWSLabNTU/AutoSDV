@@ -710,12 +710,10 @@ result row records that they ran.
   MCL at this speed and site rather than defects of this port.
 - *A residual 0.05–0.22 m offline offset* between the model's argmax and the true
   pose is unexplained.
-- *No `just` recipe builds a grid.* `scripts/map/pcd_to_pgm.py` works and is what
-  the Reproducing section calls, but the operator must already know the height
-  band to slice; nothing prints the z-distribution or refuses a bad band, and
-  the `autosdv_map.yaml` sidecar that the map-handling design specifies is not
-  emitted. `just map-survey` (a `slam_toolbox` path for sites with no PCD) is
-  not implemented either.
+- *No survey path for a site with neither a PCD nor a recorded drive.*
+  `just map-grid-from-pcd` and `just map-grid-from-bag` cover the two cases
+  this project has; a `slam_toolbox` survey (`just map-survey`) is not
+  implemented.
 - *Only the pose-estimator path is measured.* The gate scores
   `kinematic_state` against NDT on a replayed bag. Nothing here exercises
   planning or control on top of a 2-D MCL pose, and no run has been done on a
@@ -727,9 +725,14 @@ result row records that they ran.
 # validate a map directory for the method
 just map-check data/sample-rosbag-replay/sample-map-rosbag mcl
 
-# build a grid from an existing PCD map (no just recipe yet, see sec. 8)
-python3 scripts/map/pcd_to_pgm.py <map_dir>/pointcloud_map.pcd \
-    <map_dir>/occupancy_grid --z-min <ground+0.2> --z-max <ground+0.5>
+# build a grid from an existing PCD map. Omit the band first: the tool prints
+# the height distribution, the estimated ground level and a suggested band,
+# and refuses to guess one for you.
+just map-grid-from-pcd <map_dir>
+just map-grid-from-pcd <map_dir> --z-min <ground+0.2> --z-max <ground+0.5>
+
+# or, for a site with no PCD, accumulate scans from a recorded drive
+just map-grid-from-bag <bag> <map_dir>
 
 # replay with 2D-MCL
 just launch-sim-logging ARGS="pose_source:=mcl \

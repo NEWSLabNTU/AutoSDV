@@ -38,6 +38,9 @@ from pathlib import Path
 from typing import Optional
 
 import yaml
+
+sys.path.insert(0, str(Path(__file__).parent))
+import map_sidecar  # noqa: E402
 from PIL import Image
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -309,6 +312,30 @@ def human_size(num_bytes: int) -> str:
     return f"{num_bytes:.1f} TB"
 
 
+def check_sidecar(map_dir: Path) -> list:
+    """Report autosdv_map.yaml's provenance, or note that it is absent.
+
+    Never fails a check: the sidecar is optional by design, and a map
+    directory without one is the normal legacy case. Its value is answering
+    "how was this grid built, and at what height band" -- a question the two
+    binary files cannot answer, and getting it wrong once cost this project a
+    whole phase.
+    """
+    try:
+        data = map_sidecar.load(map_dir)
+    except (ValueError, yaml.YAMLError) as e:
+        return [Line(map_sidecar.SIDECAR_NAME, "FAIL", f"unreadable: {e}")]
+    if data is None:
+        return [Line(map_sidecar.SIDECAR_NAME, "-",
+                      "absent (optional; grid provenance unrecorded)")]
+    described = map_sidecar.describe(data)
+    if not described:
+        return [Line(map_sidecar.SIDECAR_NAME, "-", "present but records nothing")]
+    lines = [Line(map_sidecar.SIDECAR_NAME, "ok", described[0])]
+    lines += [Line("", "", extra) for extra in described[1:]]
+    return lines
+
+
 def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
               autoware_setup: Optional[str]):
     """Returns (list[Line], ready: bool)."""
@@ -502,6 +529,8 @@ def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
             lines.append(Line("grid vs lanelet2 extent", "FAIL", f"cannot verify: {e}"))
             if require_grid:
                 ready = False
+
+    lines.extend(check_sidecar(map_dir))
 
     return lines, ready
 

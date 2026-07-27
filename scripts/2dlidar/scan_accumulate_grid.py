@@ -52,6 +52,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "map"))
 from pcd_to_pgm import write_map  # noqa: E402
+import map_sidecar  # noqa: E402
 
 OCCUPIED, FREE = 0, 254
 MARGIN_M = 5.0
@@ -394,9 +395,26 @@ def main():
     ap.add_argument("--z-max", type=float, default=0.15)
     ap.add_argument("--resolution", type=float, default=0.1)
     ap.add_argument("--min-hits", type=int, default=3)
+    ap.add_argument("--sidecar", action="store_true",
+                    help="write/update autosdv_map.yaml beside the output grid")
     args = ap.parse_args()
 
     _run(args.bag, args.out_prefix, args.z_min, args.z_max, args.resolution, args.min_hits)
+
+    if args.sidecar:
+        # Unlike a PCD slice, this band is relative to the scan plane rather
+        # than to a site's ground level, so the defaults are meaningful and no
+        # band prompt is warranted here. Record the band that was used.
+        map_dir = args.out_prefix.parent
+        yml = args.out_prefix.with_suffix(".yaml")
+        path = map_sidecar.save(
+            map_dir,
+            geometry={"occupancy_grid": yml.name},
+            grid_provenance=map_sidecar.build_grid_provenance(
+                map_sidecar.METHOD_SCAN_ACCUMULATION, str(args.bag),
+                args.resolution, z_band=(args.z_min, args.z_max),
+                extra={"min_hits": int(args.min_hits)}))
+        print(f"wrote {path}")
 
 
 if __name__ == "__main__":

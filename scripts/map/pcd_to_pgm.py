@@ -12,10 +12,14 @@ the column has points (e.g. ground) but none in the band; unknown when the
 column has no points at all.
 """
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
+
+sys.path.insert(0, str(Path(__file__).parent))
+import map_sidecar
 
 OCCUPIED, FREE, UNKNOWN = 0, 254, 205
 
@@ -153,6 +157,71 @@ def rasterize(points, z_min, z_max, resolution, min_points):
     return grid.reshape(rows, cols), (x_min, y_min)
 
 
+def ground_estimate(points, resolution):
+    """Per-cell ground height, as the median of each column's minimum z.
+
+    A single global z-minimum is the wrong reference on any site with a slope
+    or a basement: the band has to sit above the ground *locally*. Taking each
+    grid column's lowest point and then the median across columns gives a
+    ground level robust to both outliers below the surface and to tall
+    structures above it.
+    """
+    x, y, z = points[:, 0], points[:, 1], points[:, 2]
+    x_min, y_min = float(x.min()), float(y.min())
+    cols = int(np.ceil((float(x.max()) - x_min) / resolution)) + 1
+    ci = ((x - x_min) / resolution).astype(np.int64).clip(0, cols - 1)
+    ri = ((y - y_min) / resolution).astype(np.int64)
+    flat = ri * cols + ci
+    order = np.argsort(flat, kind="stable")
+    flat_sorted, z_sorted = flat[order], z[order]
+    starts = np.flatnonzero(np.r_[True, flat_sorted[1:] != flat_sorted[:-1]])
+    per_cell_min = np.minimum.reduceat(z_sorted, starts)
+    return float(np.median(per_cell_min))
+
+
+def suggest_band(points, resolution):
+    """A suggested (z_min, z_max) sitting just above the estimated ground.
+
+    0.2-0.5 m above ground is the band that worked on this project's sites: high
+    enough to clear kerbs and ground noise, low enough to catch walls, parked
+    cars and posts rather than tree canopy or ceilings.
+    """
+    ground = ground_estimate(points, resolution)
+    return ground + 0.2, ground + 0.5
+
+
+def format_band_guidance(points, resolution):
+    """The text printed when no band was given. Pure, so it is testable."""
+    z = points[:, 2]
+    ground = ground_estimate(points, resolution)
+    lo, hi = suggest_band(points, resolution)
+    percentiles = [1, 5, 10, 25, 50, 75, 90, 95, 99]
+    values = np.percentile(z, percentiles)
+    lines = [
+        "No z band given, and this tool will not guess one.",
+        "",
+        "The band selects which heights count as obstacles. Getting it wrong",
+        "does not fail loudly: it produces a valid-looking grid that localizes",
+        "badly (this project once shipped a 230-cell grid that way).",
+        "",
+        f"z distribution over {len(z)} points:",
+    ]
+    lines += [f"  p{p:<3d} {v:9.2f} m" for p, v in zip(percentiles, values)]
+    lines += [
+        f"  min  {float(z.min()):9.2f} m",
+        f"  max  {float(z.max()):9.2f} m",
+        "",
+        f"estimated ground (median of per-cell minimum z): {ground:.2f} m",
+        "",
+        "Suggested band, 0.2-0.5 m above that ground estimate:",
+        f"  --z-min {lo:.2f} --z-max {hi:.2f}",
+        "",
+        "Check it against the site: the band must clear the ground and catch",
+        "walls, not canopy. Then re-run with both flags.",
+    ]
+    return "\n".join(lines)
+
+
 def write_map(grid, origin, resolution, prefix: Path):
     pgm = prefix.with_suffix(".pgm")
     yml = prefix.with_suffix(".yaml")
@@ -172,23 +241,58 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("pcd", type=Path)
     ap.add_argument("out_prefix", type=Path)
-    ap.add_argument("--z-min", type=float, required=True)
-    ap.add_argument("--z-max", type=float, required=True)
+    # Not required: omitting both prints the z distribution and a suggested
+    # band, then exits without writing. Silently picking a band is how the
+    # unusable Phase 1 grid happened.
+    ap.add_argument("--z-min", type=float)
+    ap.add_argument("--z-max", type=float)
     ap.add_argument("--resolution", type=float, default=0.05)
     ap.add_argument("--min-points", type=int, default=2)
+    ap.add_argument("--sidecar", action="store_true",
+                    help="write/update autosdv_map.yaml beside the output grid")
     args = ap.parse_args()
 
     pts = read_pcd(args.pcd)
     print(f"{len(pts)} points, z range [{pts[:,2].min():.2f}, {pts[:,2].max():.2f}]")
+
+    if args.z_min is None or args.z_max is None:
+        if args.z_min is not None or args.z_max is not None:
+            print("error: --z-min and --z-max must be given together.\n",
+                  file=sys.stderr)
+        print(format_band_guidance(pts, args.resolution), file=sys.stderr)
+        return 2
+    if args.z_max <= args.z_min:
+        print(f"error: --z-max ({args.z_max}) must exceed --z-min "
+              f"({args.z_min}).", file=sys.stderr)
+        return 2
+
     grid, origin = rasterize(pts, args.z_min, args.z_max,
                              args.resolution, args.min_points)
     occ = int((grid == OCCUPIED).sum())
     free = int((grid == FREE).sum())
     print(f"grid {grid.shape[1]}x{grid.shape[0]} cells, "
           f"{occ} occupied, {free} free")
+    if occ == 0:
+        print("warning: no occupied cells -- the band caught nothing. "
+              "Re-run without --z-min/--z-max to see the distribution.",
+              file=sys.stderr)
     pgm, yml = write_map(grid, origin, args.resolution, args.out_prefix)
     print(f"wrote {pgm} and {yml}")
 
+    if args.sidecar:
+        map_dir = args.out_prefix.parent
+        pcd_ref = (args.pcd.name if args.pcd.parent == map_dir
+                   else str(args.pcd))
+        path = map_sidecar.save(
+            map_dir,
+            geometry={"pointcloud": pcd_ref, "occupancy_grid": yml.name},
+            grid_provenance=map_sidecar.build_grid_provenance(
+                map_sidecar.METHOD_PCD_SLICE, pcd_ref, args.resolution,
+                z_band=(args.z_min, args.z_max),
+                extra={"min_points": int(args.min_points)}))
+        print(f"wrote {path}")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

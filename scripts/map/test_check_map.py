@@ -11,6 +11,7 @@ from check_map import (
     BBox,
     CheckError,
     bbox_from_points,
+    check_sidecar,
     overlap_pct,
     parse_grid_yaml,
     parse_lanelet2_osm,
@@ -337,3 +338,59 @@ def test_run_check_custom_grid_yaml_name(tmp_path):
     assert ready is True
     grid_line = next(l for l in lines if l.name == "occupancy_grid_scanaccum_mh1r05.yaml")
     assert grid_line.status == "ok"
+
+
+# --- autosdv_map.yaml reporting (Task 5) ---
+
+def test_check_sidecar_absent_is_informational_not_a_failure(tmp_path):
+    lines = check_sidecar(tmp_path)
+    assert len(lines) == 1
+    assert lines[0].status == "-"
+    assert "absent" in lines[0].message
+
+
+def test_check_sidecar_reports_provenance(tmp_path):
+    (tmp_path / "autosdv_map.yaml").write_text(
+        "geometry:\n  occupancy_grid: g.yaml\n"
+        "occupancy_grid_provenance:\n"
+        "  method: pcd_slice\n  source: pointcloud_map.pcd\n"
+        "  resolution: 0.05\n  z_band: [9.1, 9.4]\n")
+    lines = check_sidecar(tmp_path)
+    assert lines[0].status == "ok"
+    assert "pcd_slice" in lines[0].message
+    assert "[9.10, 9.40]" in lines[0].message
+    assert any("g.yaml" in l.message for l in lines[1:])
+
+
+def test_check_sidecar_flags_an_unreadable_file(tmp_path):
+    (tmp_path / "autosdv_map.yaml").write_text("- not\n- a mapping\n")
+    lines = check_sidecar(tmp_path)
+    assert lines[0].status == "FAIL"
+    assert "unreadable" in lines[0].message
+
+
+def test_run_check_broken_sidecar_does_not_block_readiness(tmp_path):
+    """The sidecar is optional, so neither its absence nor a broken one may
+    make an otherwise-usable map directory NOT READY."""
+    make_local_map(tmp_path, grid_origin=(-5.0, -5.0, 0.0))
+    _, ready_without = run_check(tmp_path, "mcl", "occupancy_grid.yaml",
+                                 autoware_setup=None)
+    (tmp_path / "autosdv_map.yaml").write_text("- broken\n")
+    lines, ready_with = run_check(tmp_path, "mcl", "occupancy_grid.yaml",
+                                  autoware_setup=None)
+    assert ready_without is True and ready_with is True
+    assert any(l.name == "autosdv_map.yaml" and l.status == "FAIL"
+               for l in lines)
+
+
+def test_run_check_reports_a_valid_sidecar(tmp_path):
+    make_local_map(tmp_path, grid_origin=(-5.0, -5.0, 0.0))
+    (tmp_path / "autosdv_map.yaml").write_text(
+        "occupancy_grid_provenance:\n  method: scan_accumulation\n"
+        "  source: run.bag\n  resolution: 0.1\n")
+    lines, ready = run_check(tmp_path, "mcl", "occupancy_grid.yaml",
+                             autoware_setup=None)
+    assert ready is True
+    line = next(l for l in lines if l.name == "autosdv_map.yaml")
+    assert line.status == "ok"
+    assert "scan_accumulation" in line.message

@@ -204,6 +204,13 @@ recipe should print the cloud's z distribution and the derived ground level to
 make that choice concrete rather than a guess — getting it wrong is what produced
 a 230-cell unusable grid in Phase 1.
 
+**Implemented.** Omitting the band prints the z percentiles, the ground level
+estimated as the median of per-cell minimum z, and a suggested band 0.2–0.5 m
+above it, then exits `2` without writing anything — the tool will not guess.
+On the COSS map it estimates ground at 9.05 m and suggests 9.25–9.55, against
+the 9.1–9.4 used for the committed grid. Re-running the recipe with 9.1/9.4
+reproduces that committed `occupancy_grid.pgm` byte for byte.
+
 ### 5.2 From a survey
 
 Two sub-paths, matching §3:
@@ -253,7 +260,11 @@ it gets loaded. A user who only ever runs NDT sees no change at all.
 4. **`just map-check`** with the frame-extent comparison of §4 — highest UX value
    per line of code, and it is what prevents silent frame mismatches.
 5. **`just map-grid-from-pcd` / `map-grid-from-bag`** wrappers plus
-   `autosdv_map.yaml` emission.
+   `autosdv_map.yaml` emission. *Done.* Both recipes write the grid, emit the
+   sidecar (`--sidecar` on the underlying tools; off by default so existing
+   callers are unaffected) and finish by running `map-check`. `map-check`
+   reports the sidecar's provenance, and treats its absence as informational
+   since the sidecar is optional.
 6. **`pose_source:=mcl`** in the localization fork: add `'mcl'` to
    `available_args` and a `use_mcl_pose` branch (the fork is NEWSLabNTU-owned, so
    this is ours to change).

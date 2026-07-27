@@ -1,0 +1,14 @@
+# autosdv_map.yaml -- AutoSDV-only map directory sidecar (optional).
+# Records which geometry maps this directory holds and how the
+# occupancy grid was produced. Written by the map-building tools;
+# read by `just map-check`. Safe to delete: absent means "infer
+# from what is on disk".
+# Schema: docs/design/map-handling-per-localization-method.md Sec. 4
+geometry: {pointcloud: pointcloud_map.pcd, occupancy_grid: occupancy_grid.yaml}
+occupancy_grid_provenance:
+  method: pcd_slice
+  source: pointcloud_map.pcd
+  resolution: 0.05
+  frame_consistent_with_lanelet2: true
+  z_band: [9.1, 9.4]
+  min_points: 2

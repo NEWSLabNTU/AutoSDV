@@ -8,7 +8,8 @@ import pytest
 import yaml
 
 sys.path.insert(0, str(Path(__file__).parent))
-from pcd_to_pgm import read_pcd, rasterize
+from pcd_to_pgm import (format_band_guidance, ground_estimate, read_pcd,
+                        rasterize, suggest_band)
 
 
 def write_pcd(path: Path, pts: np.ndarray, binary: bool = True) -> None:
@@ -214,3 +215,104 @@ def test_cli_writes_pgm_and_yaml(tmp_path, wall_cloud):
     assert meta["image"] == "map.pgm"
     assert meta["negate"] == 0
     assert len(meta["origin"]) == 3
+
+
+# --- z-band guidance (Task 5): the tool must refuse to guess ---
+
+def test_ground_estimate_uses_per_cell_minimum(wall_cloud):
+    """A tall wall must not pull the ground estimate upward."""
+    assert ground_estimate(wall_cloud, 0.1) == pytest.approx(0.0, abs=0.05)
+
+
+def test_ground_estimate_tracks_an_offset_site():
+    """A site whose ground sits at 9 m must estimate 9 m, not 0."""
+    xs, ys = np.meshgrid(np.arange(0, 5, 0.5), np.arange(0, 5, 0.5))
+    ground = np.column_stack([xs.ravel(), ys.ravel(),
+                              np.full(xs.size, 9.0, np.float32)])
+    wall = np.column_stack([np.full(40, 2.0), np.linspace(0, 5, 40),
+                            np.linspace(9.2, 12.0, 40)])
+    pts = np.vstack([ground, wall]).astype(np.float32)
+    assert ground_estimate(pts, 0.5) == pytest.approx(9.0, abs=0.1)
+
+
+def test_suggest_band_sits_just_above_ground():
+    xs, ys = np.meshgrid(np.arange(0, 3, 0.5), np.arange(0, 3, 0.5))
+    pts = np.column_stack([xs.ravel(), ys.ravel(),
+                           np.full(xs.size, 9.0, np.float32)]).astype(np.float32)
+    lo, hi = suggest_band(pts, 0.5)
+    assert (lo, hi) == pytest.approx((9.2, 9.5))
+
+
+def test_band_guidance_text_reports_distribution_and_suggestion(wall_cloud):
+    text = format_band_guidance(wall_cloud, 0.1)
+    assert "will not guess" in text
+    assert "--z-min" in text and "--z-max" in text
+    assert "estimated ground" in text
+    assert "p50" in text
+
+
+def test_cli_without_band_exits_nonzero_and_writes_nothing(tmp_path, wall_cloud):
+    pcd = tmp_path / "in.pcd"
+    write_pcd(pcd, wall_cloud)
+    prefix = tmp_path / "map"
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "pcd_to_pgm.py"),
+         str(pcd), str(prefix), "--resolution", "0.1"],
+        capture_output=True, text=True)
+    assert r.returncode == 2
+    assert "will not guess" in r.stderr
+    assert "--z-min" in r.stderr
+    assert not (tmp_path / "map.pgm").exists()
+    assert not (tmp_path / "map.yaml").exists()
+
+
+def test_cli_rejects_half_a_band(tmp_path, wall_cloud):
+    pcd = tmp_path / "in.pcd"
+    write_pcd(pcd, wall_cloud)
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "pcd_to_pgm.py"),
+         str(pcd), str(tmp_path / "map"), "--z-min", "0.2"],
+        capture_output=True, text=True)
+    assert r.returncode == 2
+    assert "must be given together" in r.stderr
+
+
+def test_cli_rejects_inverted_band(tmp_path, wall_cloud):
+    pcd = tmp_path / "in.pcd"
+    write_pcd(pcd, wall_cloud)
+    r = subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "pcd_to_pgm.py"),
+         str(pcd), str(tmp_path / "map"), "--z-min", "0.5", "--z-max", "0.2"],
+        capture_output=True, text=True)
+    assert r.returncode == 2
+    assert "must exceed" in r.stderr
+
+
+def test_cli_sidecar_records_provenance(tmp_path, wall_cloud):
+    pcd = tmp_path / "pointcloud_map.pcd"
+    write_pcd(pcd, wall_cloud)
+    subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "pcd_to_pgm.py"),
+         str(pcd), str(tmp_path / "occupancy_grid"),
+         "--z-min", "0.2", "--z-max", "0.5", "--resolution", "0.1",
+         "--sidecar"],
+        check=True)
+    data = yaml.safe_load((tmp_path / "autosdv_map.yaml").read_text())
+    prov = data["occupancy_grid_provenance"]
+    assert prov["method"] == "pcd_slice"
+    assert prov["source"] == "pointcloud_map.pcd"
+    assert prov["z_band"] == [0.2, 0.5]
+    assert prov["resolution"] == 0.1
+    assert data["geometry"] == {"pointcloud": "pointcloud_map.pcd",
+                                "occupancy_grid": "occupancy_grid.yaml"}
+
+
+def test_cli_without_sidecar_flag_writes_no_sidecar(tmp_path, wall_cloud):
+    """Existing callers must keep producing exactly two files."""
+    pcd = tmp_path / "in.pcd"
+    write_pcd(pcd, wall_cloud)
+    subprocess.run(
+        [sys.executable, str(Path(__file__).parent / "pcd_to_pgm.py"),
+         str(pcd), str(tmp_path / "map"), "--z-min", "0.2", "--z-max", "0.5"],
+        check=True)
+    assert not (tmp_path / "autosdv_map.yaml").exists()

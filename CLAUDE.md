@@ -85,6 +85,17 @@ just control-straight   # Run 10m straight trajectory
 just control-circle     # Run circular trajectory
 ```
 
+### Maps
+```bash
+just map-check <map_dir> [pose_source]   # validate a map dir for a method
+just map-grid-from-pcd <map_dir>         # prints z distribution + suggested band, refuses to guess
+just map-grid-from-pcd <map_dir> --z-min A --z-max B   # writes the grid + autosdv_map.yaml
+just map-grid-from-bag <bag> <map_dir>   # accumulate scans instead, for a site with no PCD
+```
+`pose_source:=mcl` needs an occupancy grid rather than a PCD; `map-check`
+verifies the grid is in the lanelet2 map's frame, which is the failure class
+that otherwise costs days. See `docs/design/map-handling-per-localization-method.md`.
+
 ### Rosbag
 ```bash
 just bag-record         # Record outdoor sensor topics
