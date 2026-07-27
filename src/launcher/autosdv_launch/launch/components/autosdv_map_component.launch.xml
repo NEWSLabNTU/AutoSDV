@@ -46,6 +46,7 @@
   <group if=.../unless=...> blocks wrapping plain <include> elements, the
   same pattern autosdv.launch.yaml / logging_simulation.launch.yaml already
   use for isaac/visual and that play_launch is known to handle correctly.
+  Tracked upstream: https://github.com/NEWSLabNTU/play_launch/issues/7
 -->
 <launch>
   <arg name="map_path" description="map directory path"/>

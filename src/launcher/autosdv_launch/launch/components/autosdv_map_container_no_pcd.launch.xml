@@ -6,6 +6,7 @@
   autosdv_map_component.launch.xml for the full rationale and the
   play_launch parser limitation that forces this to be a separate file
   rather than a condition on a single shared container).
+  Tracked upstream: https://github.com/NEWSLabNTU/play_launch/issues/7
 -->
 <launch>
   <arg name="container_type"/>

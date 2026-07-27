@@ -9,6 +9,7 @@
   <group> nested inside <node_container> outright, so the PCD loader's
   presence has to be a choice of *which file* the caller includes, decided
   entirely outside any node_container, not a condition evaluated inside one.
+  Tracked upstream: https://github.com/NEWSLabNTU/play_launch/issues/7
 -->
 <launch>
   <arg name="container_type"/>
