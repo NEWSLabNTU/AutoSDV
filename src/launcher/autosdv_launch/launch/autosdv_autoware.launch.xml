@@ -31,6 +31,30 @@
   <!-- Localization -->
   <arg name="pose_source" default="ndt" description="select pose_estimator: ndt, yabloc, eagleye"/>
   <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing built-in NDT node"/>
+
+  <!-- AutoSDV: retarget map_height_fitter (used by autoware_pose_initializer
+       for GNSS auto-init, and by the RViz initial-pose adaptor for "2D Pose
+       Estimate") away from the PCD when pose_source:=mcl. Its default
+       target is "pointcloud_map", fed by pointcloud_map_loader; the mcl map
+       component (autosdv_map_component) never starts that loader, so
+       map_height_fitter's constructor blocks forever in
+       wait_for_service(/map/pointcloud_map_loader) ; reproduced
+       empirically: pose_initializer never leaves that state, so neither
+       init route ever produces /initialpose3d. Retarget both consumers at
+       "vector_map" (the lanelet2 map) instead: it is always published
+       regardless of pose_source, and for a planar 2-D filter the height it
+       reports (the nearest lanelet point's z) is as meaningful as any other
+       choice. Neither pose_initializer.launch.xml nor
+       rviz_adaptors.launch.xml is AutoSDV/fork-owned, and both declare
+       their target arg with a plain default (not a required arg), so this
+       is set once here, globally, rather than threaded explicitly through
+       the several stock includes between here and them, using the same
+       mechanism that already carries pose_source/twist_source/
+       system_run_mode down to pose_twist_estimator.launch.xml without
+       being re-declared at every hop. -->
+  <let name="gnss_initial_pose_auto_fix_target" value="$(eval &quot;'vector_map' if '$(var pose_source)' == 'mcl' else 'pointcloud_map'&quot;)"/>
+  <let name="rviz_initial_pose_auto_fix_target" value="$(var gnss_initial_pose_auto_fix_target)"/>
+
   <!-- Vehicle -->
   <arg name="vehicle_id" default="$(env VEHICLE_ID default)" description="vehicle specific ID"/>
   <arg name="launch_vehicle_interface" default="true" description="launch vehicle interface"/>
