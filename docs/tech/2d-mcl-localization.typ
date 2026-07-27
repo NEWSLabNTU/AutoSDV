@@ -18,6 +18,16 @@
 #let c-mod-b  = rgb("#fff3bf")
 
 #let legend(color, body) = box(baseline: 0.15em)[#box(width: 0.85em, height: 0.85em, fill: color, radius: 1pt) #body]
+// Compact legend rendered directly beneath a diagram, so each diagram is
+// self-contained rather than depending on a key elsewhere in the document.
+#let diagram-key(..entries) = align(center, box(inset: 5pt, radius: 3pt,
+  fill: rgb("#fbfbfc"), stroke: 0.4pt + c-off)[
+  #set text(7.5pt)
+  #entries.pos().join(h(0.9em))
+])
+#let dashed-swatch(body) = box(baseline: 0.15em)[#box(width: 0.85em, height: 0.85em,
+  fill: c-drop-b, radius: 1pt, stroke: (dash: "dashed", paint: c-drop, thickness: 0.5pt)) #body]
+
 #let ok = text(fill: c-fix, weight: "bold")[✓]
 #let no = text(fill: c-new, weight: "bold")[✗]
 
@@ -64,7 +74,24 @@ in the inherited measurement model that made the upstream filter unusable on
 this data.
 
 Measured on the official Autoware sample site, against NDT as ground truth,
-five seeds:
+five seeds. Three terms recur in every results table below:
+
+/ seed: the RNG seed given to the particle filter (`random_seed`). A particle
+  filter is stochastic — particle placement and resampling draws differ run to
+  run — so one run proves nothing. Each reported figure is a replay of the same
+  bag against the same map, differing only in this seed; the spread across seeds
+  is the run-to-run variability of the method.
+/ mean: the arithmetic mean, over every published pose in a run, of the
+  planar distance between the MCL pose and the NDT pose at the same timestamp.
+  It is sensitive to outliers: one large excursion moves it far more than it
+  moves the median, which is exactly what §6.3 traces.
+/ p95: the 95th percentile of that same per-pose distance — the value 95% of
+  poses stay under. It reports typical behaviour with the worst 5% excluded, so
+  a low p95 beside a high mean means "usually accurate, occasionally very wrong"
+  rather than "uniformly mediocre".
+
+Medians and ranges in the tables are taken across the five seeds, not across
+poses.
 
 #table(
   columns: (auto, auto, auto, auto, auto),
@@ -79,16 +106,6 @@ five seeds:
 metric is dominated by a single sub-second startup transient, not by
 steady-state error — 95% of poses are inside 2.2 m and heading is within
 0.054 rad on every seed. The cause is identified and its fix is known.
-
-#align(center, box(inset: 7pt, radius: 4pt, fill: c-off-b, width: 100%)[
-  #set align(left)
-  #set text(9pt)
-  *Legend* #h(0.8em)
-  #legend(c-auto-b)[Autoware, unchanged] #h(0.8em)
-  #legend(c-f1-b)[Borrowed: Roboracer / nav2] #h(0.8em)
-  #legend(c-new-b)[AutoSDV-authored] #h(0.8em)
-  #legend(c-off-b)[Offline map artefact]
-])
 
 = Target architecture
 
@@ -155,6 +172,12 @@ interface consume the same `/localization/kinematic_state` they always have. The
   }
 )
 ])
+#diagram-key(
+  legend(c-auto-b)[Autoware, unchanged],
+  legend(c-f1-b)[borrowed: Roboracer / nav2],
+  legend(c-new-b)[AutoSDV-authored],
+  legend(c-off-b)[offline map artefact],
+)
 
 == Testing configuration versus production
 
@@ -320,8 +343,8 @@ maximum versus the true pose:
   align: (left, right, right, right),
   table.header([*Configuration*], [*Gap (nats)*], [*Argmax distance*], [*GT percentile*]),
   [upstream], [51.92], [29.67 m], [0.83],
-  [+ normalised short], [7.07], [0.20 m], [99.998],
-  [+ skip non-finite (§5.2)], [6.24], [0.22 m], [99.9989],
+  [\+ normalised short], [7.07], [0.20 m], [99.998],
+  [\+ skip non-finite (§5.2)], [6.24], [0.22 m], [99.9989],
 )
 
 The upstream model's most likely pose sat ~30 m from the truth, and the true
@@ -419,16 +442,6 @@ adds or reconfigures relative to the stock NDT stack. Nothing here alters the
 `cuda_ndt` or `ndt` paths — those were verified byte-identical by topic and node
 list diff, so the two configurations coexist in one tree.
 
-#align(center, box(inset: 6pt, radius: 4pt, fill: c-off-b, width: 100%)[
-  #set align(left)
-  #set text(9pt)
-  *Change marks* #h(0.8em)
-  #legend(c-auto-b)[unchanged] #h(0.8em)
-  #legend(c-drop-b)[deleted for `mcl`] #h(0.8em)
-  #legend(c-new-b)[added] #h(0.8em)
-  #legend(c-mod-b)[modified]
-])
-
 == The diff, in one diagram
 
 Same left-to-right layout as the target architecture in §2, with both paths
@@ -451,7 +464,7 @@ the dashed nodes as *present under `cuda_ndt`/`ndt`, absent under `mcl`*.
     let gone = (dash: "dashed", paint: c-drop)
 
     // ── map layer: PCD out, PGM in ──
-    node((0, -2.3), n[pointcloud_map.pcd\ #dd[+ metadata]], fill: c-drop-b, stroke: gone, name: <pcdf>)
+    node((0, -2.3), n[pointcloud_map.pcd\ #dd[and metadata]], fill: c-drop-b, stroke: gone, name: <pcdf>)
     node((1.35, -2.3), n[pointcloud_map\_loader], fill: c-drop-b, stroke: gone, name: <pcd>)
     node((0, -1.35), n[*grid.pgm + .yaml*], fill: c-off-b, name: <grid>)
     node((1.35, -1.35), n[*nav2_map_server*], fill: c-new-b, name: <mapsrv>)
@@ -507,6 +520,13 @@ the dashed nodes as *present under `cuda_ndt`/`ndt`, absent under `mcl`*.
   }
 )
 ])
+#diagram-key(
+  legend(c-auto-b)[unchanged],
+  dashed-swatch[present under `ndt`, absent under `mcl`],
+  legend(c-new-b)[added by `mcl`],
+  legend(c-mod-b)[reconfigured],
+  legend(c-off-b)[offline map artefact],
+)
 
 Read against §2: the map row swaps *PCD for PGM* — the file, its loader and both
 its consumers (`ndt_scan_matcher`'s differential-map client and the perception
