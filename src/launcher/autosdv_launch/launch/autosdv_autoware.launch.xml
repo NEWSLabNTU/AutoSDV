@@ -89,8 +89,16 @@
   </group>
 
   <!-- Map -->
+  <!-- AutoSDV: method-aware map component. The stock component starts
+       pointcloud_map_loader unconditionally, which is fatal when there is no
+       PCD (pose_source:=mcl). See docs/design/map-handling-per-localization-method.md -->
   <group if="$(var launch_map)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_map_component.launch.xml"/>
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_map_component.launch.xml">
+      <arg name="map_path" value="$(var map_path)"/>
+      <arg name="lanelet2_map_file" value="$(var lanelet2_map_file)"/>
+      <arg name="pointcloud_map_file" value="$(var pointcloud_map_file)"/>
+      <arg name="pose_source" value="$(var pose_source)"/>
+    </include>
   </group>
 
   <!-- Sensing -->

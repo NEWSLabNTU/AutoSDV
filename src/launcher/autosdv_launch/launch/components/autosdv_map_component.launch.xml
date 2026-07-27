@@ -1,0 +1,140 @@
+<?xml version="1.0"?>
+<!--
+  AutoSDV method-aware map component.
+
+  Forked from:
+    /opt/autoware/1.5.0/share/autoware_launch/launch/components/tier4_map_component.launch.xml
+    /opt/autoware/1.5.0/share/tier4_map_launch/launch/map.launch.xml
+
+  Why this fork exists: the stock component starts `pointcloud_map_loader` as
+  an unconditional composable node inside `map_container`, with no argument to
+  disable it. With a `pointcloud_map_metadata.yaml` present but no PCD (the
+  pose_source:=mcl case, which uses a 2-D occupancy grid instead of the 3-D
+  point cloud), the stock loader throws "Missing PCD segments. Exiting map
+  loader..." and takes the whole map_container down with it. See
+  docs/design/map-handling-per-localization-method.md sections 1-2.
+
+  Behaviour, keyed off pose_source:
+    - lanelet2_map_loader, map_projection_loader, lanelet2_map_visualization,
+      vector_map_tf_generator, map_hash_generator: ALWAYS on. Every
+      pose_source needs the vector map for planning.
+    - pointcloud_map_loader: on for everything except mcl.
+    - nav2_map_server (2-D occupancy grid): on only for mcl.
+
+  Also makes AutoSDV's own config/map/*.param.yaml live. Previously dead: the
+  stock include in autosdv_autoware.launch.xml passed no arguments to
+  tier4_map_component, so the /opt/autoware/.../autoware_launch config always
+  won regardless of what lived under src/launcher/autosdv_launch/config/map/.
+-->
+<launch>
+  <arg name="map_path" description="map directory path"/>
+  <arg name="lanelet2_map_file" default="lanelet2_map.osm" description="lanelet2 map file name"/>
+  <arg name="pointcloud_map_file" default="pointcloud_map.pcd" description="pointcloud map file name"/>
+  <arg name="occupancy_grid_file" default="occupancy_grid.yaml" description="2-D occupancy grid metadata file name (pose_source:=mcl only)"/>
+  <arg name="pose_source" default="ndt" description="selects which geometry map(s) load: mcl loads the 2-D grid instead of the PCD"/>
+
+  <arg name="use_multithread" default="false"/>
+  <let name="container_type" value="component_container" unless="$(var use_multithread)"/>
+  <let name="container_type" value="component_container_mt" if="$(var use_multithread)"/>
+
+  <!-- pose_source dispatch. Deliberately a plain equality test against 'mcl',
+       not the token-splitting trick tier4_localization_launch uses for
+       ndt/cuda_ndt: there is exactly one grid-based method today. -->
+  <let name="use_pointcloud_map_loader" value="$(eval &quot;'$(var pose_source)' != 'mcl'&quot;)"/>
+  <let name="use_grid_server" value="$(eval &quot;'$(var pose_source)' == 'mcl'&quot;)"/>
+
+  <!-- Resolved file paths -->
+  <let name="pointcloud_map_path" value="$(var map_path)/$(var pointcloud_map_file)"/>
+  <let name="pointcloud_map_metadata_path" value="$(var map_path)/pointcloud_map_metadata.yaml"/>
+  <let name="lanelet2_map_path" value="$(var map_path)/$(var lanelet2_map_file)"/>
+  <let name="map_projector_info_path" value="$(var map_path)/map_projector_info.yaml"/>
+  <let name="occupancy_grid_path" value="$(var map_path)/$(var occupancy_grid_file)"/>
+
+  <!-- AutoSDV-owned param files (see file header: previously dead). -->
+  <let name="pointcloud_map_loader_param_path" value="$(find-pkg-share autosdv_launch)/config/map/pointcloud_map_loader.param.yaml"/>
+  <let name="lanelet2_map_loader_param_path" value="$(find-pkg-share autosdv_launch)/config/map/lanelet2_map_loader.param.yaml"/>
+  <let name="map_tf_generator_param_path" value="$(find-pkg-share autosdv_launch)/config/map/map_tf_generator.param.yaml"/>
+  <let name="map_projection_loader_param_path" value="$(find-pkg-share autosdv_launch)/config/map/map_projection_loader.param.yaml"/>
+
+  <group>
+    <push-ros-namespace namespace="map"/>
+
+    <node_container pkg="rclcpp_components" exec="$(var container_type)" name="map_container" namespace="" output="both">
+      <!-- Composed only when a PCD is actually expected. Skipping the
+           composable node (rather than pointing it at a missing file) is the
+           only way to avoid the fatal load: see file header. -->
+      <composable_node
+        pkg="autoware_map_loader"
+        plugin="autoware::map_loader::PointCloudMapLoaderNode"
+        name="pointcloud_map_loader"
+        if="$(var use_pointcloud_map_loader)"
+      >
+        <param from="$(var pointcloud_map_loader_param_path)"/>
+        <param name="pcd_paths_or_directory" value="[$(var pointcloud_map_path)]"/>
+        <param name="pcd_metadata_path" value="$(var pointcloud_map_metadata_path)"/>
+        <remap from="output/pointcloud_map" to="pointcloud_map"/>
+        <remap from="output/pointcloud_map_metadata" to="pointcloud_map_metadata"/>
+        <remap from="service/get_partial_pcd_map" to="/map/get_partial_pointcloud_map"/>
+        <remap from="service/get_differential_pcd_map" to="/map/get_differential_pointcloud_map"/>
+        <remap from="service/get_selected_pcd_map" to="/map/get_selected_pointcloud_map"/>
+      </composable_node>
+
+      <composable_node pkg="autoware_map_loader" plugin="autoware::map_loader::Lanelet2MapLoaderNode" name="lanelet2_map_loader">
+        <param from="$(var lanelet2_map_loader_param_path)"/>
+        <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+        <remap from="output/lanelet2_map" to="vector_map"/>
+      </composable_node>
+
+      <composable_node pkg="autoware_lanelet2_map_visualizer" plugin="autoware::lanelet2_map_visualizer::Lanelet2MapVisualizationNode" name="lanelet2_map_visualization">
+        <remap from="input/lanelet2_map" to="vector_map"/>
+        <remap from="output/lanelet2_map_marker" to="vector_map_marker"/>
+      </composable_node>
+
+      <composable_node pkg="autoware_map_tf_generator" plugin="autoware::map_tf_generator::VectorMapTFGeneratorNode" name="vector_map_tf_generator">
+        <param from="$(var map_tf_generator_param_path)"/>
+      </composable_node>
+    </node_container>
+
+    <node pkg="autoware_map_loader" exec="map_hash_generator" name="map_hash_generator">
+      <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+      <param name="pointcloud_map_path" value="$(var pointcloud_map_path)"/>
+    </node>
+
+    <include file="$(find-pkg-share autoware_map_projection_loader)/launch/map_projection_loader.launch.xml">
+      <arg name="param_path" value="$(var map_projection_loader_param_path)"/>
+      <arg name="map_projector_info_path" value="$(var map_projector_info_path)"/>
+      <arg name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+    </include>
+  </group>
+
+  <!--
+    2-D occupancy grid server for pose_source:=mcl.
+
+    Node name MUST be exactly "map_server", not namespaced under /map,
+    because the mcl particle filter's client hardcodes the service name
+    "/map_server/map" (particle_filter.py:530). That is why this group sits
+    outside the push-ros-namespace block above rather than inside map_container.
+
+    map_server is a lifecycle node: it must be driven through configure,
+    then activate, before it publishes/serves anything. The natural fix is
+    nav2_lifecycle_manager, but in this environment its binary fails to start
+    at all (`libdiagnostic_updater.so: cannot open shared object file`, the
+    apt-packaged diagnostic_updater no longer ships a compiled library, only
+    headers/Python, so anything linked against the old ABI is broken; this is
+    an environment packaging defect, not a config problem). Bring the node up
+    with the retry pattern from scripts/2dlidar/check-map-load.sh instead: a
+    single `ros2 lifecycle set` attempt races the node's startup, so retry
+    each transition with a short sleep between attempts.
+  -->
+  <group if="$(var use_grid_server)">
+    <node pkg="nav2_map_server" exec="map_server" name="map_server" output="both">
+      <param name="yaml_filename" value="$(var occupancy_grid_path)"/>
+    </node>
+
+    <executable
+      cmd="$(find-pkg-share autosdv_launch)/scripts/map_server_lifecycle_bringup.sh"
+      name="map_server_lifecycle_bringup"
+      output="screen"
+    />
+  </group>
+</launch>
