@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<!--
+  map_container variant WITH pointcloud_map_loader.
+
+  Used for every pose_source except mcl. See autosdv_map_component.launch.xml
+  for why this is a separate file rather than a conditional composable_node:
+  play_launch's Rust parser (this repo's preferred launch runner, see
+  CLAUDE.md) ignores `if=`/`unless=` on <composable_node> and drops any
+  <group> nested inside <node_container> outright, so the PCD loader's
+  presence has to be a choice of *which file* the caller includes, decided
+  entirely outside any node_container, not a condition evaluated inside one.
+-->
+<launch>
+  <arg name="container_type"/>
+  <arg name="pointcloud_map_loader_param_path"/>
+  <arg name="lanelet2_map_loader_param_path"/>
+  <arg name="map_tf_generator_param_path"/>
+  <arg name="pointcloud_map_path"/>
+  <arg name="pointcloud_map_metadata_path"/>
+  <arg name="lanelet2_map_path"/>
+
+  <node_container pkg="rclcpp_components" exec="$(var container_type)" name="map_container" namespace="" output="both">
+    <composable_node pkg="autoware_map_loader" plugin="autoware::map_loader::PointCloudMapLoaderNode" name="pointcloud_map_loader">
+      <param from="$(var pointcloud_map_loader_param_path)"/>
+      <param name="pcd_paths_or_directory" value="[$(var pointcloud_map_path)]"/>
+      <param name="pcd_metadata_path" value="$(var pointcloud_map_metadata_path)"/>
+      <remap from="output/pointcloud_map" to="pointcloud_map"/>
+      <remap from="output/pointcloud_map_metadata" to="pointcloud_map_metadata"/>
+      <remap from="service/get_partial_pcd_map" to="/map/get_partial_pointcloud_map"/>
+      <remap from="service/get_differential_pcd_map" to="/map/get_differential_pointcloud_map"/>
+      <remap from="service/get_selected_pcd_map" to="/map/get_selected_pointcloud_map"/>
+    </composable_node>
+
+    <composable_node pkg="autoware_map_loader" plugin="autoware::map_loader::Lanelet2MapLoaderNode" name="lanelet2_map_loader">
+      <param from="$(var lanelet2_map_loader_param_path)"/>
+      <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+      <remap from="output/lanelet2_map" to="vector_map"/>
+    </composable_node>
+
+    <composable_node pkg="autoware_lanelet2_map_visualizer" plugin="autoware::lanelet2_map_visualizer::Lanelet2MapVisualizationNode" name="lanelet2_map_visualization">
+      <remap from="input/lanelet2_map" to="vector_map"/>
+      <remap from="output/lanelet2_map_marker" to="vector_map_marker"/>
+    </composable_node>
+
+    <composable_node pkg="autoware_map_tf_generator" plugin="autoware::map_tf_generator::VectorMapTFGeneratorNode" name="vector_map_tf_generator">
+      <param from="$(var map_tf_generator_param_path)"/>
+    </composable_node>
+  </node_container>
+</launch>

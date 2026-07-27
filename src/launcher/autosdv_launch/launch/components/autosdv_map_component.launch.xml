@@ -25,6 +25,27 @@
   stock include in autosdv_autoware.launch.xml passed no arguments to
   tier4_map_component, so the /opt/autoware/.../autoware_launch config always
   won regardless of what lived under src/launcher/autosdv_launch/config/map/.
+
+  KNOWN TOOL LIMITATION (play_launch, this repo's preferred launch runner
+  per CLAUDE.md): its Rust parser does not honour `if=`/`unless=` on
+  <composable_node>, the node loads regardless of the condition, and it
+  silently drops any <group> nested inside <node_container> outright (which,
+  separately, is also not legal per ROS 2's own XML frontend:
+  `ros2 launch` raises "Unexpected nested tag(s) found in node_container:
+  {'group'}"). Putting the PCD-loader condition on the composable_node
+  itself, as an earlier version of this file did, works correctly under
+  plain `ros2 launch` but silently loads pointcloud_map_loader anyway under
+  play_launch: it looks fixed and is not, on the exact tool this repo's
+  `just launch` / `just launch-sim-logging` actually invoke (justfile).
+  Confirmed empirically: `if="true"` and `if="false"` on the same
+  <composable_node> both loaded it under play_launch's Rust parser.
+  Fix: move the PCD/no-PCD choice entirely outside any node_container by
+  making it a choice of which file to include, see
+  autosdv_map_container_with_pcd.launch.xml and
+  autosdv_map_container_no_pcd.launch.xml below, selected via sibling
+  <group if=.../unless=...> blocks wrapping plain <include> elements, the
+  same pattern autosdv.launch.yaml / logging_simulation.launch.yaml already
+  use for isaac/visual and that play_launch is known to handle correctly.
 -->
 <launch>
   <arg name="map_path" description="map directory path"/>
@@ -56,44 +77,39 @@
   <let name="map_tf_generator_param_path" value="$(find-pkg-share autosdv_launch)/config/map/map_tf_generator.param.yaml"/>
   <let name="map_projection_loader_param_path" value="$(find-pkg-share autosdv_launch)/config/map/map_projection_loader.param.yaml"/>
 
+  <!-- map_container: which variant file gets included is the entire
+       condition. Neither branch puts an if=/unless= on a composable_node or
+       a <group> inside a node_container; see the KNOWN TOOL LIMITATION
+       note above for why. -->
+  <group if="$(var use_pointcloud_map_loader)">
+    <push-ros-namespace namespace="map"/>
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_map_container_with_pcd.launch.xml">
+      <arg name="container_type" value="$(var container_type)"/>
+      <arg name="pointcloud_map_loader_param_path" value="$(var pointcloud_map_loader_param_path)"/>
+      <arg name="lanelet2_map_loader_param_path" value="$(var lanelet2_map_loader_param_path)"/>
+      <arg name="map_tf_generator_param_path" value="$(var map_tf_generator_param_path)"/>
+      <arg name="pointcloud_map_path" value="$(var pointcloud_map_path)"/>
+      <arg name="pointcloud_map_metadata_path" value="$(var pointcloud_map_metadata_path)"/>
+      <arg name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+    </include>
+  </group>
+
+  <group unless="$(var use_pointcloud_map_loader)">
+    <push-ros-namespace namespace="map"/>
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_map_container_no_pcd.launch.xml">
+      <arg name="container_type" value="$(var container_type)"/>
+      <arg name="lanelet2_map_loader_param_path" value="$(var lanelet2_map_loader_param_path)"/>
+      <arg name="map_tf_generator_param_path" value="$(var map_tf_generator_param_path)"/>
+      <arg name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
+    </include>
+  </group>
+
+  <!-- map_hash_generator and the projector loader are plain nodes, not
+       composable nodes inside map_container, so they are unaffected by the
+       tool limitation above and stay unconditional here as in the stock
+       component. -->
   <group>
     <push-ros-namespace namespace="map"/>
-
-    <node_container pkg="rclcpp_components" exec="$(var container_type)" name="map_container" namespace="" output="both">
-      <!-- Composed only when a PCD is actually expected. Skipping the
-           composable node (rather than pointing it at a missing file) is the
-           only way to avoid the fatal load: see file header. -->
-      <composable_node
-        pkg="autoware_map_loader"
-        plugin="autoware::map_loader::PointCloudMapLoaderNode"
-        name="pointcloud_map_loader"
-        if="$(var use_pointcloud_map_loader)"
-      >
-        <param from="$(var pointcloud_map_loader_param_path)"/>
-        <param name="pcd_paths_or_directory" value="[$(var pointcloud_map_path)]"/>
-        <param name="pcd_metadata_path" value="$(var pointcloud_map_metadata_path)"/>
-        <remap from="output/pointcloud_map" to="pointcloud_map"/>
-        <remap from="output/pointcloud_map_metadata" to="pointcloud_map_metadata"/>
-        <remap from="service/get_partial_pcd_map" to="/map/get_partial_pointcloud_map"/>
-        <remap from="service/get_differential_pcd_map" to="/map/get_differential_pointcloud_map"/>
-        <remap from="service/get_selected_pcd_map" to="/map/get_selected_pointcloud_map"/>
-      </composable_node>
-
-      <composable_node pkg="autoware_map_loader" plugin="autoware::map_loader::Lanelet2MapLoaderNode" name="lanelet2_map_loader">
-        <param from="$(var lanelet2_map_loader_param_path)"/>
-        <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
-        <remap from="output/lanelet2_map" to="vector_map"/>
-      </composable_node>
-
-      <composable_node pkg="autoware_lanelet2_map_visualizer" plugin="autoware::lanelet2_map_visualizer::Lanelet2MapVisualizationNode" name="lanelet2_map_visualization">
-        <remap from="input/lanelet2_map" to="vector_map"/>
-        <remap from="output/lanelet2_map_marker" to="vector_map_marker"/>
-      </composable_node>
-
-      <composable_node pkg="autoware_map_tf_generator" plugin="autoware::map_tf_generator::VectorMapTFGeneratorNode" name="vector_map_tf_generator">
-        <param from="$(var map_tf_generator_param_path)"/>
-      </composable_node>
-    </node_container>
 
     <node pkg="autoware_map_loader" exec="map_hash_generator" name="map_hash_generator">
       <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
@@ -112,8 +128,8 @@
 
     Node name MUST be exactly "map_server", not namespaced under /map,
     because the mcl particle filter's client hardcodes the service name
-    "/map_server/map" (particle_filter.py:530). That is why this group sits
-    outside the push-ros-namespace block above rather than inside map_container.
+    "/map_server/map" (particle_filter.py:530). That is why this group has
+    no push-ros-namespace of its own, unlike the /map groups above.
 
     map_server is a lifecycle node: it must be driven through configure,
     then activate, before it publishes/serves anything. The natural fix is
