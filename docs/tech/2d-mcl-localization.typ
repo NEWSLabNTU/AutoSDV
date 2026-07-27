@@ -90,16 +90,18 @@ steady-state error — 95% of poses are inside 2.2 m and heading is within
   #legend(c-off-b)[Offline map artefact]
 ])
 
-= Node diagram after integration
+= Target architecture
 
-Everything to the right of `ekf_localizer` is stock AutoSDV: planning, control
-and the vehicle interface see the same `/localization/kinematic_state` they
-always have. The 2-D front end replaces only the pose estimator.
+The production vehicle carries a *2-D LiDAR* whose driver publishes a
+`sensor_msgs/LaserScan` directly, and a *2-D occupancy grid* map. Everything to
+the right of `ekf_localizer` is stock AutoSDV: planning, control and the vehicle
+interface consume the same `/localization/kinematic_state` they always have. The
+2-D front end replaces only the pose estimator.
 
 #v(0.3em)
-#align(center, scale(72%, reflow: true)[
+#align(center, scale(74%, reflow: true)[
 #diagram(
-  spacing: (13mm, 9mm),
+  spacing: (14mm, 9mm),
   node-stroke: 0.6pt,
   node-corner-radius: 3pt,
   node-inset: 4.5pt,
@@ -108,57 +110,88 @@ always have. The 2-D front end replaces only the pose estimator.
     let n(b) = text(7.5pt, b)
     let d(b) = text(6pt, fill: rgb("#40484f"), b)
 
-    // sensing
-    node((0, 0), n[3-D LiDAR\ #d[PointCloud2]], fill: c-auto-b, name: <lidar>)
-    node((0, 1.6), n[IMU + wheel\ velocity], fill: c-auto-b, name: <imu>)
-    node((0, 2.6), n[GNSS\ #d[NavSatFix]], fill: c-auto-b, name: <gnss>)
-
-    // scan synthesis
-    node((1.25, -0.5), n[pointcloud_to\_laserscan\ #d[z-band @ sensor height,\ target_frame base_link]], fill: c-auto-b, name: <p2l>)
-    node((1.25, 0.5), n[scan_qos_bridge\ #d[BEST_EFFORT→RELIABLE]], fill: c-new-b, name: <bridge>)
-    node((1.25, 1.6), n[wheel_imu_odom\ #d[planar odometry]], fill: c-new-b, name: <odom>)
-
     // map
-    node((1.25, -1.6), n[nav2_map_server\ #d[occupancy grid]], fill: c-f1-b, name: <mapsrv>)
-    node((0, -1.6), n[map.pgm + .yaml], fill: c-off-b, name: <grid>)
+    node((0, -1.5), n[grid.pgm + .yaml], fill: c-off-b, name: <grid>)
+    node((1.35, -1.5), n[nav2_map_server], fill: c-f1-b, name: <mapsrv>)
+    node((0, -0.55), n[lanelet2_map.osm\ + projector info], fill: c-off-b, name: <llfile>)
+    node((1.35, -0.55), n[lanelet2 + projection\ loaders], fill: c-auto-b, name: <ll>)
 
-    // filter
-    node((2.7, 0), n[*particle_filter*\ #d[2-D MCL, CDDT raycast\ 6 AutoSDV revisions]], fill: c-f1-b, name: <pf>)
-    node((2.7, 1.6), n[gyro_odometer], fill: c-auto-b, name: <gyro>)
+    // sensing
+    node((0, 0.5), n[*2-D LiDAR*\ #d[LaserScan]], fill: c-auto-b, name: <lidar>)
+    node((1.35, 0.5), n[scan_qos_bridge\ #d[to RELIABLE]], fill: c-new-b, name: <bridge>)
+    node((0, 1.5), n[IMU + wheel\ velocity], fill: c-auto-b, name: <imu>)
+    node((1.35, 1.5), n[wheel_imu_odom], fill: c-new-b, name: <odom>)
+    node((0, 2.4), n[GNSS], fill: c-auto-b, name: <gnss>)
+    node((1.35, 2.4), n[gnss_poser +\ pose_initializer], fill: c-auto-b, name: <init>)
 
-    // init
-    node((1.25, 2.6), n[gnss_poser +\ pose_initializer], fill: c-auto-b, name: <init>)
+    // estimator
+    node((2.9, 0.5), n[*particle_filter*\ #d[2-D MCL, CDDT\ 6 revisions, §5]], fill: c-f1-b, name: <pf>)
+    node((2.9, 1.5), n[gyro_odometer], fill: c-auto-b, name: <gyro>)
+    node((4.2, 0.5), n[*mcl_pose_relay*\ #d[6×6 cov, scan stamp,\ base_link]], fill: c-new-b, name: <relay>)
 
-    // relay + fusion
-    node((4.0, 0), n[*mcl_pose_relay*\ #d[6×6 covariance,\ scan stamp, base_link]], fill: c-new-b, name: <relay>)
-    node((5.2, 0.8), n[ekf_localizer], fill: c-auto-b, name: <ekf>)
+    // fusion + downstream
+    node((5.5, 1.0), n[ekf_localizer], fill: c-auto-b, name: <ekf>)
+    node((6.7, 1.0), n[planning], fill: c-auto-b, name: <plan>)
+    node((7.7, 1.0), n[control], fill: c-auto-b, name: <ctrl>)
+    node((8.7, 1.0), n[vehicle\ iface], fill: c-auto-b, name: <vif>)
 
-    // downstream
-    node((6.4, -0.4), n[Lanelet2 map], fill: c-off-b, name: <ll>)
-    node((6.4, 0.8), n[planning], fill: c-auto-b, name: <plan>)
-    node((7.5, 0.8), n[control], fill: c-auto-b, name: <ctrl>)
-    node((8.5, 0.8), n[vehicle\ iface], fill: c-auto-b, name: <vif>)
-
-    edge(<lidar>, <p2l>, "->", label: t("points"), label-size: 6pt)
-    edge(<p2l>, <bridge>, "->", label: t("/scan_raw"), label-size: 6pt)
-    edge(<bridge>, <pf>, "->", label: t("/scan"), label-size: 6pt)
     edge(<grid>, <mapsrv>, "->")
-    edge(<mapsrv>, <pf>, "->", label: t("GetMap"), label-size: 6pt)
+    edge(<mapsrv>, <pf>, "->", label: t("GetMap"), label-size: 5.5pt)
+    edge(<llfile>, <ll>, "->")
+    edge(<ll>, <ekf>, "->", label: t("vector_map"), label-size: 5.5pt)
+    edge(<lidar>, <bridge>, "->", label: t("/scan_raw"), label-size: 5.5pt)
+    edge(<bridge>, <pf>, "->", label: t("/scan"), label-size: 5.5pt)
     edge(<imu>, <odom>, "->")
-    edge(<odom>, <pf>, "->", label: t("/odom"), label-size: 6pt)
-    edge(<imu>, <gyro>, "->", bend: -14deg)
+    edge(<odom>, <pf>, "->", label: t("/odom"), label-size: 5.5pt)
+    edge(<imu>, <gyro>, "->", bend: -12deg)
     edge(<gnss>, <init>, "->")
-    edge(<init>, <pf>, "->", label: t("/initialpose"), label-size: 6pt)
-    edge(<pf>, <relay>, "->", label: t("/pf/pose/odom"), label-size: 6pt)
+    edge(<init>, <pf>, "->", label: t("/initialpose"), label-size: 5.5pt)
+    edge(<pf>, <relay>, "->", label: t("/pf/pose/odom"), label-size: 5.5pt)
     edge(<relay>, <ekf>, "->", label: t("pose_estimator/\npose_with_covariance"), label-size: 5.5pt)
-    edge(<gyro>, <ekf>, "->", label: t("twist"), label-size: 6pt)
-    edge(<ekf>, <plan>, "->", label: t("kinematic_state"), label-size: 6pt)
-    edge(<ll>, <plan>, "->")
+    edge(<gyro>, <ekf>, "->", label: t("twist"), label-size: 5.5pt)
+    edge(<ekf>, <plan>, "->", label: t("kinematic_state"), label-size: 5.5pt)
     edge(<plan>, <ctrl>, "->")
     edge(<ctrl>, <vif>, "->")
   }
 )
 ])
+
+== Testing configuration versus production
+
+Every measurement in this report was taken on the official Autoware
+`sample-rosbag`, which was recorded with a *3-D* LiDAR and ships a *PCD* map.
+Two substitutions therefore stand in for hardware we did not have on the bench.
+Both are test-only scaffolding; neither exists on the target vehicle.
+
+#table(
+  columns: (auto, 1fr, 1fr),
+  table.header([*Input*], [*Production*], [*Testing (this report)*]),
+  [Scan],
+    [2-D LiDAR driver publishes `LaserScan` on `/scan_raw` directly],
+    [`pointcloud_to_laserscan` synthesises a scan from the 3-D cloud — a z-band slab at the 2-D sensor's mounting height, `target_frame: base_link`],
+  [Grid map],
+    [Authored once for the site: `slam_toolbox` survey, or a one-time slice of an existing PCD map],
+    [`pcd_to_pgm.py` slices the bag's PCD map offline, or `scan_accumulate_grid.py` accumulates scans at ground-truth poses],
+  [Ground truth],
+    [none — this is the estimate],
+    [NDT `kinematic_state` from a parallel run over the same bag],
+)
+
+#align(center, box(inset: 7pt, radius: 3pt, fill: c-off-b, width: 100%)[
+  #set align(left)
+  #set text(9pt)
+  *Insert the test scaffold into the target diagram like this:* the
+  `2-D LiDAR` node is replaced by `3-D LiDAR → pointcloud_to_laserscan`, feeding
+  the same `/scan_raw`; and `grid.pgm` is produced offline by `pcd_to_pgm.py`
+  from `pointcloud_map.pcd` instead of being authored for the site. Every node
+  to the right of `/scan_raw` — the filter, the relay, the fusion — is identical
+  in both configurations, which is what makes the bench results transferable.
+])
+
+The scan substitution is not free, and §7 records the consequence: a synthesized
+plane inherits the 3-D sensor's mounting and any vehicle pitch, so ~30% of beams
+come back non-finite, where a rigidly-mounted 2-D unit would return a denser,
+more stable plane.
 
 == What the diagram implies about integration style
 
@@ -368,7 +401,7 @@ An AutoSDV-authored node republishes the filter's pose as
 interface defects rather than propagating them:
 
 #table(
-  columns: (auto, 1fr),
+  columns: (1.1fr, 1fr),
   table.header([*Inherited defect*], [*Correction*]),
   [3×3 covariance written into `covariance[0:9]` of a row-major 6×6, so $sigma_(y y)$ lands in the $x$–$z$ slot], [planar terms placed at the correct indices; unused z/roll/pitch diagonals set to 10⁶ to mark them unobserved],
   [Pose stamped `now()` while the TF uses the scan stamp], [stamped with measurement time; a `stamp_source` parameter selects the recovery strategy],
@@ -381,10 +414,10 @@ late-joining `ekf_localizer` still receives poses.
 
 = Changes to the Autoware stack
 
-This section is the change record: what the localization stack looks like with
-stock NDT, what it looks like under `pose_source:=mcl`, and every node that was
-deleted, added or modified to get there. Nothing here alters the `cuda_ndt` or
-`ndt` paths — those were verified byte-identical by topic and node list diff.
+This section is the change record: every node that `pose_source:=mcl` deletes,
+adds or reconfigures relative to the stock NDT stack. Nothing here alters the
+`cuda_ndt` or `ndt` paths — those were verified byte-identical by topic and node
+list diff, so the two configurations coexist in one tree.
 
 #align(center, box(inset: 6pt, radius: 4pt, fill: c-off-b, width: 100%)[
   #set align(left)
@@ -396,93 +429,94 @@ deleted, added or modified to get there. Nothing here alters the `cuda_ndt` or
   #legend(c-mod-b)[modified]
 ])
 
-== Before — stock NDT path
+== The diff, in one diagram
+
+Same left-to-right layout as the target architecture in §2, with both paths
+overlaid: the NDT nodes that `pose_source:=mcl` no longer launches are drawn
+dashed, the nodes it adds are red, and the two it reconfigures are amber. Read
+the dashed nodes as *present under `cuda_ndt`/`ndt`, absent under `mcl`*.
 
 #v(0.2em)
-#align(center, scale(76%, reflow: true)[
+#align(center, scale(74%, reflow: true)[
 #diagram(
   spacing: (14mm, 9mm),
   node-stroke: 0.6pt,
   node-corner-radius: 3pt,
   node-inset: 4.5pt,
   {
+    let t(b) = text(6pt, raw(b))
     let n(b) = text(7.5pt, b)
     let d(b) = text(6pt, fill: rgb("#40484f"), b)
-    let t(b) = text(6pt, raw(b))
+    let dd(b) = text(6pt, fill: c-drop, b)
+    let gone = (dash: "dashed", paint: c-drop)
 
-    node((0, -1.4), n[pointcloud_map\_loader], fill: c-auto-b, name: <pcd>)
-    node((0, -0.4), n[lanelet2_map\_loader], fill: c-auto-b, name: <ll>)
-    node((0, 0.5), n[map_projection\_loader], fill: c-auto-b, name: <proj>)
+    // ── map layer: PCD out, PGM in ──
+    node((0, -2.3), n[pointcloud_map.pcd\ #dd[+ metadata]], fill: c-drop-b, stroke: gone, name: <pcdf>)
+    node((1.35, -2.3), n[pointcloud_map\_loader], fill: c-drop-b, stroke: gone, name: <pcd>)
+    node((0, -1.35), n[*grid.pgm + .yaml*], fill: c-off-b, name: <grid>)
+    node((1.35, -1.35), n[*nav2_map_server*], fill: c-new-b, name: <mapsrv>)
+    node((0, -0.45), n[lanelet2 + projector], fill: c-off-b, name: <llfile>)
+    node((1.35, -0.45), n[lanelet2 + projection\ loaders], fill: c-auto-b, name: <ll>)
 
-    node((1.7, -1.4), n[util.launch\ #d[voxel downsample]], fill: c-auto-b, name: <util>)
-    node((1.7, -0.3), n[*ndt_scan_matcher*\ #d[or cuda_ndt plugin\ serves ndt_align_srv,\ trigger_node]], fill: c-auto-b, name: <ndt>)
+    // ── sensing ──
+    node((0, 0.5), n[2-D LiDAR\ #d[(3-D + converter\ in testing, §2.1)]], fill: c-auto-b, name: <lidar>)
+    node((1.35, 0.5), n[*scan_qos_bridge*], fill: c-new-b, name: <bridge>)
+    node((0, 1.45), n[IMU + wheel vel], fill: c-auto-b, name: <imu>)
+    node((1.35, 1.45), n[*wheel_imu_odom*], fill: c-new-b, name: <odom>)
 
-    node((1.7, 1.3), n[map_height_fitter\ #d[target: pointcloud_map]], fill: c-auto-b, name: <fit>)
-    node((0, 1.3), n[pose_initializer\ #d[ndt_enabled: true]], fill: c-auto-b, name: <init>)
+    // ── estimator: NDT out, MCL in ──
+    node((2.9, -1.35), n[util.launch\ #dd[voxel downsample]], fill: c-drop-b, stroke: gone, name: <util>)
+    node((2.9, -0.45), n[ndt_scan_matcher\ #dd[serves ndt_align_srv]], fill: c-drop-b, stroke: gone, name: <ndt>)
+    node((2.9, 0.5), n[*particle_filter*], fill: c-new-b, name: <pf>)
+    node((2.9, 1.45), n[gyro_odometer], fill: c-auto-b, name: <gyro>)
+    node((4.25, 0.5), n[*mcl_pose_relay*], fill: c-new-b, name: <relay>)
 
-    node((3.3, 0.4), n[ekf_localizer], fill: c-auto-b, name: <ekf>)
-    node((1.7, 2.3), n[voxel_based_compare\_map_filter], fill: c-auto-b, name: <cmp>)
+    // ── init: both reconfigured ──
+    node((1.35, 2.5), n[pose_initializer\ #d[ndt_enabled → *false*]], fill: c-mod-b, name: <init>)
+    node((2.9, 2.5), n[map_height_fitter\ #d[pointcloud_map → *vector_map*]], fill: c-mod-b, name: <fit>)
 
-    edge(<pcd>, <util>, "->", label: t("pointcloud_map"), label-size: 5.5pt)
-    edge(<util>, <ndt>, "->", label: t("downsample/pointcloud"), label-size: 5.5pt)
-    edge(<pcd>, <ndt>, "->", label: t("get_differential_map"), label-size: 5.5pt, bend: -22deg)
-    edge(<ndt>, <ekf>, "->", label: t("pose_with_covariance"), label-size: 5.5pt)
-    edge(<init>, <ndt>, "->", label: t("ndt_align"), label-size: 5.5pt)
-    edge(<init>, <fit>, "->")
-    edge(<pcd>, <fit>, "->", label: t("height"), label-size: 5.5pt)
-    edge(<init>, <ekf>, "->", label: t("initialpose3d"), label-size: 5.5pt, bend: 20deg)
+    // ── fusion + perception ──
+    node((5.6, 1.0), n[ekf_localizer\ #d[unchanged, *ungated* §6.3]], fill: c-auto-b, name: <ekf>)
+    node((5.6, -0.6), n[voxel_based_compare\_map_filter\ #dd[use_pointcloud_map false]], fill: c-drop-b, stroke: gone, name: <cmp>)
+    node((7.0, 1.0), n[planning → control\ → vehicle], fill: c-auto-b, name: <plan>)
+
+    // NDT-path edges (dashed)
+    edge(<pcdf>, <pcd>, "-->", stroke: gone)
+    edge(<pcd>, <util>, "-->", stroke: gone)
+    edge(<util>, <ndt>, "-->", stroke: gone)
+    edge(<ndt>, <ekf>, "-->", stroke: gone, label: t("pose_with_cov"), label-size: 5.5pt)
+    edge(<pcd>, <cmp>, "-->", stroke: gone)
+    edge(<init>, <ndt>, "-->", stroke: gone, label: t("ndt_align"), label-size: 5.5pt)
+
+    // MCL-path edges
+    edge(<grid>, <mapsrv>, "->")
+    edge(<mapsrv>, <pf>, "->", label: t("GetMap"), label-size: 5.5pt)
+    edge(<llfile>, <ll>, "->")
     edge(<ll>, <ekf>, "->", label: t("vector_map"), label-size: 5.5pt)
-    edge(<proj>, <ll>, "->", label: t("projector_info"), label-size: 5.5pt)
-    edge(<pcd>, <cmp>, "->", label: t("map"), label-size: 5.5pt)
-  }
-)
-])
-
-== After — `pose_source:=mcl`
-
-#v(0.2em)
-#align(center, scale(76%, reflow: true)[
-#diagram(
-  spacing: (14mm, 9mm),
-  node-stroke: 0.6pt,
-  node-corner-radius: 3pt,
-  node-inset: 4.5pt,
-  {
-    let n(b) = text(7.5pt, b)
-    let d(b) = text(6pt, fill: rgb("#40484f"), b)
-    let t(b) = text(6pt, raw(b))
-
-    node((0, -1.4), n[pointcloud_map\_loader], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <pcd>)
-    node((0, -0.4), n[lanelet2_map\_loader], fill: c-auto-b, name: <ll>)
-    node((0, 0.5), n[map_projection\_loader], fill: c-auto-b, name: <proj>)
-    node((0, -2.4), n[*nav2_map_server*\ #d[occupancy grid,\ lifecycle-activated]], fill: c-new-b, name: <grid>)
-
-    node((1.7, -1.4), n[util.launch\ #d[voxel downsample]], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <util>)
-    node((1.7, -0.4), n[ndt_scan_matcher], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <ndt>)
-    node((1.7, -2.4), n[*particle_filter*\ #d[with scan chain,\ QoS bridge, odometry]], fill: c-new-b, name: <pf>)
-    node((3.2, -2.4), n[*mcl_pose_relay*], fill: c-new-b, name: <relay>)
-
-    node((1.7, 1.3), n[map_height_fitter\ #d[target: *vector_map*]], fill: c-mod-b, name: <fit>)
-    node((0, 1.3), n[pose_initializer\ #d[ndt_enabled: *false*]], fill: c-mod-b, name: <init>)
-
-    node((3.3, 0.4), n[ekf_localizer\ #d[ungated — see §6.3]], fill: c-auto-b, name: <ekf>)
-    node((1.7, 2.3), n[voxel_based_compare\_map_filter], fill: c-drop-b, stroke: (dash: "dashed", paint: c-drop), name: <cmp>)
-
-    edge(<grid>, <pf>, "->", label: t("GetMap"), label-size: 5.5pt)
-    edge(<pf>, <relay>, "->", label: t("/pf/pose/odom"), label-size: 5.5pt)
-    edge(<relay>, <ekf>, "->", label: t("pose_with_covariance"), label-size: 5.5pt)
-    edge(<init>, <pf>, "->", label: t("initialpose"), label-size: 5.5pt)
-    edge(<init>, <fit>, "->")
     edge(<ll>, <fit>, "->", label: t("height"), label-size: 5.5pt)
-    edge(<init>, <ekf>, "->", label: t("initialpose3d"), label-size: 5.5pt, bend: 20deg)
-    edge(<ll>, <ekf>, "->", label: t("vector_map"), label-size: 5.5pt)
-    edge(<proj>, <ll>, "->", label: t("projector_info"), label-size: 5.5pt)
+    edge(<lidar>, <bridge>, "->")
+    edge(<bridge>, <pf>, "->", label: t("/scan"), label-size: 5.5pt)
+    edge(<imu>, <odom>, "->")
+    edge(<odom>, <pf>, "->", label: t("/odom"), label-size: 5.5pt)
+    edge(<init>, <pf>, "->", label: t("/initialpose"), label-size: 5.5pt)
+    edge(<pf>, <relay>, "->")
+    edge(<relay>, <ekf>, "->", label: t("pose_with_cov"), label-size: 5.5pt)
+    edge(<gyro>, <ekf>, "->", label: t("twist"), label-size: 5.5pt)
+    edge(<ekf>, <plan>, "->", label: t("kinematic_state"), label-size: 5.5pt)
+    edge(<init>, <ekf>, "->", label: t("initialpose3d"), label-size: 5.5pt, bend: -18deg)
   }
 )
 ])
 
-Dashed grey nodes are *not launched* under `mcl` — they are drawn to make the
-deletion explicit rather than leaving the reader to spot an absence.
+Read against §2: the map row swaps *PCD for PGM* — the file, its loader and both
+its consumers (`ndt_scan_matcher`'s differential-map client and the perception
+compare-map filter) all drop out, and a `nav2_map_server` serving the grid takes
+their place. The lanelet2 and projection loaders are untouched in both, which is
+why `mcl` still requires `map_projector_info.yaml`. The estimator row swaps
+`ndt_scan_matcher` and its downsample chain for the filter plus relay. The
+initialization row keeps the same two nodes but reconfigures both. Everything
+from `ekf_localizer` rightwards is identical.
+
 
 == Change table
 
