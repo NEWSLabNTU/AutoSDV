@@ -1,17 +1,22 @@
 # 2D-LiDAR Phase 5 — `pose_source:=mcl` End-to-End (Tasks 7–8)
 
-**Gate: NOT MET.** The integration is sound (relay and EKF wiring proven
-correct by a three-way breakdown), but measured accuracy on the sample site
-is a median 4.43 m mean translational error, five to seven times Phase 4's
-0.83 m target. Two competing root-cause hypotheses proposed during review —
-a too-coarse occupancy grid, and too-tight initial particle spread — were
-both tested directly against the running system and **refuted**. The
-evidence instead points to intermittent particle-filter weight collapse
-(measured `n_eff` dropping to 5.4 of 4000 particles at one point in a
-representative run), which is exactly the kind of divergence event the
-open algorithm defects (§5.4/5.5 of `docs/research/localization/
-2d_mcl_algorithm.md`) predict and which this phase's scope explicitly
-excludes fixing.
+**Gate: NOT MET, but close, and the residual gap is now attributable.**
+The integration is sound (relay and EKF wiring proven correct by a
+three-way breakdown). Every accuracy number measured for most of this
+investigation used the **coarse default occupancy grid**
+(`occupancy_grid.yaml`, 0.2 m/cell, 4.7M unknown cells), not Phase 4's
+grid — an omission that was not caught for several review rounds because
+nothing recorded which grid a given run used (see §11, "how this
+investigation went wrong"). Once that was corrected and the decisive
+five-seed matrix was actually run on Phase 4's grid
+(`occupancy_grid_scanaccum_mh1r05.yaml`), median mean error dropped from
+4.43 m to **2.26 m** and median yaw error dropped from 0.24 rad to
+**0.054 rad** — matching Phase 4's yaw quality almost exactly. The
+remaining gap is a **persistent, intermittent large excursion** (trans.
+max ≈ 116 m in 4 of 5 fine-grid seeds) that survives the grid fix,
+consistent with — but, per §11, not yet definitively proven to be —
+the open particle-filter divergence defects tracked in
+`2d_mcl_algorithm.md` §5.4/5.5.
 
 Related: `docs/design/localization-method-switching.md`,
 `docs/research/localization/2d_mcl_algorithm.md`,
@@ -106,7 +111,7 @@ appeared on `/pf/pose/odom` or `/pf/viz/inferred_pose`.
    and tracks real elapsed wall-clock time (`$SECONDS`) instead of a
    loop-iteration counter, so a single hung call can no longer starve the
    outer timeout.
-2. The seed driver (`tmp/t8_e2e_run.sh`, not committed — see §8) now gates
+2. The seed driver (`tmp/t8_e2e_run.sh`, not committed — see §10) now gates
    on `/localization/pose_estimator/pose_with_covariance`'s message count
    (`< 50` ⇒ exit nonzero) **before** ever handing the bag to
    `compare_poses.py`, so a dead run fails loudly instead of producing a
@@ -131,31 +136,35 @@ formally untested at the corrected resolution; it is reported as refuted
 below on the strength of seeds 9/10 (default grid) only, per the reasoning
 in §5.
 
-## 5. Two hypotheses tested and refuted
+## 5. Two hypotheses raised during review
 
-### 5.1 Occupancy grid resolution — refuted
+### 5.1 Occupancy grid resolution — CORRECTED: was never actually tested; now confirmed as a major factor (see §11)
 
-Hypothesis: `autosdv_map_component.launch.xml`'s `occupancy_grid_file`
-default (`occupancy_grid.yaml`, 0.2 m/cell, 11,960 occupied cells, 4.7M
-*unknown* cells) is far coarser than every Phase 4 result, which used
-`occupancy_grid_scanaccum_mh1r05.yaml` (0.05 m/cell, 363,295 occupied
-cells, 0 unknown). `range_libc` raycasts unknown cells as free — the
-failure mode `2d_mcl_algorithm.md` §5.2 describes.
+**This subsection originally said "refuted." That verdict was wrong and is
+struck.** It was based on comparing seeds 9 and 10 against each other and
+against seeds 1–5 — but per the §4 audit table, **every one of those seeds
+ran on the default (coarse) grid.** No alive run on the Lever-2 grid
+(`occupancy_grid_scanaccum_mh1r05.yaml`, 0.05 m/cell, 363,295 occupied
+cells, 0 unknown) existed at the time that verdict was written; seeds
+21–25, the only cells that attempted it, all died in
+`wait_for_active_map.sh` (§4/§6.2) before `particle_filter` ever started.
+Comparing two coarse-grid runs to each other and calling the grid
+"refuted" was an error — see §11.
 
-Test: seeds 9 and 10, both on the **default** (coarse) grid — mean 5.09 m
-and 5.08 m, essentially identical to seeds 1–5 (also default grid, mean
-2.4–5.4 m). If the coarse grid were the dominant cause, results should be
-worse than a Lever-2 run; instead default-grid results scatter across the
-same 2.6–5.5 m band the eventual alive Lever-2-adjacent... — no clean
-Lever-2 alive sample exists (§4), so this comparison is default-grid
-internal consistency only. It is refuted in the weaker but still useful
-sense that the coarse grid alone does not explain the spread seen even
-*within* default-grid runs, and `occupancy_grid_file` is forwarded now
-regardless (§2) so a future clean Lever-2 matrix is one flag away.
-**`occupancy_grid_file` is still forwarded as a genuine, independent fix
-(§2) — plumbing it through was a real gap — but it is not the accuracy
-root cause. Do not re-test this hypothesis without first confirming the
-run is alive per the §4 gate.**
+Hypothesis (unchanged): `autosdv_map_component.launch.xml`'s
+`occupancy_grid_file` default (`occupancy_grid.yaml`, 0.2 m/cell, 11,960
+occupied cells, 4.7M *unknown* cells) is far coarser than Phase 4's grid.
+`range_libc` raycasts unknown cells as free — the failure mode
+`2d_mcl_algorithm.md` §5.2 describes.
+
+**Once `wait_for_active_map.sh`'s hang was fixed (§6.2) and the dead-run
+gate existed (§4), the decisive test was run: five seeds on the actual
+Lever-2 grid. See §11. Verdict: the grid is a major, confirmed
+contributor — median mean error dropped from 4.43 m (coarse grid) to
+2.26 m (fine grid), and median yaw error dropped from 0.24 rad to
+0.054 rad, matching Phase 4's yaw quality. It is not the *entire* gap
+(§11 still misses the 1.0 m mean threshold on 4 of 5 seeds), but the
+"refuted" characterization was simply incorrect.**
 
 ### 5.2 Initial particle spread too tight — refuted, and made things worse
 
@@ -250,13 +259,15 @@ attempt was reverted; `stamp_source:=header` is the shipped fix.
 Covered in §4 — the dead-run root cause. Fixed with a per-attempt
 `timeout` and a wall-clock-based outer bound.
 
-### 6.3 Open: intermittent particle-filter divergence (the CPU-contention hypothesis, refuted; the real explanation)
+### 6.3 CPU-contention hypothesis: refuted. Beam-model divergence: a hypothesis, not yet a confirmed cause
 
 The coordinator's third hypothesis was that the integrated stack's CPU load
 (full perception/planning alongside 4000 particles on `cddt`) causes
 `particle_filter` to drop scans, explaining an observed ~5 Hz publish rate
 against an assumed 10 Hz scan rate. A `diag_enable:=true` instrumented run
-(seed 99, same config as the alive post-fix seeds) refutes this directly:
+(seed 99, **coarse default grid** — this diagnostic run predates the
+grid correction in §11 and has not been repeated on the fine grid)
+refutes the CPU-contention framing specifically:
 
 - The sample bag's own `/sensing/lidar/top/pointcloud_raw_ex` publishes
   **265 messages over 61.7 s ≈ 4.3 Hz** — not 10 Hz. `particle_filter`'s
@@ -268,19 +279,25 @@ against an assumed 10 Hz scan rate. A `diag_enable:=true` instrumented run
   **9.9 ms**, nowhere near saturating even a 4.3 Hz budget. **CPU
   contention is refuted as the explanation for the publish rate.**
 - `n_eff` (effective particle count, out of 4000) averaged **738** across
-  the run but **dropped to 5.4** at iteration 171 of 220 (~78% through the
-  seed's active window) — a near-total resampling collapse onto a
-  handful of particles. By that point in the run the estimate had already
-  drifted ~36 m from the seed pose. This is textbook particle-filter
-  divergence: the weight distribution collapsed onto a locally-consistent
-  but globally wrong hypothesis, exactly the failure mode
-  `2d_mcl_algorithm.md` §5.4 (beam correlation) and §5.5 (range clamping)
-  describe as open, unfixed defects of the beam model — explicitly out of
-  scope for this phase.
+  the run but **dropped to 5.4** at iteration 171 of 220 — a near-total
+  resampling collapse onto a handful of particles.
 
-**This is the leading, evidence-backed explanation for the residual gap.**
-It is not something Task 7/8's launch-level scope can fix; it is an
-algorithm-level defect already tracked and deliberately deferred.
+**This n_eff collapse was originally attributed to the open beam-model
+defects (`2d_mcl_algorithm.md` §5.4/5.5) as "the real explanation" for the
+residual gap. That attribution is now softened to a hypothesis, not a
+conclusion, because the diagnostic run that produced it used the coarse
+default grid** — 4.7M cells `range_libc` raycasts as free where the world
+is not is *itself* exactly the §5.2 failure mode, and is entirely
+sufficient on its own to produce an n_eff collapse without any beam-model
+defect being involved. Phase 4 passed on this exact bag, map resolution,
+and filter code, which argues against an inherent, grid-independent
+divergence tendency. **The fine-grid matrix (§11) still shows a large
+excursion in 4 of 5 seeds, which keeps the beam-model hypothesis alive —
+but it has not been isolated from the grid by a diagnostic run that
+controls for both.** A `diag_enable:=true` run on the fine grid, with
+`n_eff`/`t_sensor` compared against §6.3's coarse-grid numbers, is the
+follow-up that would actually settle this; it was not done here — see
+§11.
 
 ## 7. Corrections to the investigation record
 
@@ -297,7 +314,10 @@ here so nobody re-derives them:
 - Seeds 21–23 (and by construction 24–25) are dead runs, not real
   measurements — see §4.
 
-## 8. Five-seed result (alive runs only, post stamp-fix, default grid)
+## 8. Coarse-grid five-seed result (superseded by §11 — kept for the record)
+
+**This section's numbers all used the coarse default grid, per the §4
+audit. See §11 for the decisive fine-grid (Phase 4 parity) result.**
 
 Every cell below passed the §4 gate (`pose_with_covariance` count ≥ 50,
 221–247 actual). Six seeds are reported (one extra beyond five, since 8
@@ -317,59 +337,148 @@ cell under the identical shipped configuration):
 4.79–7.02 m); median yaw 0.2420 rad (range 0.211–0.352 rad).**
 
 **Thresholds** (Phase 3/4 convention: mean < 1.0 m, p95 < 2.5 m, yaw <
-0.2 rad): **all three missed on every seed. GATE NOT MET.**
+0.2 rad): **all three missed on every seed against the coarse grid.**
 
 Three of six seeds (9, 10, 43 — and 42's `trans_max`) still show a
 ~110–120 m outlier despite the stamp fix landing cleanly (§6.1's
-before/after table used seed 8, the best case). This is consistent with
-§6.3: those are independent divergence events, not stamp corruption
-recurring — `stamp_source:=header` removes the systematic ~92× stamp
-amplification, but does not touch the underlying algorithm-level cause of
-occasional large excursions.
+before/after table used seed 8, the best case).
 
 ## 9. Default `occupancy_grid_file`: decision
 
-`occupancy_grid_file` now forwards through both top-level launches (§2),
-but the **default stays `occupancy_grid.yaml`**, unchanged — a neutral
-convention, not a claim that it is the right grid for any given site.
-Rationale: §5.1 showed grid resolution is not this phase's accuracy
-problem, so there is no evidence-backed "better" default to switch to yet;
-but a silent 4× coarser grid with 4.7M unknown cells is exactly the class
-of problem `just map-check` (Task 4) exists to catch before a run rather
-than after. Recommendation for a follow-up, not implemented here: extend
-`just map-check` (or the launch itself) to warn when the selected grid's
-resolution is coarse or its unknown-cell fraction is large, rather than
-requiring the caller to already know which of several grid variants in a
-map directory is the validated one.
+`occupancy_grid_file` now forwards through both top-level launches (§2).
+**The default stays `occupancy_grid.yaml`, but this decision is revisited
+here in light of §11**: a silent default that produces roughly 2–5×
+worse localization (§8 vs §11) is exactly the class of problem this
+report's own coordinator flagged as unacceptable, and `just map-check`
+(Task 4) already exists to catch it. Not changing the default outright,
+because `occupancy_grid.yaml` is the only grid variant guaranteed to exist
+in *every* map directory (per Task 1's design) — switching the default to
+a specific Lever-2-style filename would break any map directory that
+doesn't happen to ship one under that exact name. Instead, recommended
+follow-up (not implemented in this phase, budget did not allow it after
+the investigation in §4–§7 and §11–§11TEMP): extend `just map-check` (Task 4)
+or the map component itself to warn loudly — not just report — when the
+selected grid's resolution is coarse (e.g. > 0.1 m/cell) or its
+unknown-cell fraction is large (e.g. > 10%), so a caller who reaches for
+`pose_source:=mcl` with the default grid gets told *before* the run,
+not after several rounds of misattributed accuracy debugging like this
+one.
 
 ## 10. Concerns and follow-ups
 
-- **The residual 2.6–5.5 m gap is an open algorithm problem**, not an
-  integration one (§6.3). Recommendation 3 from `mcl_initialization_and_
-  covariance.md` (search `(x, y, yaw)` around the seed via the existing
-  log-space field evaluation) remains the most promising lead, and is
-  explicitly out of scope here, same as before.
+- **The residual gap after §11's grid fix (median 2.26 m, still above the
+  1.0 m threshold) is plausibly the open algorithm problem** (§6.3), but
+  that attribution is a hypothesis, not yet isolated by a grid-controlled
+  diagnostic run — see §11TEMP. Recommendation 3 from
+  `mcl_initialization_and_covariance.md` (search `(x, y, yaw)` around the
+  seed via the existing log-space field evaluation) remains the most
+  promising lead if the algorithm hypothesis holds up, and is explicitly
+  out of scope here, same as before.
 - **The sample bag's own scan timestamps are unreliable** (§6.1) —
   independent of this phase, worth a dedicated look if `mcl_pose_relay`'s
   `stamp_source:='tf'` default is ever relied on again for this bag.
 - **`data/rosbags/phase5/` (this phase's recorded verification bags,
-  ~30 seed directories) and `docs/reports/assets/2dlidar-phase5-mcl-*.png`
+  ~35 seed directories) and `docs/reports/assets/2dlidar-phase5-mcl-*.png`
   are the only phase-5-specific artifacts under version control**; the
   seed-matrix driver scripts referenced throughout (`tmp/t8_*.sh`) are
   temporary and were not committed, per repo convention
-  (`./tmp/` is gitignored) — reproduce via the commands in §11.
-- The three seeds that still hit a ~110 m excursion after the stamp fix
-  (§8) were not individually root-caused beyond the `n_eff` collapse
-  evidence in §6.3; a fuller accounting (e.g. per-seed `n_eff` traces)
-  would strengthen the algorithm-defect attribution but was out of budget
-  for this phase.
+  (`./tmp/` is gitignored) — reproduce via the commands in §11TEMP.
+- **Config provenance was added to the per-seed driver only after §11's
+  matrix was already run** (see §11TEMP) — seeds 61–65's grid is confirmed by
+  the explicit launch argument and by `map_server`'s own log line
+  (`Loading yaml file: .../occupancy_grid_scanaccum_mh1r05.yaml`,
+  `resolution: 0.05`) captured in `play_log/` at the time, not by a
+  per-seed JSON sidecar. Seeds run after this fix will carry
+  `tmp/t8_config_s<seed>.json` recording the occupancy grid resolution/
+  dimensions **read back from GetMap**, `pose_source`, `init_spread_*`
+  read back from the running node, `require_initialpose`, and the repo git
+  SHA.
+- 4 of 5 fine-grid seeds (§11) still hit a ~116 m excursion; not
+  individually root-caused beyond the `n_eff` collapse evidence in §6.3.
 
-## 11. Reproduce
+## 11. The decisive test: five seeds on Phase 4's grid
+
+Once §6.2's `wait_for_active_map.sh` fix and §4's dead-run gate both
+existed, the fine grid was tested directly: fresh stack, `pose_source:=mcl`,
+`occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml` (confirmed
+served — `map_server`'s own log: `resolution: 0.05`, matching
+`occupancy_grid_scanaccum_mh1r05.yaml`'s known dimensions), same sample
+site, same GT bag, same stamp fix, same driver's dead-run gate (all five
+cells passed it, 221+ poses each).
+
+| Seed | n (pairs) | Trans. mean (m) | Trans. p95 (m) | Trans. max (m) | Yaw mean\|err\| (rad) |
+|---|---|---|---|---|---|
+| 61 | 2239 | **0.8235** | 2.1005 | 3.21 | 0.0320 |
+| 62 | 2238 | 2.0855 | 2.2652 | 116.36 | 0.0490 |
+| 63 | 2238 | 2.6588 | 2.1977 | 116.50 | 0.0577 |
+| 64 | 2239 | 2.5465 | 2.1887 | 116.42 | 0.0547 |
+| 65 | 2239 | 2.2552 | 2.2232 | 116.87 | 0.0536 |
+
+**Median mean 2.2552 m (range 0.82–2.66 m); median p95 2.1977 m (range
+2.10–2.27 m); median yaw 0.0536 rad (range 0.032–0.058 rad).**
+
+**Thresholds** (mean < 1.0 m, p95 < 2.5 m, yaw < 0.2 rad): p95 and yaw
+pass on every seed; mean passes only on seed 61. **GATE NOT MET on the
+median, but GATE MET on seed 61 alone**, and yaw error — the dimension
+Phase 4's own investigation identified as the fragile one (the 104° GNSS
+heading seed) — is now solidly within Phase 4's own range (Phase 4:
+"yaw mean\|err\| 0.027 rad" for its single best-documented run; this
+matrix's worst seed is 0.058 rad, same order of magnitude, not the
+0.21–0.35 rad seen on the coarse grid).
+
+**What changed vs the coarse-grid result (§8), and what didn't**: mean
+error roughly halved (4.43 m → 2.26 m median) and yaw error dropped
+~4.5× (0.24 rad → 0.054 rad median) — the grid was a real, substantial
+factor, confirming the corrected §5.1. But **4 of 5 seeds still hit the
+same ~116 m excursion** seen throughout this investigation, on every
+grid tested. That specific failure mode did not go away with the grid
+fix, which is the evidence for (not proof of) the beam-model divergence
+hypothesis in §6.3 — see §11TEMP for what would actually settle it.
+
+## 12. How this investigation went wrong
+
+Recorded honestly because it cost more than the fix itself, and because
+the next person to touch this should not repeat it:
+
+1. **Dead runs scored as results.** `wait_for_active_map.sh` could hang
+   indefinitely against a large grid, but no verification step checked
+   that `particle_filter` had actually published anything before handing
+   its recorded bag to `compare_poses.py`. A frozen EKF pose plus the GT
+   bag's own recorded motion produces a plausible-looking multi-metre
+   error — not an obvious crash — so several seeds (21–23, likely 24–25)
+   were silently scored as real accuracy measurements. This is the single
+   costliest mistake in the investigation: it is what made the Lever-2
+   grid look untestable for several rounds.
+2. **Configuration was not recorded with the result.** Nothing in the
+   original driver or its output logged which occupancy grid, resolution,
+   or `pose_source` a given seed actually ran against. When two batches
+   of seeds (6–11 default-grid, 21–25 attempted-Lever-2) were run in
+   different sessions, it became impossible to reconstruct after the fact
+   which numbers belonged to which grid — leading directly to mistake 3.
+3. **A verdict was written ahead of its evidence.** §5.1 originally
+   declared the grid hypothesis "refuted" on the strength of two runs
+   (seeds 9, 10) that, per mistake 2, were never actually confirmed to be
+   on the grid the hypothesis was about — and per mistake 1, the runs
+   that *were* meant to test the fine grid (21–23) were dead and excluded
+   from consideration without that being noticed at the time. The
+   "refuted" label was corrected only after independent review caught
+   the contradiction between §4's own audit table and §5.1's conclusion.
+
+**Net effect**: three review rounds and roughly a dozen wasted seed-runs
+were spent chasing hypotheses (grid "refutation", CPU contention,
+init-spread) that a working dead-run gate and a config-provenance sidecar
+(§10) would have made unnecessary to chase in that order. The gate and
+the sidecar now exist; future work on this pose source should not repeat
+this.
+
+## 13. Reproduce
 
 ```bash
-# Full stack, pose_source:=mcl, sample-site map
+# Full stack, pose_source:=mcl, sample-site map, Phase 4's grid (the §11
+# decisive test -- omit occupancy_grid_file for the coarse §8 default)
 just launch-sim-logging ARGS="pose_source:=mcl \
     map_path:=/home/aeon/repos/AutoSDV/data/sample-rosbag-replay/sample-map-rosbag \
+    occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml \
     use_gnss:=false"
 
 # Seed the filter and EKF (oracle GT-bag pose; see the driver referenced
@@ -381,7 +490,7 @@ just launch-sim-logging ARGS="pose_source:=mcl \
 bash -c 'source /opt/autoware/1.5.0/setup.bash && \
     python3 scripts/2dlidar/plot_trajectories.py --prefix 2dlidar-phase5-mcl \
         --gt-bag data/rosbags/phase3/sample_ndt_gt \
-        --mcl-bag data/rosbags/phase5/mcl_e2e_s8 \
+        --mcl-bag data/rosbags/phase5/mcl_e2e_s61 \
         --mcl-topic /localization/kinematic_state --mcl-type Odometry \
         --gt-time-source bag'
 ```
