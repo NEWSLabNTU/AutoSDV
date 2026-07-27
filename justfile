@@ -162,6 +162,17 @@ download-data:
     ./scripts/rosbag/download-test-rosbag.sh
 
 # ============================================================================
+# Map Commands - Validate map directories
+# ============================================================================
+
+# Check a map directory is usable for a given pose_source (default: cuda_ndt).
+# Verifies lanelet2/projector/PCD/grid presence, and -- the point of the
+# whole check -- that the occupancy grid's frame matches the lanelet2 map's,
+# which catches the "grid built in the wrong frame" failure class.
+map-check MAP_DIR POSE_SOURCE="cuda_ndt":
+    python3 ./scripts/map/check_map.py "{{MAP_DIR}}" --pose-source "{{POSE_SOURCE}}"
+
+# ============================================================================
 # Bag Commands - Rosbag recording and playback
 # ============================================================================
 

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypemirror="XML"?>
+<package format="3">
+  <name>map_check_projector</name>
+  <version>0.1.0</version>
+  <description>Standalone CLI reusing Autoware's projection code, used by scripts/map/check_map.py.</description>
+  <maintainer email="jerry73204@gmail.com">AutoSDV</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>autoware_map_msgs</depend>
+  <depend>geographic_msgs</depend>
+  <depend>autoware_geography_utils</depend>
+  <depend>autoware_map_projection_loader</depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

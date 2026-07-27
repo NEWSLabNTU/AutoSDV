@@ -9,6 +9,9 @@
 /build/
 /log/
 /install/
+/scripts/map/_projector_cpp/build/
+/scripts/map/_projector_cpp/install/
+/scripts/map/_projector_cpp/log/
 
 # python
 __pycache__/
