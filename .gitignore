@@ -26,3 +26,6 @@ play_log/
 
 # downloaded datasets
 data/leodrive-busood/
+
+# Typst build artefacts
+docs/tech/*.pdf
