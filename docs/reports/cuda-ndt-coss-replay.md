@@ -11,11 +11,15 @@ The bag is parked for its first 115.7 s and drives for the last 41.3 s at up to
 1.58 m/s, covering about 20 m of ground. "init" below means t < 115.7 s and
 "track" means t >= 115.7 s.
 
+Companion guide, generalising the method and the traps:
+`docs/guides/ndt-tuning.md`.
+
 **Headline: one defect explains the localization failure** -- nothing published
 the IMU transform in logging simulation, so the EKF never propagated and NDT was
-handed a stale prior on every frame. Three further defects were found alongside
-it (a wrong diagnostic formula, a debug binary shipped by `just build`, and a
-wheel speed roughly 1.8x too high). Two tuning changes that looked like fixes
+handed a stale prior on every frame. Four further defects were found alongside
+it (a wrong diagnostic formula, a debug binary shipped by `just build`, a wheel
+speed roughly 1.8x too high, and an uncalibrated 12.66 deg LiDAR mounting yaw
+that made the vehicle appear to crab). Two tuning changes that looked like fixes
 were measured and rejected; see "What did not turn out to be the problem".
 
 ## What the runs showed
@@ -113,6 +117,48 @@ tape-measured 10 m and integrating `/vehicle/status/velocity_status`.
 
 Related: `steering_status` is identically 0.000 rad for the whole bag, so
 nothing in this recording can be checked against steering.
+
+## 5. The VLP32C is mounted 12.66 deg off, and the kit said 0
+
+Once the trajectory was stable the operator still saw the vehicle pointing
+wrong. It is a constant offset, and it is a calibration error rather than a
+localization one.
+
+Yaw is stable to 0.1 deg through 80 s parked, and during the drive NDT's yaw
+*changes* match the integrated gyro to about 1 deg in every 5 s window -- across
+a real 31.6 deg/s maneuver. So rotation tracking is sound. But on straight
+segments only (|yaw rate| < 2 deg/s, so a chord cannot lag the heading through a
+turn), the localised heading sits **-12.66 deg** (sd 2.72, n=88) from the
+vehicle's own direction of travel. A car cannot crab 12 deg for 40 s.
+
+`sensor_kit_calibration.yaml` declared `vlp32c: {x:0, y:0, z:0, roll:0, pitch:0,
+yaw:0}`, with `base_link -> sensor_kit_base_link` identity as well. With a
+mounting rotation uncalibrated, NDT places the *sensor* correctly -- the
+trajectory is right, which is why it looked good -- while the base_link heading
+it derives carries the mounting error.
+
+This cannot be a rotated map: heading and course are both measured inside the
+map frame, so a global map rotation cancels.
+
+Setting `yaw: -0.2210` (sign confirmed empirically; +0.2210 doubled the error):
+
+| | yaw 0.0 | yaw -0.2210 |
+|---|---|---|
+| heading - course, median | -12.63 deg | **+0.07 deg** |
+| init to result, mean | 0.127 m | **0.049 m** |
+| init to result, p95 | 0.377 m | **0.109 m** |
+| position scatter | 0.012 m | 0.010 m |
+| NVTL | 2.764 | 2.762 |
+
+The prediction-error collapse is the real confirmation: NDT's per-frame
+correction falls 2.6x because the IMU-driven prediction and the scan-matched
+measurement finally share a frame. Scatter and NVTL are unchanged, as expected
+for a pure rotation about the sensor.
+
+Derived from replay, not measured on the vehicle, so it absorbs whatever else is
+uncalibrated in that axis. Treat it as a working value pending a real extrinsic.
+The x/y/z entries there are still unmeasured, as are the ZED, GNSS and IMU
+mounts -- a translation error is simply less visible than a rotation.
 
 ## What did not turn out to be the problem
 
@@ -212,11 +258,13 @@ Beyond 60 m the map simply ends: 17.9 % of returns at 60-80 m and 1.9 % beyond
 
 ## Where it stands
 
-On the fixed stack, with the operator's initial pose: NDT publishes every frame
-for the whole bag (worst gap 0.115 s), per-frame scatter 0.020 m, frame-to-frame
-yaw step median 0.30 deg, and NDT agrees with the gyro on total yaw over the
-drive to **0.35 deg** (-4.88 vs -4.53). Absolute accuracy remains unestablished:
-this bag has no trustworthy reference.
+On the fixed stack, with the operator's initial pose, the +/-40 m crop and the
+calibrated mounting yaw: NDT publishes every frame for the whole bag (worst gap
+0.115 s), per-frame scatter **0.010 m**, frame-to-frame yaw step median
+0.33 deg, per-frame correction **0.049 m**, and heading agrees with the
+direction of travel to **0.07 deg**. Yaw changes track the gyro to ~1 deg
+through a 31.6 deg/s maneuver. Absolute position accuracy remains
+unestablished: this bag has no trustworthy reference for it.
 
 Still open:
 
