@@ -31,23 +31,35 @@
 <launch>
   <!-- Sensor/vehicle input topics (sample_sensor_kit defaults, matching the
        Phase 4 gate reproduce block in docs/reports/2dlidar-phase4-init-gating.md) -->
-  <arg name="mcl_input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
-       description="raw 3-D pointcloud flattened into /scan via pointcloud_to_laserscan"/>
   <arg name="velocity_topic" default="/vehicle/status/velocity_status"/>
   <arg name="imu_topic" default="/sensing/imu/tamagawa/imu_raw"/>
   <arg name="imu_yaw_sign" default="-1.0"
-       description="sample_sensor_kit Tamagawa IMU z-rate sign fix -- see wheel_imu_odom.py"/>
+       description="sample_sensor_kit Tamagawa IMU z-rate sign fix ; see wheel_imu_odom.py"/>
 
-  <!-- Sensor-kit-specific scan z-band, in base_link frame (pointcloud_to_laserscan's
-       target_frame is fixed to base_link below). Sample_sensor_kit's velodyne_top
-       sits ~1.9-2.2 m above base_link - see mcl_localization's config/mcl.param.yaml
-       and the Frame-fix note in scripts/2dlidar/run-particle-filter.sh. A different
-       sensor kit MUST override these two args, not edit this file. -->
-  <arg name="scan_min_height" default="1.91611"
-       description="z-band lower bound (base_link frame), sensor-kit specific"/>
-  <arg name="scan_max_height" default="2.21611"
-       description="z-band upper bound (base_link frame), sensor-kit specific"/>
-  <arg name="scan_range_max" default="60.0"/>
+  <!--
+    Scan input contract. MCL takes ONE sensor_msgs/LaserScan in any frame TF
+    connects to base_link; mcl_scan_normalizer re-expresses it about base_link,
+    because particle_filter treats the scan as originating at the particle pose.
+
+    The sensor kit owns scan production: a real 2-D LiDAR publishes a LaserScan
+    directly, and a 3-D LiDAR gets one ring extracted in the kit, where the
+    choice of ring belongs ; it depends on the vehicle height and the mounting.
+    MCL therefore holds NO scan geometry of its own; the z band that used to live
+    here was the sample kit's sensor height and selected an empty slab on the
+    AutoSDV vehicle (kit z 0.0 against sample 2.0), silently.
+
+    scan_source:
+      external        the kit publishes scan_topic (default; production)
+      test_pointcloud additionally slice a slab out of a 3-D cloud, for the
+                      Autoware sample bags whose kit publishes no scan
+    See docs/design/mcl-user-setup-ux.md.
+  -->
+  <arg name="scan_topic" default="/scan_raw"
+       description="LaserScan from the sensor kit; normalised onto /scan"/>
+  <arg name="scan_source" default="external"
+       description="external | test_pointcloud"/>
+  <arg name="test_input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
+       description="scan_source:=test_pointcloud only"/>
 
   <!-- particle_filter / pointcloud_to_laserscan parameter files (Phase 4 gate
        defaults). Two files, not one, because both use "/**" wildcard node-name
@@ -57,7 +69,6 @@
        Override either with a sibling copy for a different sensor kit / map
        resolution. -->
   <arg name="mcl_particle_filter_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_particle_filter.param.yaml"/>
-  <arg name="mcl_pointcloud_to_laserscan_param_file" default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_pointcloud_to_laserscan.param.yaml"/>
   <arg name="require_initialpose" default="true"
        description="gate MCL updates/publication until a real /initialpose seed arrives (Phase 4 Task 2)"/>
   <!-- RNG seed for particle placement and resampling. -1 (the param file's
@@ -78,7 +89,6 @@
   <!-- pointcloud_to_laserscan's target_frame:=base_link (below) means /scan is
        already expressed in base_link, so the relay's sensor->base composition
        is a free identity transform (no static laser->base_link TF needed). -->
-  <arg name="sensor_frame" default="base_link"/>
 
   <!-- Task 8 end-to-end diagnosis (2026-07-27): mcl_pose_relay's (T6) stamp
        recovery does a SECOND lookup, map_frame -> sensor_frame, meant to
@@ -124,37 +134,23 @@
        Override if this file is ever included somewhere else. -->
   <arg name="particle_filter_ns" default="/localization"/>
 
-  <!-- - pointcloud_to_laserscan: 3-D cloud -> 2-D LaserScan, in base_link
-       frame (the sample-site frame fix - see this file's header). Publisher
-       QoS is hardcoded rclcpp::SensorDataQoS (BEST_EFFORT); scan_qos_bridge
-       below re-publishes RELIABLE for particle_filter's default subscription
-       QoS. -->
-  <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node" name="pointcloud_to_laserscan">
-    <!-- ~/... (node-private, tilde-relative) topic names, not the absolute
-         /pointcloud_to_laserscan/... form scripts/2dlidar/run-particle-filter.sh
-         uses - that form only matched because the harness never namespaces
-         this node. Under the full stack this node runs inside the
-         /localization namespace (ambient push-ros-namespace), so an absolute
-         remap-from silently fails to match and the remap has no effect at
-         all (confirmed during Task 8 end-to-end verification: /scan_raw
-         never appeared and pointcloud_to_laserscan instead published under
-         its own default /localization/pointcloud_to_laserscan/output/laserscan
-         name). Tilde-relative resolves correctly in both cases. -->
-    <remap from="~/input/pointcloud" to="$(var mcl_input_pointcloud)"/>
-    <remap from="~/output/laserscan" to="/scan_raw"/>
-    <param from="$(var mcl_pointcloud_to_laserscan_param_file)"/>
-    <param name="min_height" value="$(var scan_min_height)"/>
-    <param name="max_height" value="$(var scan_max_height)"/>
-    <param name="range_max" value="$(var scan_range_max)"/>
-    <param name="use_sim_time" value="$(var use_sim_time)"/>
-  </node>
+  <!-- Optional test adapter: synthesise a scan from a 3-D cloud. Off by
+       default; see the scan_source arg above and the adapter's own header. -->
+  <group if="$(eval &quot;'$(var scan_source)' == 'test_pointcloud'&quot;)">
+    <include file="$(find-pkg-share autosdv_mcl_launch)/launch/scan_source_test_pointcloud.launch.xml">
+      <arg name="input_pointcloud" value="$(var test_input_pointcloud)"/>
+      <arg name="output_scan" value="$(var scan_topic)"/>
+      <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    </include>
+  </group>
 
-  <!-- - scan_qos_bridge: /scan_raw (BEST_EFFORT) -> /scan (RELIABLE).
-       Promoted from the runtime-generated tmp/scan_qos_bridge.py heredoc
-       (Task 7 wrinkle 1). -->
-  <node pkg="autosdv_mcl_launch" exec="scan_qos_bridge" name="scan_qos_bridge">
-    <param name="input_topic" value="/scan_raw"/>
+  <!-- - mcl_scan_normalizer: the kit's scan -> /scan about base_link.
+       Absorbs QoS (SensorDataQoS in, RELIABLE out, replacing scan_qos_bridge),
+       the mounting offset, and the scan-side diagnostics. -->
+  <node pkg="autosdv_mcl_launch" exec="mcl_scan_normalizer" name="mcl_scan_normalizer">
+    <param name="input_topic" value="$(var scan_topic)"/>
     <param name="output_topic" value="/scan"/>
+    <param name="base_frame" value="$(var base_frame)"/>
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
 
@@ -210,7 +206,9 @@
     <param name="output_topic" value="$(var output_pose_with_covariance_topic)"/>
     <param name="base_frame" value="$(var base_frame)"/>
     <param name="map_frame" value="$(var map_frame)"/>
-    <param name="sensor_frame" value="$(var sensor_frame)"/>
+    <!-- base_link by construction: the normaliser publishes /scan about
+         base_link, so the relay's sensor->base composition is an identity. -->
+    <param name="sensor_frame" value="$(var base_frame)"/>
     <param name="stamp_source" value="$(var stamp_source)"/>
     <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>

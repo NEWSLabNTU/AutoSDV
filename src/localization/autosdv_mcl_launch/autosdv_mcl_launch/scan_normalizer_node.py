@@ -81,10 +81,25 @@ class ScanNormalizer(Node):
             f"about {self.base_frame}")
 
     def _once(self, key: str, level: str, message: str):
+        """Log `message` at most once per `key`.
+
+        Each severity gets its own call site on purpose. rclpy caches a
+        logger's severity per *caller location*, so dispatching several
+        severities through one `getattr(logger, level)(...)` line raises
+        "Logger severity cannot be changed between calls" the moment a second
+        severity is used from it -- which killed this node's subscription
+        callback on the first scan it received, silently starving the filter.
+        """
         if key in self._said:
             return
         self._said.add(key)
-        getattr(self.get_logger(), level)(message)
+        log = self.get_logger()
+        if level == "error":
+            log.error(message)
+        elif level == "warning":
+            log.warning(message)
+        else:
+            log.info(message)
 
     def _watchdog(self):
         if self.scans_in == 0:

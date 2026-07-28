@@ -45,6 +45,11 @@
 #   RESULTS               jsonl results path
 #   REPLAY_S              replay duration cap (default 75)
 #   MIN_PF_POSES          dead-run gate (default 50)
+# scan_source:=test_pointcloud is required now that MCL holds no scan geometry
+# of its own: the sensor kit owns scan production, and the bag this matrix
+# replays carries a 3-D cloud rather than a LaserScan. Without it the filter
+# receives no scan and every seed reports a motion-model-only pose. See
+# docs/design/mcl-user-setup-ux.md.
 set -eo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -128,7 +133,8 @@ for SEED in $SEEDS; do
             autosdv_launch logging_simulation.launch.yaml rviz:=false \
             pose_source:=mcl map_path:='$MAP_PATH' \
             occupancy_grid_file:='$OCCUPANCY_GRID_FILE' \
-            mcl_random_seed:=$SEED use_gnss:=false
+            mcl_random_seed:=$SEED use_gnss:=false \
+            scan_source:=test_pointcloud
     " > "$LAUNCH_LOG" 2>&1 &
     sleep 8
     LAUNCH_PID="$(pgrep -f 'play_launch launch.*logging_simulation' | head -1 || true)"

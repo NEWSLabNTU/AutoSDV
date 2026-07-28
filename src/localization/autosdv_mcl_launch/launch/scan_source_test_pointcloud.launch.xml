@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!--
+  scan_source_test_pointcloud.launch.xml ; TEST SCAFFOLDING, not production.
+
+  Synthesises a 2-D scan by slicing a horizontal slab out of a 3-D point cloud.
+  On the target vehicle a real 2-D LiDAR publishes a LaserScan directly, or the
+  sensor kit extracts one ring from its 3-D sensor; either way the kit owns scan
+  production and MCL consumes it. See
+  docs/design/mcl-user-setup-ux.md.
+
+  This exists because the Autoware sample bags are recorded with
+  sample_sensor_kit, which publishes no scan of its own. Without it the accuracy
+  matrix and the downstream probe would have nothing to run against. Selected
+  with scan_source:=test_pointcloud; the default is external.
+
+  The z band below is the SAMPLE kit's velodyne_top height above base_link
+  (base_link ; sensor_kit_base_link z = 2.0 in sample_sensor_kit_description).
+  It is deliberately kept here rather than in the main launch: it is a property
+  of one specific bag, and hardcoding it in MCL is what made the band select an
+  empty slab on the AutoSDV vehicle, whose kit z is 0.0. A caller using a
+  different 3-D bag must override it.
+-->
+<launch>
+  <arg name="input_pointcloud" default="/sensing/lidar/top/pointcloud_raw_ex"
+       description="3-D cloud to flatten"/>
+  <arg name="output_scan" default="/scan_raw"
+       description="synthesised scan; the normaliser's input"/>
+  <arg name="scan_min_height" default="1.91611"
+       description="slab lower bound in base_link; SAMPLE kit specific"/>
+  <arg name="scan_max_height" default="2.21611"
+       description="slab upper bound in base_link; SAMPLE kit specific"/>
+  <arg name="scan_range_max" default="60.0"/>
+  <arg name="param_file"
+       default="$(find-pkg-share autosdv_mcl_launch)/config/mcl_pointcloud_to_laserscan.param.yaml"/>
+  <arg name="use_sim_time" default="true"/>
+
+  <!--
+    target_frame is base_link so the slab is horizontal in the vehicle frame
+    rather than the sensor's; a sensor with yaw or pitch would otherwise slice a
+    tilted plane. The normaliser downstream then finds an identity offset and
+    passes the scan through.
+
+    Tilde-relative remaps, not absolute: under the full stack this node runs
+    inside the /localization namespace, where an absolute remap-from silently
+    fails to match (confirmed empirically: /scan_raw never appeared and the
+    node published under its own default name instead).
+  -->
+  <node pkg="pointcloud_to_laserscan" exec="pointcloud_to_laserscan_node"
+        name="pointcloud_to_laserscan">
+    <remap from="~/input/pointcloud" to="$(var input_pointcloud)"/>
+    <remap from="~/output/laserscan" to="$(var output_scan)"/>
+    <param from="$(var param_file)"/>
+    <param name="min_height" value="$(var scan_min_height)"/>
+    <param name="max_height" value="$(var scan_max_height)"/>
+    <param name="range_max" value="$(var scan_range_max)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+</launch>

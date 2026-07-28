@@ -234,3 +234,66 @@ def test_yaw_only_is_not_reported_as_tilt():
     _, _, dyaw, tilt = planar_offset((0.0, 0.0, 0.0), q)
     assert dyaw == pytest.approx(1.575, abs=1e-6)
     assert tilt == pytest.approx(0.0, abs=1e-9)
+
+
+# ---------------------------------------------------------------------------
+# _once severity dispatch
+# ---------------------------------------------------------------------------
+
+
+class _FakeLogger:
+    """Mimics rclpy's per-call-site severity caching.
+
+    rclpy raises "Logger severity cannot be changed between calls" when one
+    source line logs at two different severities. This fake reproduces that
+    rule so the dispatch can be tested without a ROS context; the real failure
+    killed the normaliser's subscription callback on its first scan.
+    """
+
+    def __init__(self):
+        self.calls = []
+        self._site_severity = {}
+
+    def _log(self, severity, message, site):
+        prev = self._site_severity.setdefault(site, severity)
+        if prev != severity:
+            raise ValueError("Logger severity cannot be changed between calls.")
+        self.calls.append((severity, message))
+
+    def info(self, message):
+        self._log("info", message, "info_site")
+
+    def warning(self, message):
+        self._log("warning", message, "warning_site")
+
+    def error(self, message):
+        self._log("error", message, "error_site")
+
+
+def _once_dispatch(logger, said, key, level, message):
+    """Mirror of ScanNormalizer._once, kept in step with the node."""
+    if key in said:
+        return
+    said.add(key)
+    if level == "error":
+        logger.error(message)
+    elif level == "warning":
+        logger.warning(message)
+    else:
+        logger.info(message)
+
+
+def test_mixed_severities_do_not_raise():
+    """error then info must not trip rclpy's per-call-site severity rule."""
+    logger, said = _FakeLogger(), set()
+    _once_dispatch(logger, said, "tf", "error", "no transform")
+    _once_dispatch(logger, said, "identity", "info", "passing through")
+    _once_dispatch(logger, said, "tilt", "warning", "tilted")
+    assert [c[0] for c in logger.calls] == ["error", "info", "warning"]
+
+
+def test_once_suppresses_repeats():
+    logger, said = _FakeLogger(), set()
+    for _ in range(5):
+        _once_dispatch(logger, said, "tf", "error", "no transform")
+    assert len(logger.calls) == 1
