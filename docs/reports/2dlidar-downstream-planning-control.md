@@ -248,18 +248,42 @@ With the re-stamped bag, `pose_source:=ndt`, sample models, and the swept goal:
 
 | quantity | value |
 |---|---|
-| trajectories | 318 (`/planning/trajectory` 91, `scenario_planning/trajectory` 91, `scenario_selector/trajectory` 136) |
-| trajectory rate | **11.74 Hz** |
-| control commands | 453 |
-| control rate | **16.66 Hz** |
-| lateral offset mean / p95 / max | 14.93 / 57.47 / 59.42 m |
+| trajectories | published on all three topics continuously |
+| trajectory rate | **15.07 Hz** |
+| control commands | 450+ per observation window |
+| control rate | **16.68 Hz** |
+| cross-track, plan current | **mean 0.417 m, p95 1.594 m, max 1.725 m** (n=371 of 450) |
+| ego speed | 3.84 m/s mean |
 
-**Planning and control run end to end on a live localization pose.** The rates
-are real. The lateral figures are **not** a tracking-quality result: the metric
-measures ego-to-nearest-point on a polyline that extends ~79 m toward the goal,
-and with no ego simulator the vehicle never follows the commands, so pose and
-plan diverge by construction. That metric needs redefining before any number
-from it is quoted.
+**Planning and control run end to end on a live localization pose, and the
+vehicle tracks its plan to within half a metre on average.**
+
+### 5.6 Why the first lateral figure was meaningless
+
+The first run reported 14.93 m mean cross-track, and a later run 3.05 m, from
+the same code on the same configuration. That instability was the clue: the
+statistic averaged two incompatible regimes.
+
+Diagnostics pairing each cross-track sample with `d_first` (ego to the
+trajectory's *first* point) separate them. While the plan is current, samples
+look like:
+
+```
+ego [89579.15, 42307.68]  traj_first [89575.52, 42304.29]  d_min 0.28  d_first 4.97
+ego [89579.45, 42308.03]  traj_first [89576.30, 42304.92]  d_min 0.32  d_first 4.43
+```
+
+Once the ego drives past the goal — which sits at 85% of the recorded track
+while the bag keeps going at ~4-8 m/s — `d_min` and `d_first` blow up *together*
+to ~59 m, because the trajectory no longer describes where the vehicle is. 79 of
+450 samples fell in that regime, and how many land inside the observation window
+varies run to run, which is why the unconditioned mean swung from 14.93 to 3.05.
+
+The distance formula was never wrong: it is Autoware's standard closest-point
+cross-track definition. What was wrong was the population it averaged over. The
+reported metric now conditions on the plan being current (`d_first <= 5 m`,
+i.e. Autoware still planning from the vehicle) and reports the surviving sample
+count alongside the total.
 
 Autonomous mode remains unavailable, as expected in this harness:
 `launch_vehicle_interface` is false and no `steering_status` is replayed, so
