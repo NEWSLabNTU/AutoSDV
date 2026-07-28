@@ -31,6 +31,7 @@ setup(
         'console_scripts': [
             'mcl_pose_relay = autosdv_mcl_launch.mcl_pose_relay:main',
             'scan_qos_bridge = autosdv_mcl_launch.scan_qos_bridge:main',
+            'mcl_scan_normalizer = autosdv_mcl_launch.scan_normalizer_node:main',
             'mcl_wheel_imu_odom = autosdv_mcl_launch.wheel_imu_odom:main',
         ],
     },
