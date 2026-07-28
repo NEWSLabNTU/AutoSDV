@@ -87,6 +87,14 @@
        received no scan; pose_initializer then failed with "align server
        failed" on every attempt. -->
   <arg name="input_pointcloud" default="/sensing/lidar/concatenated/pointcloud" description="LiDAR topic feeding the localization util chain (ndt/cuda_ndt); set to the bag topic for logging simulation"/>
+  <!-- AutoSDV: the same problem one module across. perception.launch.xml also
+       defaults to the concatenated cloud, and the stock perception component
+       does not expose the argument at all, so replaying a bag left perception
+       with no input: no obstacle segmentation, no occupancy grid, and
+       behavior_path_planner stuck at "waiting for occupancy_grid" publishing no
+       path or trajectory. Kept separate from input_pointcloud because the two
+       modules can legitimately consume different clouds. -->
+  <arg name="perception_input_pointcloud" default="/sensing/lidar/concatenated/pointcloud" description="LiDAR topic feeding perception; set to the bag topic for logging simulation"/>
   <!-- System -->
   <arg name="system_run_mode" default="online" description="run mode in system"/>
   <arg name="launch_system_monitor" default="true" description="launch system monitor"/>
@@ -217,10 +225,11 @@
        section 1. -->
   <let name="resolved_use_pointcloud_map" value="$(eval &quot;'$(var use_pointcloud_map)' if '$(var pose_source)' != 'mcl' else 'false'&quot;)"/>
   <group if="$(var launch_perception)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_perception_component.launch.xml">
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_perception_component.launch.xml">
       <arg name="data_path" value="$(var data_path)"/>
       <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
       <arg name="use_pointcloud_map" value="$(var resolved_use_pointcloud_map)"/>
+      <arg name="input/pointcloud" value="$(var perception_input_pointcloud)"/>
     </include>
   </group>
 

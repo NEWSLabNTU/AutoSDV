@@ -40,6 +40,15 @@ launch:
     default: "/sensing/lidar/concatenated/pointcloud"
     description: "LiDAR topic feeding the localization util chain (ndt/cuda_ndt)"
 
+# AutoSDV: LiDAR topic feeding perception (obstacle segmentation -> occupancy
+# grid). Same replay problem as input_pointcloud, a different module: the stock
+# perception component hard-wires the concatenated cloud, so a replayed bag
+# leaves behavior_path_planner waiting on an occupancy grid that never comes.
+- arg:
+    name: perception_input_pointcloud
+    default: "/sensing/lidar/concatenated/pointcloud"
+    description: "LiDAR topic feeding perception (ground/obstacle segmentation)"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -198,6 +207,9 @@ launch:
     -
       name: input_pointcloud
       value: $(var input_pointcloud)
+    -
+      name: perception_input_pointcloud
+      value: $(var perception_input_pointcloud)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

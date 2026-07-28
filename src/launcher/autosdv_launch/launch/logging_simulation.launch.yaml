@@ -49,6 +49,36 @@ launch:
     default: "/sensing/lidar/concatenated/pointcloud"
     description: "LiDAR topic feeding the localization util chain (ndt/cuda_ndt)"
 
+# AutoSDV: LiDAR topic feeding perception (obstacle segmentation -> occupancy
+# grid). Same replay problem as input_pointcloud, a different module: the stock
+# perception component hard-wires the concatenated cloud, so a replayed bag
+# leaves behavior_path_planner waiting on an occupancy grid that never comes.
+- arg:
+    name: perception_input_pointcloud
+    default: "/sensing/lidar/concatenated/pointcloud"
+    description: "LiDAR topic feeding perception (ground/obstacle segmentation)"
+
+# AutoSDV: the vehicle and sensor models a replayed bag was recorded with.
+# Hardcoded to the AutoSDV pair until now, which silently mismatches a foreign
+# bag: the Autoware sample rosbag was recorded on sample_vehicle
+# (vehicle_height 2.5 m) whereas autosdv_vehicle is 0.262 m, and the obstacle
+# crop box spans ground-2.5 .. vehicle_height, so every point above ~26 cm was
+# discarded. crop_box_filter then ran on each frame while emitting an empty
+# cloud, so ground segmentation, the occupancy grid, and hence
+# behavior_path_planner (stuck at "waiting for occupancy_grid") produced
+# nothing -- no path, no trajectory, no control command.
+#
+# Pair these with the bag: COSS bags with the AutoSDV vehicle (the defaults),
+# the Autoware sample rosbag with sample_vehicle + sample_sensor_kit.
+- arg:
+    name: vehicle_model
+    default: "autosdv_vehicle"
+    description: "vehicle model the replayed bag was recorded with"
+- arg:
+    name: sensor_model
+    default: "autosdv_sensor_kit"
+    description: "sensor model the replayed bag was recorded with"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -203,13 +233,13 @@ launch:
     arg:
     -
       name: vehicle_model
-      value: autosdv_vehicle
+      value: $(var vehicle_model)
     -
       name: is_simulation
       value: $(var is_simulation)
     -
       name: sensor_model
-      value: autosdv_sensor_kit
+      value: $(var sensor_model)
     -
       name: map_path
       value: $(var map_path)
@@ -222,6 +252,9 @@ launch:
     -
       name: input_pointcloud
       value: $(var input_pointcloud)
+    -
+      name: perception_input_pointcloud
+      value: $(var perception_input_pointcloud)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

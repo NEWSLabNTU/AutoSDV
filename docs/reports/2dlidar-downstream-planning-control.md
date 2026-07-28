@@ -31,8 +31,8 @@ estimate is good enough for the map-matching that mission planning performs.
 
 **Autonomous mode is still unavailable**, but for a different and much shorter
 list of reasons than before — and the ones that remain are not `mcl`'s: the NDT
-control run fails at exactly the same step (§5), traced to the sample map
-lacking lanelet2 version metadata (§5.2).
+control run fails at exactly the same step (§5), traced to harness
+configuration rather than to either pose source (§5.2-§5.4).
 
 ## 2. The health checks assumed NDT with a PCD
 
@@ -87,11 +87,12 @@ The aggregator's stated reasons, before and after:
   cannot pass in logging simulation for any pose source:
   `launch_vehicle_interface` is false, there is no ego simulator, and the
   replay publishes no `steering_status`.
-- **Map data, not `mcl`.** No trajectory is ever published, because
-  `route_handler` rejects the sample lanelet2 map as an "invalid version map"
-  and `scenario_selector` then waits on a route forever. The NDT control run
-  fails identically, which settles the attribution — see §5.2. Everything in
-  the planning and control branches follows from this one fault.
+- **Harness, not `mcl`.** No trajectory is published because
+  `behavior_path_planner` waits on an occupancy grid that perception never
+  produces — traced in §5.2 to replaying a derived single-LiDAR bag and to a
+  vehicle/sensor model mismatch. The NDT control run fails identically, which
+  settles the attribution. Everything in the planning and control branches
+  follows from that one fault.
 - `/autoware/perception/topic_rate_check/pointcloud` — probably harness, not
   confirmed.
 
@@ -146,27 +147,75 @@ Both were real defects, found because the control run would not start:
   upstream in play_launch `5b20c1e`; this machine was running an April build.
   With a current build all three util filters load and align succeeds.
 
-### 5.2 The shared cause of the missing trajectory
+### 5.2 The real cause, after several wrong turns
 
-`route_handler` warns `setMap() for invalid version map:` — with an empty
-version string — and `scenario_selector` then waits on a route forever. The
-route exists at the mission-planner level, which is why ADAPI reports SET and
-the first five steps pass, but it never reaches the scenario selector.
+The trajectory is absent because `behavior_path_planner` sits at **`waiting for
+occupancy_grid`** and never publishes a path. Nothing downstream can exist
+without it: no path, no trajectory on any topic, no `trajectory_follower`, no
+`control_command`, and hence those diagnostic branches error. One fault, not
+five.
 
-The sample map has no lanelet2 version metadata:
+The occupancy grid was missing because **the harness replayed the wrong bag**.
+`data/rosbags/phase3/sample_ndt_gt` is a *derived* recording carrying a single
+decoded cloud (`/sensing/lidar/top/pointcloud_raw_ex`). The Autoware sample
+rosbag carries raw `velodyne_packets` from **three** LiDARs, which the sensing
+pipeline decodes and concatenates into
+`/sensing/lidar/concatenated/pointcloud` — exactly the topic localization and
+perception default to. Feeding the derived bag starved both, and the fix was to
+replay `sample-rosbag-migrated` (the original carries pre-1.5.0
+`autoware_auto_vehicle_msgs` that this Autoware cannot deserialize).
 
-| map | `format_version` / `map_version` |
-|---|---|
-| `sample-rosbag-replay/sample-map-rosbag/lanelet2_map.osm` | **absent** |
-| `COSS-map-planning/lanelet2_map.osm` | `format_version="1"`, `map_version="2"` |
+**Corrections to earlier versions of this report.** Three claims were wrong:
 
-So this is map data, not localization and not AutoSDV. It also explains the
-remaining diagnostic failures as one fault rather than five: no route to the
-selector means no trajectory, hence no `trajectory_follower` and no
-`control_command`, hence those branches error too.
+- *"The sample map's missing lanelet2 version metadata is the cause."* No.
+  `route_handler` logs `setMap() for invalid version map:` as a WARN and
+  continues; the missing `format_version` is cosmetic. The map works.
+- *"`input_pointcloud` and `perception_input_pointcloud` were real defects."*
+  They are useful knobs, and perception's was genuinely unreachable from the
+  command line, but the starvation they addressed was caused by replaying the
+  derived bag. Commit `d67034d` overstates `input_pointcloud` as the cause of
+  NDT's align failure; the composable-node drop and the derived bag were.
+- *"Routing succeeding on an MCL pose shows the pose is good enough for lanelet
+  matching."* Weaker than stated: those runs used `autosdv_vehicle`, whose
+  0.262 m footprint passes a goal check that the correct `sample_vehicle`
+  footprint fails. The pose was fine; the check was passing for the wrong
+  reason.
 
-The prediction this makes, untested: the same probe on the COSS map — which
-carries the version metadata — should produce a trajectory.
+### 5.3 Vehicle and sensor models must match the bag
+
+`logging_simulation.launch.yaml` hardcoded `vehicle_model: autosdv_vehicle` and
+`sensor_model: autosdv_sensor_kit`. The pairing rule is COSS bags with the
+AutoSDV vehicle, the Autoware sample rosbag with `sample_vehicle` +
+`sample_sensor_kit`. Mismatching them is not benign: the obstacle crop box spans
+`ground-2.5 .. vehicle_height`, and with `vehicle_height` 0.262 m instead of
+2.5 m every point above ~26 cm was discarded, so `crop_box_filter` ran on each
+frame (debug topics ticking at 1.93 Hz) while publishing an empty cloud.
+
+Both are now arguments, defaults unchanged. Selecting a foreign sensor kit also
+drags in its own argument expectations: `sample_sensor_kit`'s `gnss.launch.xml`
+defines `navsatfix_topic_name` only for `gnss_receiver` of `ublox` or
+`septentrio`, so AutoSDV's empty default makes the launch fail to parse —
+`gnss_receiver:=ublox` is required with that kit.
+
+Related: `mcl_localization.launch.xml` hardcodes `scan_min_height: 1.91611` /
+`scan_max_height: 2.21611`, which are the *sample* kit's sensor heights. That
+compensated for the same mismatch on the localization side and would be wrong
+for a COSS run; it should become sensor-kit-derived.
+
+### 5.4 Goal selection, and an API detail
+
+Goals cannot be picked naively. Sweeping poses along the ground-truth track
+against a live stack (`tmp/goal_sweep.py`) shows acceptance is **patchy, not
+monotonic**: 0.15, 0.25, 0.35, 0.45 and 0.85 of the track are accepted, while
+0.55-0.75, 0.95 and the final pose are rejected with "Goal's footprint exceeds
+lane!" or "The planned route is empty". Lane width is not the cause — the route's
+lanelets are 3.08-3.58 m wide against a 1.896 m vehicle. Those poses simply do
+not sit cleanly inside a mapped lanelet. `allow_goal_modification` does not
+rescue them.
+
+Routing also refuses a second goal with **"The route is already set"** until
+`/api/routing/clear_route` is called. That message appeared in several earlier
+runs purely because the probe never cleared, on stacks reused across probes.
 
 ## 6. The cuda_ndt attempt, and why it proved nothing
 
