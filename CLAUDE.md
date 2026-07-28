@@ -259,6 +259,13 @@ A single ring is geometrically a perfect plane but too sparse on a 128-ring
 spinner. Three adjacent VLS128 channels span 0.22 deg (0.23 m at 60 m), which is
 *tighter* than the slab they beat, so this is not a fidelity trade.
 
+**Spinning LiDARs only.** Ring extraction assumes constant-elevation rings, so it
+applies to `vlp32c` and not to the kit's solid-state sensors: Robin-W and Cube1
+have restricted fields of view and a channel index that is not a fixed
+elevation, so no ring is a horizontal plane. A narrow FOV also constrains MCL
+poorly against a 360 deg grid. Use those sensors on the 3-D NDT path, or with a
+native 2-D LiDAR alongside.
+
 **The ring is sensor-specific and must be measured**, not copied -- 0.11 deg
 channel spacing is a property of that VLS128:
 

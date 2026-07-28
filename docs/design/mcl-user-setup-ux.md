@@ -87,6 +87,12 @@ Choosing the ring is the one judgement here, and it is the user's: it depends on
 vehicle height and where the LiDAR sits. The kit should help rather than make the
 user guess — see §4.
 
+**Ring extraction applies to spinning LiDARs only.** It assumes
+constant-elevation rings. Solid-state sensors with restricted FOV (Robin-W,
+Cube1 in this kit) have no such structure, and a narrow wedge constrains the
+filter poorly against a 360 deg grid regardless; they belong on the 3-D NDT path
+or alongside a native 2-D LiDAR.
+
 **Measured: use a small ring GROUP, not a single ring.** Against NDT ground truth
 on the sample site (`docs/reports/2dlidar-scan-source-comparison.md`), three
 adjacent channels beat both one ring and the thicker z-slab on every metric —

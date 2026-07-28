@@ -236,8 +236,13 @@ Deviations from the plan as written, both driven by measurement:
 
 Still open: `inspect_rings` is a script rather than the kit console-script the
 UX doc imagined; the native 2-D path is implemented but unverifiable (no 2-D
-LiDAR bag exists in the repo); the kit dispatches `scan_from_ring` for `vlp32c`
-only; and the heading improvement with 3 rings is unexplained.
+LiDAR bag exists in the repo); and the heading improvement with 3 rings is
+unexplained.
+
+Deliberately NOT open: the kit dispatches `scan_from_ring` for `vlp32c` only.
+Robin-W and Cube1 are solid-state with restricted FOV, so ring extraction does
+not apply to them -- their channel index is not a constant elevation, and a
+narrow wedge constrains MCL poorly against a 360 deg grid.
 
 ## Out of scope
 
