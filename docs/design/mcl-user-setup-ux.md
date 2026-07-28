@@ -87,6 +87,17 @@ Choosing the ring is the one judgement here, and it is the user's: it depends on
 vehicle height and where the LiDAR sits. The kit should help rather than make the
 user guess — see §4.
 
+**Measured: use a small ring GROUP, not a single ring.** Against NDT ground truth
+on the sample site (`docs/reports/2dlidar-scan-source-comparison.md`), three
+adjacent channels beat both one ring and the thicker z-slab on every metric —
+mean 0.789 m against 0.992 and 0.821, seed spread 0.037 m against 0.317 and
+0.072, and mean |yaw| 0.0159 rad against 0.0321 and 0.0339. A single ring is
+geometrically a perfect plane but too sparse on a 128-ring spinner: two of five
+seeds missed the 1.0 m gate. Three rings span 0.22° here, which is *tighter than
+the 0.30 m slab* beyond 30 m, so the group is both denser and more faithful. The
+group is sensor-specific and must be measured: 0.11° channel spacing is a
+property of this VLS128.
+
 ### Step 2 — build the occupancy grid
 
 Already supported:

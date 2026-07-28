@@ -45,6 +45,19 @@
 #   RESULTS               jsonl results path
 #   REPLAY_S              replay duration cap (default 75)
 #   MIN_PF_POSES          dead-run gate (default 50)
+#   SCAN_MODE             slab (default) or ring; see below
+#
+# SCAN_MODE selects how the 2-D scan is produced, which is the thing under test
+# when comparing the two:
+#   slab  MCL's own test adapter slices a horizontal band out of the 3-D cloud.
+#         Thicker than one ring, so it aggregates several rings' returns.
+#   ring  the sensor kit extracts one ring, or a group via SCAN_RING_MIN and
+#         SCAN_RING_MAX. Ring 71 is the VLS128's horizontal channel, measured
+#         with scripts/sensor/inspect_rings.py. A single ring is geometrically a
+#         perfect plane but sparse; 3 rings (70-72) span 0.22 deg, which is
+#         tighter than the slab beyond 30 m while carrying ~3x the returns.
+# The concatenated cloud is 3-D fusion for the NDT path and is deliberately not
+# used here: the 2-D path takes a single sensor.
 # scan_source:=test_pointcloud is required now that MCL holds no scan geometry
 # of its own: the sensor kit owns scan production, and the bag this matrix
 # replays carries a 3-D cloud rather than a LaserScan. Without it the filter
@@ -63,6 +76,11 @@ OUT_DIR="${OUT_DIR:-$REPO_DIR/data/rosbags/phase5-fresh}"
 RESULTS="${RESULTS:-$OUT_DIR/results.jsonl}"
 REPLAY_S="${REPLAY_S:-75}"
 MIN_PF_POSES="${MIN_PF_POSES:-50}"
+SCAN_MODE="${SCAN_MODE:-slab}"
+SCAN_RING="${SCAN_RING:-71}"
+SCAN_RING_MIN="${SCAN_RING_MIN:-$SCAN_RING}"
+SCAN_RING_MAX="${SCAN_RING_MAX:-$SCAN_RING}"
+SCAN_INPUT="${SCAN_INPUT:-/sensing/lidar/top/pointcloud_raw_ex}"
 LAUNCH_TIMEOUT_S="${LAUNCH_TIMEOUT_S:-240}"
 
 RELAY_TOPIC=/localization/pose_estimator/pose_with_covariance
@@ -112,6 +130,7 @@ teardown() {
         sleep 1
     done
     pkill -9 -f "play_launch|component_container|particle_filter" 2>/dev/null || true
+    pkill -9 -f "passthrough_filter_uint16_node|pointcloud_to_laserscan_node" 2>/dev/null || true
     sleep 3
 }
 
@@ -134,7 +153,7 @@ for SEED in $SEEDS; do
             pose_source:=mcl map_path:='$MAP_PATH' \
             occupancy_grid_file:='$OCCUPANCY_GRID_FILE' \
             mcl_random_seed:=$SEED use_gnss:=false \
-            scan_source:=test_pointcloud
+            scan_source:=$([ "$SCAN_MODE" = "ring" ] && echo external || echo test_pointcloud)
     " > "$LAUNCH_LOG" 2>&1 &
     sleep 8
     LAUNCH_PID="$(pgrep -f 'play_launch launch.*logging_simulation' | head -1 || true)"
@@ -168,6 +187,18 @@ for SEED in $SEEDS; do
         continue
     fi
     echo "seed $SEED: random_seed=$SEED confirmed on the running node"
+
+    # In ring mode the kit produces the scan. sample_sensor_kit ships no scan
+    # producer, so AutoSDV's adapter is launched alongside, standing in for a
+    # kit that would ship one.
+    if [ "$SCAN_MODE" = "ring" ]; then
+        setsid ros2 launch autosdv_sensor_kit_launch scan_from_ring.launch.xml \
+            input_topic:="$SCAN_INPUT" \
+            ring_min:="$SCAN_RING_MIN" ring_max:="$SCAN_RING_MAX" \
+            output_topic:=/scan_raw use_sim_time:=true \
+            > "$LOG_DIR/scan_from_ring_s${SEED}.log" 2>&1 &
+        sleep 5
+    fi
 
     # --- record, seed, replay ---
     setsid ros2 bag record -o "$OUT" \
