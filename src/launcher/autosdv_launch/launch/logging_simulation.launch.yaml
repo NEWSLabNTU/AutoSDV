@@ -39,6 +39,16 @@ launch:
     default: "-1"
     description: "particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic"
 
+# AutoSDV: LiDAR topic feeding the localization util chain for ndt/cuda_ndt.
+# The default suits a live sensing pipeline; a replayed bag usually carries a
+# single decoded cloud instead, e.g.
+# input_pointcloud:=/sensing/lidar/top/pointcloud_raw_ex for the Autoware
+# sample bag. Not used by pose_source:=mcl, which has its own input argument.
+- arg:
+    name: input_pointcloud
+    default: "/sensing/lidar/concatenated/pointcloud"
+    description: "LiDAR topic feeding the localization util chain (ndt/cuda_ndt)"
+
 # Sensor Suite Configuration
 - arg:
     name: sensor_suite
@@ -209,6 +219,9 @@ launch:
     -
       name: mcl_random_seed
       value: $(var mcl_random_seed)
+    -
+      name: input_pointcloud
+      value: $(var input_pointcloud)
     -
       name: data_path
       value: /opt/autoware/1.5.0/data

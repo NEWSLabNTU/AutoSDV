@@ -78,6 +78,15 @@
        behavior change for anyone not naming the argument. -->
   <arg name="occupancy_grid_file" default="occupancy_grid.yaml" description="2-D occupancy grid metadata file name (pose_source:=mcl only); Phase 4's validated accuracy used occupancy_grid_scanaccum_mh1r05.yaml, not this default -- see docs/reports/2dlidar-phase5-mcl-pose-source.md"/>
   <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic, which is the operational default; set one per run for a reproducible accuracy matrix"/>
+  <!-- AutoSDV: the LiDAR topic the localization util chain (voxel downsample
+       -> NDT) consumes. The default is the concatenated cloud a live sensing
+       pipeline produces, which a replayed bag does not have: the sample bag
+       carries /sensing/lidar/top/pointcloud_raw_ex only. Previously this was
+       declared in tier4_localization_component but never forwarded from here,
+       so it could not be set from the command line at all, and NDT silently
+       received no scan; pose_initializer then failed with "align server
+       failed" on every attempt. -->
+  <arg name="input_pointcloud" default="/sensing/lidar/concatenated/pointcloud" description="LiDAR topic feeding the localization util chain (ndt/cuda_ndt); set to the bag topic for logging simulation"/>
   <!-- System -->
   <arg name="system_run_mode" default="online" description="run mode in system"/>
   <arg name="launch_system_monitor" default="true" description="launch system monitor"/>
@@ -185,6 +194,7 @@
       <arg name="pose_source" value="$(var pose_source)"/>
       <arg name="pose_source_package" value="$(var pose_source_package)"/>
       <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
+      <arg name="input_pointcloud" value="$(var input_pointcloud)"/>
     </include>
   </group>
 
