@@ -375,6 +375,11 @@ accuracy; the ground-truth figure is 0.789 m from the five-seed matrix. And MCL
 drove at 1.86 m/s against NDT's 3.84 m/s, so the columns are not like-for-like;
 slower driving tracks tighter, and the speed difference is still unexplained.
 
+> The speed difference and the self-referential nature of cross-track are
+> tracked in
+> [`../research/localization/2dlidar-open-observations.md`](../research/localization/2dlidar-open-observations.md)
+> §2 and §4.
+
 ### What the probe gates on now
 
 Counting estimator poses proved insufficient, so the probe requires, in order:

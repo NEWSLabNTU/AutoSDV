@@ -40,6 +40,10 @@ reasonably dense — is why it wins.
 
 ## The unexplained result: heading
 
+> Tracked in
+> [`../research/localization/2dlidar-open-observations.md`](../research/localization/2dlidar-open-observations.md)
+> §1, with the per-seed figures and the experiment that would settle it.
+
 Mean |yaw| error **halves** with three rings: 0.0159 rad against 0.0339 for the
 slab and 0.0321 for one ring. Translational accuracy improving with density was
 predicted; this was not.
@@ -51,6 +55,8 @@ not establish that.** It would be tested by comparing yaw error against group
 width directly — 1, 3, 5, 9 rings — which is cheap and has not been done.
 
 ## Also worth noting
+
+(Tracked as §3 of the open-observations note.)
 
 The single-ring run's seed 1 produced **1813 pairs against 2239** elsewhere, a
 19% loss that is unexplained. It makes that seed's 0.889 m the least trustworthy
