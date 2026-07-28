@@ -18,6 +18,10 @@ setup:
     ./setup.sh
 
 # Build this project
+# --cargo-args --release applies to the Rust packages (cuda_ndt_matcher); without
+# it colcon-cargo builds them unoptimized while CMAKE_BUILD_TYPE=Release covers
+# only the C++ ones, so pose_source:=cuda_ndt ran a debug binary at ~80 ms per
+# scan against the ~5 ms the package documents.
 build:
     #!/usr/bin/env bash
     source /opt/ros/humble/setup.bash && \
@@ -25,7 +29,8 @@ build:
         --base-paths src \
         --symlink-install \
         --cmake-args -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_DISABLE_FIND_PACKAGE_isaac_ros_common=TRUE
+            -DCMAKE_DISABLE_FIND_PACKAGE_isaac_ros_common=TRUE \
+        --cargo-args --release
 
 # Run tests for packages in src/ directory
 test:
