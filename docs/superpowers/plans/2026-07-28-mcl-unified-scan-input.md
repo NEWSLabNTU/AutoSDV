@@ -217,6 +217,28 @@ Ring selection alone does the work and is vehicle-height independent.
 
 ---
 
+## Status
+
+Tasks 1-5 complete and measured; Task 6 complete apart from a book section.
+
+Verified: the scan contract and normaliser (five seeds, 0.789 m against NDT
+ground truth); the kit-side ring adapter (29-34 m ranges at 4 Hz, standalone);
+the three-way scan-source comparison; MCL end to end through planning and
+control on a scan confirmed to carry returns (170/170 scans, 970 finite beams).
+
+Deviations from the plan as written, both driven by measurement:
+
+- Task 4 proposed `scan_ring` defaulting to 16. Measuring showed the sample
+  bag's VLS128 has 127 channels with the horizontal one at 71, so the argument
+  now has NO default and `scripts/sensor/inspect_rings.py` exists to find it.
+- A ring GROUP beat a single ring on every metric, so `ring_min`/`ring_max` were
+  added and the recommendation is 3 rings rather than 1.
+
+Still open: `inspect_rings` is a script rather than the kit console-script the
+UX doc imagined; the native 2-D path is implemented but unverifiable (no 2-D
+LiDAR bag exists in the repo); the kit dispatches `scan_from_ring` for `vlp32c`
+only; and the heading improvement with 3 rings is unexplained.
+
 ## Out of scope
 
 - `inspect_rings` (Task 4 of the UX doc) — useful, but not needed to ship the contract.

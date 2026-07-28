@@ -217,6 +217,66 @@ just launch pose_source:=isaac
 
 **Roadmap:** See `docs/roadmaps/visual_global_localization.md`
 
+### 2-D MCL Localization (`pose_source:=mcl`)
+
+Localizes a single-plane LaserScan against a 2-D occupancy grid instead of a PCD.
+Measured on the Autoware sample site against NDT ground truth, five seeds:
+**mean 0.789 m, p95 2.075 m, mean |yaw| 0.0159 rad** with a 3-ring scan source.
+
+**The scan contract.** MCL consumes ONE `sensor_msgs/LaserScan` in any frame TF
+connects to `base_link`, and holds no scan geometry of its own. The sensor kit
+owns scan production, because which physical plane to use depends on the sensor
+and its mounting:
+
+```bash
+# the kit publishes the scan (production)
+just launch pose_source:=mcl map_path:=data/my_site
+
+# MCL synthesises one from a 3-D cloud (test scaffolding only)
+just launch-sim-logging ARGS="pose_source:=mcl scan_source:=test_pointcloud"
+```
+
+`mcl_scan_normalizer` resolves the mounting offset itself: `particle_filter`
+treats the scan as originating at the particle pose, so a laser frame 0.5 m
+forward of `base_link` would otherwise bias every range by 0.5 m.
+
+**Kit-side scan production** from a 3-D LiDAR, in `autosdv_sensor_kit_launch`:
+
+```bash
+just launch publish_scan:=true      # plus scan_ring, or ring_min/ring_max
+```
+
+Use a **small ring group, not a single ring**. Measured comparison
+(`docs/reports/2dlidar-scan-source-comparison.md`):
+
+| scan source | mean | seed spread | gate | mean \|yaw\| |
+|---|---|---|---|---|
+| slab, 0.30 m band | 0.821 m | 0.072 | 5/5 | 0.0339 rad |
+| 1 ring | 0.992 m | 0.317 | 3/5 | 0.0321 rad |
+| **3 rings (70-72)** | **0.789 m** | **0.037** | **5/5** | **0.0159 rad** |
+
+A single ring is geometrically a perfect plane but too sparse on a 128-ring
+spinner. Three adjacent VLS128 channels span 0.22 deg (0.23 m at 60 m), which is
+*tighter* than the slab they beat, so this is not a fidelity trade.
+
+**The ring is sensor-specific and must be measured**, not copied -- 0.11 deg
+channel spacing is a property of that VLS128:
+
+```bash
+python3 scripts/sensor/inspect_rings.py <bag> --topic <cloud> --height <mounting_h>
+```
+
+It reports per-channel elevation, names the horizontal ring, and warns when a
+ring points too far up to meet the ground (a low vehicle can otherwise be
+configured with a ring aimed at the sky).
+
+**Map:** needs `occupancy_grid.yaml` + `.pgm` rather than a PCD; build with
+`just map-grid-from-pcd` or `map-grid-from-bag`, validate with `just map-check`.
+
+Design: `docs/design/mcl-user-setup-ux.md`. Diagnostics: the normaliser reports a
+missing scan, a missing TF, an all-non-finite scan, and an out-of-plane mount --
+every scan-side failure in this project's history was previously silent.
+
 ### CUDA NDT Localization
 
 CUDA-accelerated NDT scan matching for faster localization on NVIDIA GPUs. This package is **maintained by AutoSDV** (not upstream Autoware).
@@ -472,6 +532,7 @@ pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
 # (cuda_ndt -> cuda_ndt_matcher_launch, otherwise built-in NDT). Set it
 # explicitly only to plug in a third-party estimator. See
 # docs/design/localization-method-switching.md.
+pose_source:=mcl       # 2-D Monte-Carlo localization against an occupancy grid
 pose_source:=isaac     # cuVSLAM visual odometry only (relative tracking, manual init)
 pose_source:=visual    # cuVGL + cuVSLAM (camera-only, auto init from visual map)
 
