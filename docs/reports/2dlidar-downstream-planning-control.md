@@ -15,24 +15,29 @@ poses, so both ends are guaranteed to sit on the driven lane.
 
 ## 1. Result
 
-| step | before the fix | after the fix |
+`pose_source:=mcl` drives the full Autoware stack. On the Autoware sample site,
+with the sample bag re-stamped (§5.5) and the sample vehicle/sensor models
+(§5.3):
+
+| step | `mcl` | `ndt` |
 |---|---|---|
-| `/api/localization/initialize` | ok | ok |
-| localization reaches INITIALIZED | ok | ok |
-| `kinematic_state` flowing | ok | ok |
-| `/api/routing/set_route_points` | ok | ok |
-| route reaches SET | ok | ok |
-| trajectory published | **FAIL** (0) | **FAIL** (0) |
-| autonomous mode available | **FAIL** | **FAIL** |
+| localization INITIALIZED | ok | ok |
+| route SET | ok | ok |
+| trajectory published | ok, 15.01 Hz | ok, 15.07 Hz |
+| control command | ok, 16.68 Hz | ok, 16.68 Hz |
+| autonomous mode | **engaged** | refused (stock graph, §5.7) |
+| cross-track, plan current | **0.342 m mean, 0.798 m p95** | 0.417 m mean, 1.594 m p95 |
 
-**Routing succeeds on an MCL pose.** That is a real result and not a small one:
-accepting a route requires the pose to resolve onto a lanelet, so the 2-D MCL
-estimate is good enough for the map-matching that mission planning performs.
+Planning and control run on a 2-D MCL pose, and the vehicle tracks its plan to
+roughly a third of a metre. Read §5.7 before comparing the two columns: the
+autonomous-mode difference is a diagnostic-graph property, not pose quality,
+and the two runs drove at different speeds.
 
-**Autonomous mode is still unavailable**, but for a different and much shorter
-list of reasons than before — and the ones that remain are not `mcl`'s: the NDT
-control run fails at exactly the same step (§5), traced to harness
-configuration rather than to either pose source (§5.2-§5.4).
+Getting here took six configuration faults, each real and each documented
+below: a silently dropped composable node (§5.1), a hard-wired perception input
+(§5.1), the derived-versus-raw bag (§5.2), the vehicle/sensor model pairing
+(§5.3), goal selection (§5.4), and a 328.9-day clock/data offset in the
+upstream bag (§5.5). None was a property of either pose source.
 
 ## 2. The health checks assumed NDT with a PCD
 
@@ -106,7 +111,7 @@ publishing a real health diagnostic (effective sample size and mean particle
 weight are already computed per update) and adding it to
 `localization-mcl.yaml`.
 
-## 5. The NDT control run: the trajectory gap is not MCL's
+## 5. The control run, and the end-to-end measurement
 
 `pose_source:=ndt` (official Autoware NDT, not `cuda_ndt`) on the same bag,
 map and route, once the two blockers in §5.1 were cleared:
@@ -288,6 +293,47 @@ count alongside the total.
 Autonomous mode remains unavailable, as expected in this harness:
 `launch_vehicle_interface` is false and no `steering_status` is replayed, so
 the vehicle and control diagnostic branches cannot pass for any pose source.
+
+## 5.7 MCL end to end, and the comparison
+
+Same configuration, `pose_source:=mcl`:
+
+| | `mcl` | `ndt` |
+|---|---|---|
+| autonomous mode available | **True** | False |
+| `change_to_autonomous` | **ok** | refused |
+| final operation mode | **AUTONOMOUS** | STOP |
+| trajectory rate | 15.01 Hz | 15.07 Hz |
+| control command rate | 16.68 Hz | 16.68 Hz |
+| cross-track mean | **0.342 m** | 0.417 m |
+| cross-track p95 | **0.798 m** | 1.594 m |
+| cross-track max | 1.662 m | 1.725 m |
+| conditioned / total samples | 398 / 451 | 371 / 450 |
+| ego speed mean | 1.78 m/s | 3.84 m/s |
+
+**The 2-D MCL pose drives the full stack**: planning, control, and engaged
+autonomous operation, tracking its plan to 0.34 m mean and 0.80 m p95. This is
+what the accuracy gate could not show, since that gate stops at
+`kinematic_state`.
+
+Two things this does **not** show.
+
+*It is not evidence that MCL localizes better than NDT.* The autonomous-mode
+difference is a property of the diagnostic graph each method loads, not of pose
+quality: `mcl` runs the graph from §2, which requires the occupancy grid and
+drops the `ndt_scan_matcher` check, while `ndt` runs the stock graph that still
+demands checks this harness cannot satisfy (no vehicle interface, no
+`steering_status`). The honest claim is that the `mcl` graph is satisfiable in
+logging simulation and the stock one is not.
+
+*The cross-track figures are not a like-for-like comparison.* MCL averaged
+1.78 m/s against NDT's 3.84 m/s over the observation window. Slower driving
+generally tracks tighter, so MCL's marginally better numbers may reflect speed
+rather than pose. **Why the two runs drove at different speeds on the same bag
+is unexplained and should be settled before these numbers are compared
+closely** -- the likely candidates are the engaged autonomous mode changing the
+velocity profile in the MCL run, or a different segment of the bag falling
+inside the window.
 
 ## 6. The cuda_ndt attempt, and why it proved nothing
 
