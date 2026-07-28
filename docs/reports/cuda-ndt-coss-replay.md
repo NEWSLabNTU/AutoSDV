@@ -144,13 +144,23 @@ resolution and a healthy prior it is 2.90.
 
 Field experience had been that widening the crop degraded NDT, so it was tuned
 to +/-20 m. On the fixed stack at res 4.0, widening helps a lot (scatter 0.106
--> 0.032, yaw p95 2.03 -> 1.12 deg, iterations 5.0 -> 3.6). But at the shipped
-res 2.0 the effect is minor (0.020 -> 0.014 m), because the pose is already
-precise. The large crop sensitivity existed only at the coarse resolution.
+-> 0.032, yaw p95 2.03 -> 1.12 deg, iterations 5.0 -> 3.6). At the shipped
+res 2.0 the effect is much smaller, because the pose is already precise -- the
+large crop sensitivity was an artefact of the coarse resolution:
 
-So the original +/-20 m tuning is sound and is left unchanged. Widening to
-+/-40 m is a small, real improvement if wanted; beyond 60 m only 18 % of returns
-have any map to match against.
+| crop, at res 2.0 | scatter | yaw med | yaw p95 | i2r mean | NVTL | iters |
+|---|---|---|---|---|---|---|
+| +/-20 m | 0.020 m | 0.30 deg | 1.12 deg | 0.154 | 2.898 | 5.0 |
+| **+/-40 m** | **0.012 m** | 0.32 deg | **1.07 deg** | **0.129** | 2.752 | 4.1 |
+| +/-60 m | 0.014 m | 0.33 deg | 1.18 deg | 0.131 | 2.722 | 4.0 |
+
++/-40 m is the best of the three on scatter, yaw p95 and prediction correction,
+and is now the default. It keeps 0.45 of NVTL margin over the 2.3 gate and
+stays inside the well-mapped area: past 60 m only 18 % of returns have any map
+to match against, and the map's ground is sound to 40 m (see "Map quality").
+
+So the direction of the original finding was real, but its cause was the
+resolution, not the range.
 
 ## Initial pose
 
