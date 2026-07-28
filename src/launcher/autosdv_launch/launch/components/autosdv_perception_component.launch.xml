@@ -26,6 +26,12 @@
        gets upstream behaviour unchanged. -->
   <arg name="input/pointcloud" default="/sensing/lidar/concatenated/pointcloud" description="LiDAR topic feeding perception; set to the bag topic for logging simulation"/>
   <arg name="use_sim_time" default="false"/>
+  <!-- AutoSDV: perception.launch.xml consumes no use_sim_time of its own, so
+       passing the argument down achieved nothing and every perception node ran
+       on wall time while its input carried the bag's sim timestamps. Setting it
+       here applies to every node in this scope, included files and their
+       composable nodes alike. -->
+  <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
   <arg name="vehicle_model" default="sample_vehicle"/>
 
   <!-- Pointcloud container -->

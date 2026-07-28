@@ -167,7 +167,8 @@
     <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_system_component.launch.xml">
       <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
       <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
-    </include>
+          <arg name="use_sim_time" value="$(var use_sim_time)"/>
+</include>
   </group>
 
   <!-- Map -->
@@ -181,7 +182,8 @@
       <arg name="pointcloud_map_file" value="$(var pointcloud_map_file)"/>
       <arg name="occupancy_grid_file" value="$(var occupancy_grid_file)"/>
       <arg name="pose_source" value="$(var pose_source)"/>
-    </include>
+          <arg name="use_sim_time" value="$(var use_sim_time)"/>
+</include>
   </group>
 
   <!-- Sensing -->
@@ -203,7 +205,8 @@
       <arg name="pose_source_package" value="$(var pose_source_package)"/>
       <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
       <arg name="input_pointcloud" value="$(var input_pointcloud)"/>
-    </include>
+          <arg name="use_sim_time" value="$(var use_sim_time)"/>
+</include>
   </group>
 
   <!-- Perception -->
@@ -230,7 +233,8 @@
       <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
       <arg name="use_pointcloud_map" value="$(var resolved_use_pointcloud_map)"/>
       <arg name="input/pointcloud" value="$(var perception_input_pointcloud)"/>
-    </include>
+          <arg name="use_sim_time" value="$(var use_sim_time)"/>
+</include>
   </group>
 
   <!-- Planning -->

@@ -1,5 +1,16 @@
 <?xml version="1.0"?>
 <launch>
+  <!-- AutoSDV: replayed data carries the bag's own (sim) timestamps, so every
+       node must read the clock from /clock. autosdv_autoware.launch.xml
+       forwarded use_sim_time to sensing, planning, control and the API but not
+       to map, localization, perception or system, and the stock components
+       default it to false. Those nodes then ran on wall time while their input
+       was stamped in sim time, and every TF lookup failed with "Lookup would
+       require extrapolation into the past" ; which is what left
+       behavior_path_planner waiting on an occupancy grid forever. -->
+  <arg name="use_sim_time" default="false" description="use /clock instead of wall time"/>
+  <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
+
   <!-- AutoSDV: Use autosdv_launch config instead of autoware_launch -->
   <arg name="loc_config_path" default="$(find-pkg-share autosdv_launch)/config/localization"/>
   <arg name="pose_source" default="ndt" description="select pose_estimator: ndt, yabloc, eagleye"/>

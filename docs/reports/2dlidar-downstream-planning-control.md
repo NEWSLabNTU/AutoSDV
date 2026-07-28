@@ -217,6 +217,54 @@ Routing also refuses a second goal with **"The route is already set"** until
 `/api/routing/clear_route` is called. That message appeared in several earlier
 runs purely because the probe never cleared, on stacks reused across probes.
 
+### 5.5 The clock/data mismatch, and the first end-to-end measurement
+
+The last blocker was neither launch config nor localization. The upstream
+Autoware sample rosbag's **storage timestamps run 328.9 days ahead of its
+message header stamps**:
+
+```
+storage starting_time = 1614315746.3   (2021-02-26)
+first header.stamp    = 1585897255.3   (2020-04-03)
+constant offset       = 28,418,491 s
+```
+
+`ros2 bag play --clock` derives /clock from storage times, so every sim-time
+node ran at 1614..., `ekf_localizer` published `map->base_link` on its 50 Hz
+timer stamped at clock time (measured: `At time 1614315772.6`, correct
+position), while perception looked transforms up at the LiDAR **header** stamp
+of 1585.... Every such lookup landed 329 days before the buffer's earliest
+entry and failed as "extrapolation into the past", so no occupancy grid was
+produced and `behavior_path_planner` waited forever. Localization survived
+because NDT matches on the cloud and the EKF publishes a pose regardless, which
+is exactly why the symptom looked like a planning fault.
+
+`scripts/rosbag/restamp_bag.py` shifts every storage timestamp by one measured
+constant (the offset is uniform to within 0.1 s across all headered topics, and
+5590 of 8262 messages carry no header at all, so a constant shift is both
+sufficient and the only option that covers them). Verified residual: -1 ns.
+
+With the re-stamped bag, `pose_source:=ndt`, sample models, and the swept goal:
+
+| quantity | value |
+|---|---|
+| trajectories | 318 (`/planning/trajectory` 91, `scenario_planning/trajectory` 91, `scenario_selector/trajectory` 136) |
+| trajectory rate | **11.74 Hz** |
+| control commands | 453 |
+| control rate | **16.66 Hz** |
+| lateral offset mean / p95 / max | 14.93 / 57.47 / 59.42 m |
+
+**Planning and control run end to end on a live localization pose.** The rates
+are real. The lateral figures are **not** a tracking-quality result: the metric
+measures ego-to-nearest-point on a polyline that extends ~79 m toward the goal,
+and with no ego simulator the vehicle never follows the commands, so pose and
+plan diverge by construction. That metric needs redefining before any number
+from it is quoted.
+
+Autonomous mode remains unavailable, as expected in this harness:
+`launch_vehicle_interface` is false and no `steering_status` is replayed, so
+the vehicle and control diagnostic branches cannot pass for any pose source.
+
 ## 6. The cuda_ndt attempt, and why it proved nothing
 
 `pose_source:=cuda_ndt` on the same bag and route was meant to separate

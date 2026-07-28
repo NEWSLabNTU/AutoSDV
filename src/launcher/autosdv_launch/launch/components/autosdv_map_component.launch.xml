@@ -49,6 +49,17 @@
   Tracked upstream: https://github.com/NEWSLabNTU/play_launch/issues/7
 -->
 <launch>
+  <!-- AutoSDV: replayed data carries the bag's own (sim) timestamps, so every
+       node must read the clock from /clock. autosdv_autoware.launch.xml
+       forwarded use_sim_time to sensing, planning, control and the API but not
+       to map, localization, perception or system, and the stock components
+       default it to false. Those nodes then ran on wall time while their input
+       was stamped in sim time, and every TF lookup failed with "Lookup would
+       require extrapolation into the past" ; which is what left
+       behavior_path_planner waiting on an occupancy grid forever. -->
+  <arg name="use_sim_time" default="false" description="use /clock instead of wall time"/>
+  <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
+
   <arg name="map_path" description="map directory path"/>
   <arg name="lanelet2_map_file" default="lanelet2_map.osm" description="lanelet2 map file name"/>
   <arg name="pointcloud_map_file" default="pointcloud_map.pcd" description="pointcloud map file name"/>
