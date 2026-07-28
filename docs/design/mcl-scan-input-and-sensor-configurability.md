@@ -1,5 +1,17 @@
 # 2-D MCL: sensor-kit configurability and a unified scan input
 
+> **Partly superseded.** This document places scan production (z-slab
+> flattening, ring extraction) inside `autosdv_mcl_launch`. That boundary is
+> wrong: which ring of a Velodyne yields a useful horizontal plane depends on
+> the vehicle height and the LiDAR's mounting, which is what a sensor kit
+> describes, so the driver and the ring extractor belong to the **user's sensor
+> kit** and MCL should take a unified 2-D scan. See
+> [`mcl-user-setup-ux.md`](mcl-user-setup-ux.md) for the corrected boundary and
+> the setup experience. The analysis below still holds and is what motivated the
+> correction: §1 (where the geometry is hardcoded, with the measured kit
+> heights), §2 (why the filter constrains the scan frame), §3.3 (a ring is a
+> cone, not a plane) and §4 (band derivation options).
+
 Two problems, one shared cause: `autosdv_mcl_launch` hardcodes the geometry of
 one specific sensor on one specific vehicle.
 
