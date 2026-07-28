@@ -294,7 +294,7 @@ Autonomous mode remains unavailable, as expected in this harness:
 `launch_vehicle_interface` is false and no `steering_status` is replayed, so
 the vehicle and control diagnostic branches cannot pass for any pose source.
 
-## 5.7 MCL end to end, and the comparison
+## 5.7 MCL end to end, and the comparison (RETRACTED, see 5.8)
 
 Same configuration, `pose_source:=mcl`:
 
@@ -334,6 +334,54 @@ is unexplained and should be settled before these numbers are compared
 closely** -- the likely candidates are the engaged autonomous mode changing the
 velocity profile in the MCL run, or a different segment of the bag falling
 inside the window.
+
+## 5.8 MCL end to end, verified
+
+The result in §5.7 was retracted: that run reached AUTONOMOUS on a dead-reckoned
+pose, because the probe never checked that the estimator under test was
+observing anything. Re-run with the 3-ring scan source
+(`docs/reports/2dlidar-scan-source-comparison.md`) and a probe that gates on the
+scan itself:
+
+| check | result |
+|---|---|
+| scan carries returns | **170/170 scans, max 970 finite beams** |
+| estimator published | 171 poses on the contract topic |
+| route SET | ok |
+| trajectory | 15.01 Hz |
+| control command | 16.67 Hz |
+| autonomous mode | **engaged** |
+| cross-track, plan current | 0.296 m mean, 1.132 m p95, 1.668 m max (n=394/451) |
+
+**Planning and control run on a genuinely matching 2-D MCL pose.** The scan gate
+is what makes this trustworthy: in the retracted run the same probe reported
+"1462 beams and not one finite range" while every other step went green, because
+`ekf_localizer` dead-reckons from the seed and a particle filter with no
+observations still emits motion-model poses.
+
+Against the NDT control on the same harness:
+
+| | MCL (3-ring) | NDT |
+|---|---|---|
+| trajectory / control | 15.01 / 16.67 Hz | 15.07 / 16.68 Hz |
+| cross-track mean | 0.296 m | 0.417 m |
+| cross-track p95 | 1.132 m | 1.594 m |
+| conditioned samples | 394/451 | 371/450 |
+
+Two caveats travel with those numbers and should not be dropped when quoting
+them. Cross-track is partly **self-referential** -- the trajectory is planned from
+the pose being measured -- so it reports control tracking, not localization
+accuracy; the ground-truth figure is 0.789 m from the five-seed matrix. And MCL
+drove at 1.86 m/s against NDT's 3.84 m/s, so the columns are not like-for-like;
+slower driving tracks tighter, and the speed difference is still unexplained.
+
+### What the probe gates on now
+
+Counting estimator poses proved insufficient, so the probe requires, in order:
+at least 20 scans carrying returns with at least 50 finite beams at peak; at
+least 20 poses on the estimator contract topic; then routing, trajectory,
+control and mode. A failure now names the broken link instead of passing on
+dead reckoning.
 
 ## 6. The cuda_ndt attempt, and why it proved nothing
 
