@@ -1,5 +1,40 @@
 # NDT Parameter Tuning Results
 
+> **Correction (2026-07-28).** The metrics this study optimises -- pose
+> acceptance rate, rejection rate, score stability -- are all derived from the
+> NVTL convergence gate, and NVTL is not a measure of pose quality. It is a mean
+> per-point fit that **scales with `ndt.resolution`** and **rises when imperfect
+> far returns are excluded**. Maximising it therefore selects for coarse voxels
+> and narrow crop boxes whether or not the pose improves, which is how section
+> 3.2 below concluded that ±20 m beats ±60 m.
+>
+> Re-measured on the same COSS map with pose-quality metrics instead --
+> per-frame position scatter, frame-to-frame yaw step, and
+> `initial_to_result_distance` -- the crop conclusion reverses, at both
+> resolutions tested:
+>
+> | crop | res 2.0 scatter | res 4.0 scatter | res 4.0 yaw p95 |
+> |---|---|---|---|
+> | ±20 m | 0.020 m | 0.106 m | 2.03° |
+> | ±40 m | 0.012 m | — | — |
+> | ±60 m | 0.014 m | 0.032 m | 1.12° |
+>
+> and resolution 2.0 beat 4.0 everywhere on accuracy while scoring *lower* NVTL
+> (2.90 vs 4.84). Those runs were on the AutoSDV vehicle, so the numbers do not
+> transfer directly to another platform -- but the reasoning error does. Before
+> trusting any conclusion below, re-derive it on your own bag using metrics NDT
+> does not gate on.
+>
+> Also relevant: the low acceptance rates that motivated this study are the
+> signature of a *stale pose prior*, not of bad parameters. On AutoSDV the true
+> cause was a missing IMU transform that froze the EKF; with it fixed, the same
+> resolution 2.0 scored 2.90 against the 2.3 gate instead of 2.22, and rejections
+> fell from 74 % to 4 frames in 1425.
+>
+> Full investigation: `docs/reports/cuda-ndt-coss-replay.md` (AutoSDV repo).
+> Method and pitfalls: `docs/guides/ndt-tuning.md` (AutoSDV repo).
+
+
 **Date**: 2025-12-28
 **Hardware**: Jetson AGX Orin
 **Sensor**: Velodyne VLP-32C LiDAR (32 beams, 200m range)
