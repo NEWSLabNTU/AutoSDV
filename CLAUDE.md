@@ -626,6 +626,11 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 ## Known Issues
 
 - **Steering reversed**: Left/right inverted in manual control
+- **No steering feedback**: the vehicle has no steering angle sensor, so
+  `/vehicle/status/steering_status` republishes the *command* (see
+  `docs/reports/steering-status-has-no-feedback.md`). MPC consumes it as its
+  controller state, so the lateral loop is closed on its own output. Reads 0
+  in any bag recorded while disengaged.
 - **Network monitor errors**: AWS Greengrass socket errors (non-critical, ignore)
 - **ZED in VNC**: Requires TurboVNC with VirtualGL for hardware acceleration
 - **Isaac ROS GXF libraries**: If `pose_source:=visual` or `pose_source:=isaac` fails with "libgxf_*.so not found", the GXF library paths are not in `LD_LIBRARY_PATH`. Re-source the setup files:
