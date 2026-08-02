@@ -12,6 +12,12 @@
 #   SEED_POSE   true|false, publish the recorded initial pose (default true)
 #   KEEP_UP     true|false, leave the stack running at the end (default true)
 #   RATE        rosbag playback rate (default 1.0)
+#
+# Interrupting the demo (Ctrl-C) always tears everything down, KEEP_UP or not.
+# The children are deliberately setsid'd so the stack can outlive a *successful*
+# run; that also means no signal reaches them by way of the terminal, so this
+# script has to kill them itself. Everything it starts is registered in
+# CLEANUP_PGIDS as it goes.
 set -uo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -33,20 +39,74 @@ BAG_DURATION=157      # the recording is 157 s: parked 115.7 s, then a 41 s driv
 MAP_LOAD_WAIT=25      # the COSS PCD is 4.9 M points
 SEED_DELAY=8          # into playback, so scans and /clock are flowing
 
+say() { printf '\033[1;36m[demo]\033[0m %s\n' "$*"; }
+
+# ---- teardown ------------------------------------------------------------
+STACK_PGID=""          # the launch, kept alive on a clean finish if KEEP_UP
+CLEANUP_PGIDS=()       # helpers, never outlive this script
+COMPLETED=false
+
+register() { [[ -n "${1:-}" ]] && CLEANUP_PGIDS+=("$1"); }
+
+pgid_of() { ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '; }
+
+kill_pgid() {
+    local pgid="$1" sig="${2:-TERM}"
+    [[ -n "$pgid" ]] && kill "-$sig" -- "-$pgid" 2>/dev/null
+    return 0
+}
+
+stop_helpers() {
+    for pgid in "${CLEANUP_PGIDS[@]:-}"; do kill_pgid "$pgid" INT; done
+    sleep 2
+    for pgid in "${CLEANUP_PGIDS[@]:-}"; do kill_pgid "$pgid" KILL; done
+    pkill -f "$DEMO/velocity_scaler.py" 2>/dev/null
+    return 0
+}
+
+stop_stack() {
+    [[ -z "$STACK_PGID" ]] && return 0
+    kill_pgid "$STACK_PGID" TERM
+    sleep 5
+    kill_pgid "$STACK_PGID" KILL
+    # play_launch's own wrapper regularly survives a group signal
+    for pid in $(pgrep -f "play_launch.*logging_simulation" 2>/dev/null); do
+        kill -9 "$pid" 2>/dev/null
+    done
+    pkill -9 -f component_container 2>/dev/null
+    pkill -9 -f rviz2 2>/dev/null
+    return 0
+}
+
+on_interrupt() {
+    trap '' INT TERM      # a second Ctrl-C must not cut the teardown short
+    echo
+    say "interrupted, tearing down"
+    stop_helpers
+    stop_stack
+    say "stopped"
+    exit 130
+}
+
+on_exit() {
+    $COMPLETED && return 0
+    stop_helpers
+    stop_stack
+}
+
+trap on_interrupt INT TERM
+trap on_exit EXIT
+
 mkdir -p "$OUT"
-echo "$OUT" > "$REPO/tmp/demo-runs/LATEST"
 
 set +u
 source /opt/ros/humble/setup.bash
 source "$REPO/install/setup.bash"
 set -u
 
-say() { printf '\033[1;36m[demo]\033[0m %s\n' "$*"; }
-
-# --- a previous stack would fight this one for topics --------------------
+# ---- a previous stack would fight this one for topics --------------------
 for pid in $(pgrep -f "play_launch.*logging_simulation" 2>/dev/null); do
-    pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
-    [[ -n "$pgid" ]] && kill -- "-$pgid" 2>/dev/null
+    kill_pgid "$(pgid_of "$pid")" TERM
 done
 sleep 5
 pkill -9 -f component_container 2>/dev/null
@@ -59,7 +119,7 @@ say "rviz=$RVIZ  scale=${SCALE:-off}  seed_pose=$SEED_POSE  rate=$RATE"
 command -v nvidia-smi >/dev/null && \
     nvidia-smi --query-gpu=memory.total,memory.free --format=csv > "$OUT/gpu_before.txt"
 
-# --- 1. stack ------------------------------------------------------------
+# ---- 1. stack ------------------------------------------------------------
 # use_gnss:=false because this bag's fix is single point with ~20 m of scatter;
 # letting it auto-initialise puts the vehicle somewhere different every run.
 setsid bash -c "play_launch launch --web-addr 0.0.0.0:8081 \
@@ -75,10 +135,10 @@ if [[ -z "$PLAY_PID" ]]; then
     say "play_launch did not start; see $OUT/launch.log"
     exit 1
 fi
-PGID=$(ps -o pgid= -p "$PLAY_PID" | tr -d ' ')
-echo "$PGID" > "$OUT/pgid.txt"
-echo "$PGID" > "$REPO/tmp/demo-runs/PGID"
-say "stack pgid=$PGID  (just demo stop)"
+STACK_PGID=$(pgid_of "$PLAY_PID")
+echo "$STACK_PGID" > "$OUT/pgid.txt"
+echo "$STACK_PGID" > "$REPO/tmp/demo-runs/PGID"
+say "stack pgid=$STACK_PGID  (just demo stop)"
 
 say "waiting for ndt_scan_matcher"
 for _ in $(seq 1 180); do
@@ -93,10 +153,11 @@ fi
 say "nodes up; loading the map (${MAP_LOAD_WAIT}s)"
 sleep "$MAP_LOAD_WAIT"
 
-# --- 2. helpers ----------------------------------------------------------
+# ---- 2. helpers ----------------------------------------------------------
 PLAY_REMAP=()
 if [[ -n "$SCALE" ]]; then
     SCALE="$SCALE" setsid python3 "$DEMO/velocity_scaler.py" > "$OUT/scaler.log" 2>&1 &
+    register "$(pgid_of $!)"
     PLAY_REMAP=(--remap /vehicle/status/velocity_status:=/vehicle/status/velocity_status_raw)
     sleep 2
 fi
@@ -104,30 +165,32 @@ fi
 setsid ros2 bag record -o "$OUT/bag" \
     --regex "(/localization/.*|/initialpose.*|/vehicle/status/.*|/diagnostics|/tf|/tf_static)" \
     > "$OUT/record.log" 2>&1 &
-REC_PID=$!
+REC_PGID=$(pgid_of $!)
+register "$REC_PGID"
 sleep 3
 
 if [[ "$SEED_POSE" == "true" ]]; then
     ( sleep "$SEED_DELAY"; python3 "$DEMO/seed_initialpose.py" > "$OUT/seed.log" 2>&1 ) &
+    register "$(pgid_of $!)"
     say "initial pose will be seeded ${SEED_DELAY}s into playback"
 else
     say "no pose seeding: set it yourself with RViz's 2D Pose Estimate"
 fi
 
-# --- 3. replay -----------------------------------------------------------
+# ---- 3. replay -----------------------------------------------------------
+# Foreground, so Ctrl-C reaches it directly and the traps above do the rest.
 say "replaying ${BAG_DURATION}s: parked ~115s, then a 41s drive"
 ros2 bag play "$BAG" --clock -r "$RATE" "${PLAY_REMAP[@]}" > "$OUT/play.log" 2>&1
 
 sleep 3
-REC_PGID=$(ps -o pgid= -p "$REC_PID" 2>/dev/null | tr -d ' ')
-[[ -n "$REC_PGID" ]] && kill -INT -- "-$REC_PGID" 2>/dev/null
+kill_pgid "$REC_PGID" INT       # let rosbag2 close the file cleanly
 sleep 6
-pkill -f velocity_scaler.py 2>/dev/null
+pkill -f "$DEMO/velocity_scaler.py" 2>/dev/null
 
 command -v nvidia-smi >/dev/null && \
     nvidia-smi --query-gpu=memory.total,memory.free --format=csv > "$OUT/gpu_after.txt"
 
-# --- 4. verdict ----------------------------------------------------------
+# ---- 4. verdict ----------------------------------------------------------
 IMU_ERRS=$(grep -c "Please publish TF" play_log/latest/node/imu_corrector_node/err 2>/dev/null || echo 0)
 say "imu_corrector TF errors: $IMU_ERRS  (must be 0)"
 say "run: $OUT"
@@ -135,9 +198,12 @@ say "run: $OUT"
 python3 "$REPO/scripts/testing/localization/summarize_ndt_run.py" "$OUT" \
     2>/dev/null | tee "$OUT/summary.txt" | grep -vE "^\[INFO|^\[WARN" || true
 
+# Only now, with a recording on disk, is this run worth pointing LATEST at.
+echo "$OUT" > "$REPO/tmp/demo-runs/LATEST"
+COMPLETED=true
 if [[ "$KEEP_UP" == "true" ]]; then
-    say "stack still running (pgid=$PGID) -- inspect in RViz, then: just demo stop"
+    say "stack still running (pgid=$STACK_PGID) -- inspect in RViz, then: just demo stop"
 else
-    kill -- "-$PGID" 2>/dev/null
+    stop_stack
     say "stack stopped"
 fi

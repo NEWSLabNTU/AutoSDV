@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Compare replay runs: position scatter, yaw jitter, prediction error, score.
 
-Usage: compare_runs.py label=<run_bag_dir> [label=<run_bag_dir> ...]
+    compare_ndt_runs.py a=<run_dir> b=<run_dir> ...     # table
+    compare_ndt_runs.py --row a=<run_dir>               # one TSV row
+
+Reading a run means scanning a multi-gigabyte rosbag, so several runs are worth
+extracting concurrently. --row emits a single machine-readable line, which is
+what `just demo compare` fans out over GNU parallel and then formats.
 """
 import math
 import sys
@@ -89,18 +94,47 @@ def stats(label, path):
     }
 
 
+FIELDS = ("label", "pts", "poses", "scatter", "yaw_med", "yaw_p95",
+          "i2r", "i2r95", "nvtl", "iters", "exe", "dist")
+
+
+def format_row(r):
+    return (f"{r['label']:>10} {r['pts']:6d} {r['poses']:6d} {r['scatter']:8.3f} "
+            f"{r['yaw_med']:7.2f}° {r['yaw_p95']:7.2f}° {r['i2r']:9.3f} "
+            f"{r['i2r95']:8.3f} {r['nvtl']:6.3f} {r['iters']:6.1f} "
+            f"{r['exe']:7.1f} {r['dist']:7.1f}")
+
+
+def header():
+    return (f"{'run':>10} {'pts':>6} {'poses':>6} {'scatter':>8} {'yaw med':>8} "
+            f"{'yaw p95':>8} {'i2r mean':>9} {'i2r p95':>8} {'NVTL':>6} "
+            f"{'iters':>6} {'exe ms':>7} {'dist m':>7}")
+
+
 def main():
-    rows = [stats(*a.split("=", 1)) for a in sys.argv[1:]]
-    hdr = (f"{'run':>10} {'pts':>6} {'poses':>6} {'scatter':>8} {'yaw med':>8} "
-           f"{'yaw p95':>8} {'i2r mean':>9} {'i2r p95':>8} {'NVTL':>6} "
-           f"{'iters':>6} {'exe ms':>7} {'dist m':>7}")
-    print(hdr)
-    print("-" * len(hdr))
+    args = sys.argv[1:]
+    if args and args[0] == "--row":
+        # One run, one line: the unit of work for a parallel fan-out.
+        r = stats(*args[1].split("=", 1))
+        print("\t".join(str(r[f]) for f in FIELDS))
+        return
+    if args and args[0] == "--format":
+        # Reassemble rows produced by --row into the usual table.
+        print(header())
+        print("-" * len(header()))
+        for line in sorted(l for l in sys.stdin.read().splitlines() if l.strip()):
+            v = line.split("\t")
+            r = dict(zip(FIELDS, v))
+            for f in FIELDS[1:]:
+                r[f] = float(r[f])
+            r["pts"], r["poses"] = int(r["pts"]), int(r["poses"])
+            print(format_row(r))
+        return
+    rows = [stats(*a.split("=", 1)) for a in args]
+    print(header())
+    print("-" * len(header()))
     for r in rows:
-        print(f"{r['label']:>10} {r['pts']:6d} {r['poses']:6d} {r['scatter']:8.3f} "
-              f"{r['yaw_med']:7.2f}° {r['yaw_p95']:7.2f}° {r['i2r']:9.3f} "
-              f"{r['i2r95']:8.3f} {r['nvtl']:6.3f} {r['iters']:6.1f} "
-              f"{r['exe']:7.1f} {r['dist']:7.1f}")
+        print(format_row(r))
 
 
 if __name__ == "__main__":

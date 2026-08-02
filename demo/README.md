@@ -36,7 +36,17 @@ That single recipe:
 8. prints the metrics and leaves the stack up so the result can be inspected.
 
 Stop it with `just demo stop` — that kills the whole process group, which
-matters: killing the launcher by PID alone orphans the component containers.
+matters: killing the launcher by PID alone orphans the component containers,
+and `play_launch`'s own wrapper regularly survives a group signal, so the recipe
+sweeps for stragglers and fails loudly if any remain.
+
+**Interrupting is safe.** Ctrl-C tears the whole thing down regardless of
+`KEEP_UP`, because the demo installs traps that kill everything it started. The
+stack is deliberately `setsid`-detached so it can outlive a *successful* run,
+which also means no terminal signal reaches it — the script has to do the
+killing itself, and it does. An interrupted run leaves its directory behind
+without a recording, and never claims the `LATEST` pointer that the analysis
+recipes follow.
 
 ### Variants
 
@@ -72,13 +82,30 @@ see `docs/reports/cuda-ndt-coss-replay.md`.
 ### Analysing runs
 
 ```bash
-just demo report                       # the most recent run
+just demo report                       # the most recent complete run
 just demo report tmp/demo-runs/coss-ndt_20260802_120000
 just demo yaw-bias                     # heading minus course, straight segments only
+just demo map-quality                  # does the map cover the scan, and does it agree?
 just demo compare a=<run_dir> b=<run_dir>
 just demo list-runs
 just demo clean                        # runs are ~2 GB each
 ```
+
+`compare` and `map-quality` fan their work out over GNU parallel: every run
+means scanning a multi-gigabyte rosbag, and `map-quality`'s second tool builds a
+KD-tree over ~5 M map points, so the pieces run side by side rather than in
+sequence.
+
+`map-quality` answers two questions that decide whether a crop-box or resolution
+change is even worth trying:
+
+- **`map_coverage`** — how much of the scan has any map to match against, by
+  range, and what each crop size would keep. Cheap, no nearest-neighbour search.
+- **`map_agreement`** — where the map does cover the scan, how well it fits,
+  split by whether the beam hit ground or vegetation (ground cannot move between
+  mapping and recording, foliage can). It then checks whether several observer
+  poses see the same map cell displaced the same way: coherent means the map is
+  warped there, incoherent means vegetation or noise.
 
 ### Two things the demo works around
 

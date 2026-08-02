@@ -119,8 +119,8 @@ report run_dir="":
     #!/usr/bin/env bash
     set -o pipefail   # not -u: ROS setup scripts reference unset vars
     dir="{{ run_dir }}"
-    [[ -z "$dir" ]] && dir=$(cat "{{ runs }}/LATEST" 2>/dev/null)
-    [[ -z "$dir" ]] && { echo "no runs yet; try 'just demo run'" >&2; exit 1; }
+    [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
+    [[ -z "$dir" ]] && exit 1
     echo "run: $dir"
     source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
     python3 "{{ repo }}/scripts/testing/localization/summarize_ndt_run.py" "$dir" 2>/dev/null \
@@ -131,7 +131,8 @@ yaw-bias run_dir="":
     #!/usr/bin/env bash
     set -o pipefail   # not -u: ROS setup scripts reference unset vars
     dir="{{ run_dir }}"
-    [[ -z "$dir" ]] && dir=$(cat "{{ runs }}/LATEST" 2>/dev/null)
+    [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
+    [[ -z "$dir" ]] && exit 1
     source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
     python3 "{{ repo }}/scripts/testing/localization/ndt_yaw_bias.py" "run=$dir/bag" 2>/dev/null \
         | grep -vE "^\[INFO|^\[WARN"
@@ -141,9 +142,28 @@ compare +runs_spec:
     #!/usr/bin/env bash
     set -o pipefail   # not -u: ROS setup scripts reference unset vars
     source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
-    args=(); for s in {{ runs_spec }}; do args+=("${s%%=*}=${s#*=}/bag"); done
-    python3 "{{ repo }}/scripts/testing/localization/compare_ndt_runs.py" "${args[@]}" 2>/dev/null \
-        | grep -vE "^\[INFO|^\[WARN"
+    tool="{{ repo }}/scripts/testing/localization/compare_ndt_runs.py"
+    # Each run means scanning a multi-GB rosbag, and the runs are independent,
+    # so extract them concurrently and format once they are all in.
+    parallel --will-cite --halt now,fail=1 \
+        "python3 '$tool' --row {}=\$(dirname {})/\$(basename {}) 2>/dev/null" \
+        ::: {{ runs_spec }} 2>/dev/null | python3 "$tool" --format
+
+# Map quality: does the map cover the scan, and where it does, does it agree?
+map-quality run_dir="":
+    #!/usr/bin/env bash
+    set -o pipefail
+    dir="{{ run_dir }}"
+    [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
+    [[ -z "$dir" ]] && exit 1
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    mc="{{ repo }}/scripts/testing/localization/mapcheck"
+    echo "map quality for $dir"
+    # The two analyses are independent and both slow (the second builds a
+    # KD-tree over ~5 M map points), so run them side by side.
+    parallel --will-cite --line-buffer --tagstring '{/.}' \
+        "python3 {} --run '$dir' 2>&1 | grep -vE '^\[INFO\]|^\[WARN\]'" \
+        ::: "$mc/map_coverage.py" "$mc/map_agreement.py"
 
 # List recorded demo runs
 list-runs:
