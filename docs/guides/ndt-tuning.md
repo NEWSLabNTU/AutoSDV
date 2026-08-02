@@ -19,6 +19,16 @@ map, the initial pose, and the set of nodes; record every diagnostic topic; then
 change exactly one thing per run.
 
 ```bash
+just demo run                  # stack, seeded pose, replay, metrics
+just demo report               # metrics for the most recent run
+just demo compare a=<dir> b=<dir>
+```
+
+`just demo run` fixes the bag, the map, the initial pose and the node set for
+you, which is most of what makes runs comparable. For a bare diagnostic replay
+without the demo's workarounds:
+
+```bash
 scripts/testing/localization/run-ndt-replay.sh <label>
 python3 scripts/testing/localization/summarize_ndt_run.py <run_dir>
 ```
@@ -151,6 +161,23 @@ is elevated while moving but fine at rest.
 Check `sensor_kit_calibration.yaml` early, and be suspicious of a file full of
 zeros or comments like `# random value`.
 
+### A shared GPU makes every timing meaningless
+
+CUDA NDT measured 67-83 ms per scan through a whole investigation, against the
+~5 ms its package documents. The matcher was fine: another process held 26 GB of
+the 32 GB card. On an idle GPU the same configuration runs at 2.6 ms parked and
+4.1 ms driving.
+
+The tell is that *only* the wall clock moves. Iterations and NVTL were identical
+in both cases, because contention costs time, not convergence -- so a timing
+regression with unchanged iteration counts points outside the algorithm.
+
+Check before believing any number:
+
+```bash
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+```
+
 ### Consumer GNSS is not ground truth
 
 Before trusting `/sensing/gnss/pose`, check `nav_sat_fix.status` and whether
@@ -190,6 +217,7 @@ Before tuning anything:
 - [ ] Every sensor TF resolves from `base_link`
 - [ ] Params read back from the running node, not from the file you edited
 - [ ] GNSS quality established before using it for anything
+- [ ] GPU not shared with another process, if any timing is to be believed
 
 Then, per run, record:
 

@@ -32,7 +32,7 @@ were measured and rejected; see "What did not turn out to be the problem".
 | transform_probability | 0.000 | 10.65 | 0.000 | **correct** |
 | iterations, init | 7.6 | 11.4 | 2.9 | 2.4 |
 | init to result distance, init | 0.294 m | 0.522 m | 0.061 m | **0.070 m** |
-| exe_time mean | 83 ms | 11 ms | 73 ms | **11 ms** |
+| exe_time mean | 83 ms | 11 ms | 73 ms | **11 ms** (2.6 ms on an idle GPU) |
 | worst publish gap | 15.0 s | 9.7 s | 3.3 s | **0.115 s** |
 
 The bag's ublox fix is not usable as ground truth: `status: 0` (single point, no
@@ -266,13 +266,34 @@ direction of travel to **0.07 deg**. Yaw changes track the gyro to ~1 deg
 through a 31.6 deg/s maneuver. Absolute position accuracy remains
 unestablished: this bag has no trustworthy reference for it.
 
+### Speed, re-measured on an idle GPU (2026-08-03)
+
+Every timing above was taken while another process held 26 GB of this machine's
+32 GB card, so the report flagged them as contended and not comparable with the
+199.7 Hz the package documents for an RTX 5090. Repeated once the card was free,
+via `just demo run`:
+
+| | contended | **idle GPU** |
+|---|---|---|
+| exe_time, parked | 6.7 ms | **2.6 ms** |
+| exe_time, driving | 9.8 ms | **4.1 ms** |
+| published poses | 1306 | 1413 |
+| worst publish gap | 0.299 s | 0.202 s |
+| iterations, parked / driving | 1.66 / 3.93 | 1.70 / 3.97 |
+| NVTL, parked / driving | 2.81 / 2.76 | 2.81 / 2.76 |
+
+2.6 ms per scan is in the range the package documents, and the 67-83 ms measured
+during the investigation was GPU contention rather than anything in the matcher.
+Iterations and NVTL are unchanged, as they should be: contention costs wall
+clock, not convergence.
+
+**Check the GPU before reading any timing off this stack.** `nvidia-smi
+--query-compute-apps=pid,used_memory --format=csv` takes a second and would have
+saved a day of suspicion here.
+
 Still open:
 
 - The wheel-speed scale (finding 4) has to be fixed on the vehicle.
-- **Speed.** 11 ms mean per scan after the release fix. Another process held
-  26 GB of this machine's 32 GB GPU throughout the session, so every timing here
-  is contended and should be re-measured on an idle GPU before being compared
-  with the 199.7 Hz the package documents for an RTX 5090.
 - A ground-truth trajectory for COSS, without which "how accurate" cannot be
   answered.
 
