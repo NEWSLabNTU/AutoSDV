@@ -1,0 +1,158 @@
+# Demos: self-contained scenarios that run end to end from a single command.
+#
+# Invoked from the repository root as `just demo <recipe>`, e.g.
+#   just demo run
+#
+# Each demo owns its data preparation, so a new machine needs nothing beyond
+# `just build` and the recipe itself.
+
+repo := module_directory() / ".."
+bag := repo / "data/rosbags/outdoor_20251226_153115"
+map := repo / "data/COSS-map-planning"
+runs := repo / "tmp/demo-runs"
+
+[private]
+default:
+    #!/usr/bin/env bash
+    just --justfile "{{ module_directory() }}/justfile" --list \
+        --list-heading $'Demos, run as: just demo <recipe>\n'
+
+# Check that everything the COSS demo needs is present
+check:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    ok=0
+    check() { if eval "$2"; then printf '  \033[32mok\033[0m   %s\n' "$1"; else printf '  \033[31mMISSING\033[0m %s\n' "$1"; ok=1; fi; }
+    echo "COSS NDT demo prerequisites:"
+    check "rosbag  {{ bag }}"        '[[ -f "{{ bag }}/metadata.yaml" ]]'
+    check "map     {{ map }}"        '[[ -f "{{ map }}/pointcloud_map.pcd" ]]'
+    check "workspace built"          '[[ -x "{{ repo }}/install/cuda_ndt_matcher/lib/cuda_ndt_matcher/cuda_ndt_matcher" ]]'
+    if [[ -x "{{ repo }}/install/cuda_ndt_matcher/lib/cuda_ndt_matcher/cuda_ndt_matcher" ]]; then
+        size=$(stat -c%s "{{ repo }}/install/cuda_ndt_matcher/lib/cuda_ndt_matcher/cuda_ndt_matcher")
+        if (( size > 50000000 )); then
+            printf '  \033[33mwarn\033[0m %s\n' "cuda_ndt_matcher looks like a debug build ($((size/1000000)) MB); run 'just build'"
+        else
+            printf '  \033[32mok\033[0m   %s\n' "cuda_ndt_matcher is a release build ($((size/1000000)) MB)"
+        fi
+    fi
+    check "play_launch"              'command -v play_launch >/dev/null'
+    [[ -n "${DISPLAY:-}" ]] && printf '  \033[32mok\033[0m   DISPLAY=%s (RViz will open)\n' "$DISPLAY" \
+                            || printf '  \033[33mwarn\033[0m no DISPLAY; RViz disabled (headless is fine)\n'
+    exit $ok
+
+# Download the COSS rosbag if it is missing (~2.8 GB)
+fetch-data:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -f "{{ bag }}/metadata.yaml" ]]; then
+        echo "rosbag already present: {{ bag }}"
+    else
+        echo "downloading the COSS rosbag (~2.8 GB)"
+        "{{ repo }}/scripts/rosbag/download-test-rosbag.sh"
+    fi
+    [[ -f "{{ map }}/pointcloud_map.pcd" ]] || { echo "map missing: {{ map }}" >&2; exit 1; }
+
+# Fetch data and build the workspace
+prepare: fetch-data
+    cd "{{ repo }}" && just build
+
+# Run the COSS NDT replay demo end to end (stack + pose seed + replay + summary)
+run label="coss-ndt": fetch-data
+    #!/usr/bin/env bash
+    set -uo pipefail
+    LABEL="{{ label }}" "{{ repo }}/demo/scripts/run-coss-ndt.sh"
+
+# Same, without RViz and without leaving the stack up
+run-headless label="coss-ndt": fetch-data
+    #!/usr/bin/env bash
+    set -uo pipefail
+    LABEL="{{ label }}" RVIZ=false KEEP_UP=false "{{ repo }}/demo/scripts/run-coss-ndt.sh"
+
+# Run with the raw (uncorrected) wheel speed, to see the lurching it causes
+run-raw-speed label="coss-raw-speed": fetch-data
+    #!/usr/bin/env bash
+    set -uo pipefail
+    LABEL="{{ label }}" SCALE="" "{{ repo }}/demo/scripts/run-coss-ndt.sh"
+
+# Run without seeding a pose, so you can set it in RViz yourself
+run-manual-init label="coss-manual": fetch-data
+    #!/usr/bin/env bash
+    set -uo pipefail
+    LABEL="{{ label }}" SEED_POSE=false "{{ repo }}/demo/scripts/run-coss-ndt.sh"
+
+# Stop the stack left running by `run`
+stop:
+    #!/usr/bin/env bash
+    set -o pipefail
+    # Kill the process group, not the PID: killing play_launch alone orphans the
+    # component containers, which keep holding topics and block the next run.
+    # The launcher wrapper itself often survives the group signal, so sweep for
+    # stragglers afterwards rather than trusting one kill.
+    stop_group() {
+        local pgid="$1" sig="$2"
+        [[ -n "$pgid" ]] && kill "-$sig" -- "-$pgid" 2>/dev/null
+    }
+    pgid=$(cat "{{ runs }}/PGID" 2>/dev/null || true)
+    stop_group "$pgid" TERM
+    for pid in $(pgrep -f "play_launch.*logging_simulation" 2>/dev/null); do
+        stop_group "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" TERM
+    done
+    sleep 6
+    for pid in $(pgrep -f "play_launch.*logging_simulation" 2>/dev/null); do
+        stop_group "$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')" KILL
+        kill -9 "$pid" 2>/dev/null
+    done
+    pkill -9 -f component_container 2>/dev/null
+    pkill -9 -f rviz2 2>/dev/null
+    pkill -f velocity_scaler.py 2>/dev/null
+    pkill -f "ros2 bag (play|record)" 2>/dev/null
+    sleep 2
+    if pgrep -f "play_launch.*logging_simulation" >/dev/null; then
+        echo "still alive:" >&2
+        pgrep -af "play_launch.*logging_simulation" >&2
+        exit 1
+    fi
+    echo "stopped"
+
+# Metrics for a run (default: the most recent)
+report run_dir="":
+    #!/usr/bin/env bash
+    set -o pipefail   # not -u: ROS setup scripts reference unset vars
+    dir="{{ run_dir }}"
+    [[ -z "$dir" ]] && dir=$(cat "{{ runs }}/LATEST" 2>/dev/null)
+    [[ -z "$dir" ]] && { echo "no runs yet; try 'just demo run'" >&2; exit 1; }
+    echo "run: $dir"
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    python3 "{{ repo }}/scripts/testing/localization/summarize_ndt_run.py" "$dir" 2>/dev/null \
+        | grep -vE "^\[INFO|^\[WARN"
+
+# Heading-vs-course yaw bias for a run (default: the most recent)
+yaw-bias run_dir="":
+    #!/usr/bin/env bash
+    set -o pipefail   # not -u: ROS setup scripts reference unset vars
+    dir="{{ run_dir }}"
+    [[ -z "$dir" ]] && dir=$(cat "{{ runs }}/LATEST" 2>/dev/null)
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    python3 "{{ repo }}/scripts/testing/localization/ndt_yaw_bias.py" "run=$dir/bag" 2>/dev/null \
+        | grep -vE "^\[INFO|^\[WARN"
+
+# Compare runs side by side: just demo compare a=<dir> b=<dir>
+compare +runs_spec:
+    #!/usr/bin/env bash
+    set -o pipefail   # not -u: ROS setup scripts reference unset vars
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    args=(); for s in {{ runs_spec }}; do args+=("${s%%=*}=${s#*=}/bag"); done
+    python3 "{{ repo }}/scripts/testing/localization/compare_ndt_runs.py" "${args[@]}" 2>/dev/null \
+        | grep -vE "^\[INFO|^\[WARN"
+
+# List recorded demo runs
+list-runs:
+    @ls -1dt "{{ runs }}"/*/ 2>/dev/null || echo "no runs yet"
+
+# Delete recorded demo runs (they are several GB each)
+clean:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    du -sh "{{ runs }}" 2>/dev/null || { echo "nothing to clean"; exit 0; }
+    read -p "delete all demo runs? (yes/no) " a
+    [[ "$a" == "yes" ]] && rm -rf "{{ runs }}" && echo "deleted" || echo "kept"

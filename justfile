@@ -1,6 +1,10 @@
 # AutoSDV Development Commands
 # Use `just --list` to see all available commands
 
+# Demo scenarios live in their own module so the top-level list stays short.
+# `just demo` lists them; `just demo run` runs the COSS NDT replay end to end.
+mod demo
+
 # ============================================================================
 # Core Commands
 # ============================================================================

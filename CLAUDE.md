@@ -70,6 +70,19 @@ just checkout           # Update git submodules
 just --list             # Show all available commands
 ```
 
+### Demos
+
+Scenarios that run end to end from one command, data preparation included.
+They live in a justfile module (`demo/justfile`) so the top-level list stays short.
+
+```bash
+just demo               # list the demos
+just demo check        # are the prerequisites in place?
+just demo run          # COSS NDT replay: fetch data, launch, seed pose, replay, report
+just demo stop         # stop the stack it leaves running for inspection
+just demo report       # metrics for the most recent run
+```
+
 ### Tools
 ```bash
 just tool-rviz          # Launch RViz

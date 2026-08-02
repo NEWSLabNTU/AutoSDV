@@ -80,9 +80,19 @@ def nearest(series, t):
     return best if bd < 0.5 else None
 
 
+def find_bag(run):
+    """Accept a run directory from either harness, or a bag directory itself."""
+    if (run / "metadata.yaml").exists():
+        return run
+    for name in ("diagnostics_bag", "bag"):
+        if (run / name / "metadata.yaml").exists():
+            return run / name
+    raise SystemExit(f"no rosbag found under {run} (looked for diagnostics_bag/, bag/)")
+
+
 def main():
     run = Path(sys.argv[1])
-    d = read(run / "diagnostics_bag")
+    d = read(find_bag(run))
     speed = d[SPEED]
     t_move = phase_split(speed)
     t0 = min((v[0][0] for v in d.values() if v), default=0.0)
@@ -102,15 +112,21 @@ def main():
     ndt = d["/localization/pose_estimator/pose"]
     gnss = d["/sensing/gnss/pose"]
     ekf = d["/localization/kinematic_state"]
-    for label, series in (("ndt", ndt), ("ekf", ekf)):
-        errs = []
-        for row in series:
-            g = nearest(gnss, row[0])
-            if g:
-                errs.append(math.hypot(row[1] - g[1], row[2] - g[2]))
-        print(f"\n{label} vs gnss horizontal [m]: {stats(errs)}")
+    if gnss:
+        # Only meaningful where the fix is RTK; a single-point fix scatters by
+        # tens of metres and is not a reference. See
+        # docs/reports/cuda-ndt-coss-replay.md.
+        for label, series in (("ndt", ndt), ("ekf", ekf)):
+            errs = []
+            for row in series:
+                g = nearest(gnss, row[0])
+                if g:
+                    errs.append(math.hypot(row[1] - g[1], row[2] - g[2]))
+            print(f"\n{label} vs gnss horizontal [m]: {stats(errs)}")
+    else:
+        print("\nno gnss poses in this run (use_gnss:=false), skipping that comparison")
 
-    print(f"\npublished ndt poses: {len(ndt)}   gnss fixes: {len(gnss)}   ekf: {len(ekf)}")
+    print(f"\npublished ndt poses: {len(ndt)}   ekf: {len(ekf)}")
     if ndt:
         print(f"ndt pose sim-time span: {ndt[0][0]:.1f} .. {ndt[-1][0]:.1f}")
         gaps = [(ndt[i + 1][0] - ndt[i][0]) for i in range(len(ndt) - 1)]
