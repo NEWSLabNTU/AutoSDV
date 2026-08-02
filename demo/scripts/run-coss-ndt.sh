@@ -36,7 +36,7 @@ OUT="$REPO/tmp/demo-runs/${LABEL}_$(date +%Y%m%d_%H%M%S)"
 DEMO="$REPO/demo/scripts"
 
 BAG_DURATION=157      # the recording is 157 s: parked 115.7 s, then a 41 s drive
-MAP_LOAD_WAIT=25      # the COSS PCD is 4.9 M points
+MAP_LOAD_WAIT_MAX=240 # ceiling on the wait for the 4.9 M-point PCD
 SEED_DELAY=8          # into playback, so scans and /clock are flowing
 
 say() { printf '\033[1;36m[demo]\033[0m %s\n' "$*"; }
@@ -140,18 +140,24 @@ echo "$STACK_PGID" > "$OUT/pgid.txt"
 echo "$STACK_PGID" > "$REPO/tmp/demo-runs/PGID"
 say "stack pgid=$STACK_PGID  (just demo stop)"
 
-say "waiting for ndt_scan_matcher"
-for _ in $(seq 1 180); do
-    ros2 node list 2>/dev/null | grep -q ndt_scan_matcher && break
+# Readiness comes from the matcher's own log, not from `ros2 node list`: with
+# 120+ nodes the daemon's discovery is slow and partial, and it reported 24 of
+# them while the stack was perfectly healthy. The log line below is emitted once
+# the PCD is voxelised, which is exactly the thing worth waiting for, so this
+# also replaces a fixed sleep with the real condition.
+NDT_LOG="$REPO/play_log/latest/node/ndt_scan_matcher/err"
+say "waiting for NDT to load the map (up to ${MAP_LOAD_WAIT_MAX}s)"
+for _ in $(seq 1 "$MAP_LOAD_WAIT_MAX"); do
+    [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG" && break
     sleep 1
 done
-ros2 node list > "$OUT/nodes.txt" 2>&1
-if ! grep -q ndt_scan_matcher "$OUT/nodes.txt"; then
-    say "ndt_scan_matcher never appeared; see $OUT/launch.log"
+if ! { [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG"; }; then
+    say "NDT never loaded the map; see $NDT_LOG and $OUT/launch.log"
     exit 1
 fi
-say "nodes up; loading the map (${MAP_LOAD_WAIT}s)"
-sleep "$MAP_LOAD_WAIT"
+grep -m1 "Target grid created" "$NDT_LOG" | sed 's/^/[demo] /'
+ros2 node list > "$OUT/nodes.txt" 2>&1 || true   # a snapshot for the record, not a gate
+sleep 3
 
 # ---- 2. helpers ----------------------------------------------------------
 PLAY_REMAP=()
