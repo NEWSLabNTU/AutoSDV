@@ -79,6 +79,52 @@ A nonzero count means the IMU transform is missing again, the EKF has stopped
 propagating, and every other number is meaningless. That was the original bug;
 see `docs/reports/cuda-ndt-coss-replay.md`.
 
+### Benchmarking the matchers
+
+Does the GPU earn its place? Three configurations over the same bag:
+
+```bash
+just demo bench                       # gpu, cpu, autoware -- about 15 minutes
+just demo bench "gpu cpu"             # a subset
+just demo bench "gpu cpu autoware" 3  # three repeats each
+just demo bench-report tmp/demo-runs/bench_<stamp>/runs.tsv
+```
+
+| configuration | what it is |
+|---|---|
+| `gpu` | cuda_ndt_matcher as shipped, the CubeCL/CUDA pipeline |
+| `cpu` | the same Rust algorithm with `NDT_USE_GPU=0`: same parameters, same convergence criteria, no GPU |
+| `autoware` | `autoware_ndt_scan_matcher`, OpenMP across CPU threads |
+
+`gpu` against `cpu` isolates what the GPU contributes, since nothing else
+differs. `cpu` against `autoware` puts that in context against the reference
+implementation.
+
+The report covers three things, because speed alone is misleading:
+
+- **speed** — exe_time per alignment, and what fraction missed the 100 ms scan
+  budget. A matcher that misses it drops scans, which looks fast per scan while
+  localising worse, so the alignment and pose counts are printed alongside.
+- **cost** — CPU and GPU utilisation, from the per-node samples play_launch
+  already takes.
+- **equivalence** — mean iterations and NVTL. If the configurations did not
+  converge the same way, the timing comparison means nothing, and the report
+  says so rather than leaving you to notice.
+
+**Check the GPU is idle first.** The benchmark warns if another process is on
+the card, and it should be believed: a contended run once made this matcher look
+like it took 67-83 ms per scan when it takes 2.6 ms.
+
+```bash
+nvidia-smi --query-compute-apps=pid,process_name,used_memory --format=csv
+```
+
+Logging is off by default — the always-published diagnostics already carry
+exe_time, iterations and scores per scan, so a benchmark costs nothing extra.
+`PROFILE=1 just demo bench` additionally requests the per-iteration JSONL, which
+only produces anything if the matcher was built with
+`just build-cuda-debug-iterations` in the cuda_ndt_matcher submodule.
+
 ### Analysing runs
 
 ```bash

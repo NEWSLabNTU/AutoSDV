@@ -80,6 +80,19 @@ run-manual-init label="coss-manual": fetch-data
     set -uo pipefail
     LABEL="{{ label }}" SEED_POSE=false "{{ repo }}/demo/scripts/run-coss-ndt.sh"
 
+# Benchmark the matchers: cuda_ndt on GPU, the same code on CPU, Autoware's
+bench configs="gpu cpu autoware" repeats="1":
+    #!/usr/bin/env bash
+    set -o pipefail
+    CONFIGS="{{ configs }}" REPEATS="{{ repeats }}" "{{ repo }}/demo/scripts/run-ndt-benchmark.sh"
+
+# Rebuild a benchmark report from runs already recorded
+bench-report runs_tsv:
+    #!/usr/bin/env bash
+    set -o pipefail
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    python3 "{{ repo }}/scripts/testing/localization/ndt_benchmark_report.py" "{{ runs_tsv }}" 2>/dev/null
+
 # Stop the stack left running by `run`
 stop:
     #!/usr/bin/env bash

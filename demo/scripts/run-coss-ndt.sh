@@ -12,6 +12,13 @@
 #   SEED_POSE   true|false, publish the recorded initial pose (default true)
 #   KEEP_UP     true|false, leave the stack running at the end (default true)
 #   RATE        rosbag playback rate (default 1.0)
+#   POSE_SOURCE cuda_ndt (default) or ndt, Autoware's OpenMP CPU matcher
+#   NDT_USE_GPU 1 (default) or 0 to run cuda_ndt's own CPU path; exported to
+#               the stack, so the matcher picks it up
+#   NDT_DEBUG_FILE  where cuda_ndt writes per-iteration JSONL, if it was built
+#               with --features debug-output. Unset means no such logging at
+#               all, which is the default: the always-on topic diagnostics
+#               already carry exe_time, iterations and scores.
 #
 # Interrupting the demo (Ctrl-C) always tears everything down, KEEP_UP or not.
 # The children are deliberately setsid'd so the stack can outlive a *successful*
@@ -29,6 +36,9 @@ SCALE="${SCALE-0.5}"
 SEED_POSE="${SEED_POSE:-true}"
 KEEP_UP="${KEEP_UP:-true}"
 RATE="${RATE:-1.0}"
+POSE_SOURCE="${POSE_SOURCE:-cuda_ndt}"
+export NDT_USE_GPU="${NDT_USE_GPU:-1}"
+[[ -n "${NDT_DEBUG_FILE:-}" ]] && export NDT_DEBUG=1 NDT_DEBUG_FILE
 
 BAG="$REPO/data/rosbags/outdoor_20251226_153115"
 MAP="$REPO/data/COSS-map-planning"
@@ -37,6 +47,7 @@ DEMO="$REPO/demo/scripts"
 
 BAG_DURATION=157      # the recording is 157 s: parked 115.7 s, then a 41 s drive
 MAP_LOAD_WAIT_MAX=240 # ceiling on the wait for the 4.9 M-point PCD
+MAP_SETTLE=25         # fallback settle time for matchers that announce nothing
 SEED_DELAY=8          # into playback, so scans and /clock are flowing
 
 say() { printf '\033[1;36m[demo]\033[0m %s\n' "$*"; }
@@ -115,7 +126,12 @@ pkill -f velocity_scaler.py 2>/dev/null
 sleep 2
 
 say "output   $OUT"
-say "rviz=$RVIZ  scale=${SCALE:-off}  seed_pose=$SEED_POSE  rate=$RATE"
+say "pose_source=$POSE_SOURCE  use_gpu=$NDT_USE_GPU  rviz=$RVIZ  scale=${SCALE:-off}  seed_pose=$SEED_POSE  rate=$RATE"
+cat > "$OUT/config.json" <<JSON
+{"pose_source": "$POSE_SOURCE", "ndt_use_gpu": "$NDT_USE_GPU", "scale": "${SCALE:-}",
+ "seed_pose": "$SEED_POSE", "rate": "$RATE", "rviz": "$RVIZ",
+ "debug_file": "${NDT_DEBUG_FILE:-}"}
+JSON
 command -v nvidia-smi >/dev/null && \
     nvidia-smi --query-gpu=memory.total,memory.free --format=csv > "$OUT/gpu_before.txt"
 
@@ -124,7 +140,7 @@ command -v nvidia-smi >/dev/null && \
 # letting it auto-initialise puts the vehicle somewhere different every run.
 setsid bash -c "play_launch launch --web-addr 0.0.0.0:8081 \
     autosdv_launch logging_simulation.launch.yaml \
-    pose_source:=cuda_ndt \
+    pose_source:=$POSE_SOURCE \
     map_path:=$MAP \
     use_gnss:=false \
     rviz:=$RVIZ" > "$OUT/launch.log" 2>&1 &
@@ -142,20 +158,28 @@ say "stack pgid=$STACK_PGID  (just demo stop)"
 
 # Readiness comes from the matcher's own log, not from `ros2 node list`: with
 # 120+ nodes the daemon's discovery is slow and partial, and it reported 24 of
-# them while the stack was perfectly healthy. The log line below is emitted once
-# the PCD is voxelised, which is exactly the thing worth waiting for, so this
-# also replaces a fixed sleep with the real condition.
+# them while the stack was perfectly healthy.
+#
+# Only cuda_ndt announces when it has voxelised the map. Autoware's matcher
+# fetches the PCD by service once it receives an initial pose and logs nothing
+# at startup, so there is no equivalent condition to wait for and a fixed
+# settle time is the honest fallback.
 NDT_LOG="$REPO/play_log/latest/node/ndt_scan_matcher/err"
-say "waiting for NDT to load the map (up to ${MAP_LOAD_WAIT_MAX}s)"
-for _ in $(seq 1 "$MAP_LOAD_WAIT_MAX"); do
-    [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG" && break
-    sleep 1
-done
-if ! { [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG"; }; then
-    say "NDT never loaded the map; see $NDT_LOG and $OUT/launch.log"
-    exit 1
+if [[ "$POSE_SOURCE" == "cuda_ndt" ]]; then
+    say "waiting for NDT to load the map (up to ${MAP_LOAD_WAIT_MAX}s)"
+    for _ in $(seq 1 "$MAP_LOAD_WAIT_MAX"); do
+        [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG" && break
+        sleep 1
+    done
+    if ! { [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG"; }; then
+        say "NDT never loaded the map; see $NDT_LOG and $OUT/launch.log"
+        exit 1
+    fi
+    grep -m1 "Target grid created" "$NDT_LOG" | sed 's/^/[demo] /'
+else
+    say "pose_source=$POSE_SOURCE: no map-load marker to wait for, settling ${MAP_SETTLE}s"
+    sleep "$MAP_SETTLE"
 fi
-grep -m1 "Target grid created" "$NDT_LOG" | sed 's/^/[demo] /'
 ros2 node list > "$OUT/nodes.txt" 2>&1 || true   # a snapshot for the record, not a gate
 sleep 3
 
@@ -195,6 +219,15 @@ pkill -f "$DEMO/velocity_scaler.py" 2>/dev/null
 
 command -v nvidia-smi >/dev/null && \
     nvidia-smi --query-gpu=memory.total,memory.free --format=csv > "$OUT/gpu_after.txt"
+
+# play_launch samples per-node cpu/rss/gpu into play_log; keep the matcher's
+# alongside the run so a benchmark does not depend on play_log/latest moving on.
+for d in "$REPO"/play_log/latest/node/ndt_scan_matcher "$REPO"/play_log/latest/node/*ndt_scan_matcher*; do
+    [[ -f "$d/metrics.csv" ]] || continue
+    cp "$d/metrics.csv" "$OUT/matcher_metrics.csv"
+    cp "$d/err" "$OUT/matcher.log" 2>/dev/null
+    break
+done
 
 # ---- 4. verdict ----------------------------------------------------------
 IMU_ERRS=$(grep -c "Please publish TF" play_log/latest/node/imu_corrector_node/err 2>/dev/null || echo 0)
