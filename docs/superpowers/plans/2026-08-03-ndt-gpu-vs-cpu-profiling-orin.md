@@ -192,6 +192,44 @@ which would mean part of the speed is bought with slightly less converged poses.
 The scores say the cost is small (the CPU's is marginally better) but it is not
 nothing.
 
+### Why the GPU stops earlier: a different convergence test (investigated, left alone)
+
+The two arms compare different quantities against `trans_epsilon`:
+
+| arm | tests | where |
+|---|---|---|
+| gpu | the **applied** step, after line search | `ndt_graph_kernels.cu:765` |
+| cpu | the **raw Newton step**, before line search | `solver.rs`, before `step_dir` |
+
+Autoware compares the applied step: `multigrid_ndt_omp_impl.hpp` reassigns
+`delta_p_norm` to the `computeStepLengthMT` result at line 346 and tests that at
+line 381. **So the GPU matches the reference and the CPU is the deviation** --
+which is the answer to why the GPU gives up in <=4 iterations where the CPU
+takes up to 19 on the same frame.
+
+Aligning the CPU to the letter of it was tried and measured strictly worse:
+
+| variant | mean ms | iters | score | worst pose diff |
+|---|---|---|---|---|
+| as shipped | **11.00** | 2.44 | 9780.5 | 0.067 m |
+| converge on applied step | 19.23 | 2.65 | 9779.5 | 0.083 m |
+| + line search seeded with the Newton norm (Autoware's `step_init`) | 39.60 | 5.78 | 9779.4 | 0.083 m |
+
+Two to four times slower, no better score, no better agreement with the GPU.
+Both changes were reverted.
+
+The mechanism is worth knowing before anyone tries again: the CPU's check sits
+*before* the line search, so a frame whose Newton step is already tiny returns
+without paying for a More-Thuente search -- several full derivative evaluations
+over 2000 points. Autoware's ordering applies the step first and cannot skip
+that. At ~2.4 iterations per frame, one skipped line search is most of the
+runtime. The CPU arm reaches the same answer more cheaply by a different route.
+
+What it costs: the GPU's earlier stop leaves its score 0.02 % below the CPU's
+(9778.5 against 9780.5) and its pose a median 6 mm away, with 6 frames of 400
+past 5 cm. Small, real, and not obviously worth GPU time to close -- decide that
+on Orin with power and latency in hand, since it is the production path there.
+
 ### Also fixed: the pose vector meant two different rotations (`324df7c`)
 
 The same convention split ran deeper than the scoring path. The boundary
