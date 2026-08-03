@@ -164,24 +164,33 @@ Be aware the gate does not separate a bad prior from hard geometry on this map.
 The frozen-EKF failure of 2026-07-28 scored about 1.43-1.63 true, overlapping
 healthy tracking. It rejects non-converged alignments, nothing more.
 
-### The GPU is 5.78x faster than the CPU arm, on this desktop
+### Desktop answer, both defects fixed, idle GPU
 
-With the scoring fixed and the card idle, 300 frames of identical input:
+400 frames of identical input, three repeats, `cuda_ndt_matcher@324df7c`. The
+card was genuinely idle this time (0 % utilisation, 15 MiB) and the CPU repeats
+came out 11.13 / 11.01 / 11.23 ms, so there is no thermal drift in these.
 
-| arm | mean ms | p50 | p95 | iters | score | NVTL |
-|---|---|---|---|---|---|---|
-| gpu | **2.201** | 2.323 | 3.020 | 1.59 | 9492.9 | 1.922 |
-| cpu | 12.728 | 6.273 | 47.140 | 2.63 | 9495.5 | 1.921 |
+| arm | mean ms | p50 | p90 | p99 | max | iters mean/max | score | NVTL |
+|---|---|---|---|---|---|---|---|---|
+| gpu | **2.197** | 2.37 | 2.48 | 3.05 | 3.65 | 1.62 / 4 | 9778.5 | 2.821 |
+| cpu | 11.009 | 6.33 | 28.13 | 94.87 | 163.91 | 2.44 / 19 | 9780.5 | 2.821 |
 
-Mean |ΔNVTL| is now 0.0026, down from 0.9010. Alignment agreement is unchanged:
-score to 0.03%, worst pose difference 7.6 cm over 300 frames, which still trips
-the harness's 5 cm warning on one frame and is worth a look but is not the
-scoring defect.
+**2.67x at the median, 5.01x at the mean.** Quote both: the mean gap is the
+CPU's tail, not its typical case. Six frames of 400 needed 9-19 CPU iterations
+and took 54-164 ms, while the GPU never exceeded 3.65 ms or 4 iterations.
 
-**This is the desktop answer, not the answer.** Orin has unified memory, a
-different CPU, and clocks that must be pinned; the ratio there is the point of
-the phase. Note also the CPU arm's spread -- p50 6.3 ms against p95 47.1 -- so
-a mean flatters it.
+For real time the flatness matters more than the ratio. The CPU arm blows the
+100 ms scan budget on about 1 % of frames; the GPU's p99 is 3.05 ms, a factor of
+30 inside it.
+
+Equivalence is now what it should be: NVTL identical at 2.821, scores 0.02 %
+apart, poses a median 6.0 mm apart. The harness still warns, because 6 frames
+exceed its 5 cm threshold (worst 6.7 cm) -- and those are the same hard frames
+where the CPU spends 19 iterations and the GPU stops at 4. **Worth a look on
+Orin**: it suggests the GPU's convergence test gives up earlier than the CPU's,
+which would mean part of the speed is bought with slightly less converged poses.
+The scores say the cost is small (the CPU's is marginally better) but it is not
+nothing.
 
 ### Also fixed: the pose vector meant two different rotations (`324df7c`)
 
