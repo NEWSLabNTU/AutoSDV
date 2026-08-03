@@ -16,7 +16,16 @@
       <extra_arg name="use_intra_process_comms" value="$(var use_intra_process)"/>
     </composable_node>
 
-    <composable_node pkg="autoware_pointcloud_preprocessor" plugin="autoware::pointcloud_preprocessor::VoxelGridDownsampleFilterComponent" name="voxel_grid_downsample_filter">
+    <!-- localization_ prefix is load-bearing. This is loaded into the shared
+         /pointcloud_container, and a ROS 2 component container silently
+         refuses a composable node whose base name is already taken, even in a
+         different namespace. Perception's
+         object_recognition/detection/voxel_grid_downsample_filter wins the
+         race, this one is dropped with no error anywhere, and NDT then starves
+         on an empty downsample/pointcloud while the crop box either side of it
+         still runs at 10 Hz. The sibling filters here need no prefix because
+         their names are already unique. -->
+    <composable_node pkg="autoware_pointcloud_preprocessor" plugin="autoware::pointcloud_preprocessor::VoxelGridDownsampleFilterComponent" name="localization_voxel_grid_downsample_filter">
       <param from="$(var ndt_scan_matcher/pointcloud_preprocessor/voxel_grid_downsample_filter_param_path)"/>
       <remap from="input" to="measurement_range/pointcloud"/>
       <remap from="output" to="voxel_grid_downsample/pointcloud"/>
