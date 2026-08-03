@@ -183,14 +183,43 @@ different CPU, and clocks that must be pinned; the ratio there is the point of
 the phase. Note also the CPU arm's spread -- p50 6.3 ms against p95 47.1 -- so
 a mean flatters it.
 
-### Still open in this area
+### Also fixed: the pose vector meant two different rotations (`324df7c`)
 
-The same convention mismatch exists where an initial guess crosses into the
-optimizer as a pose vector (`ndt.rs`, the `AlignmentRequest` construction). It
-has no wrong-looking symptom today, because the GPU pipeline is internally
-consistent and the conversions partly cancel, but it means the pose vector's
-euler convention is ambiguous. Decide which convention it carries and make both
-helpers agree.
+The same convention split ran deeper than the scoring path. The boundary
+converters used nalgebra's euler order while every consumer of a pose vector --
+`pose_to_transform_matrix`, the GPU angular derivatives, and
+`derivatives/cpu.rs` -- assumes Autoware's XYZ. NDT therefore misread its own
+initial guess, optimised in one parameterisation, and had the answer converted
+back by the same wrong inverse. The error was common to both arms, so they
+agreed with each other while both drifted from the caller's isometry, and the
+offline harness could not see it.
+
+Converters moved to XYZ, being the minority. Over 1422 frames of the COSS bag:
+
+| | before | after |
+|---|---|---|
+| initial-to-result | 0.070 m | **0.025 m** |
+| iterations | 3.25 | **2.14** |
+| exe_time | 3.19 ms | **2.72 ms** |
+| NVTL | 2.00 | **2.80** |
+
+Heading against course over ground is unchanged at +0.31 deg, so the `vlp32c`
+mounting yaw calibrated on 2026-08-02 was not absorbing this and stands.
+
+**The gate is now 2.0**, from a healthy run's distribution (mean 2.80, min 2.29).
+It passed through 1.6 and 1.4 while these two defects were in flight; anything
+quoting those is stale. Verified: 1415 poses, no rejections, worst gap 0.115 s.
+
+### What this means for the phase
+
+The two defects are the reason the desktop numbers moved so much, and both were
+found by comparing arms rather than by reading code. Take the Orin measurement
+on `cuda_ndt_matcher` at `324df7c` or later; anything earlier is measuring a
+matcher that mis-scores and mis-orients.
+
+Nothing in that area is known-open now. If a future comparison shows the arms
+disagreeing, the tests in `optimization/types.rs` and `derivatives/gpu.rs` are
+the first things to run: they pin the conventions in both directions.
 
 ## Orin specifics
 
