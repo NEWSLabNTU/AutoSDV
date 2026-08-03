@@ -102,6 +102,65 @@ The in-stack matrix stays useful for a different question -- can this arm hold
 matters as much as the per-alignment time. Keep both, and do not quote the
 in-stack numbers as a speed ratio.
 
+## The offline harness exists, and it found the real defect
+
+```bash
+just demo bench-offline            # export frames from the latest run, then compare
+just demo bench-nvtl-probe         # NVTL from each arm at identical poses
+```
+
+`scripts/testing/localization/export_ndt_frames.py` writes the (scan, initial
+guess) pairs the stack actually used, plus the map, into a flat dump;
+`ndt_cuda/examples/offline_bench.rs` replays that identical sequence through
+each arm outside ROS. Warmup frames are discarded so lazy GPU setup does not
+land on whichever arm runs first, and `--repeats` keeps the fastest run.
+
+First result, 300 frames of the COSS bag, **desktop GPU still contended**:
+
+| arm | mean ms | p50 | p95 | iters | score | NVTL |
+|---|---|---|---|---|---|---|
+| gpu | 15.530 | 17.463 | 20.385 | 1.59 | 9492.9 | 2.822 |
+| cpu | 12.763 | 6.326 | 46.545 | 2.63 | 9495.5 | 1.921 |
+
+**Alignment agrees**: mean score 9492.9 against 9495.5, worst pose difference
+7.6 cm over 300 frames. **NVTL does not**, and `NVTL_PROBE` shows it at
+identical poses, so it is the scoring rather than the alignment that preceded
+it:
+
+```
+ frame   gpu nvtl   cpu nvtl   cpu/gpu
+     0     2.7873     1.9199    0.6888
+     3     2.8225     1.9360    0.6859
+     5     2.8071     1.8977    0.6760
+```
+
+**That is what empties the stack in CPU mode.** 1.92 sits under the 2.3
+convergence gate, so every frame is rejected and nothing is published -- which
+the earlier in-stack matrix showed as 1128 rejections out of ~1128 alignments.
+Scan drops make it worse but are not the cause.
+
+### Where the NVTL defect is not
+
+Checked and identical between the arms: the per-point formula
+(`-d1 * exp(-d2/2 * x'Σ⁻¹x)`), the search radius (the 2.0 m resolution), and the
+Gaussian parameters. The synthetic parity test in `ndt_cuda` passes exactly, so
+it only appears on the real map.
+
+The direction is the clue: **both arms take the max over neighbours, and the
+GPU's neighbour set is a strict subset of the CPU's** (`MAX_NEIGHBORS = 8`
+against an unbounded radius search). A maximum over fewer candidates cannot
+legitimately be larger. So the GPU is scoring against different voxel data, and
+the suspect is `GpuVoxelData::from_voxel_grid` -- the conversion from the shared
+`VoxelGrid` into the GPU's buffers -- rather than the kernel. Note the
+submodule's CLAUDE.md records two historic covariance defects in exactly this
+area, one CPU-side and one GPU-side.
+
+**Task 1 is now this**: find which arm is right, fix the other, and add a parity
+test that uses a sparse irregular grid rather than the dense synthetic corner,
+since the dense one cannot see it. Whichever way it resolves, the 2.3 threshold
+in `cuda_scan_matcher.param.yaml` was calibrated against the GPU value and may
+need revisiting.
+
 ## Orin specifics
 
 - **Thermals and clocks decide the answer.** Fix them before measuring and record

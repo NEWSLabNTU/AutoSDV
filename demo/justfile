@@ -93,6 +93,30 @@ bench-report runs_tsv:
     source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
     python3 "{{ repo }}/scripts/testing/localization/ndt_benchmark_report.py" "{{ runs_tsv }}" 2>/dev/null
 
+# Offline GPU-vs-CPU comparison on identical recorded input (the fair one)
+bench-offline run_dir="" frames="300":
+    #!/usr/bin/env bash
+    set -o pipefail
+    dir="{{ run_dir }}"
+    [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
+    [[ -z "$dir" ]] && exit 1
+    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    dump="{{ repo }}/tmp/ndt-frames.bin"
+    python3 "{{ repo }}/scripts/testing/localization/export_ndt_frames.py" \
+        --run "$dir" --out "$dump" --max-frames {{ frames }}
+    cd "{{ repo }}/src/localization/cuda_ndt_matcher"
+    source scripts/activate_autoware.sh >/dev/null 2>&1
+    cargo run --release -q -p ndt_cuda --example offline_bench -- "$dump" --arms gpu,cpu
+
+# NVTL scoring parity between the arms, at identical poses
+bench-nvtl-probe frames="6":
+    #!/usr/bin/env bash
+    set -o pipefail
+    cd "{{ repo }}/src/localization/cuda_ndt_matcher"
+    source scripts/activate_autoware.sh >/dev/null 2>&1
+    NVTL_PROBE={{ frames }} cargo run --release -q -p ndt_cuda --example offline_bench \
+        -- "{{ repo }}/tmp/ndt-frames.bin"
+
 # Stop the stack left running by `run`
 stop:
     #!/usr/bin/env bash
