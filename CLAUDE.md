@@ -627,6 +627,7 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 |-------|-------------|
 | [docs/guides/sensor_configuration.md](docs/guides/sensor_configuration.md) | Sensor suites, NTRIP/RTK, localization |
 | [docs/guides/ndt-tuning.md](docs/guides/ndt-tuning.md) | NDT localization tuning: process, pitfalls, checklist |
+| [docs/reports/localization-open-questions.md](docs/reports/localization-open-questions.md) | Known-but-unfixed localization items, with how to settle each |
 | [docs/guides/vehicle_calibration.md](docs/guides/vehicle_calibration.md) | PWM control, PID tuning, testing tools |
 | [docs/guides/zed_camera.md](docs/guides/zed_camera.md) | ZED setup, troubleshooting |
 | [docs/guides/lidar_integration.md](docs/guides/lidar_integration.md) | Robin-W, Velodyne, TensorRT |
