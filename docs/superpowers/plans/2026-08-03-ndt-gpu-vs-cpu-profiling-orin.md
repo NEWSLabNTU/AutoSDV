@@ -221,6 +221,38 @@ rather than the offline harness): 1415 poses published, no score rejections,
 worst publish gap 0.115 s, per-frame correction 0.025 m, 2.7 ms per scan,
 heading within 0.31 deg of the direction of travel.
 
+### In-stack three-way, clean conditions (the deployment comparison)
+
+Same build, idle card, full ROS pipeline rather than the offline harness. This
+is the comparison that decides what to run on the vehicle, because it includes
+the cost of keeping up rather than the cost of one alignment.
+
+| config | aligns | mean ms | p95 | max | >budget | cpu % | gpu % | rss MB | iters | NVTL | poses |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| gpu | 1415 | **2.71** | 4.28 | 8.0 | 0.0 % | **17.1** | 11.4 | 863 | 2.14 | 2.802 | **1415** |
+| cpu | 1136 | 16.65 | 44.86 | 413.6 | 1.4 % | 55.9 | 4.4 | 747 | 3.17 | 2.802 | 1134 |
+| autoware | 1390 | 4.14 | 6.90 | 25.8 | 0.0 % | 43.1 | n/a | **290** | 4.43 | 4.592 | 1369 |
+
+**GPU against Autoware's OpenMP matcher: 1.53x on time, and 2.5x less CPU**
+(17.1 % against 43.1 %). Both hold 10 Hz comfortably on this desktop; the CPU
+arm does not, dropping to 1136 alignments and 1.4 % of frames over budget with
+a 413 ms worst case.
+
+The CPU-time difference is the one to carry to Orin. Freeing 26 points of a CPU
+core matters more on a Jetson than 1.4 ms of latency, and it is the claim the
+submodule's older figures made (57 % less NDT CPU) -- broadly reproduced here at
+60 %, though those figures predate every fix in this phase and should be
+re-taken rather than cited.
+
+Two caveats on that table:
+
+- **Autoware's NVTL of 4.592 is not comparable** to the other two. It runs at
+  `resolution: 4.0` from its own config; NVTL scales with voxel size. Its
+  iteration count is likewise its own tuning, not a like-for-like.
+- **RSS: 863 MB for the GPU arm against 290 MB for Autoware.** Three times the
+  memory, on a platform where the GPU and CPU share it. Worth watching on Orin
+  alongside perception's own footprint.
+
 ### Why the GPU stops earlier: a different convergence test (investigated, left alone)
 
 The two arms compare different quantities against `trans_epsilon`:

@@ -14,6 +14,21 @@ The bag is parked for its first 115.7 s and drives for the last 41.3 s at up to
 Companion guide, generalising the method and the traps:
 `docs/guides/ndt-tuning.md`.
 
+> **NVTL figures here are pre-fix and read about 1.45x high.** The GPU scoring
+> path converted the pose through a euler round trip whose halves disagreed on
+> rotation order, so it evaluated a different rotation; that was found and fixed
+> on 2026-08-03 (`cuda_ndt_matcher@13a4e36`), and a second convention defect in
+> the pose vector itself on 2026-08-04 (`324df7c`) lifted honest scores further.
+> A run that reported 2.79 here scores 2.80 today for a different reason: the
+> old number was inflated, the new one reflects a genuinely better pose.
+>
+> The *comparisons* below stand -- every figure carries the same bias, so
+> resolution-versus-resolution and crop-versus-crop still rank correctly. The
+> absolute values do not, and neither does any threshold derived from them: the
+> convergence gate is now 2.0, having passed through 2.3, 1.6 and 1.4 while the
+> defects were in flight. See
+> `docs/superpowers/plans/2026-08-03-ndt-gpu-vs-cpu-profiling-orin.md`.
+
 **Headline: one defect explains the localization failure** -- nothing published
 the IMU transform in logging simulation, so the EKF never propagated and NDT was
 handed a stale prior on every frame. Four further defects were found alongside

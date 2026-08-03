@@ -105,7 +105,8 @@ inverts the answer:
 
 - It scales with `ndt.resolution`. Coarser voxels raise NVTL while *lowering*
   accuracy -- on COSS, resolution 4.0 scored 4.84 against 2.0's 2.90 and had 5x
-  the position scatter.
+  the position scatter. (Both figures predate the 2026-08-03/04 scoring fixes
+  and read about 1.45x high; the ranking between them is unaffected.)
 - Honest but imperfect far returns lower the mean while improving the pose.
   Widening the crop dropped NVTL 4.84 -> 4.65 and halved yaw error.
 
@@ -160,6 +161,20 @@ is elevated while moving but fine at rest.
 
 Check `sensor_kit_calibration.yaml` early, and be suspicious of a file full of
 zeros or comments like `# random value`.
+
+### An absolute score is only comparable within one build
+
+NVTL is not a physical quantity: it depends on the resolution, on the point
+count, and on the scoring code being right. Two defects in this repository's
+matcher inflated it by about 1.45x until 2026-08-04, so every score recorded
+before then -- including the ones in this guide and in
+`docs/reports/cuda-ndt-coss-replay.md` -- is on a different scale from today's.
+
+Practical rule: **re-derive a threshold from the distribution of the build you
+are running**, never carry one across a version, a map, a resolution or a
+downsample count. A gate inherited across any of those is a gate calibrated
+against something else, which is how the COSS stack ended up rejecting every
+frame in one configuration and nothing in another.
 
 ### A shared GPU makes every timing meaningless
 
