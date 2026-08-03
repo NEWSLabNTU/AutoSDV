@@ -16,6 +16,23 @@ scrutiny.
 `NEWSLabNTU/autoware_core` on branch `cuda_ndt` (the patched Autoware NDT, a
 submodule at `src/localization/cuda_ndt_matcher/tests/comparison/autoware_core`).
 
+## Where this stands (2026-08-04)
+
+Everything the desktop can answer is answered. Two real defects were found and
+fixed on the way, so **measure at `cuda_ndt_matcher@324df7c` or later** -- earlier
+commits time a matcher that mis-scores and mis-orients.
+
+| | |
+|---|---|
+| GPU vs CPU, identical input, idle card | **2.67x median, 5.09x mean** (2.16 ms against 11.00 ms) |
+| arms equivalent? | yes: NVTL 2.821 both, scores 0.02 % apart, poses median 6 mm |
+| in-stack health | 1415 poses, no rejections, worst gap 0.115 s, 2.7 ms/scan |
+| fixed on the way | GPU NVTL scored at the wrong rotation (`13a4e36`); pose vector meant two conventions (`324df7c`) |
+| investigated, deliberately unchanged | the arms' differing convergence tests -- see below |
+
+What remains is the Orin measurement itself, where unified memory, a weaker CPU
+and pinned clocks all move the answer.
+
 ## Read first
 
 - `docs/guides/ndt-tuning.md` — the pitfalls. Non-optional: three of them were
@@ -52,38 +69,30 @@ iterations and scores per scan, so a benchmark costs nothing extra. `PROFILE=1`
 additionally requests per-iteration JSONL, which needs a matcher built with
 `just build-cuda-debug-iterations` inside the cuda_ndt_matcher submodule.
 
-## Corrected: the CPU arm is not a different algorithm, it is starved
+## How the answer was reached, in order
 
-The first draft of this doc called `NDT_USE_GPU=0` "not the same algorithm",
-because the first full matrix looked like this (desktop, **GPU contended by an
-unrelated process at 85 %**):
+Kept because each step corrected the previous one, and the corrections are the
+useful part.
 
-| config | aligns | mean ms | p95 | >budget | cpu % | iters | NVTL | poses |
-|---|---|---|---|---|---|---|---|---|
-| gpu | 1252 | 13.07 | 23.23 | 0.0 % | 49.8 | 2.40 | 2.792 | 1246 |
-| cpu | 1128 | 69.78 | 173.88 | 22.6 % | 93.1 | 13.03 | 1.979 | **0** |
-| autoware | 1381 | 4.62 | 7.89 | 0.0 % | 48.7 | 4.31 | 4.594 | 1376 |
+**First matrix, in-stack, contended GPU.** `NDT_USE_GPU=0` published nothing:
+1128 rejections out of ~1128 alignments, 13.03 iterations against the GPU's
+2.40, NVTL 1.979 against 2.792. Read at the time as "not the same algorithm".
 
-That reading was wrong. Given the same input the arms agree exactly
-(`cuda_ndt_matcher@717e9e1`, three new tests in `ndt_cuda`):
+**Wrong.** Parity tests on identical input showed the arms agree exactly -- 6
+iterations each, the same score, poses 1.3 mm apart. The old parity test could
+not have seen otherwise: 100 Gaussian points in a single voxel, a scene that
+constrains no pose, with a score-ratio tolerance of 0.5-2.0.
 
-- **alignment**: same scene, known transform, from identity -- 6 iterations
-  each, score 5582.38 each, final poses 1.3 mm apart;
-- **NVTL**: same grid, same points, same pose -- identical to four decimals.
+**Second reading: starvation.** The CPU arm is slower, blew the 100 ms budget
+22.6 % of the time and dropped 29 % of scans, and a stale prior scores worse,
+fails the gate and publishes nothing -- the same self-reinforcing loop as the
+missing IMU transform. True, and still not the main cause.
 
-The older parity test could not have caught a difference: it aligned 100
-Gaussian points that all fall in a single voxel, a scene that constrains no
-pose, with a score-ratio tolerance of 0.5-2.0 and half a metre of position
-slack.
-
-**What actually happens in the replay** is the collapse this project has now
-seen twice. The CPU arm is roughly 5x slower, so it blows the 100 ms scan budget
-22.6 % of the time and drops 29 % of scans (1542 in, 1100 aligned, against the
-GPU's 1567 in, 1250 aligned). A dropped scan means a staler prior; a stale prior
-scores worse; a worse score fails the 2.3 gate -- 1128 rejections out of ~1128
-alignments -- so nothing is published; the EKF then dead-reckons into a worse
-prior still. Same self-reinforcing loop as the missing IMU transform, triggered
-by throughput instead of by a missing input.
+**The actual cause**, found by the offline harness: the GPU scored NVTL at a
+rotation mangled by a euler round trip and read ~1.45x high, so the 2.3 gate was
+calibrated against an inflated number and the correctly-scoring CPU arm fell
+under it. Fixed in `13a4e36`, with a second convention defect in the pose vector
+itself fixed in `324df7c`.
 
 ### Consequence for the method
 
@@ -91,9 +100,9 @@ by throughput instead of by a missing input.
 and measures a collapse rather than a speed ratio, and the collapse is
 non-linear: an arm 2x too slow does not score 2x worse, it stops publishing.
 
-Task 1 is therefore not "fix the CPU path" but **build an offline comparison**:
-record the (scan, initial guess) pairs from one good run, then feed the identical
-sequence to each arm outside the ROS loop and time the alignments. Same inputs by
+That is why the offline comparison exists (it does now, see below): record the
+(scan, initial guess) pairs from one good run, then feed the identical sequence
+to each arm outside the ROS loop and time the alignments. Same inputs by
 construction, no starvation, no feedback. `ndt_cuda` is a library, so this can be
 a Rust bench or a small binary in the submodule rather than anything ROS-shaped.
 
@@ -155,42 +164,62 @@ from the isometry; two tests pin it, one that the direct conversion is exact at
 any orientation and one that the detour is *not*.
 
 **The gate moved with it.** 2.3 was calibrated against the inflated value and
-would now reject every frame. It is 1.4, chosen from a healthy run's
-distribution (tracking p50 1.85, p5 1.48, p1 1.34), rejecting 0.7% of frames
-against the 0.4% the old pair rejected. Verified in the stack: 1423 poses,
-no rejections, worst gap 0.200 s.
+would have rejected every frame once the score was correct, so it went to 1.4 --
+and then to **2.0** after the second defect below lifted honest scores from 2.00
+to 2.80. 2.0 is the current value; 2.3, 1.6 and 1.4 all belong to intermediate
+states and should not be quoted.
 
 Be aware the gate does not separate a bad prior from hard geometry on this map.
 The frozen-EKF failure of 2026-07-28 scored about 1.43-1.63 true, overlapping
 healthy tracking. It rejects non-converged alignments, nothing more.
 
-### Desktop answer, both defects fixed, idle GPU
+### Desktop baseline: what Orin gets compared against
 
-400 frames of identical input, three repeats, `cuda_ndt_matcher@324df7c`. The
-card was genuinely idle this time (0 % utilisation, 15 MiB) and the CPU repeats
-came out 11.13 / 11.01 / 11.23 ms, so there is no thermal drift in these.
+Final figures, `cuda_ndt_matcher@324df7c`, idle card (0 % utilisation, 15 MiB),
+400 frames of identical recorded input, repeats taken. Two independent runs
+either side of the convergence experiment agreed to within 2 %
+(2.164/11.003 ms and 2.197/11.009 ms), so these are stable, not a lucky sample.
 
-| arm | mean ms | p50 | p90 | p99 | max | iters mean/max | score | NVTL |
-|---|---|---|---|---|---|---|---|---|
-| gpu | **2.197** | 2.37 | 2.48 | 3.05 | 3.65 | 1.62 / 4 | 9778.5 | 2.821 |
-| cpu | 11.009 | 6.33 | 28.13 | 94.87 | 163.91 | 2.44 / 19 | 9780.5 | 2.821 |
+**Configuration under test** — reproduce it before comparing anything:
 
-**2.67x at the median, 5.01x at the mean.** Quote both: the mean gap is the
-CPU's tail, not its typical case. Six frames of 400 needed 9-19 CPU iterations
-and took 54-164 ms, while the GPU never exceeded 3.65 ms or 4 iterations.
+| | |
+|---|---|
+| `ndt.resolution` | 2.0 |
+| `converged_param_nearest_voxel_transformation_likelihood` | 2.0 |
+| measurement-range crop | +/-40 m |
+| points into NDT | 2000 (random downsample) |
+| map | COSS, 4.9 M points, 9219 voxels |
+
+**Alignment cost, identical (scan, initial guess) pairs:**
+
+| arm | mean ms | p50 | p90 | p95 | p99 | max | iters mean/max |
+|---|---|---|---|---|---|---|---|
+| gpu | **2.16** | 2.35 | 2.48 | 2.93 | 3.05 | 3.72 | 1.62 / 4 |
+| cpu | 11.00 | 6.26 | 28.13 | 31.18 | 94.87 | 162.88 | 2.44 / 19 |
+
+**2.67x at the median, 5.09x at the mean.** Quote both. The mean gap is the
+CPU's tail: six frames of 400 needed 9-19 iterations and 54-164 ms, while the
+GPU never exceeded 3.72 ms or 4 iterations.
 
 For real time the flatness matters more than the ratio. The CPU arm blows the
 100 ms scan budget on about 1 % of frames; the GPU's p99 is 3.05 ms, a factor of
-30 inside it.
+30 inside it. That tail is exactly what made the in-stack CPU run collapse
+earlier in this phase, so treat p99 as the number that decides deployability and
+the mean as the number that decides efficiency.
 
-Equivalence is now what it should be: NVTL identical at 2.821, scores 0.02 %
-apart, poses a median 6.0 mm apart. The harness still warns, because 6 frames
-exceed its 5 cm threshold (worst 6.7 cm) -- and those are the same hard frames
-where the CPU spends 19 iterations and the GPU stops at 4. **Worth a look on
-Orin**: it suggests the GPU's convergence test gives up earlier than the CPU's,
-which would mean part of the speed is bought with slightly less converged poses.
-The scores say the cost is small (the CPU's is marginally better) but it is not
-nothing.
+**Equivalence**, which makes the timings comparable at all:
+
+| | |
+|---|---|
+| NVTL | 2.821 both arms, mean abs diff 0.0016 |
+| score | 9778.5 gpu against 9780.5 cpu, 0.02 % |
+| pose | median 6.0 mm apart, p95 35.8 mm, worst 66.8 mm |
+| frames past the harness's 5 cm warning | 6 of 400 |
+
+**In-stack, for the same build** (`just demo run-headless`, full ROS pipeline
+rather than the offline harness): 1415 poses published, no score rejections,
+worst publish gap 0.115 s, per-frame correction 0.025 m, 2.7 ms per scan,
+heading within 0.31 deg of the direction of travel.
 
 ### Why the GPU stops earlier: a different convergence test (investigated, left alone)
 
@@ -308,7 +337,7 @@ binary looks like a debug build.
 
 1. Take the GPU-vs-CPU ratio from the offline harness (`just demo bench-offline`).
    The in-stack matrix answers "does it hold 10 Hz, at what cost", not "how much
-   faster". The desktop ratio is 5.78x; Orin is the question.
+   faster". Desktop is 2.67x median / 5.09x mean; Orin is the question.
 2. Fix clocks and power mode; record them in the report.
 3. `just demo bench "gpu cpu autoware" 3`. Confirm no other process is on the GPU
    first — `nvidia-smi --query-compute-apps=...`, or `tegrastats` on Orin.
