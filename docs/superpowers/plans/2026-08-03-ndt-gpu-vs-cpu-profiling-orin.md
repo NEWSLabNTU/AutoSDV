@@ -139,27 +139,58 @@ convergence gate, so every frame is rejected and nothing is published -- which
 the earlier in-stack matrix showed as 1128 rejections out of ~1128 alignments.
 Scan drops make it worse but are not the cause.
 
-### Where the NVTL defect is not
+### Resolved: the GPU scored at the wrong rotation (`cuda_ndt_matcher@13a4e36`)
 
-Checked and identical between the arms: the per-point formula
-(`-d1 * exp(-d2/2 * x'Σ⁻¹x)`), the search radius (the 2.0 m resolution), and the
-Gaussian parameters. The synthetic parity test in `ndt_cuda` passes exactly, so
-it only appears on the real map.
+`evaluate_nvtl_gpu` converted its `Isometry3` to a pose vector and back to a
+matrix. That is not a round trip: the pose-vector helpers use nalgebra's euler
+convention (R = Rz·Ry·Rx), `pose_to_transform_matrix` composes Autoware's
+(R = Rx·Ry·Rz), and the two agree only when at most one angle is non-zero. The
+COSS bag drives at yaw ~175 deg with a couple of degrees of roll and pitch, so
+the GPU scored a different rotation than the CPU did for the same argument --
+NVTL 2.79 against a true 1.92, about 1.45x.
 
-The direction is the clue: **both arms take the max over neighbours, and the
-GPU's neighbour set is a strict subset of the CPU's** (`MAX_NEIGHBORS = 8`
-against an unbounded radius search). A maximum over fewer candidates cannot
-legitimately be larger. So the GPU is scoring against different voxel data, and
-the suspect is `GpuVoxelData::from_voxel_grid` -- the conversion from the shared
-`VoxelGrid` into the GPU's buffers -- rather than the kernel. Note the
-submodule's CLAUDE.md records two historic covariance defects in exactly this
-area, one CPU-side and one GPU-side.
+Zeroing roll and pitch made the arms agree to four decimals, which is what
+identified the conversion rather than the kernel. Fixed by converting straight
+from the isometry; two tests pin it, one that the direct conversion is exact at
+any orientation and one that the detour is *not*.
 
-**Task 1 is now this**: find which arm is right, fix the other, and add a parity
-test that uses a sparse irregular grid rather than the dense synthetic corner,
-since the dense one cannot see it. Whichever way it resolves, the 2.3 threshold
-in `cuda_scan_matcher.param.yaml` was calibrated against the GPU value and may
-need revisiting.
+**The gate moved with it.** 2.3 was calibrated against the inflated value and
+would now reject every frame. It is 1.4, chosen from a healthy run's
+distribution (tracking p50 1.85, p5 1.48, p1 1.34), rejecting 0.7% of frames
+against the 0.4% the old pair rejected. Verified in the stack: 1423 poses,
+no rejections, worst gap 0.200 s.
+
+Be aware the gate does not separate a bad prior from hard geometry on this map.
+The frozen-EKF failure of 2026-07-28 scored about 1.43-1.63 true, overlapping
+healthy tracking. It rejects non-converged alignments, nothing more.
+
+### The GPU is 5.78x faster than the CPU arm, on this desktop
+
+With the scoring fixed and the card idle, 300 frames of identical input:
+
+| arm | mean ms | p50 | p95 | iters | score | NVTL |
+|---|---|---|---|---|---|---|
+| gpu | **2.201** | 2.323 | 3.020 | 1.59 | 9492.9 | 1.922 |
+| cpu | 12.728 | 6.273 | 47.140 | 2.63 | 9495.5 | 1.921 |
+
+Mean |ΔNVTL| is now 0.0026, down from 0.9010. Alignment agreement is unchanged:
+score to 0.03%, worst pose difference 7.6 cm over 300 frames, which still trips
+the harness's 5 cm warning on one frame and is worth a look but is not the
+scoring defect.
+
+**This is the desktop answer, not the answer.** Orin has unified memory, a
+different CPU, and clocks that must be pinned; the ratio there is the point of
+the phase. Note also the CPU arm's spread -- p50 6.3 ms against p95 47.1 -- so
+a mean flatters it.
+
+### Still open in this area
+
+The same convention mismatch exists where an initial guess crosses into the
+optimizer as a pose vector (`ndt.rs`, the `AlignmentRequest` construction). It
+has no wrong-looking symptom today, because the GPU pipeline is internally
+consistent and the conversions partly cancel, but it means the pose vector's
+euler convention is ambiguous. Decide which convention it carries and make both
+helpers agree.
 
 ## Orin specifics
 
@@ -199,9 +230,9 @@ binary looks like a debug build.
 
 ## Method
 
-1. Build the offline comparison described above and take the GPU-vs-CPU ratio
-   from it. The in-stack matrix answers "does it hold 10 Hz, at what cost",
-   not "how much faster".
+1. Take the GPU-vs-CPU ratio from the offline harness (`just demo bench-offline`).
+   The in-stack matrix answers "does it hold 10 Hz, at what cost", not "how much
+   faster". The desktop ratio is 5.78x; Orin is the question.
 2. Fix clocks and power mode; record them in the report.
 3. `just demo bench "gpu cpu autoware" 3`. Confirm no other process is on the GPU
    first — `nvidia-smi --query-compute-apps=...`, or `tegrastats` on Orin.
