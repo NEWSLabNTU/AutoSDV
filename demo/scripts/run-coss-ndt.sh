@@ -72,6 +72,11 @@ stop_helpers() {
     sleep 2
     for pgid in "${CLEANUP_PGIDS[@]:-}"; do kill_pgid "$pgid" KILL; done
     pkill -f "$DEMO/velocity_scaler.py" 2>/dev/null
+    # The tegrastats sampler is tracked by PID, not PGID: see the note where it
+    # is started. Its window must close with this run or the power figures
+    # silently average over whatever ran next.
+    [[ -n "${TEGRA_PID:-}" ]] && kill "$TEGRA_PID" 2>/dev/null
+    command -v tegrastats >/dev/null && { tegrastats --stop >/dev/null 2>&1 || true; }
     return 0
 }
 
@@ -136,6 +141,15 @@ command -v nvidia-smi >/dev/null && \
     nvidia-smi --query-gpu=memory.total,memory.free --format=csv > "$OUT/gpu_before.txt"
 
 # ---- 1. stack ------------------------------------------------------------
+# Remember where play_log/latest points *before* launching. play_launch only
+# repoints it once it has created this run's directory, some tens of seconds
+# in, and until then it still names the previous run -- whose ndt log already
+# contains the "NDT target updated with map" marker the gate below waits for.
+# Grepping it blind let the gate pass in about a second, so the pose was seeded
+# roughly 50 s before NDT existed, NDT was never activated, and the run
+# recorded n=0 for every metric while looking like it had succeeded.
+PREV_LOG_DIR="$(readlink -f "$REPO/play_log/latest" 2>/dev/null || true)"
+
 # use_gnss:=false because this bag's fix is single point with ~20 m of scatter;
 # letting it auto-initialise puts the vehicle somewhere different every run.
 setsid bash -c "play_launch launch --web-addr 0.0.0.0:8081 \
@@ -164,19 +178,41 @@ say "stack pgid=$STACK_PGID  (just demo stop)"
 # fetches the PCD by service once it receives an initial pose and logs nothing
 # at startup, so there is no equivalent condition to wait for and a fixed
 # settle time is the honest fallback.
-NDT_LOG="$REPO/play_log/latest/node/ndt_scan_matcher/err"
+
+# This run's log directory, not the previous one. Anything read before latest
+# moves off PREV_LOG_DIR belongs to an earlier run and must not satisfy a gate.
+this_run_log() {
+    local d
+    d="$(readlink -f "$REPO/play_log/latest" 2>/dev/null || true)"
+    [[ -n "$d" && "$d" != "$PREV_LOG_DIR" ]] || return 1
+    printf '%s/node/ndt_scan_matcher/err' "$d"
+}
+
 if [[ "$POSE_SOURCE" == "cuda_ndt" ]]; then
     say "waiting for NDT to load the map (up to ${MAP_LOAD_WAIT_MAX}s)"
+    NDT_LOG=""
     for _ in $(seq 1 "$MAP_LOAD_WAIT_MAX"); do
-        [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG" && break
+        if candidate="$(this_run_log)" && [[ -f "$candidate" ]] &&
+           grep -q "NDT target updated with map" "$candidate"; then
+            NDT_LOG="$candidate"
+            break
+        fi
         sleep 1
     done
-    if ! { [[ -f "$NDT_LOG" ]] && grep -q "NDT target updated with map" "$NDT_LOG"; }; then
-        say "NDT never loaded the map; see $NDT_LOG and $OUT/launch.log"
+    if [[ -z "$NDT_LOG" ]]; then
+        say "NDT never loaded the map; see $REPO/play_log/latest and $OUT/launch.log"
         exit 1
     fi
     grep -m1 "Target grid created" "$NDT_LOG" | sed 's/^/[demo] /'
 else
+    # Autoware's matcher logs nothing at startup, so there is no marker to wait
+    # for and a fixed settle is the honest fallback -- but still wait for
+    # play_log/latest to name this run first, so the settle is measured from
+    # the stack actually existing and the log copied at the end is ours.
+    for _ in $(seq 1 "$MAP_LOAD_WAIT_MAX"); do
+        this_run_log >/dev/null && break
+        sleep 1
+    done
     say "pose_source=$POSE_SOURCE: no map-load marker to wait for, settling ${MAP_SETTLE}s"
     sleep "$MAP_SETTLE"
 fi
@@ -197,6 +233,24 @@ setsid ros2 bag record -o "$OUT/bag" \
     > "$OUT/record.log" 2>&1 &
 REC_PGID=$(pgid_of $!)
 register "$REC_PGID"
+
+# On Tegra, play_launch's per-node gpu_utilization_percent and
+# gpu_power_milliwatts come back nan: they are read through NVML, which Jetson
+# does not implement. tegrastats is the only source for GPU busy and rail
+# power here, and on this platform power is not a footnote -- the point of
+# moving NDT to the GPU is to free CPU within a fixed power envelope.
+if [[ -e /etc/nv_tegra_release ]] && command -v tegrastats >/dev/null; then
+    # Deliberately not setsid: it forks and its parent exits at once, so
+    # `pgid_of $!` races and usually comes back empty. The sampler then never
+    # got registered for teardown and outlived its own run -- the first run of
+    # a matrix kept sampling through every later run, so each log covered a
+    # different mixture of configurations and the power means were worthless.
+    # Run it as a direct child instead, and stop it by PID and by tegrastats'
+    # own --stop, which also clears an instance left over from a killed run.
+    tegrastats --stop >/dev/null 2>&1 || true
+    tegrastats --interval 1000 > "$OUT/tegrastats.log" 2>&1 &
+    TEGRA_PID=$!
+fi
 sleep 3
 
 if [[ "$SEED_POSE" == "true" ]]; then
