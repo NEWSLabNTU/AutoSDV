@@ -16,22 +16,32 @@ scrutiny.
 `NEWSLabNTU/autoware_core` on branch `cuda_ndt` (the patched Autoware NDT, a
 submodule at `src/localization/cuda_ndt_matcher/tests/comparison/autoware_core`).
 
-## Where this stands (2026-08-04)
+## Where this stands (2026-08-04) — **phase complete**
 
-Everything the desktop can answer is answered. Two real defects were found and
-fixed on the way, so **measure at `cuda_ndt_matcher@324df7c` or later** -- earlier
-commits time a matcher that mis-scores and mis-orients.
+Both platforms are measured. The verdict is **keep the CUDA path on Orin**, and
+the margin there is wider than on the desktop, not narrower.
 
-| | |
-|---|---|
-| GPU vs CPU, identical input, idle card | **2.67x median, 5.09x mean** (2.16 ms against 11.00 ms) |
-| arms equivalent? | yes: NVTL 2.821 both, scores 0.02 % apart, poses median 6 mm |
-| in-stack health | 1415 poses, no rejections, worst gap 0.115 s, 2.7 ms/scan |
-| fixed on the way | GPU NVTL scored at the wrong rotation (`13a4e36`); pose vector meant two conventions (`324df7c`) |
-| investigated, deliberately unchanged | the arms' differing convergence tests -- see below |
+Full Orin write-up: `docs/reports/ndt-gpu-vs-cpu-orin.md`.
 
-What remains is the Orin measurement itself, where unified memory, a weaker CPU
-and pinned clocks all move the answer.
+| | desktop (RTX 5090) | **Orin, pinned** |
+|---|---|---|
+| GPU vs CPU, identical input, offline | 2.67x median, 5.09x mean (2.16 / 11.00 ms) | **3.9x median, 8.8x mean** (5.20 / 45.74 ms) |
+| arms equivalent? | yes: NVTL 2.821 both, scores 0.02 % apart | yes: **NVTL 2.819 both**, scores 0.02 % apart |
+| GPU vs Autoware, in-stack | — | **2.5x** (8.39 ms against 20.69) |
+| NDT CPU, in-stack | — | **23.3 % against 119 %** |
+| poses published | — | **100 % of alignments**; Autoware 23-100 % |
+| power | — | **roughly neutral**: +208 mW GPU rail, −325 mW CPU rail |
+| fixed on the way | GPU NVTL at the wrong rotation (`13a4e36`); pose vector meant two conventions (`324df7c`) | three harness faults + GPU line-search step bound (`f0df671`) |
+| investigated, deliberately unchanged | the arms' differing convergence tests -- see below | same; **closing the GPU's earlier stop is not worth it on Orin** (see below) |
+
+**The GPU advantage widens on Orin because its CPU is the weaker part.** Against
+the desktop, the GPU arm is 2.4x slower (2.16 → 5.20 ms) but the CPU arm is 4.2x
+slower (11.00 → 45.74 ms). Unified memory did not erode the win; the CPU deficit
+enlarged it.
+
+**Do not read the in-stack `cpu` row as an algorithm comparison.** In real time
+the CPU arm blows the 100 ms budget on 52-93 % of scans and falls into the
+self-reinforcing collapse below. The offline row is the fair one.
 
 ## Read first
 
@@ -329,6 +339,110 @@ Nothing in that area is known-open now. If a future comparison shows the arms
 disagreeing, the tests in `optimization/types.rs` and `derivatives/gpu.rs` are
 the first things to run: they pin the conventions in both directions.
 
+## Orin results (2026-08-04, `cuda_ndt_matcher@cec3e68`)
+
+Conditions: MAXN (`nvpmodel` mode 0), GPU pinned min = cur = max = 1300.5 MHz,
+CPU pinned at 2 201 600 kHz with all 12 cores online, GPU load 0/1000 and no
+other compute process at start. **Pinning is not optional** — the same
+configuration measures 14.9 ms unpinned and 7.9 ms pinned.
+
+`jetson_clocks` pins by raising the frequency floor to the ceiling and leaves
+the governor named `nvhost_podgov`, so **`min_freq == max_freq` is the test for
+"pinned"**, not the governor name. The harness checks it that way now.
+
+### Offline, identical input (the fair GPU-vs-CPU number)
+
+`just demo bench-offline <run_dir> 300`, 300 frames, 4.9 M map points:
+
+| arm | mean ms | p50 | p95 | max | iters | score | NVTL |
+|---|---|---|---|---|---|---|---|
+| gpu | **5.20** | 5.25 | 6.23 | 11.3 | 1.72 | 9726.0 | 2.819 |
+| cpu | 45.74 | 20.41 | 140.7 | 415.5 | 2.90 | 9727.8 | 2.819 |
+
+**8.8x on the mean, 3.9x on the median.** The gap between those two is the CPU
+arm's tail: p95 140 ms against the GPU's 6.2. Equivalence is structural here —
+NVTL agrees to three decimals and the scores are 0.02 % apart.
+
+One caveat the harness prints and this doc should not bury: worst pose
+difference over 300 frames is **0.0913 m**, against the desktop's median 6 mm.
+It is a small number of frames, but it is past the 5 cm the harness warns at,
+and nobody has looked at which frames they are.
+
+### In-stack, three-way (does it hold 10 Hz, and at what cost)
+
+Three repeats each, `just demo bench "gpu cpu autoware" 3`,
+`tmp/demo-runs/bench_20260804_053700`:
+
+| config | mean ms | >budget | NDT CPU % | RSS MB | iters | NVTL | poses / aligns |
+|---|---|---|---|---|---|---|---|
+| gpu | **8.39** | 0.0 % | **23.3** | 626-740 | 2.2-3.0 | 2.80 | **100 %** |
+| cpu | 142-761 | 52-93 % | 102.6 | 701-766 | 6.8-24.8 | 1.97-2.79 | 0.5-98 % |
+| autoware | 19.81-43.53 | 0.0-0.2 % | 116-178 | 208-241 | 4.2-12.5 | 4.60 | 23-100 % |
+
+Medians: GPU **2.5x** faster than Autoware on exe_time, and **5.1x** cheaper on
+CPU. Neither the GPU nor Autoware misses the scan budget, so the speed is
+margin, not recovered scans — **the CPU column is the result that matters on
+this platform.**
+
+Power, per-run `tegrastats` windows, Autoware's degraded run excluded:
+
+| | GPU | Autoware |
+|---|---|---|
+| GPU busy | 5.9 % | 1.35 % |
+| VDD_GPU_SOC | 5819 mW | 5611 mW |
+| VDD_CPU_CV | **6107 mW** | 6432 mW |
+
+**Roughly neutral**: +208 mW on the GPU rail, −325 mW on the CPU rail. The
+submodule's "equal power" claim stands. An earlier draft of the Orin report
+said it did not, having measured +506 mW before the euler fixes; that is
+withdrawn.
+
+### Answered: closing the GPU's earlier stop is not worth it here
+
+The desktop work priced the GPU's earlier convergence at 0.02 % of score and a
+median 6 mm of pose, and left the decision to this phase. **Leave it.** The GPU
+arm already publishes 100 % of alignments at 23 % of a core, and 6 mm is far
+inside the spread between repeats. Spending GPU time to close it buys nothing
+measurable and costs the thing Orin is short of.
+
+### What the CPU arm's in-stack row actually measures
+
+Not the algorithm — the collapse. ~5x slower, blows the budget on 52-93 % of
+scans, then: dropped scans → stale prior → worse score → gate rejection →
+nothing published → the EKF dead-reckons into a worse prior still. The three
+runs catch it at three depths, and the shallowest (416 alignments, 407 poses,
+NVTL 2.787, 6.84 iterations) is the proof it converges fine when it keeps up.
+
+It is also **single-threaded**: no `rayon` or `par_iter` in the CPU derivative
+path and `num_threads` is not plumbed into the Rust code at all, so
+`ndt.num_threads: 4` is inert. Measured `cpu %` confirms it — 102.6 %, one
+saturated core, against Autoware's 116-178 %.
+
+### Three harness faults, each of which produced an empty result that looked fine
+
+Worth knowing before trusting any earlier Orin measurement:
+
+- **Component name collision.** Localization's `voxel_grid_downsample_filter`
+  shares a base name with perception's, and a ROS 2 container *silently* drops
+  the loser. NDT received no points while the filters either side of it ran at
+  10 Hz. The submodule's `CLAUDE.md` documented this fix as applied; it was not.
+- **Stale-log readiness race.** The gate grepped `play_log/latest` before
+  `play_launch` repointed it, matched the *previous* run's marker, passed in ~1 s,
+  and the pose was seeded ~50 s before NDT existed. Every metric came back `n=0`
+  on a run that reported success.
+- **tegrastats outliving its run**, so power averaged across configurations.
+
+And one platform trap: on Tegra `nvidia-smi --query-compute-apps` returns the
+literal `[N/A], [N/A]`, which the contention check read as a process list.
+play_launch's `gpu_utilization_percent` / `gpu_power_milliwatts` are `nan` there
+too — NVML is not implemented on Jetson — hence
+`scripts/testing/localization/tegrastats_summary.py`.
+
+**After any submodule update, rebuild before benchmarking.** `--symlink-install`
+does not symlink files that did not exist at build time, so a launch file added
+by someone else fails every run with a `FileNotFoundError` that looks nothing
+like a benchmark problem. This cost a full 9-run matrix.
+
 ## Orin specifics
 
 - **Thermals and clocks decide the answer.** Fix them before measuring and record
@@ -365,11 +479,11 @@ without which the matcher is a debug binary about 8x slower — the single easie
 way to produce a meaningless benchmark. `just demo check` warns if the installed
 binary looks like a debug build.
 
-## Method
+## Method (as executed — kept for anyone repeating this on another platform)
 
 1. Take the GPU-vs-CPU ratio from the offline harness (`just demo bench-offline`).
    The in-stack matrix answers "does it hold 10 Hz, at what cost", not "how much
-   faster". Desktop is 2.67x median / 5.09x mean; Orin is the question.
+   faster". Desktop is 2.67x median / 5.09x mean; Orin measured 3.9x / 8.8x.
 2. Fix clocks and power mode; record them in the report.
 3. `just demo bench "gpu cpu autoware" 3`. Confirm no other process is on the GPU
    first — `nvidia-smi --query-compute-apps=...`, or `tegrastats` on Orin.
@@ -379,7 +493,11 @@ binary looks like a debug build.
 5. Compare against the desktop numbers above, and against the submodule's
    `docs/performance/autoware-comparison.md`.
 
-## Acceptance
+## Acceptance — met
+
+All six items are answered in `docs/reports/ndt-gpu-vs-cpu-orin.md`, and the
+submodule's `docs/performance/autoware-comparison.md` carries a superseded
+banner with the corrected figures. Restated here so the criteria stay legible:
 
 A result is finished when it states, with numbers:
 
@@ -411,6 +529,30 @@ Write it to `docs/reports/ndt-gpu-vs-cpu-orin.md`, and update the submodule's
   line instead.
 - **A matcher that misses the scan budget looks fast**: it drops scans. Always
   read the alignment and pose counts next to the mean.
+- **The harness can pass on the previous run's log.** `play_log/latest` only
+  names this run tens of seconds in. Anything read before then belongs to the
+  run before, and a gate that accepts it fires instantly on a stack that does
+  not exist yet.
+- **A documented fix is not a fix.** The component name collision was written up
+  in the submodule's CLAUDE.md, complete with the rename that resolved it, while
+  neither copy of `util.launch.xml` had it. Check the code, not the note.
+- **On Jetson, `nvidia-smi` answers questions it cannot answer**, returning
+  `[N/A]` rather than failing. Treat any GPU figure from NVML on Tegra as absent,
+  not as zero.
+
+## Left open
+
+1. **The 9 cm worst-case pose disagreement** between the arms offline, against a
+   6 mm median on the desktop. A handful of frames out of 300, unexamined.
+2. **One Autoware run in three degraded** to 43.5 ms, 12.5 iterations and 287
+   poses, with NVTL unchanged at 4.599 — so not the gate. Unexplained, and the
+   reason the comparison above uses medians.
+3. **Inert parameters.** `ndt.num_threads` is ignored entirely; `ndt.step_size`
+   was ignored on the GPU line-search path until `f0df671`. A parameter that
+   silently does nothing is worse than one that is absent.
+4. **The CPU arm's status.** It is a correct implementation that cannot hold
+   real time on this platform. Either make it offline-only and say so, or give
+   it the parallelism `num_threads` already promises.
 
 ## Out of scope
 

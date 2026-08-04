@@ -102,18 +102,27 @@ bench-offline run_dir="" frames="300":
     [[ -z "$dir" ]] && exit 1
     source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
     dump="{{ repo }}/tmp/ndt-frames.bin"
+    # Absolute: the exporter resolves --run relative to its own cwd, and the
+    # recipe changes directory below.
+    dir="$(cd "$dir" && pwd)"
     python3 "{{ repo }}/scripts/testing/localization/export_ndt_frames.py" \
         --run "$dir" --out "$dump" --max-frames {{ frames }}
-    cd "{{ repo }}/src/localization/cuda_ndt_matcher"
-    source scripts/activate_autoware.sh >/dev/null 2>&1
+    # cd into the *node* crate, not the submodule root: colcon-cargo-ros2 writes
+    # the [patch.crates-io] that resolves the ROS message crates into
+    # src/cuda_ndt_matcher/.cargo/config.toml, and cargo only reads config from
+    # the cwd and its ancestors. From the submodule root it is a descendant, so
+    # the build fails with "no matching package named autoware_internal_debug_msgs".
+    cd "{{ repo }}/src/localization/cuda_ndt_matcher/src/cuda_ndt_matcher"
+    source ../../scripts/activate_autoware.sh >/dev/null 2>&1
     cargo run --release -q -p ndt_cuda --example offline_bench -- "$dump" --arms gpu,cpu
 
 # NVTL scoring parity between the arms, at identical poses
 bench-nvtl-probe frames="6":
     #!/usr/bin/env bash
     set -o pipefail
-    cd "{{ repo }}/src/localization/cuda_ndt_matcher"
-    source scripts/activate_autoware.sh >/dev/null 2>&1
+    # The node crate, not the submodule root -- see the note in bench-offline.
+    cd "{{ repo }}/src/localization/cuda_ndt_matcher/src/cuda_ndt_matcher"
+    source ../../scripts/activate_autoware.sh >/dev/null 2>&1
     NVTL_PROBE={{ frames }} cargo run --release -q -p ndt_cuda --example offline_bench \
         -- "{{ repo }}/tmp/ndt-frames.bin"
 
