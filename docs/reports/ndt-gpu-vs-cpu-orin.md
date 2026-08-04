@@ -162,6 +162,61 @@ The change has been withdrawn and the arm left as it was. What the GPU's
 earlier stop costs is recorded on the desktop side: 0.02 % of score and a
 median 6 mm of pose, 6 frames in 400 past 5 cm.
 
+## The 9 cm pose disagreement is the basin's width, not an error
+
+The offline harness warns that the arms disagree by more than 5 cm somewhere.
+Over 300 frames on Orin:
+
+| | |
+|---|---|
+| median pose difference | **6.2 mm** |
+| frames past 2 cm | 48 of 300 (16 %) |
+| frames past 5 cm | **10 of 300 (3.3 %)** |
+| worst | **91.3 mm** (frame 5) |
+| **max \|ΔNVTL\|, all 300 frames** | **0.0148** |
+
+The median matches the desktop's 6 mm, and the tail rate is comparable (10 in
+300 here, 6 in 400 there).
+
+**It tracks the iteration gap**, which is the known convergence-test difference
+(`68e9622`): the GPU tests the step actually applied and stops as soon as the
+line search shortens it, while the CPU tests the raw Newton step and keeps
+going. Grouping the 300 frames by how many more iterations the CPU took:
+
+| CPU − GPU iterations | frames | median pose difference |
+|---|---|---|
+| 0 | 185 | 5.1 mm |
+| +1 | 21 | 6.6 mm |
+| +3 | 32 | 17.1 mm |
+| +4 | 18 | 23.4 mm |
+| +8 | 2 | 30.8 mm |
+| +12 | 1 | 45.6 mm |
+
+Nine of the ten frames past 5 cm have the CPU taking at least one extra
+iteration. The worst frames are the extreme case — frame 214 has the GPU
+stopping after **1** iteration where the CPU takes 3, and frames 43, 129 and 233
+are the same shape.
+
+**The reason it does not matter is in the last row of the first table.** NVTL
+never differs by more than 0.015 between the arms, and on the worst frames it
+agrees to three decimals (frame 214: 2.838 both; frame 129: 2.821 both). Both
+arms land on an equally good score; they simply stop at different points along
+a basin that is flat near its optimum. Several centimetres of pose buys ~0.001
+of score there.
+
+Two things follow:
+
+1. **This is not an accuracy defect**, and it is not a reason to close the GPU's
+   earlier stop. It is the width of the objective's flat region.
+2. **Pose difference is the wrong equivalence metric in a flat basin.** Score
+   and NVTL are the right ones, and by those the arms agree to 0.02 %. The
+   harness's 5 cm warning is a useful tripwire but should be read next to
+   `ΔNVTL`, not alone.
+
+What would change this reading: a frame where the poses differ *and* the scores
+do, which would mean one arm found a different optimum rather than a different
+point in the same one. None of the 300 does.
+
 ## The GPU's step deviation is real, and inert
 
 The GPU arm deviated from the reference in the opposite direction: it applied

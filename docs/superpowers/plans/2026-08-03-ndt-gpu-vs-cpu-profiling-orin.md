@@ -542,8 +542,15 @@ Write it to `docs/reports/ndt-gpu-vs-cpu-orin.md`, and update the submodule's
 
 ## Left open
 
-1. **The 9 cm worst-case pose disagreement** between the arms offline, against a
-   6 mm median on the desktop. A handful of frames out of 300, unexamined.
+1. ~~The 9 cm worst-case pose disagreement between the arms offline.~~
+   **Answered.** It is the flat basin, not an error: median 6.2 mm, 10 of 300
+   frames past 5 cm, and it tracks the iteration gap from the known
+   convergence-test difference — 9 of those 10 have the CPU taking at least one
+   extra iteration. **Max |ΔNVTL| over all 300 frames is 0.0148**, and on the
+   worst frames the arms agree on NVTL to three decimals. Both land on an
+   equally good score and stop at different points along an objective that is
+   flat near its optimum. Pose difference is the wrong equivalence metric there;
+   score is the right one. See the Orin report.
 2. **One Autoware run in three degraded** to 43.5 ms, 12.5 iterations and 287
    poses, with NVTL unchanged at 4.599 — so not the gate. Unexplained, and the
    reason the comparison above uses medians.
