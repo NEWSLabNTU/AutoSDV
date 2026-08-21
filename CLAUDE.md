@@ -67,6 +67,8 @@ just launch             # Launch system (web UI: http://localhost:8081)
 just launch ARGS="..."  # Launch with parameters
 just clean              # Remove build artifacts
 just checkout           # Update git submodules
+just setup-autoware-data  # Writable model tree at data/autoware_data (TensorRT needs it)
+just build-engines      # Pre-compile TensorRT engines (minutes; run on the target board)
 just --list             # Show all available commands
 ```
 
@@ -366,7 +368,25 @@ Write temp files to `./tmp/` (gitignored). Do NOT use system `/tmp/`.
 ### Build Notes
 - With `--symlink-install`, edits to yaml/xml/py apply immediately (no rebuild needed)
 - New files require rebuild to create symlinks
-- First launch compiles TensorRT models (10-30 min)
+- First launch compiles TensorRT models (10-30 min) unless `just build-engines`
+  was run first
+
+### Autoware model data (`data_path`)
+
+Autoware writes each compiled `.engine` next to the `.onnx` it built from. The
+Debian package's tree at `/opt/autoware/1.5.0/data` is root-owned, so that write
+fails, the engine is discarded, and the same models rebuild — and fail — on every
+launch. `just setup-autoware-data` mirrors the tree into `data/autoware_data`
+with symlinks (171 files, under a megabyte), and the top-level launch files
+default `data_path` to it:
+
+```yaml
+default: "$(env AUTOSDV_DATA_PATH ./data/autoware_data)"
+```
+
+Override per launch with `data_path:=`, or globally with `AUTOSDV_DATA_PATH`.
+Re-run after an Autoware upgrade — engines are tied to the TensorRT version and
+the GPU, so they cannot be baked into an image built elsewhere.
 
 ### ROS 2 Launch Testing
 
@@ -417,8 +437,18 @@ Standard ROS 2 conventions: setup.py/setup.cfg, test files for copyright/flake8/
 
 The setup system (`setup/`) uses a two-layer design:
 
-1. **`setup.sh`** - Interactive wrapper that asks all questions upfront before any installation begins
+1. **`setup.sh`** - Wrapper that collects every choice upfront, in one
+   navigable checkbox menu, before any installation begins
 2. **`justfile`** - Recipe definitions that perform actual installations
+
+```bash
+./setup.sh                  # component menu, then install
+./setup.sh --all            # everything, no questions
+./setup.sh --minimal        # core only
+./setup.sh --dry-run        # print the selection, install nothing (combines with --all/--minimal)
+./setup.sh status           # what is installed
+./setup.sh <recipe>         # one recipe, e.g. opencv, network-dds, ros2
+```
 
 **Adding new optional components:**
 
@@ -432,25 +462,29 @@ The setup system (`setup/`) uses a two-layer design:
    # Conditional recipe (for interactive setup)
    _setup-my-component:
        #!/usr/bin/env bash
-       if [[ "${INSTALL_MY_COMPONENT}" == "y" ]]; then
+       if [[ "${INSTALL_MY_COMPONENT:-n}" == "y" ]]; then
            just my-component
        else
            printf "{{yellow}}⊘{{nc}} my-component skipped (user choice)\n"
        fi
    ```
 3. Add `_setup-my-component` to the `setup:` recipe chain
-4. Add question in `setup.sh` `interactive_setup()` function:
+4. Add one row to `MENU_ITEMS` in `setup.sh` — `key|default|indent|label|note`:
    ```bash
-   INSTALL_MY_COMPONENT="n"
-   printf "${YELLOW}Optional:${NC} My Component description\n"
-   if ask_yes_no "Install My Component?" "n"; then
-       INSTALL_MY_COMPONENT="y"
-   fi
-   export INSTALL_MY_COMPONENT="$INSTALL_MY_COMPONENT"
+   "MY_COMPONENT|n|0|My Component|What it costs, and what breaks without it."
    ```
-5. Update summary output and status display
+   `indent=1` makes it a sub-option of the row above: shown indented, greyed
+   out when the parent is off, and forced to `n` in that case.
+5. Export it in `export_choices()`, and add a row to the justfile `status` recipe
 
-**Key pattern:** Questions are asked at the start, choices exported as env vars, justfile conditionals execute based on those vars.
+**Key pattern:** the menu is one table, choices are exported as env vars, and
+justfile conditionals execute based on those vars. Nothing asks a question
+after the install starts — the Autoware installer's own two prompts are folded
+in as the `AUTOWARE_PREREQ_*` sub-options and passed to it as flags.
+
+**Status reads the machine, not just markers.** The OpenCV, DDS and
+autoware-data rows check the live state, because a marker says a step ran once
+while a reboot or a JetPack OTA can undo what it did.
 
 ### Preset System
 
