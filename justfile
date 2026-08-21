@@ -42,8 +42,9 @@ setup-autoware-data:
 # must be re-run after an Autoware or JetPack upgrade.
 #
 # The model set below is what the perception presets actually resolve to:
-# centerpoint (autosdv_perception_component defaults lidar_detection_model to
-# `centerpoint`, not the tiny variant), the yolox-sPlus camera 2D detector, and
+# centerpoint_tiny (the perception stack resolves the centerpoint model to its
+# tiny variant at runtime -- verified from a live launch's TRT input filenames,
+# not from the launch arg defaults), the yolox-sPlus camera 2D detector, and
 # the three traffic-light models that camera_lidar_fusion adds. Re-derive it if
 # a preset changes:
 #
@@ -90,7 +91,7 @@ build-engines:
         echo "    (${pkg}: $((SECONDS - start))s)"
     }
 
-    build autoware_lidar_centerpoint lidar_centerpoint.launch.xml model_name:=centerpoint
+    build autoware_lidar_centerpoint lidar_centerpoint.launch.xml model_name:=centerpoint_tiny
     # use_decompress:=false is required: the decompressor node the launch
     # otherwise starts has no build_only and never exits, so `ros2 launch`
     # hangs forever after the engine is written (observed: 3h20m).
@@ -112,6 +113,11 @@ build-engines:
 # Build this project
 build:
     #!/usr/bin/env bash
+    # No CUDA PATH setup needed: cuda_ffi discovers the toolkit by the
+    # ecosystem convention (CUDA_PATH/CUDA_HOME, then /usr/local/cuda-*,
+    # then the /usr/local/cuda symlink), and ndt_cuda pins cudarc's version
+    # features so nothing runs `nvcc --version`. Verified by building with
+    # nvcc absent from PATH.
     source /opt/ros/humble/setup.bash && \
     colcon build \
         --base-paths src \
