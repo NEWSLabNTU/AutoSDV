@@ -103,6 +103,13 @@ launch:
     default: "true"
     description: "Enable NTRIP client for RTK corrections (ublox only)"
 
+# AutoSDV: rviz_config was hardcoded at the include, so rviz_config:=... on
+# the command line was silently ignored -- the same trap data_path had.
+- arg:
+    name: rviz_config
+    default: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+    description: "RViz layout to load"
+
 - arg:
     name: use_mapless_mode
     default: "false"
@@ -317,7 +324,7 @@ launch:
       value: "false"
     -
       name: rviz_config
-      value: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+      value: $(var rviz_config)
     -
       name: pose_source
       value: $(var pose_source)
