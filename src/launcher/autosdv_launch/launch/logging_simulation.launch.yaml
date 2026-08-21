@@ -13,6 +13,18 @@ launch:
 # any pose source) at a different map directory - e.g. the sample-site map
 # used by the 2D-MCL Phase 3/4 gates - from the command line. Exposed as an
 # arg, default unchanged, so every existing invocation resolves identically.
+# AutoSDV: data_path was hardcoded to /opt/autoware/1.5.0/data, which the
+# Debian package owns as root. Every TensorRT node writes its compiled .engine
+# NEXT TO the .onnx it built from, so in a root-owned directory that write
+# fails, the work is discarded, and the same models are rebuilt — and fail —
+# on every launch. `just setup-autoware-data` mirrors that tree into
+# data/autoware_data with symlinks, which is what this now points at.
+# Override with the argument, or with AUTOSDV_DATA_PATH in the environment.
+- arg:
+    name: data_path
+    default: "$(env AUTOSDV_DATA_PATH ./data/autoware_data)"
+    description: "Autoware model/artifact directory. Must be writable, or TensorRT cannot cache its engines."
+
 - arg:
     name: map_path
     default: "./data/COSS-map-planning"
@@ -257,7 +269,7 @@ launch:
       value: $(var perception_input_pointcloud)
     -
       name: data_path
-      value: /opt/autoware/1.5.0/data
+      value: $(var data_path)
     -
       name: launch_vehicle
       value: "true"
