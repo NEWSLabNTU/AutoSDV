@@ -124,6 +124,11 @@ launch:
     description: "Enable GNSS for outdoor operation - empty string uses suite default"
 
 - arg:
+    name: launch_system_monitor
+    default: "true"
+    description: "Launch autosdv_system_monitor (measured at up to 25% of a core on Jetson; disable on CPU-constrained vehicles)"
+
+- arg:
     name: use_ntrip
     default: "false"
     description: "Enable NTRIP client for RTK corrections (disabled in simulation)"
@@ -373,6 +378,7 @@ launch:
       name: use_mapless_mode
       value: $(var use_mapless_mode)
 
-# System Monitor
+# System Monitor. Gated: measured at up to 25% of a core on Jetson.
 - include:
     file: "$(find-pkg-share autosdv_system_monitor)/launch/autosdv_system_monitor.launch.yaml"
+    if: $(var launch_system_monitor)

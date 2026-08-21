@@ -94,6 +94,11 @@ launch:
     description: "Enable GNSS for outdoor operation - empty string uses suite default"
 
 - arg:
+    name: launch_system_monitor
+    default: "true"
+    description: "Launch autosdv_system_monitor (measured at up to 25% of a core on Jetson; disable on CPU-constrained vehicles)"
+
+- arg:
     name: use_ntrip
     default: "true"
     description: "Enable NTRIP client for RTK corrections (ublox only)"
@@ -327,9 +332,11 @@ launch:
         - from: ~/output/objects
           to: /perception/object_recognition/objects
 
-# System Monitor
+# System Monitor. Gated: it was the hottest process in the profiling runs
+# (23-25% of a core, above rviz2 and all three cameras).
 - include:
     file: "$(find-pkg-share autosdv_system_monitor)/launch/autosdv_system_monitor.launch.yaml"
+    if: $(var launch_system_monitor)
 
 # # RQT Runtime Monitor
 # - node:
