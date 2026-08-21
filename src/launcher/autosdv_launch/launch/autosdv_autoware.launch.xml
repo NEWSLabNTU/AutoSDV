@@ -227,7 +227,7 @@
        initialization (LOADED event never received, node absent from `ros2
        node list`). See docs/design/map-handling-per-localization-method.md
        section 1. -->
-  <let name="resolved_use_pointcloud_map" value="$(eval &quot;'$(var use_pointcloud_map)' if '$(var pose_source)' != 'mcl' else 'false'&quot;)"/>
+  <let name="resolved_use_pointcloud_map" value="$(eval &quot;'$(var use_pointcloud_map)' if '$(var pose_source)' != 'mcl' and '$(var use_mapless_mode)' != 'true' else 'false'&quot;)"/>
   <group if="$(var launch_perception)">
     <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_perception_component.launch.xml">
       <arg name="data_path" value="$(var data_path)"/>
