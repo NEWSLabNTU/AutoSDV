@@ -137,6 +137,43 @@ launch:
     default: ""
     description: "Enable ZED camera object detection - empty string uses suite default"
 
+# Subsystem toggles. All default true; each one gates the corresponding
+# Autoware module. A perception-only rig (bench eval, exhibition) is
+#   launch_planning:=false launch_control:=false launch_localization:=false
+#   launch_system:=false launch_vehicle:=false
+- arg:
+    name: launch_vehicle
+    default: "true"
+    description: "Launch the vehicle interface"
+- arg:
+    name: launch_system
+    default: "true"
+    description: "Launch system monitoring and MRM"
+- arg:
+    name: launch_map
+    default: "true"
+    description: "Launch map loading"
+- arg:
+    name: launch_sensing
+    default: "true"
+    description: "Launch sensing"
+- arg:
+    name: launch_sensing_driver
+    default: "true"
+    description: "Launch sensor drivers"
+- arg:
+    name: launch_localization
+    default: "true"
+    description: "Launch localization"
+- arg:
+    name: launch_planning
+    default: "true"
+    description: "Launch planning"
+- arg:
+    name: launch_control
+    default: "true"
+    description: "Launch control"
+
 - arg:
     name: launch_perception
     default: "true"
@@ -232,31 +269,31 @@ launch:
       value: $(var data_path)
     -
       name: launch_vehicle
-      value: "true"
+      value: $(var launch_vehicle)
     -
       name: launch_system
-      value: "true"
+      value: $(var launch_system)
     -
       name: launch_map
-      value: "true"
+      value: $(var launch_map)
     -
       name: launch_sensing
-      value: "true"
+      value: $(var launch_sensing)
     -
       name: launch_sensing_driver
-      value: "true"
+      value: $(var launch_sensing_driver)
     -
       name: launch_localization
-      value: "true"
+      value: $(var launch_localization)
     -
       name: launch_perception
       value: $(var launch_perception)
     -
       name: launch_planning
-      value: "true"
+      value: $(var launch_planning)
     -
       name: launch_control
-      value: "true"
+      value: $(var launch_control)
     -
       name: perception_mode
       value: $(var perception_mode)
