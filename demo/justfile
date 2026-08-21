@@ -17,6 +17,18 @@ default:
     just --justfile "{{ module_directory() }}/justfile" --list \
         --list-heading $'Demos, run as: just demo <recipe>\n'
 
+# The stack runs mapless (densification in base_link, see
+# lidar_model_mapless/README.md), so this needs only the LiDAR, the vehicle
+# TF tree, and a GPU with cached engines. Built for exhibitions: visitors
+# walk past, RViz shows their detection boxes live. Full centerpoint by
+# default; pass model=centerpoint_tiny if GPU contention with RViz shows up
+# -- both hold the sensor's 10 Hz.
+
+# Perception island: live CenterPoint detection, no map, no localization
+exhibition model="centerpoint":
+    #!/usr/bin/env bash
+    cd "{{ repo }}" && source install/setup.bash &&     play_launch launch         --web-addr 0.0.0.0:8081         autosdv_launch autosdv.launch.yaml         use_mapless_mode:=true         launch_planning:=false         launch_control:=false         launch_localization:=false         launch_system:=false         launch_map:=false         lidar_detection_model:=centerpoint/{{ model }}
+
 # Check that everything the COSS demo needs is present
 check:
     #!/usr/bin/env bash
