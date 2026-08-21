@@ -1,0 +1,28 @@
+# Keep OpenCV on Ubuntu's 4.5.4, not the Jetson repo's 4.8.0.
+#
+# NVIDIA's repo.download.nvidia.com ships libopencv/libopencv-dev at 4.8.0 with
+# priority 600, above Ubuntu's 500, so apt prefers it. But every OpenCV runtime
+# library on a JetPack 6.2 system comes from Ubuntu at 4.5.4
+# (libopencv_core.so.4.5d), and so does python3-opencv, and so does everything
+# ROS and Autoware were built against.
+#
+# libopencv-dev owns /usr/include/opencv4 and the /usr/lib/libopencv_*.so dev
+# symlinks. With the NVIDIA package installed, anything compiled locally gets
+# 4.8.0 headers and links against a 4.5.4 runtime in the same process as
+# cv_bridge. That is an ABI mismatch, and it is silent.
+#
+# It also costs the contrib modules: NVIDIA's build has no aruco, so
+# find_package(OpenCV COMPONENTS aruco) fails and no amount of installing
+# libopencv-contrib-dev fixes it while 4.8.0 owns the include path.
+#
+# 1001 rather than a number below 1000 is required, not decorative: a priority
+# above 1000 is what lets the resolver choose an OLDER version as the candidate,
+# and the fix is a downgrade.
+#
+# It is not sufficient on its own. apt-get applies a second, separate check when
+# the plan it computed contains a downgrade and -y was given, and refuses with
+#     E: Packages were downgraded and -y was used without --allow-downgrades.
+# So a non-interactive install needs that flag as well; see install-opencv.sh.
+Package: libopencv* opencv-licenses opencv-samples-data
+Pin: release o=Ubuntu
+Pin-Priority: 1001

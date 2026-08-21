@@ -13,6 +13,7 @@ marker_dir := root_dir / ".markers"
 scripts_dir := root_dir / "scripts"
 files_dir := root_dir / "files"
 data_dir := root_dir / ".." / "data"
+repo_scripts_dir := root_dir / ".." / "scripts"
 
 # Architecture detection
 arch := `uname -m`
@@ -31,8 +32,20 @@ nc := '\033[0m'
 default:
     @just --list
 
+# Ordering that matters:
+#   - opencv runs AFTER autoware-debian and isaac-ros, because both pull
+#     packages that depend on libopencv-dev; letting apt settle first leaves
+#     one state to correct rather than racing it.
+#   - autoware-data runs AFTER autoware-debian, because it mirrors whatever
+#     /opt/autoware/*/data that package installed.
+#   - rust runs before colcon-cargo-ros2 and python-deps, because both want
+#     cargo on PATH.
+#
+# just shows only the LAST contiguous comment block in `just --list`, so the
+# blank line below is what keeps the description a description.
+
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-isaac-ros rust python-deps ublox-udev ros-deps
+setup: _init ros2 ros2-dev-tools rust _setup-colcon-cargo-ros2 gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-autoware-data _setup-tensorrt-engines _setup-isaac-ros _setup-opencv python-deps ublox-udev _setup-zed-sdk _setup-cyclonedds-sysctl _setup-multicast-lo _setup-turbovnc-virtualgl ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -44,6 +57,43 @@ _setup-autoware-debian:
         just autoware-debian
     fi
 
+# Writable Autoware data dir (based on SETUP_AUTOWARE_DATA env var).
+#
+# Must run AFTER autoware-debian: it mirrors whatever /opt/autoware/*/data the
+# package installed. Cheap (symlinks, under a second) and it is what lets
+# TensorRT cache its engines at all — the packaged directory is root-owned, so
+# without this every model fails to write its .engine and rebuilds, and fails,
+# on every launch.
+_setup-autoware-data:
+    #!/usr/bin/env bash
+    if [[ "${SETUP_AUTOWARE_DATA:-n}" != "y" ]]; then
+        printf "{{yellow}}⊘{{nc}} autoware-data skipped (user choice)\n"
+    elif [[ ! -d /opt/autoware ]]; then
+        printf "{{yellow}}⊘{{nc}} autoware-data skipped (no /opt/autoware — install Autoware first)\n"
+    else
+        "{{repo_scripts_dir}}/setup_autoware_data.sh"
+    fi
+
+# Pre-compile TensorRT engines (based on BUILD_TENSORRT_ENGINES env var).
+#
+# Minutes per model on an Orin. Skipping is legitimate — the first launch will
+# build them instead — but it does so INSIDE each node's constructor, so
+# perception is unavailable until it finishes.
+_setup-tensorrt-engines:
+    #!/usr/bin/env bash
+    if [[ "${BUILD_TENSORRT_ENGINES:-n}" != "y" ]]; then
+        printf "{{yellow}}⊘{{nc}} tensorrt-engines skipped (built on first launch instead)\n"
+    elif [[ ! -d /opt/autoware ]]; then
+        printf "{{yellow}}⊘{{nc}} tensorrt-engines skipped (no /opt/autoware)\n"
+    else
+        printf "{{green}}→{{nc}} Compiling TensorRT engines (minutes)...\n"
+        ( cd "{{root_dir}}/.." && just build-engines )
+    fi
+
+# Build the writable Autoware model tree at data/autoware_data
+autoware-data:
+    @"{{repo_scripts_dir}}/setup_autoware_data.sh"
+
 # Conditional Blickfeld install (based on SKIP_BLICKFELD env var)
 _setup-blickfeld:
     #!/usr/bin/env bash
@@ -53,23 +103,33 @@ _setup-blickfeld:
         just blickfeld
     fi
 
+# Conditional ZED SDK install (based on INSTALL_ZED_SDK env var)
+_setup-zed-sdk:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_ZED_SDK:-n}" == "y" ]]; then
+        just install-zed-sdk
+    else
+        printf "{{yellow}}⊘{{nc}} zed-sdk skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} Run 'just install-zed-sdk' to install later\n"
+    fi
+
 # Conditional CycloneDDS sysctl configuration (based on CONFIGURE_CYCLONEDDS_SYSCTL env var)
 _setup-cyclonedds-sysctl:
     #!/usr/bin/env bash
-    if [[ "${CONFIGURE_CYCLONEDDS_SYSCTL}" == "y" ]]; then
+    if [[ "${CONFIGURE_CYCLONEDDS_SYSCTL:-n}" == "y" ]]; then
         just cyclonedds-sysctl
     else
         printf "{{yellow}}⊘{{nc}} cyclonedds-sysctl skipped (user choice)\n"
         printf "{{yellow}}Note:{{nc}} Run 'just cyclonedds-sysctl' to configure later\n"
     fi
 
-# Conditional TurboVNC + VirtualGL install (based on INSTALL_TURBOVNC_VIRTUALGL env var)
-_setup-turbovnc-virtualgl:
+_setup-multicast-lo:
     #!/usr/bin/env bash
-    if [[ "${INSTALL_TURBOVNC_VIRTUALGL}" == "y" ]]; then
-        just turbovnc-virtualgl
+    if [[ "${CONFIGURE_MULTICAST_LO:-n}" == "y" ]]; then
+        just multicast-lo
     else
-        printf "{{yellow}}⊘{{nc}} turbovnc-virtualgl skipped (user choice)\n"
+        printf "{{yellow}}⊘{{nc}} multicast-lo skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} Without it, lo loses multicast on reboot and ROS cannot start\n"
     fi
 
 # Conditional Isaac ROS install (based on INSTALL_ISAAC_ROS env var)
@@ -81,10 +141,47 @@ _setup-isaac-ros:
         printf "{{yellow}}⊘{{nc}} isaac-ros skipped (user choice)\n"
     fi
 
+# Conditional TurboVNC + VirtualGL install (based on INSTALL_TURBOVNC_VIRTUALGL env var)
+_setup-turbovnc-virtualgl:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_TURBOVNC_VIRTUALGL:-n}" == "y" ]]; then
+        just turbovnc-virtualgl
+    else
+        printf "{{yellow}}⊘{{nc}} turbovnc-virtualgl skipped (user choice)\n"
+    fi
+
+# Conditional OpenCV consistency fix (based on INSTALL_OPENCV env var)
+#
+# Runs AFTER autoware-debian and isaac-ros on purpose: both pull packages that
+# depend on libopencv-dev, so letting apt settle first means this has one state
+# to correct rather than racing it.
+_setup-opencv:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_OPENCV:-n}" == "y" ]]; then
+        just opencv
+    else
+        printf "{{yellow}}⊘{{nc}} opencv skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} Run 'just opencv' to fix later, or 'just opencv-check' to see the state\n"
+    fi
+
+# JetPack ships NVIDIA's OpenCV 4.8.0 as libopencv-dev, which owns
+# /usr/include/opencv4, while every runtime library and every ROS deb on the
+# system is Ubuntu's 4.5.4. Local builds then compile against one and link the
+# other. It also costs the contrib modules, which is why aruco is missing.
+#
+# just takes only the LAST contiguous comment block as the description, so the
+# blank line above is what keeps `just --list` readable.
+
+# Put OpenCV on one version: Ubuntu 4.5.4, headers and runtime together
+opencv: _init
+    @just _run opencv "{{scripts_dir}}/install-opencv.sh"
+
+# Report the OpenCV state without changing anything
+opencv-check:
+    @"{{scripts_dir}}/install-opencv.sh" --check
+
 # Alias for setup (resume from where it left off due to markers)
 resume: setup
-
-
 
 # Install ZED SDK (optional, for ZED camera users)
 install-zed-sdk: _init
@@ -107,6 +204,23 @@ ros2: _init
 # Install ROS 2 development tools (colcon, rosdep, etc.)
 ros2-dev-tools: _init ros2
     @just _run ros2-dev-tools "{{scripts_dir}}/install-ros2-dev-tools.sh"
+
+# Conditional colcon-cargo-ros2 install (based on INSTALL_COLCON_CARGO_ROS2 env var)
+#
+# Defaults to ON: cuda_ndt_matcher builds with ament_cargo and colcon silently
+# refuses to process it without this extension.
+_setup-colcon-cargo-ros2:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_COLCON_CARGO_ROS2:-y}" == "y" ]]; then
+        just colcon-cargo-ros2
+    else
+        printf "{{yellow}}⊘{{nc}} colcon-cargo-ros2 skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} The Rust packages will not build; run 'just colcon-cargo-ros2' later\n"
+    fi
+
+# Install/upgrade colcon-cargo-ros2 (Rust support for colcon, >= 0.5.1)
+colcon-cargo-ros2: _init
+    @just _run colcon-cargo-ros2 "{{scripts_dir}}/install-colcon-cargo-ros2.sh"
 
 # Install gdown (Google Drive downloader)
 gdown: _init
@@ -182,7 +296,10 @@ rust: _init
     fi
     touch "{{marker_dir}}/rust"
 
-# Install AutoSDV Python dependencies
+# colcon-cargo-ros2 is NOT here: it needs a version floor and a --no-deps
+# install, so it has its own recipe. See install-colcon-cargo-ros2.sh.
+
+# Install AutoSDV Python dependencies (play_launch >= 0.9.0, vehicle control deps)
 python-deps: _init rust
     #!/usr/bin/env bash
     [[ -f "{{marker_dir}}/python-deps" ]] && printf "{{green}}✓{{nc}} python-deps already done\n" && exit 0
@@ -193,8 +310,7 @@ python-deps: _init rust
     pip3 install --user \
         Adafruit-PCA9685==1.0.1 \
         simple-pid==2.0.1 \
-        'play_launch>=0.5.0,<0.6.0' \
-        colcon-cargo-ros2
+        'play_launch>=0.9.0'
     touch "{{marker_dir}}/python-deps"
     printf "{{green}}✓{{nc}} python-deps done\n"
 
@@ -214,9 +330,19 @@ ublox-udev: _init
     printf "{{green}}✓{{nc}} ublox-udev done\n"
     printf "{{yellow}}Note:{{nc}} Log out and back in for dialout group to take effect.\n"
 
-# Configure CycloneDDS kernel buffers (system-wide)
-cyclonedds-sysctl: _init ros2
+# Both halves of the DDS network requirement. Either alone leaves a host that
+# cannot create a DDS domain, so the umbrella recipe is what the menu and the
+# warning in .envrc both point at.
+# Configure the host network for CycloneDDS (kernel buffers + lo multicast)
+network-dds: cyclonedds-sysctl multicast-lo
+
+# Configure CycloneDDS kernel buffers (net.core.rmem_max + net.ipv4.ipfrag_*)
+cyclonedds-sysctl: _init
     @just _run cyclonedds-sysctl "{{scripts_dir}}/configure-cyclonedds-sysctl.sh"
+
+# Enable multicast on lo, persistently (systemd unit)
+multicast-lo: _init
+    @just _run multicast-lo "{{scripts_dir}}/configure-multicast-lo.sh"
 
 # Install ROS dependencies for workspace packages
 ros-deps: _init ros2-dev-tools
@@ -270,7 +396,7 @@ status:
     echo "============="
     echo ""
     echo "Core Components:"
-    for step in ros2 ros2-dev-tools gdown geographiclib pacmod dev-tools python-deps ublox-udev ros-deps; do
+    for step in ros2 ros2-dev-tools colcon-cargo-ros2 gdown geographiclib pacmod dev-tools rust python-deps ublox-udev ros-deps; do
         if [[ -f "{{marker_dir}}/$step" ]]; then
             printf "  {{green}}✓{{nc}} %s\n" "$step"
         else
@@ -294,10 +420,48 @@ status:
     fi
     echo ""
     echo "Configuration:"
-    if [[ -f "{{marker_dir}}/cyclonedds-sysctl" ]]; then
-        printf "  {{green}}✓{{nc}} cyclonedds-sysctl\n"
+    # Report the observed state, not a marker: a marker says a step ran once,
+    # while a reboot or a JetPack OTA can undo what it did.
+    if sysctl -n net.core.rmem_max 2>/dev/null | awk '{exit !($1 >= 10485760)}'; then
+        printf "  {{green}}✓{{nc}} cyclonedds-sysctl (rmem_max %s)\n" "$(sysctl -n net.core.rmem_max)"
     else
-        printf "  {{red}}○{{nc}} cyclonedds-sysctl\n"
+        printf "  {{red}}○{{nc}} cyclonedds-sysctl (rmem_max %s, need >= 10485760 — run: just cyclonedds-sysctl)\n" "$(sysctl -n net.core.rmem_max 2>/dev/null || echo unknown)"
+    fi
+    if ip link show lo 2>/dev/null | grep -q MULTICAST; then
+        if systemctl is-enabled multicast-lo.service &>/dev/null; then
+            printf "  {{green}}✓{{nc}} multicast-lo (enabled, survives reboot)\n"
+        else
+            printf "  {{yellow}}○{{nc}} multicast-lo (lo has MULTICAST now, but not after a reboot — run: just multicast-lo)\n"
+        fi
+    else
+        printf "  {{red}}○{{nc}} multicast-lo (lo has no MULTICAST flag; ROS cannot start — run: just multicast-lo)\n"
+    fi
+    # Read the version rather than a marker. A marker says this ran once; a
+    # JetPack OTA can put 4.8.0 back afterwards, and then the marker is a lie.
+    opencv_dev=$(dpkg-query -W -f='${Version}' libopencv-dev 2>/dev/null || true)
+    if [[ "$opencv_dev" == 4.5.4* && -f /usr/include/opencv4/opencv2/aruco.hpp ]]; then
+        printf "  {{green}}✓{{nc}} opencv %s, headers and runtime agree, contrib present\n" "$opencv_dev"
+    elif [[ "$opencv_dev" == 4.8.0* ]]; then
+        printf "  {{red}}○{{nc}} opencv %s headers over a 4.5.4 runtime (run: just opencv)\n" "$opencv_dev"
+    elif [[ -n "$opencv_dev" ]]; then
+        printf "  {{yellow}}○{{nc}} opencv %s, no contrib headers (run: just opencv-check)\n" "$opencv_dev"
+    else
+        printf "  {{yellow}}○{{nc}} opencv not installed\n"
+    fi
+    # Autoware data farm: the packaged tree is root-owned, so without this
+    # TensorRT cannot cache an engine.
+    if [[ -d "{{data_dir}}/autoware_data" ]]; then
+        printf "  {{green}}✓{{nc}} autoware-data (writable model tree)\n"
+        # Engines, not a marker: they are tied to the TensorRT version and the
+        # GPU, so an upgrade invalidates them while any marker would survive.
+        engines=$(find "{{data_dir}}/autoware_data" -name '*.engine' -type f 2>/dev/null | wc -l)
+        if [[ "$engines" -gt 0 ]]; then
+            printf "  {{green}}✓{{nc}} tensorrt-engines (%s built)\n" "$engines"
+        else
+            printf "  {{yellow}}○{{nc}} tensorrt-engines (none; first launch compiles them inline — run: just build-engines)\n"
+        fi
+    else
+        printf "  {{yellow}}○{{nc}} autoware-data (run: just autoware-data)\n"
     fi
     echo ""
     echo "Optional Downloads:"
@@ -307,7 +471,7 @@ status:
     else
         printf "  {{yellow}}○{{nc}} ML model artifacts (run: just download-artifacts)\n"
     fi
-    # Check ZED SDK installation (not supported in setup script)
+    # Check ZED SDK installation
     if [[ -d "/usr/local/zed" ]] || command -v ZED_Explorer &> /dev/null; then
         printf "  {{green}}✓{{nc}} ZED SDK (installed)\n"
     else

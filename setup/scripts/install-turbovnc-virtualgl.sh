@@ -6,6 +6,7 @@
 #   https://virtualgl.org/Downloads/YUM
 
 set -e
+set -o pipefail  # a failed wget in `wget | gpg` pipes must abort, not be masked
 
 echo "TurboVNC + VirtualGL Installation"
 echo "=================================="

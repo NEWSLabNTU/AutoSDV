@@ -29,4 +29,8 @@ if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
     sudo rosdep init
 fi
 
+# Rust support for colcon (colcon-cargo-ros2) is a separate step:
+#   just colcon-cargo-ros2
+# It is part of the default `just setup` chain.
+
 echo "ROS 2 development tools installation complete."
