@@ -110,6 +110,55 @@ launch:
     default: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
     description: "RViz layout to load"
 
+# Exposed include arguments. Every one of these was a hardcoded value at its
+# include, which silently ate any name:=value given on the command line -- the
+# trap that hit data_path and rviz_config. Defaults preserve the previous
+# hardcoded behavior exactly.
+- arg:
+    name: vehicle_model
+    default: "autosdv_vehicle"
+    description: "Vehicle description package prefix"
+
+- arg:
+    name: sensor_model
+    default: "autosdv_sensor_kit"
+    description: "Sensor kit description package prefix"
+
+- arg:
+    name: use_sim_time
+    default: "false"
+    description: "Use simulated clock"
+
+- arg:
+    name: enable_visualization
+    default: "true"
+    description: "Isaac: visualization output"
+
+- arg:
+    name: enable_visual_slam
+    default: "true"
+    description: "Isaac: run cuVSLAM"
+
+- arg:
+    name: enable_global_localization
+    default: "true"
+    description: "Isaac: run cuVGL global localization"
+
+- arg:
+    name: enable_pose_initializer
+    default: "true"
+    description: "Isaac: bridge first cuVGL pose to /localization/initialize"
+
+- arg:
+    name: enable_imu_fusion
+    default: "true"
+    description: "Isaac: fuse IMU into cuVSLAM"
+
+- arg:
+    name: auto_initialize
+    default: "true"
+    description: "Isaac: initialize pose automatically"
+
 - arg:
     name: use_mapless_mode
     default: "false"
@@ -215,9 +264,9 @@ launch:
         - name: camera_namespace
           value: /sensing/camera/$(var camera_model)/$(var camera_model)
         - name: enable_imu_fusion
-          value: "true"
+          value: $(var enable_imu_fusion)
         - name: enable_visualization
-          value: "true"
+          value: $(var enable_visualization)
 
 # Launch Visual Global Localization (cuVGL + cuVSLAM) when pose_source is visual
 # This provides camera-only localization without LiDAR NDT
@@ -234,28 +283,28 @@ launch:
         - name: camera_model
           value: $(var camera_model)
         - name: enable_global_localization
-          value: "true"
+          value: $(var enable_global_localization)
         - name: enable_visual_slam
-          value: "true"
+          value: $(var enable_visual_slam)
         - name: enable_pose_initializer
-          value: "true"
+          value: $(var enable_pose_initializer)
         - name: enable_imu_fusion
-          value: "true"
+          value: $(var enable_imu_fusion)
         - name: auto_initialize
-          value: "true"
+          value: $(var auto_initialize)
 
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
     arg:
     -
       name: vehicle_model
-      value: autosdv_vehicle
+      value: $(var vehicle_model)
     -
       name: is_simulation
       value: $(var is_simulation)
     -
       name: sensor_model
-      value: autosdv_sensor_kit
+      value: $(var sensor_model)
     -
       name: map_path
       value: $(var map_path)
@@ -321,7 +370,7 @@ launch:
       value: $(var use_pointcloud_map)
     -
       name: use_sim_time
-      value: "false"
+      value: $(var use_sim_time)
     -
       name: rviz_config
       value: $(var rviz_config)

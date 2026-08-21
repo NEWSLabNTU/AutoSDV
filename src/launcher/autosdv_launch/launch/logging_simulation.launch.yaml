@@ -133,6 +133,102 @@ launch:
     default: "false"
     description: "Enable NTRIP client for RTK corrections (disabled in simulation)"
 
+# Exposed include arguments. Every one of these was a hardcoded value at its
+# include, which silently ate any name:=value given on the command line -- the
+# trap that hit data_path and rviz_config. Defaults preserve the previous
+# hardcoded behavior exactly.
+- arg:
+    name: use_sim_time
+    default: "true"
+    description: "Use simulated clock (rosbag replay)"
+
+- arg:
+    name: rviz_config
+    default: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+    description: "RViz layout to load"
+
+- arg:
+    name: system_run_mode
+    default: "logging_simulation"
+    description: "Autoware system run mode"
+
+- arg:
+    name: launch_vehicle
+    default: "true"
+    description: "Launch vehicle model"
+
+- arg:
+    name: launch_vehicle_interface
+    default: "false"
+    description: "Launch the real vehicle interface (off: replayed bags carry its topics)"
+
+- arg:
+    name: launch_system
+    default: "true"
+    description: "Launch system module"
+
+- arg:
+    name: launch_dummy_diag_publisher
+    default: "false"
+    description: "Launch dummy diagnostics publisher"
+
+- arg:
+    name: launch_map
+    default: "true"
+    description: "Launch map loading"
+
+- arg:
+    name: launch_sensing
+    default: "true"
+    description: "Launch sensing"
+
+- arg:
+    name: launch_sensing_driver
+    default: "false"
+    description: "Launch sensor drivers (off: data comes from the bag)"
+
+- arg:
+    name: launch_localization
+    default: "true"
+    description: "Launch localization"
+
+- arg:
+    name: enable_visualization
+    default: "false"
+    description: "Isaac: visualization output"
+
+- arg:
+    name: enable_visual_slam
+    default: "true"
+    description: "Isaac: run cuVSLAM"
+
+- arg:
+    name: enable_global_localization
+    default: "true"
+    description: "Isaac: run cuVGL global localization"
+
+- arg:
+    name: enable_pose_initializer
+    default: "true"
+    description: "Isaac: bridge first cuVGL pose to /localization/initialize"
+
+- arg:
+    name: enable_imu_fusion
+    default: "true"
+    description: "Isaac: fuse IMU into cuVSLAM"
+
+- arg:
+    name: auto_initialize
+    default: "true"
+    description: "Isaac: initialize pose automatically"
+
+# Distinct from launch_system_monitor above: that one gates AutoSDV's own
+# monitor node; this one is Autoware's system_monitor stack at the include.
+- arg:
+    name: launch_autoware_system_monitor
+    default: "false"
+    description: "Launch Autoware's system monitor stack"
+
 - arg:
     name: use_mapless_mode
     default: "false"
@@ -217,9 +313,9 @@ launch:
         - name: camera_namespace
           value: /sensing/camera/$(var camera_model)/$(var camera_model)
         - name: enable_imu_fusion
-          value: "true"
+          value: $(var enable_imu_fusion)
         - name: enable_visualization
-          value: "false"
+          value: $(var enable_visualization)
 
 # Launch Visual Global Localization (cuVGL + cuVSLAM) when pose_source is visual
 - group:
@@ -235,15 +331,15 @@ launch:
         - name: camera_model
           value: $(var camera_model)
         - name: enable_global_localization
-          value: "true"
+          value: $(var enable_global_localization)
         - name: enable_visual_slam
-          value: "true"
+          value: $(var enable_visual_slam)
         - name: enable_pose_initializer
-          value: "true"
+          value: $(var enable_pose_initializer)
         - name: enable_imu_fusion
-          value: "true"
+          value: $(var enable_imu_fusion)
         - name: auto_initialize
-          value: "true"
+          value: $(var auto_initialize)
 
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
@@ -277,34 +373,34 @@ launch:
       value: $(var data_path)
     -
       name: launch_vehicle
-      value: "true"
+      value: $(var launch_vehicle)
     -
       name: launch_vehicle_interface
-      value: "false"
+      value: $(var launch_vehicle_interface)
     -
       name: launch_system
-      value: "true"
+      value: $(var launch_system)
     -
       name: system_run_mode
-      value: "logging_simulation"
+      value: $(var system_run_mode)
     -
       name: launch_system_monitor
-      value: "false"
+      value: $(var launch_autoware_system_monitor)
     -
       name: launch_dummy_diag_publisher
-      value: "false"
+      value: $(var launch_dummy_diag_publisher)
     -
       name: launch_map
-      value: "true"
+      value: $(var launch_map)
     -
       name: launch_sensing
-      value: "true"
+      value: $(var launch_sensing)
     -
       name: launch_sensing_driver
-      value: "false"
+      value: $(var launch_sensing_driver)
     -
       name: launch_localization
-      value: "true"
+      value: $(var launch_localization)
     -
       name: launch_perception
       value: $(var launch_perception)
@@ -334,13 +430,13 @@ launch:
       value: $(var use_pointcloud_map)
     -
       name: use_sim_time
-      value: "true"
+      value: $(var use_sim_time)
     -
       name: rviz
       value: $(var rviz)
     -
       name: rviz_config
-      value: "$(find-pkg-share autosdv_launch)/rviz/autosdv.rviz"
+      value: $(var rviz_config)
     -
       name: pose_source
       value: $(var pose_source)
