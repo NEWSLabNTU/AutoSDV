@@ -78,6 +78,14 @@
   <arg name="detected_objects_validation_method" default="obstacle_pointcloud" description="options: obstacle_pointcloud, occupancy_grid (must be used with laserscan_based_occupancy_grid_map)"/>
   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
   <arg name="lidar_detection_model" default="centerpoint" description="If the model name is not declared, the default model in perception.launch.xml will be used"/>
+  <arg name="use_mapless_mode" default="false" description="run lidar detection in base_link: densification loses its map-frame requirement, so CenterPoint works with localization off"/>
+  <!-- Mapless swaps only the lidar model param dir: the mapless copies differ
+       from autoware_launch's solely in densification_params.world_frame_id
+       (map -> base_link). Without this, CenterPoint drops every cloud with
+       "Could not find a connection between 'base_link' and 'map'" when no
+       localization is running. -->
+  <let name="lidar_model_param_dir" value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/lidar_model" unless="$(var use_mapless_mode)"/>
+  <let name="lidar_model_param_dir" value="$(find-pkg-share autosdv_launch)/config/perception/object_recognition/detection/lidar_model_mapless" if="$(var use_mapless_mode)"/>
   <arg name="ml_camera_lidar_merger_priority_mode" default="0" description="priority mode for ml and camera_lidar merger, options: `0: Object0`, `1: Object1`, `2: ConfidenceBased`, `3: ClassBased`"/>
 
   <arg
@@ -215,7 +223,7 @@
       name="object_recognition_detection_radar_lanelet_filtering_range_param_path"
       value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/object_filter/radar_lanelet_filter.param.yaml"
     />
-    <arg name="object_recognition_detection_lidar_model_param_path" value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/lidar_model"/>
+    <arg name="object_recognition_detection_lidar_model_param_path" value="$(var lidar_model_param_dir)"/>
     <arg
       name="object_recognition_detection_object_velocity_splitter_radar_param_path"
       value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/object_velocity_splitter/object_velocity_splitter_radar.param.yaml"
