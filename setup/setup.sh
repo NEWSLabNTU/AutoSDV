@@ -179,6 +179,7 @@ MENU_ITEMS=(
   "ISAAC_ROS|y|0|Isaac ROS Visual Localization|cuVSLAM + cuVGL, for pose_source:=visual/isaac. Needs an NVIDIA GPU."
   "BLICKFELD|y|0|Blickfeld Scanner Library|Driver for the Cube1 LiDAR. Selecting it accepts the library's licence terms."
   "COLCON_CARGO_ROS2|y|0|colcon-cargo-ros2 (Rust colcon support)|>= 0.5.1. Without it colcon skips cuda_ndt_matcher and the build aborts."
+  "PLAY_LAUNCH|y|0|play_launch (>= 0.9.0)|Launch orchestrator; every just-launch runs through it. 0.9.0 adds the startup governor."
   "OPENCV|y|0|OpenCV consistency (4.5.4)|JetPack leaves 4.8.0 headers over a 4.5.4 runtime. Also what makes aruco/contrib available."
   "NETWORK_DDS|y|0|Network configuration (DDS)|REQUIRED to run ROS here. Both sub-steps below; .envrc warns when they are missing."
   "CYCLONEDDS_SYSCTL|y|1|└ kernel socket buffers|net.core.rmem_max=2GB + net.ipv4.ipfrag_*. Below 10MB no ros2 node can start."
@@ -470,6 +471,7 @@ export_choices() {
     # says so.
     export AUTOSDV_ACCEPT_BLICKFELD_EULA="$([[ "${MENU_STATE[BLICKFELD]}" == "y" ]] && echo 1 || echo 0)"
     export INSTALL_COLCON_CARGO_ROS2="${MENU_STATE[COLCON_CARGO_ROS2]}"
+    export INSTALL_PLAY_LAUNCH="${MENU_STATE[PLAY_LAUNCH]}"
     export INSTALL_OPENCV="${MENU_STATE[OPENCV]}"
     export CONFIGURE_CYCLONEDDS_SYSCTL="${MENU_STATE[CYCLONEDDS_SYSCTL]}"
     export CONFIGURE_MULTICAST_LO="${MENU_STATE[MULTICAST_LO]}"
@@ -571,10 +573,12 @@ noninteractive_setup() {
             key=$(menu_field "${MENU_ITEMS[$i]}" 1)
             MENU_STATE[$key]="n"
         done
-        # colcon-cargo-ros2 stays on: cuda_ndt_matcher builds with ament_cargo,
-        # so without it `just build` aborts. A "core only" install that cannot
-        # build the workspace is not a useful minimum.
+        # colcon-cargo-ros2 and play_launch stay on: without the first
+        # `just build` aborts, without the second `just launch` cannot run.
+        # A "core only" install that can neither build nor launch is not a
+        # useful minimum.
         MENU_STATE[COLCON_CARGO_ROS2]="y"
+        MENU_STATE[PLAY_LAUNCH]="y"
     fi
 
     for arg in "$@"; do
@@ -713,6 +717,7 @@ main() {
         for k in SKIP_AUTOWARE_DEBIAN AUTOWARE_PREREQ_ROS AUTOWARE_PREREQ_SPCONV \
                  SETUP_AUTOWARE_DATA BUILD_TENSORRT_ENGINES INSTALL_ISAAC_ROS SKIP_BLICKFELD \
                  AUTOSDV_ACCEPT_BLICKFELD_EULA INSTALL_COLCON_CARGO_ROS2 \
+                 INSTALL_PLAY_LAUNCH \
                  INSTALL_OPENCV CONFIGURE_CYCLONEDDS_SYSCTL CONFIGURE_MULTICAST_LO \
                  INSTALL_ZED_SDK INSTALL_TURBOVNC_VIRTUALGL; do
             printf "  %-32s %s\n" "$k" "${!k}"

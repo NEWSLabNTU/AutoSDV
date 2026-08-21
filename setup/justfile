@@ -45,7 +45,7 @@ default:
 # blank line below is what keeps the description a description.
 
 # Full setup (runs all steps in order)
-setup: _init ros2 ros2-dev-tools rust _setup-colcon-cargo-ros2 gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-autoware-data _setup-tensorrt-engines _setup-isaac-ros _setup-opencv python-deps ublox-udev _setup-zed-sdk _setup-cyclonedds-sysctl _setup-multicast-lo _setup-turbovnc-virtualgl ros-deps
+setup: _init ros2 ros2-dev-tools rust _setup-colcon-cargo-ros2 _setup-play-launch gdown geographiclib pacmod dev-tools _setup-blickfeld _setup-autoware-debian _setup-autoware-data _setup-tensorrt-engines _setup-isaac-ros _setup-opencv python-deps ublox-udev _setup-zed-sdk _setup-cyclonedds-sysctl _setup-multicast-lo _setup-turbovnc-virtualgl ros-deps
     @printf "{{green}}✓ Setup complete!{{nc}}\n"
 
 # Conditional Autoware Debian install (based on SKIP_AUTOWARE_DEBIAN env var)
@@ -222,6 +222,24 @@ _setup-colcon-cargo-ros2:
 colcon-cargo-ros2: _init
     @just _run colcon-cargo-ros2 "{{scripts_dir}}/install-colcon-cargo-ros2.sh"
 
+# Conditional play_launch install (based on INSTALL_PLAY_LAUNCH env var)
+#
+# Defaults to ON: every `just launch` runs through play_launch, and 0.9.0 is
+# the release with the startup governor. Deliberately markerless -- the script
+# checks the installed version each run, so setup upgrades old machines.
+_setup-play-launch:
+    #!/usr/bin/env bash
+    if [[ "${INSTALL_PLAY_LAUNCH:-y}" == "y" ]]; then
+        just play-launch
+    else
+        printf "{{yellow}}⊘{{nc}} play-launch skipped (user choice)\n"
+        printf "{{yellow}}Note:{{nc}} just launch cannot run without it; run 'just play-launch' later\n"
+    fi
+
+# Install/upgrade play_launch (launch orchestrator, >= 0.9.0)
+play-launch: _init
+    @"{{scripts_dir}}/install-play-launch.sh"
+
 # Install gdown (Google Drive downloader)
 gdown: _init
     @just _run gdown "pip3 install --user gdown"
@@ -296,10 +314,11 @@ rust: _init
     fi
     touch "{{marker_dir}}/rust"
 
-# colcon-cargo-ros2 is NOT here: it needs a version floor and a --no-deps
-# install, so it has its own recipe. See install-colcon-cargo-ros2.sh.
+# colcon-cargo-ros2 and play_launch are NOT here: both need a version floor,
+# and this step's marker would pin whatever version a machine first installed.
+# They have their own markerless, version-checked recipes.
 
-# Install AutoSDV Python dependencies (play_launch >= 0.9.0, vehicle control deps)
+# Install AutoSDV Python dependencies (vehicle control deps)
 python-deps: _init rust
     #!/usr/bin/env bash
     [[ -f "{{marker_dir}}/python-deps" ]] && printf "{{green}}✓{{nc}} python-deps already done\n" && exit 0
@@ -309,8 +328,7 @@ python-deps: _init rust
     printf "{{yellow}}→{{nc}} Installing Python dependencies...\n"
     pip3 install --user \
         Adafruit-PCA9685==1.0.1 \
-        simple-pid==2.0.1 \
-        'play_launch>=0.9.0'
+        simple-pid==2.0.1
     touch "{{marker_dir}}/python-deps"
     printf "{{green}}✓{{nc}} python-deps done\n"
 
@@ -435,6 +453,15 @@ status:
         fi
     else
         printf "  {{red}}○{{nc}} multicast-lo (lo has no MULTICAST flag; ROS cannot start — run: just multicast-lo)\n"
+    fi
+    # play_launch: read the live version (the recipe is markerless).
+    pl_ver=$(python3 -c "import importlib.metadata as m; print(m.version('play_launch'))" 2>/dev/null || true)
+    if [[ -n "$pl_ver" ]] && [[ "$(printf '0.9.0\n%s\n' "$pl_ver" | sort -V | head -1)" == "0.9.0" ]]; then
+        printf "  {{green}}✓{{nc}} play_launch %s (>= 0.9.0)\n" "$pl_ver"
+    elif [[ -n "$pl_ver" ]]; then
+        printf "  {{red}}○{{nc}} play_launch %s is below the 0.9.0 floor (run: just play-launch)\n" "$pl_ver"
+    else
+        printf "  {{red}}○{{nc}} play_launch not installed (run: just play-launch)\n"
     fi
     # Read the version rather than a marker. A marker says this ran once; a
     # JetPack OTA can put 4.8.0 back afterwards, and then the marker is a lie.

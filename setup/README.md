@@ -98,6 +98,7 @@ The setup runs these steps in order:
 2. **ros2-dev-tools** - Install colcon, rosdep, pytest, flake8
 3. **rust** - Install the Rust toolchain via rustup
 4. **colcon-cargo-ros2** - Rust support for colcon (>= 0.5.1)
+5. **play-launch** - the launch orchestrator (>= 0.9.0, startup governor)
 5. **gdown** - Install Google Drive downloader
 6. **geographiclib** - Install GeographicLib tools and geoid data
 7. **pacmod** - Add AutonomouStuff apt repository
@@ -128,6 +129,13 @@ this extension colcon does not process it at all: it reports the package as
 the build aborts naming that missing file rather than the missing extension.
 The 0.5.1 floor matters — earlier releases import cleanly and still fail the
 build.
+
+**play-launch** — every `just launch` runs through it, and 0.9.0 is the floor
+because that release ships the startup governor (MemAvailable admission floor,
+`oom_score_adj` on children) that stops a full launch from freezing the box.
+Deliberately markerless and outside `python-deps`: that step's marker would pin
+whatever version a machine first installed, which is exactly how a box stays on
+0.8.x forever. The script checks the installed version on every run.
 
 **opencv** — JetPack ships NVIDIA's OpenCV 4.8.0 as `libopencv-dev`, which owns
 `/usr/include/opencv4`, while every runtime library and every ROS deb on the
