@@ -65,10 +65,17 @@ chain into the same one. That is not tidiness, it is the requirement.
 
 Two consequences worth knowing before moving anything:
 
-- **`localization_pointcloud_backend:=cuda` on its own still works, but is not
-  free.** With `pointcloud_backend:=cpu` the concatenated cloud arrives as a
-  plain `PointCloud2`; `CudaBlackboardSubscriber` has a compatible-topic
-  fallback, so the chain runs, paying a host-to-device copy at its first stage.
+- **`localization_pointcloud_backend:=cuda` requires
+  `pointcloud_backend:=cuda`.** This document previously said the localization
+  switch worked on its own and merely paid a host-to-device copy. Measured on
+  2026-09-12, it does not: with sensing on `cpu` the concatenated cloud is
+  `PointXYZIRCAEDT` (32 bytes), Autoware's `CudaVoxelGridDownsampleFilterNode`
+  rejects that layout -- `Input pointcloud data layout is not compatible with
+  PointXYZI`, 371 times in one run -- `util/downsample/pointcloud` never
+  publishes, and `ndt_scan_matcher` never activates. With sensing on `cuda` the
+  cloud is `PointXYZIRC` (16 bytes) and the chain runs, giving the same poses as
+  the all-CPU chain. The blackboard's compatible-topic fallback delivers the
+  bytes; the layout is what the voxel filter refuses.
 - **Halves of one stage cannot mix.** Autoware's own enum has no mixed mode
   either.
 
@@ -186,7 +193,7 @@ a question about that boundary, not about CUDA.
 | | |
 |---|---|
 | `pointcloud_backend:=cuda` | measured **on the golf cart's Orin**, not here: −23.7 points of container CPU, +33 points of GPU, +465 mW, equal throughput. AutoSDV's chain ends differently (passthrough, not concatenator), so re-measure with `scripts/profiling/`. |
-| `localization_pointcloud_backend:=cuda` | **correctness verified, speed never measured.** The CPU chain is ~19% of a core; the CUDA one has not been timed and could be slower. |
+| `localization_pointcloud_backend:=cuda` | **verified 2026-09-12, and only with `pointcloud_backend:=cuda`**: NDT activates, the chain holds 10.1 Hz, and the poses match the all-CPU chain (scatter p95 0.008 m, yaw step p50 0.085 deg, NVTL 3.56 against 3.53). Speed still not measured; the CPU chain is ~19% of a core. |
 | `pose_source:=cuda_ndt` | measured: 30.7 ms per frame against Autoware's 47.0, 3 cm RMSE, 9.0 s initialisation. |
 | the filters themselves | 12 unit tests against real device memory, run on this machine's GPU. |
 | the Robin-W's new layout | `CudaPointcloudPreprocessorNode` accepts a synthetic `PointXYZIRCAEDT` cloud and processes it at the full 10 Hz input rate, emitting `PointXYZIRC`. Measured here; a bag off the sensor still needs the vehicle. |

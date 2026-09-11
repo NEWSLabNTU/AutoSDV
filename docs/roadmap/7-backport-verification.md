@@ -223,26 +223,66 @@ machine with Autoware installed it never runs; and Autoware's own
 
 ---
 
-## Phase D — Localization on the same bags
+## Phase D — Localization — PASS, with one claim disproved, 2026-09-12
 
-```bash
-just sim logging ARGS="pose_source:=cuda_ndt"
-python3 scripts/testing/localization/check_ndt_activated.py --timeout 30
-python3 scripts/testing/localization/ndt_quality_report.py --seconds 60
-python3 scripts/testing/localization/ndt_alignment_report.py --seconds 60
+Run on `vlp32_1` with `pose_source:=ndt`, the built-in matcher; see the last
+note for why not `cuda_ndt`.
+
+| | NDT activates | `util/downsample/pointcloud` | scatter p95 | yaw step p50 | NVTL p50 |
+|---|---|---|---|---|---|
+| sensing `cpu` + localization `cpu` | **yes** | 10.167 Hz | 0.008 m | 0.085 deg | 3.53 |
+| sensing `cpu` + localization `cuda` | **NO** | never publishes | - | - | - |
+| sensing `cuda` + localization `cuda` | **yes** | 10.101 Hz | 0.008 m | 0.085 deg | 3.56 |
+
+**The CUDA localization chain gives the same poses as the CPU one** where it
+runs: 2,360 poses against 2,361, identical scatter and yaw-step medians, NVTL
+3.56 against 3.53. That is the comparison phase 2 could not make, and it passes.
+
+### The design doc's claim was wrong, and this is the correction
+
+`docs/design/cuda-pipeline-data-flow.md` said, carried from the golf cart, that
+`localization_pointcloud_backend:=cuda` on its own still works and merely pays a
+host-to-device copy, because the blackboard subscriber has a compatible-topic
+fallback.
+
+It does not work. It starves. With sensing on `cpu` the concatenated cloud is
+`PointXYZIRCAEDT`, 32 bytes and ten fields, and Autoware's
+`CudaVoxelGridDownsampleFilterNode` logs this 371 times in one run:
+
+```
+Input pointcloud data layout is not compatible with PointXYZI.
+The output result may not be correct
 ```
 
-The COSS map is `data/COSS-map-planning`, which is what these bags were recorded
-against, and what `ndt_alignment_report.py` now defaults to.
+`/localization/util/downsample/pointcloud` never publishes and
+`ndt_scan_matcher` never activates. The fallback does deliver the bytes; what
+fails is the layout the voxel filter then expects.
 
-**Pass**: NDT activates; scan-to-map p50 within roughly one `ndt.resolution`
-voxel; `localization_pointcloud_backend:=cuda` gives the same poses as `:=cpu`
-within noise. The second is the real point — that switch has only ever been
-checked for *correctness of wiring*, never for producing the same answer.
+With sensing on `cuda` the concatenated cloud is `PointXYZIRC`, 16 bytes, and
+the chain works - warnings and all, 1,337 of them, because the filter warns and
+proceeds and x/y/z occupy the same first twelve bytes either way.
 
-Then the one measurement phase 2 explicitly left undone: time the localization
-chain in both arms. The CPU chain is about 19% of a core; the CUDA one has never
-been timed and could be slower.
+**So the two switches are not independent**, which is precisely what the
+document claimed. `localization_pointcloud_backend:=cuda` requires
+`pointcloud_backend:=cuda`. Both default to `cpu`, so nothing ships broken, but
+setting one alone gives a stack that comes up and localizes nothing.
+
+### `pose_source:=cuda_ndt` cannot be tested on this desktop
+
+`cuda_ndt_matcher` compiles its kernels at runtime through NVRTC for the
+detected architecture, and CUDA 12.3's NVRTC does not know this machine's
+sm_120 card:
+
+```
+thread 'main' panicked at cubecl-cuda-0.8.1/src/compute/context.rs:161:17:
+[Compilation Error] nvrtc: error: invalid value for --gpu-architecture (-arch)
+```
+
+The node exits 101 before publishing anything. A property of this desktop rather
+than of the port - the Orin is sm_87 - but it leaves the matcher itself, and the
+22-commit bump inside it, unexercised. They need the vehicle.
+
+---
 
 ## Phase E — The Robin-W, which needs the vehicle
 
