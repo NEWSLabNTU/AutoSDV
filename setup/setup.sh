@@ -179,7 +179,7 @@ MENU_ITEMS=(
   "ISAAC_ROS|y|0|Isaac ROS Visual Localization|cuVSLAM + cuVGL, for pose_source:=visual/isaac. Needs an NVIDIA GPU."
   "BLICKFELD|y|0|Blickfeld Scanner Library|Driver for the Cube1 LiDAR. Selecting it accepts the library's licence terms."
   "COLCON_CARGO_ROS2|y|0|colcon-cargo-ros2 (Rust colcon support)|>= 0.5.1. Without it colcon skips cuda_ndt_matcher and the build aborts."
-  "PLAY_LAUNCH|y|0|play_launch (>= 0.9.0)|Launch orchestrator; every just-launch runs through it. 0.9.0 adds the startup governor."
+  "PLAY_LAUNCH|y|0|play_launch (>= 0.10.0)|Launch orchestrator; every just-launch runs through it. Below 0.10.0 the pose initializer dies at startup."
   "OPENCV|y|0|OpenCV consistency (4.5.4)|JetPack leaves 4.8.0 headers over a 4.5.4 runtime. Also what makes aruco/contrib available."
   "NETWORK_DDS|y|0|Network configuration (DDS)|REQUIRED to run ROS here. Both sub-steps below; .envrc warns when they are missing."
   "CYCLONEDDS_SYSCTL|y|1|└ kernel socket buffers|net.core.rmem_max=2GB + net.ipv4.ipfrag_*. Below 10MB no ros2 node can start."

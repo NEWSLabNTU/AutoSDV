@@ -33,6 +33,11 @@
   <arg name="input_pointcloud" default="/sensing/lidar/concatenated/pointcloud"/>
   <arg name="localization_pointcloud_container_name" default="/pointcloud_container"/>
 
+  <!-- AutoSDV: forwarded to pose_twist_estimator, which declares it with a
+       default of true. Without this the caller's value never arrives and GNSS
+       is assumed available whatever use_gnss says. -->
+  <arg name="gnss_enabled" default="true" description="gnss availability for initial position estimation"/>
+
   <!-- localization module -->
   <group>
     <push-ros-namespace namespace="localization"/>
@@ -41,6 +46,7 @@
       <arg name="localization_pointcloud_container_name" value="$(var localization_pointcloud_container_name)"/>
       <arg name="pose_source_package" value="$(var pose_source_package)"/>
       <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
+      <arg name="gnss_enabled" value="$(var gnss_enabled)"/>
     </include>
 
     <!-- pose_twist_fusion_filter module -->

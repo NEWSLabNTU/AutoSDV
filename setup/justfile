@@ -224,9 +224,11 @@ colcon-cargo-ros2: _init
 
 # Conditional play_launch install (based on INSTALL_PLAY_LAUNCH env var)
 #
-# Defaults to ON: every `just launch` runs through play_launch, and 0.9.0 is
-# the release with the startup governor. Deliberately markerless -- the script
-# checks the installed version each run, so setup upgrades old machines.
+# Defaults to ON: every `just launch` runs through play_launch. The floor is
+# 0.10.0 -- 0.9.0 for the startup governor, 0.10.0 because below it the pose
+# initializer's array parameters render as strings and the node dies at
+# startup. Deliberately markerless -- the script checks the installed version
+# each run, so setup upgrades old machines.
 _setup-play-launch:
     #!/usr/bin/env bash
     if [[ "${INSTALL_PLAY_LAUNCH:-y}" == "y" ]]; then
@@ -236,7 +238,7 @@ _setup-play-launch:
         printf "{{yellow}}Note:{{nc}} just launch cannot run without it; run 'just play-launch' later\n"
     fi
 
-# Install/upgrade play_launch (launch orchestrator, >= 0.9.0)
+# Install/upgrade play_launch (launch orchestrator, >= 0.10.0)
 play-launch: _init
     @"{{scripts_dir}}/install-play-launch.sh"
 
@@ -456,10 +458,10 @@ status:
     fi
     # play_launch: read the live version (the recipe is markerless).
     pl_ver=$(python3 -c "import importlib.metadata as m; print(m.version('play_launch'))" 2>/dev/null || true)
-    if [[ -n "$pl_ver" ]] && [[ "$(printf '0.9.0\n%s\n' "$pl_ver" | sort -V | head -1)" == "0.9.0" ]]; then
-        printf "  {{green}}✓{{nc}} play_launch %s (>= 0.9.0)\n" "$pl_ver"
+    if [[ -n "$pl_ver" ]] && [[ "$(printf '0.10.0\n%s\n' "$pl_ver" | sort -V | head -1)" == "0.10.0" ]]; then
+        printf "  {{green}}✓{{nc}} play_launch %s (>= 0.10.0)\n" "$pl_ver"
     elif [[ -n "$pl_ver" ]]; then
-        printf "  {{red}}○{{nc}} play_launch %s is below the 0.9.0 floor (run: just play-launch)\n" "$pl_ver"
+        printf "  {{red}}○{{nc}} play_launch %s is below the 0.10.0 floor (run: just play-launch)\n" "$pl_ver"
     else
         printf "  {{red}}○{{nc}} play_launch not installed (run: just play-launch)\n"
     fi

@@ -28,23 +28,23 @@
 [submodule "src/param/autoware_individual_params"]
 	path = src/param/autoware_individual_params
 	url = https://github.com/NEWSLabNTU/autoware_individual_params.git
-	branch = 2025.02
+	branch = 1.5.0
 [submodule "src/sensor_component/external/seyond_ros_driver"]
 	path = src/sensor_component/external/seyond_ros_driver
 	url = https://github.com/NEWSLabNTU/seyond_ros_driver.git
-	branch = autosdv-2025.02
+	branch = autosdv-1.5.0
 [submodule "src/system/autosdv_runtime"]
 	path = src/system/autosdv_runtime
 	url = https://github.com/NEWSLabNTU/autosdv_runtime.git
-	branch = 2025.02
+	branch = 1.5.0
 [submodule "src/system/autosdv_system_monitor"]
 	path = src/system/autosdv_system_monitor
 	url = https://github.com/NEWSLabNTU/autosdv_system_monitor.git
-	branch = 2025.02
+	branch = 1.5.0
 [submodule "src/calibration/CalibrationTools"]
 	path = src/calibration/CalibrationTools
 	url = https://github.com/NEWSLabNTU/CalibrationTools.git
-	branch = 2025.02
+	branch = 1.5.0
 [submodule "src/sensor_component/external/autoware_zed"]
 	path = src/sensor_component/external/autoware_zed
 	url = https://github.com/NEWSLabNTU/autoware_zed.git

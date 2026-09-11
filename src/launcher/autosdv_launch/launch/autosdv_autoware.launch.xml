@@ -32,6 +32,12 @@
   <!-- Localization -->
   <arg name="pose_source" default="ndt" description="select pose_estimator: ndt, yabloc, eagleye"/>
   <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing built-in NDT node"/>
+  <!-- AutoSDV: declared so the localization include below can forward it.
+       Previously this arrived only through LaunchConfiguration leakage from
+       autosdv.launch.yaml, and localization never saw it at all: the pose
+       initializer kept the upstream gnss_enabled default of true under
+       use_gnss:=false. Empty means the sensor suite decides. -->
+  <arg name="use_gnss" default="" description="GNSS available; empty means the sensor suite decides"/>
 
   <!-- AutoSDV: retarget map_height_fitter (used by autoware_pose_initializer
        for GNSS auto-init, and by the RViz initial-pose adaptor for "2D Pose
@@ -206,8 +212,9 @@
       <arg name="pose_source_package" value="$(var pose_source_package)"/>
       <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
       <arg name="input_pointcloud" value="$(var input_pointcloud)"/>
-          <arg name="use_sim_time" value="$(var use_sim_time)"/>
-</include>
+      <arg name="use_sim_time" value="$(var use_sim_time)"/>
+      <arg name="use_gnss" value="$(var use_gnss)"/>
+    </include>
   </group>
 
   <!-- Perception -->

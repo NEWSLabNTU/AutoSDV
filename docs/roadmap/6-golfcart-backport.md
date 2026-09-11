@@ -5,7 +5,7 @@ back into AutoSDV — the CUDA point cloud pipeline, the `cuda_ndt_matcher`
 bump, a driver QoS fix that is currently costing 60% of the Robin-W's points,
 and the tooling and system-package work that accumulated on that side.
 
-**Status**: Phase 6 done; the rest planned
+**Status**: phases 1, 3, 4, 5, 6, 7 (fixes) and 9 done; 2, 7.3, 8 and 10 open
 
 **Source**: `~/repos/2026-golf-cart`, branch `main`
 
@@ -52,7 +52,7 @@ them:
 
 ---
 
-## Phase 1 — Seyond driver QoS fix
+## Phase 1 — Seyond driver QoS fix — DONE 2026-09-11
 
 **One submodule bump, and the largest single win on this list.**
 
@@ -81,17 +81,19 @@ best effort. Offering RELIABLE is what created a reliable reader.
 AutoSDV runs the Robin-W through this same driver, so AutoSDV is losing the same
 points today.
 
-**Tasks**:
+**What was done**: no cherry-pick was needed. The fork's `golfcart` branch
+turned out to be our own `autosdv-2025.02` plus exactly one commit, the QoS fix
+— `85f2af8`, which I had earlier mistaken for a golf-cart rename, is an
+*AutoSDV* rename in a comment and was already on our branch. So the new
+`autosdv-1.5.0` branch was cut from `origin/golfcart` directly, giving phase 1
+and the Seyond half of phase 9 in one move, with no conflict.
 
-1. `98dbcc8` sits on the fork's `golfcart` branch, which AutoSDV should not
-   track. Cherry-pick it onto our own branch instead — and note that the
-   rebase in 2.3 will replay it onto `v1.0.3`, so this is the same patch
-   landing early rather than a second one.
-2. Push the fork branch, **then** update the superproject pin. See CLAUDE.md,
-   *Submodule Workflow*.
+Pushed to `NEWSLabNTU/seyond_ros_driver` as `autosdv-1.5.0`, then pinned, in
+that order. `.gitmodules` records the branch.
 
-**Verification**: record a Robin-W bag before and after and compare point counts
-per frame, or read the driver's own deliver-queue counters.
+**Still to verify on hardware**: record a Robin-W bag before and after and
+compare point counts per frame, or read the driver's own deliver-queue
+counters. Nothing here can be checked without the LiDAR.
 
 ---
 
@@ -329,7 +331,7 @@ both.
 
 ---
 
-## Phase 3 — cuda_ndt_matcher submodule bump
+## Phase 3 — cuda_ndt_matcher submodule bump — DONE 2026-09-11
 
 AutoSDV pins `e3f61f1`; the golf cart pins `db8c87b`, 22 commits ahead. AutoSDV
 has **0** commits the golf cart lacks, so this is a fast-forward with no merge.
@@ -346,8 +348,9 @@ What arrives:
   wrong convention for the scorer that read them
 - an explicit CUDA floor for cubecl-cuda's cudarc, ending a 13.0 fallback
 
-**Task**: bump `src/localization/cuda_ndt_matcher` to `db8c87b` or the current
-`main`, then rebuild.
+**Done**: pinned at `db8c87b`, which is `origin/main`'s head, and the nested
+`tests/rosbag_replay` submodule moved with it. Not rebuilt — this machine has
+no `install/`, so the build is left to a machine that has one.
 
 ### NDT parameters are not part of this bump
 
@@ -383,47 +386,67 @@ Both vehicle-independent, both worth taking with the bump:
 
 - **`ndt_param_file` argument**, so a tuning run can swap NDT parameters without
   editing the shipped file. Defaults to it, so nothing changes unless asked.
-- **`gnss_enabled` defaulting to `use_gnss`.** Without this the stack keeps
-  `gnss_enabled` at its upstream default of `true` even under `use_gnss:=false`,
-  which leaves `pose_initializer` waiting on a GNSS pose that never arrives and
-  launches `automatic_pose_initializer` to ask for it. Indoors that is a cold
-  start that never completes. AutoSDV documents `use_gnss:=false` for indoor
-  operation, so check whether it hits this.
+  Done.
+- **`gnss_enabled` defaulting to `use_gnss`.** AutoSDV did hit this, and worse
+  than the golf cart did: `pose_twist_estimator.launch.xml` declares
+  `gnss_enabled` with an upstream default of `true`, and
+  `localization.launch.xml` never forwarded it, so no caller could set it at
+  all. `use_gnss` itself reached `autosdv_autoware.launch.xml` only through
+  LaunchConfiguration leakage and was never declared there.
+
+  Fixed across three files: `use_gnss` is declared and forwarded in the
+  wrapper, the component derives `gnss_enabled` from it, and
+  `localization.launch.xml` passes it down. Empty `use_gnss` means the sensor
+  suite decides and every suite resolves it to `true`, so only an explicit
+  `false` disables GNSS. Not launch-tested — no built workspace here — but the
+  three files parse.
 
 ---
 
-## Phase 4 — Sensor kit: the xacro comment trap
+## Phase 4 — Sensor kit: the xacro comment trap — DONE 2026-09-11
 
-The two sensor kits are separate repositories with no shared commits, so this is
-re-application, not a cherry-pick. AutoSDV already has camera optical frames and
-three recent ZED TF fixes, so only one item transfers, and it transfers as a
-class of defect rather than a fix.
-
-**Never write a colon followed by a space inside a comment in a `.xacro` file.**
-Comments survive xacro expansion into the `robot_description` string, ROS 2
-launch YAML-parses parameter values, and a colon-space makes `safe_load` fail:
+The mechanism is real and reproduces on this stack. A comment carrying a colon
+followed by a space survives xacro expansion into `robot_description`, ROS 2
+launch YAML-parses parameter values, and `safe_load` fails on the whole URDF.
+Reproduced with plain `ros2 launch` on Humble, on a two-line test file:
 
 ```
-ValueError: Failed to convert '<?xml version="1.0" ?> ...
-using yaml rules: yaml.safe_load() failed
+Failed to convert '<?xml version="1.0" ?> ... ' using yaml rules:
+yaml.safe_load() failed
 mapping values are not allowed here
+  in "<unicode string>", line 7, column 16:
+      <!-- measures: x forward -->
 ```
 
-The failure is remote from the cause. Nothing names a comment: the stack simply
-never publishes `/localization/initialize` and the test harness reports that the
-stack never came up. On the golf cart it blocked every NDT replay until found.
+The error points at the comment, but nothing in a real run does: the stack
+simply never comes up.
 
-**Tasks**:
+**Audit result.** Every `.xacro` and `.urdf` under `src/`, comments only:
 
-1. Audit `autosdv_sensor_kit_description/urdf/*.xacro` and the vehicle
-   description for colon-space inside comments.
-2. Add the warning comment at the top of the sensor kit xacro. Note that the
-   golf cart's first attempt at that warning said no `word: word` in comments —
-   which contains a colon-space and reproduced the bug exactly.
+- AutoSDV's own sensor kit, vehicle and param descriptions: **clean**, zero
+  hits.
+- `zed-ros2-wrapper`'s `zed_macro.urdf.xacro`: three hits, in one
+  `Parameters:` block. **Inert**, and this was worth checking rather than
+  assuming: expanding the real `zed_descr.urdf.xacro` — the file
+  `zed_tf_only.launch.xml` and `zed_imu_only.launch.xml` actually pass through
+  `$(command 'xacro ...')` into a parameter value — drops that comment, and the
+  result parses. Comments inside a `xacro:macro` *definition* do not reach the
+  output; ones in the instantiated body do. Left alone.
+
+**Warning added** to `autosdv_sensor_kit_description/urdf/sensor_kit.xacro`,
+phrased in words. The golf cart's first attempt said no `word: word` in
+comments, which contains a colon-space and reproduced the bug inside the
+warning; this one spells the pattern out instead, and was expanded and parsed to
+prove it is safe.
+
+**One bug found while there**: a stray `b` after the `config_dir` `xacro:arg`,
+passing through expansion as character data in `robot_description`. Removed.
+
+Pushed as `0c38d51` on the sensor kit's `main`, then pinned.
 
 ---
 
-## Phase 5 — play_launch floor
+## Phase 5 — play_launch floor — DONE 2026-09-11, except the parity check
 
 AutoSDV pins no `--parser python` anywhere, so there is nothing to drop; what is
 needed is the version floor that makes the default Rust parser safe.
@@ -443,15 +466,25 @@ With a build at or past `8adc52ad`, the Rust parser resolves every golf cart
 entry point to the same node model as the Python one (indoor sim 83, NTU sim 81,
 logging sim 130, planning sim 118, aruco sim 124 nodes).
 
-**Tasks**:
+**Done**: the floor is `0.10.0` in `install-play-launch.sh`, the `setup/justfile`
+status row, `setup/setup.sh`'s menu note and `setup/README.md`. The installer's
+comment now records both reasons — the 0.9.0 startup governor and the 0.10.0
+array-parameter fix — and warns that a plain `pip install play_launch` satisfies
+the floor while still carrying play_launch issue #0028, because the fix
+(`8adc52ad`) is later than the 0.10.0 release and there is no version to check
+for. The machine here reads `play_launch 0.10.0 (>= 0.10.0)`.
 
-1. Raise `REQUIRED_VERSION` to `0.10.0`, and the matching floor in
-   `setup/justfile`'s status recipe.
-2. Verify parser parity on AutoSDV's own entry points before relying on the Rust
-   parser, using `play_launch dump` plus `context --tree` on
-   `autosdv.launch.yaml`, `logging_simulation.launch.yaml` and the planning sim.
-3. Record whether the `8adc52ad` fix has reached a release; until it has, the
-   floor can only be documented, not enforced by a version check.
+**Left undone**: parser parity on AutoSDV's own entry points. `play_launch dump`
+resolves a real launch tree, so it needs `autosdv_launch` installed, and this
+machine has no `install/`. Run on a built machine:
+
+```bash
+play_launch dump launch autosdv_launch autosdv.launch.yaml -o tmp/rust.json
+play_launch dump launch autosdv_launch autosdv.launch.yaml --parser python -o tmp/py.json
+play_launch context tmp/rust.json --tree
+```
+
+and compare node counts, as the golf cart did for its five entry points.
 
 ---
 
@@ -563,45 +596,83 @@ launch comment, and the COSS map's `autosdv_map.yaml`. `docs/reports/` and
 `docs/superpowers/plans/` were deliberately left alone: they record what was run
 at the time.
 
-## Phase 7 — System packages, generic revisions only
+## Phase 7 — System packages — fixes DONE 2026-09-11, features deferred
 
-Both packages were renamed on the golf cart side, so each cherry-pick needs the
-rename undone.
+Both packages were renamed on the golf cart side, so nothing could be
+cherry-picked; each commit was re-applied by hand against AutoSDV's names, and
+both now live on a `1.5.0` branch (phase 9's rename, done in the same pass).
 
-### 7.1 autosdv_runtime
+### 7.1 autosdv_runtime — done, `9fef4f2`
 
-AutoSDV pins `0ebf59c`; the golf cart is 6 commits ahead. Three are generic:
+`0d22f41` and `ae7c92a` ported; `40f43fe` became three lines of `.gitignore`,
+since nothing was actually tracked here.
 
-| Commit | Change |
+The units now carry `@AUTOSDV_WORKSPACE@` and the installer fills it in from
+`get_workspace_dir()`, with an unsubstituted placeholder raising rather than
+becoming systemd's problem later. The hardcoded `%h/AutoSDV` matched no
+checkout — this workspace is `~/repos/AutoSDV` — so `autosdv install && autosdv
+start` would have failed on a path.
+
+`ae7c92a` could not be taken literally: it routes the unit through
+`scripts/env.sh` and `config/cyclonedds/<profile>.xml`, neither of which exists
+here. The defect it fixes does exist, in AutoSDV's own shape, and turned out to
+be worse: the launch script sourced `/opt/autoware/autoware-env`, which is not
+where the Debian packages put it, so under `set -e` the unit died on its first
+line. It now takes the newest `/opt/autoware/*/setup.bash` and exports the
+workspace's own `cyclonedds.xml`, and `autosdv.service` no longer pins
+`CYCLONEDDS_URI` to `/opt/autoware/cyclonedds.xml`.
+
+Four more defects, all found by running `systemd-analyze verify` on the
+rendered units rather than by reading them:
+
+| Defect | Effect |
 |--------|--------|
-| `0d22f41` | template the workspace path into the systemd units at install time, instead of hardcoding it |
-| `ae7c92a` | resolve the DDS profile through `env.sh` rather than a hardcoded URI |
-| `40f43fe` | stop tracking colcon build artifacts (`.gitignore`) |
+| `Environment=HOME=/home/%i` | `%i` is empty outside a template unit, so `HOME=/home/` |
+| `User=%i` / `Group=%i` | fatal: "Invalid user/group name or numeric ID". A user unit runs as the user |
+| `Requires=`/`After=autosdv@%i.service` | names a template unit that does not exist |
+| `Documentation=github.com/AutoSDV/AutoSDV` | not the repository |
 
-Skipped as golf-cart-specific: `57a6ebc` (the rename), `aacb0b4` and `2dec9b3`,
-which delegate the service and the launcher to
-`scripts/multi_machine/launch_unit_exec.sh` — a two-host entry point that is out
-of scope by phase 0.
+After the fixes `systemd-analyze verify` is clean on all four units apart from
+the `ExecStart` path, which is absent only because this machine has no build.
 
-The generic half of `ae7c92a` is worth stating on its own: systemd user units
-get none of the interactive shell's environment. direnv does not run, `~/.bashrc`
-is not sourced, and `~/.local/bin` — where `play_launch` lives — is not on PATH.
-Whatever AutoSDV's unit needs has to be set up explicitly inside it.
+### 7.2 autosdv_system_monitor — fixes done, `b4832b6`
 
-### 7.2 autosdv_system_monitor
+`be07a3d`'s generic half and `5bc3888` ported. The same latent defect was here:
+`config/monitor_topics.yaml` names `nmea_msgs/msg/Sentence`,
+`rtcm_msgs/msg/Message` and `ublox_msgs/msg/RxmRTCM`, none of which the node's
+type map had, so the loader skipped all three and the table showed NO DATA
+whether or not anything published. All three packages were already
+`exec_depend`s; each was verified to import on this install. The skip warning
+now names the topic that will not be monitored.
 
-AutoSDV pins `ff6d79b`; the golf cart is 8 commits ahead. Generic:
+`/diagnostics_agg` removed — Autoware 1.5.0 publishes `DiagGraphStruct` and
+`DiagGraphStatus` through `autoware_diagnostic_graph_aggregator`, not an
+aggregated `DiagnosticArray`.
 
-| Commit | Change |
-|--------|--------|
-| `acfeaa7` | mode availability strip, read from Autoware's diagnostic graph (with a graph fixture and a render test) |
-| `36b3f81` | failing-path view — which leaf made which mode unavailable |
-| `4651fa7` | fail-safe timeline, the order things happened in |
-| `2b20654` | say which controls the refresh selector actually governs |
-| `5bc3888` | drop the `/diagnostics_agg` row; nothing publishes it |
-| `be07a3d` | **partial** — take the missing message type registrations, leave the golf cart topic names |
+Golf-cart topic names were **not** taken: AutoSDV's Velodyne genuinely publishes
+`/sensing/lidar/velodyne_points`, unnamespaced, where the golf cart's sits under
+`vlp32`.
 
-Skipped: `8d71947` (rename), `b68e135` and the topic-name half of `be07a3d`.
+### 7.3 Deferred: the four UI commits
+
+`acfeaa7`, `36b3f81`, `4651fa7` and `2b20654` are a feature, not a fix, and do
+not belong in a mechanical pass. Together they are ~2,200 lines including a
+1,365-line captured graph fixture and a Node test, they build on each other
+(`2b20654` only makes sense once the mode strip exists), and the mode strip
+launches `rosbridge_server` from the monitor's launch file — a new runtime
+dependency. AutoSDV's `monitor.html` is 499 lines against the golf cart's 1,072,
+so this is a port onto a diverged template.
+
+Worth doing, and worth scoping on its own. Two design facts to carry across when
+it happens:
+
+- The page must talk to rosbridge directly rather than through this node. The
+  two graph topics **disagree on QoS** — struct is RELIABLE + TRANSIENT_LOCAL,
+  status is BEST_EFFORT + VOLATILE — and one subscriber applying a single
+  profile silently receives nothing on one of them.
+- struct and status are joined **by array index**; `DiagNodeStatus` carries no
+  path, so an off-by-one mislabels every chip while looking entirely plausible.
+  The strip re-subscribes when the graph id changes for exactly this reason.
 
 ---
 
@@ -639,19 +710,28 @@ the golf cart's entries against an AutoSDV run.
 
 ---
 
-## Phase 9 — Pin Autoware at 1.5.0, and retire 2025.02
+## Phase 9 — Pin Autoware at 1.5.0, and retire 2025.02 — DONE 2026-09-11
 
 `versions.yaml` already says `autoware.version: "1.5.0"`, and the installed
 distribution is the 1.5.0 apt localrepo. What remains is everything still naming
 2025.02, which is now wrong in three different ways:
 
-**Submodule branches.** Five forks track an `autosdv-2025.02` or `2025.02`
-branch: `CalibrationTools`, `autoware_individual_params`, `autosdv_runtime`,
-`autosdv_system_monitor`, `seyond_ros_driver`. `autosdv_vehicle_launch` is
-already on `1.5.0`, which is the shape the rest should take. Rebase each onto its
-current base and push an `autosdv-1.5.0` (or `1.5.0`) branch, then repin.
-Phase 2.3 does this for the Seyond driver; phase 7 touches two more, so fold
-the rename into those rather than doing it twice.
+**Submodule branches.** Done. Every fork that named 2025.02 now has a branch
+naming the release its patches are actually current for, pushed before the pin
+was recorded:
+
+| Submodule | Was | Now | Pin |
+|-----------|-----|-----|-----|
+| `seyond_ros_driver` | `autosdv-2025.02` | `autosdv-1.5.0` | `98dbcc8` (with the phase 1 QoS fix) |
+| `CalibrationTools` | `2025.02` | `1.5.0` | `bc36609` |
+| `autoware_individual_params` | `2025.02` | `1.5.0` | `94877fd`, unchanged |
+| `autosdv_runtime` | `2025.02` | `1.5.0` | `9fef4f2` (phase 7) |
+| `autosdv_system_monitor` | `2025.02` | `1.5.0` | `b4832b6` (phase 7) |
+
+The old branches are kept; they are the record of what worked against 2025.02.
+`CalibrationTools` needed one content change with the rename:
+`calibration_tools_standalone.repos` pins a branch of the same fork, and still
+named `autosdv-2025.02`.
 
 **Stale docs and scripts.** Done on 2026-09-11, ahead of the rest of the phase,
 since it was doc-only:
@@ -794,14 +874,17 @@ set up by the old script.
 
 ## Suggested order
 
-1. **Phase 1** — one cherry-pick and one pin, largest win, no dependencies.
-2. **Phase 3** — fast-forward, and phase 2 needs its launch plumbing.
-3. **Phase 5** — cheap, and a working parser floor makes every later
-   verification easier.
-4. ~~**Phase 6** — tooling.~~ Done; 6.2's profiling scripts are what phase 2
-   gets measured with.
-5. **Phase 9** — do the branch renames before phase 7 repins the same forks.
-6. **Phase 2** — the real work, including the driver rebase and per-point time.
-7. **Phase 7** — mechanical, and inherits phase 9's branch names.
-8. **Phase 10** — setup, independent of everything above; can run in parallel.
-9. **Phases 4 and 8** — audits, done against a running stack.
+Phases 1, 3, 4, 5, 6, 7 (fixes) and 9 are done. What is left:
+
+1. **Phase 2** — the real work: the CUDA pipeline, the Seyond rebase onto
+   upstream v1.0.3, and per-point time. Measure it with phase 6.2's profiling
+   scripts.
+2. **Phase 10** — the setup rewrite. Independent of everything else, so it can
+   run in parallel.
+3. **Phase 7.3** — the four system-monitor UI commits, scoped on their own.
+4. **Phase 8** — the config-defect ledger, which needs a running stack.
+
+Three things need a machine this one is not. The workspace here has no
+`install/`, so: the cuda_ndt_matcher bump is unbuilt, the `gnss_enabled` and
+`ndt_param_file` launch changes are unlaunched (they parse, nothing more), and
+phase 5's parser parity check is unrun. The Seyond QoS fix needs the LiDAR.

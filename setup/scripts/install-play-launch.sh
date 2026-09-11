@@ -1,21 +1,35 @@
 #!/usr/bin/env bash
 # Install/upgrade play_launch (launch orchestrator)
 #
-# Every `just launch` runs through play_launch, and 0.9.0 is the floor for a
-# reason: it is the release that ships the startup governor (MemAvailable
-# admission floor + oom_score_adj on children), which is what stops a full
-# Autoware launch from freezing the box or feeding the desktop to the OOM
-# killer on an edge machine.
+# Every `just launch` runs through play_launch, and the floor is 0.10.0. Two
+# releases put it there:
+#
+#   0.9.0   ships the startup governor (MemAvailable admission floor +
+#           oom_score_adj on children), which is what stops a full Autoware
+#           launch from freezing the box or feeding the desktop to the OOM
+#           killer on an edge machine.
+#   0.10.0  fixes array parameters being rendered as strings (f78745da). Under
+#           0.8.2 that killed autoware_pose_initializer_node at startup and
+#           took /localization/initialize with it, so the stack came up without
+#           a way to be initialised.
+#
+# A NOTE ON THE RUST PARSER, which is the default. play_launch issue #0028 --
+# global parameters never reaching a .launch.py across the loader boundary,
+# surfacing as `KeyError: 'rear_overhang'` -- is fixed in 8adc52ad (2026-09-11,
+# ABI 4), which is AFTER the 0.10.0 release. A plain `pip install play_launch`
+# therefore satisfies this floor while still carrying that bug. Until it
+# reaches a release there is no version to check for, so if a launch dies that
+# way, pass `--parser python` or install from git past that commit.
 #
 # This is deliberately NOT a marker-gated step, and not part of python-deps:
-# a machine set up before the 0.9.0 floor carries a python-deps marker and
-# would never upgrade past its old play_launch. This script checks the
-# installed version on every run and is a no-op when it already satisfies the
-# floor, so re-running setup keeps machines current.
+# a machine set up before the floor carries a python-deps marker and would
+# never upgrade past its old play_launch. This script checks the installed
+# version on every run and is a no-op when it already satisfies the floor, so
+# re-running setup keeps machines current.
 
 set -e
 
-REQUIRED_VERSION="0.9.0"
+REQUIRED_VERSION="0.10.0"
 
 installed_version() {
     python3 - <<'PY' 2>/dev/null

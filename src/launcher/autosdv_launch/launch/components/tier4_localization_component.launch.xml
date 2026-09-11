@@ -19,6 +19,24 @@
   <arg name="localization_pointcloud_container_name" default="/pointcloud_container" description="The target container to which pointcloud preprocessing nodes in localization be attached"/>
   <arg name="initial_pose" default="[]" description="initial pose (x, y, z, quat_x, quat_y, quat_z, quat_w)"/>
 
+  <!-- AutoSDV: localization must follow use_gnss, not assume GNSS exists.
+       pose_twist_estimator.launch.xml declares gnss_enabled with an upstream
+       default of true and localization.launch.xml never passed it, so under
+       use_gnss:=false the stack still ran automatic_pose_initializer and left
+       pose_initializer waiting on a GNSS pose that never arrives. Indoors that
+       is a cold start that never completes.
+
+       use_gnss arrives empty when the caller leaves it to the sensor suite,
+       and every suite resolves it to true, so anything but an explicit "false"
+       means GNSS is expected. -->
+  <arg name="use_gnss" default="" description="GNSS available; empty means the sensor suite decides (all suites: true)"/>
+  <let name="gnss_enabled" value="$(eval &quot;'false' if '$(var use_gnss)' == 'false' else 'true'&quot;)"/>
+
+  <!-- AutoSDV: overridable so a tuning run can swap NDT parameters without
+       editing the shipped file. Defaults to it, so nothing changes unless
+       asked. -->
+  <arg name="ndt_param_file" default="$(var loc_config_path)/ndt_scan_matcher/ndt_scan_matcher.param.yaml" description="NDT parameter file; override for a tuning run"/>
+
   <!-- Pluggable pose source: external package providing launch/pose_estimator.launch.xml -->
   <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing the built-in NDT node. Empty string uses built-in Autoware NDT."/>
   <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic"/>
@@ -32,6 +50,7 @@
     <arg name="initial_pose" value="$(var initial_pose)"/>
     <arg name="pose_source_package" value="$(var pose_source_package)"/>
     <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
+    <arg name="gnss_enabled" value="$(var gnss_enabled)"/>
 
     <!-- parameter paths for common -->
     <arg name="localization_error_monitor_param_path" value="$(var loc_config_path)/localization_error_monitor.param.yaml"/>
@@ -42,7 +61,7 @@
     <arg name="twist2accel_param_path" value="$(var loc_config_path)/twist2accel.param.yaml"/>
 
     <!-- parameter paths for ndt -->
-    <arg name="ndt_scan_matcher/ndt_scan_matcher_param_path" value="$(var loc_config_path)/ndt_scan_matcher/ndt_scan_matcher.param.yaml"/>
+    <arg name="ndt_scan_matcher/ndt_scan_matcher_param_path" value="$(var ndt_param_file)"/>
     <arg
       name="ndt_scan_matcher/pointcloud_preprocessor/crop_box_filter_measurement_range_param_path"
       value="$(var loc_config_path)/ndt_scan_matcher/pointcloud_preprocessor/crop_box_filter_measurement_range.param.yaml"
