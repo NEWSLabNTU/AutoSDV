@@ -5,7 +5,7 @@ back into AutoSDV — the CUDA point cloud pipeline, the `cuda_ndt_matcher`
 bump, a driver QoS fix that is currently costing 60% of the Robin-W's points,
 and the tooling and system-package work that accumulated on that side.
 
-**Status**: phases 1, 3, 4, 5, 6, 7 (fixes) and 9 done; phase 2's pipeline done, its driver work (2.3) open; 7.3, 8 and 10 open
+**Status**: phases 1-6, 7 (fixes), 9 and 10 done; 7.3 and 8 open
 
 **Source**: `~/repos/2026-golf-cart`, branch `main`
 
@@ -720,101 +720,64 @@ historical F1EIGHTH link and anything under
 
 ---
 
-## Phase 10 — Port the setup system
+## Phase 10 — Port the setup system — DONE 2026-09-11
 
-The golf cart's setup is finished and is a different design, not a patch on
-ours. AutoSDV's `setup.sh` is the 586-line bash it replaced: a hand-written
-`MENU_ITEMS` table with a cursor-driven renderer, re-forking `tput` and `cut` on
-every keystroke.
-
-What replaces it: a `curses` menu in the standard library — no venv, nothing to
-bootstrap — over a declared step registry.
+746 lines of bash became a Python program on the standard library: a `curses`
+menu, a CLI, and one list of steps. `setup/justfile` is gone; `registry.py` holds
+the order its `setup:` chain used to encode.
 
 ```
-setup/setup.sh          launcher, ~40 lines, repo root carries a symlink
-setup/main.py           CLI: --status --list --run --rerun --plain --profile --skip --yes
-setup/<pkg>/registry.py every step, in the order they must run
-setup/<pkg>/model.py    Step, Requires, Machine (host detection)
-setup/<pkg>/menu.py     the curses UI
-setup/<pkg>/runner.py   execution
-setup/<pkg>/state.py    what ran, and what changed since
+setup/setup.sh                    launcher (the repo root symlinks to it)
+setup/main.py                     CLI
+setup/autosdv_setup/registry.py   every step, in the order they must run
+setup/autosdv_setup/model.py      Step, Requires, Machine
+setup/autosdv_setup/{menu,runner,state}.py
 ```
 
-Three properties worth taking deliberately, because they are why the rewrite is
-an improvement rather than a translation:
+**22 steps**, against the old system's mix of 15 menu rows and 13 that ran
+unconditionally and appeared nowhere. Profiles select them: `dev` 16,
+`vehicle` 17, `ci` 9, `all` 22.
 
-- **Profiles, not one flat list.** Steps declare which of `dev`, `vehicle`, `ci`
-  they default to, so `./setup.sh --run --profile vehicle --yes` is a complete
-  unattended install. AutoSDV's `--all` / `--minimal` pair is coarser than that.
+Carried over unchanged in substance: `just`, `ros2`, `ros2-dev-tools`, rust,
+`colcon-cargo-ros2`, `play_launch`, dev tools, Python deps, GeographicLib,
+Autoware Debian, the writable data tree, TensorRT engines, OpenCV, rosdep,
+CycloneDDS sysctl, multicast on loopback, u-blox udev, TurboVNC.
+
+**Excluded**, being golf-cart hardware or its two-host deployment: CAN and LiDAR
+network profiles, OTOCAM GMSL kernel modules, TIER IV camera udev + `usb_cam`,
+`linuxptp`, `chrony` master/orin, `install-host-service.sh`.
+
+**Added**, being AutoSDV's: Isaac ROS (`pose_source:=visual`/`:=isaac`, which
+the golf cart dropped), Blickfeld, the ZED SDK, `play_launch` as a step of its
+own, and `gdown` — which the golf cart retired as unused but which two scripts
+here still call.
+
+**Dropped**: `pacmod`, an AutonomouStuff apt source added with `trusted=yes` so
+signatures are not checked, with nothing under `src/` referencing it — verified
+by grep, not assumed, since this vehicle's interface is PCA9685 over I2C.
+
+Three properties worth keeping:
+
+- **Profiles, not a flat list.** `--run --profile vehicle --yes` is a complete
+  unattended install, and `all`/`none` are computed so a new step joins them
+  without being listed anywhere.
 - **Digests, not markers.** `Step.digest()` fingerprints the argv *and* the
   contents of any in-repo script it runs, so the UI can say "ran, but the script
-  has changed since" — the case a marker file cannot express and which silently
-  bites whenever an install script is edited. AutoSDV's marker directory has
-  exactly this blind spot.
-- **`run` is argv, executed without a shell**, with `_ros_bash()` as the one
-  deliberate exception (ROS's setup hooks read deliberately-unset variables, so
-  `set -u` has to come off around the sourcing).
+  has changed since" — the case a marker cannot express, and the one that bites
+  when an install script is edited. The old `.markers/` directory is imported on
+  first run: this machine's 12 completed steps came across automatically.
+- **`--status` reads the machine where it can.** This is the one thing the golf
+  cart's version does not do, and CLAUDE.md promised it, so `Step.verify` was
+  added: a command that asks the machine whether the effect is present, whose
+  answer wins over the recorded run. Six steps carry one — the DDS sysctl
+  floor, the loopback `MULTICAST` flag, OpenCV's pkg-config version, the
+  Autoware data tree, the u-blox rule file, `vglrun`. A reboot, a JetPack OTA
+  and an Autoware upgrade each undo one of those silently.
 
-### 10.1 Steps to carry over unchanged
-
-`just`, `ros2`, `ros2-dev-tools`, Rust build support, developer tools, Python
-dependencies (`play_launch`), GeographicLib + geoid data, Autoware Debian
-packages, writable Autoware data directory, pre-compile TensorRT engines,
-OpenCV consistency, workspace rosdep, kernel socket buffers for CycloneDDS,
-multicast on loopback, u-blox udev rules, TurboVNC + VirtualGL.
-
-### 10.2 Golf-cart steps to exclude
-
-| Step | Why not |
-|------|---------|
-| CAN interfaces + LiDAR network profiles | golf cart is a CAN vehicle; AutoSDV is PCA9685 over I2C |
-| OTOCAM GMSL kernel modules | no GMSL cameras |
-| TIER IV camera udev + `usb_cam` | same |
-| `linuxptp` (ptp4l + phc2sys) | two-host clock discipline |
-| `chrony`: serve time / follow the master | same, and explicitly master/orin roles |
-| `install-host-service.sh` | writes the two-host systemd drop-in |
-
-### 10.3 AutoSDV steps to add
-
-Absent from the golf cart registry, and needed here:
-
-| Step | Why |
-|------|-----|
-| Isaac ROS Visual Localization | `pose_source:=visual` and `:=isaac` exist here; the golf cart dropped both, which is why its registry has no such step |
-| Blickfeld Scanner Library | the Cube1 LiDAR driver; selecting it accepts the library's licence terms |
-| ZED SDK | the ZED X Mini, and the default sensor suite uses a ZED |
-| `play_launch` | golf cart folds this into "Python dependencies"; keep it as its own step, since phase 5 gives it a version floor of its own |
-| `gdown` | still used here, by `scripts/2dlidar/download-sample-rosbag.sh` and `cuda_ndt_matcher/scripts/download_sample_data.sh` |
-| `colcon-cargo-ros2` | without it colcon skips `cuda_ndt_matcher` and the build aborts |
-
-### 10.4 Steps to drop while porting
-
-- **`pacmod`** — an AutonomouStuff apt source added with `trusted=yes`, so
-  signatures are not checked, and nothing under `src/` references it. The golf
-  cart dropped it for the same reason; verified absent here too.
-- **`nebula-driver`, `ublox-driver`** as separate apt steps — `rosdep install
-  --from-paths src` already answers them. `ublox_gps` resolves to
-  `ros-humble-ublox-gps`, which pulls `ublox-msgs` and `ublox-serialization`
-  from one key. Nebula needs no step either: `autoware-full-1-5-0` pulls it
-  through `autoware-ros-packages-1-5-0`.
-- **`iceoryx`**, if any trace remains. The golf cart removed it project-wide:
-  iceoryx caps publisher ports below what this stack opens, the cap is compiled
-  in, and the failure is a hard abort at participant creation rather than a
-  fallback to the network transport.
-
-### 10.5 Keep
-
-`./setup.sh status` must keep reading the machine rather than the markers. The
-OpenCV, DDS and autoware-data rows check live state because a marker says a step
-ran once while a reboot or a JetPack OTA can undo what it did. The digest
-mechanism in 10.2 complements that; it does not replace it.
-
-The two Autoware installer prompts stay folded in as sub-options, as they are
-today — nothing may ask a question after the install starts.
-
-**Verification**: `./setup.sh --list` on this machine, `--dry-run`/`--run
---profile ci --yes` in a container, and `./setup.sh status` against a machine
-set up by the old script.
+**Verified here**: `--list`, `--list --profile ci`, `--status` (correctly
+reporting five live-checked items present on this machine while the fresh state
+file says "not run"), and `--run --dry-run` for the `ci` and `vehicle` profiles.
+Nothing was installed.
 
 ---
 
@@ -822,13 +785,8 @@ set up by the old script.
 
 Phases 1, 3, 4, 5, 6, 7 (fixes) and 9 are done. What is left:
 
-1. **Phase 2** — the real work: the CUDA pipeline, the Seyond rebase onto
-   upstream v1.0.3, and per-point time. Measure it with phase 6.2's profiling
-   scripts.
-2. **Phase 10** — the setup rewrite. Independent of everything else, so it can
-   run in parallel.
-3. **Phase 7.3** — the four system-monitor UI commits, scoped on their own.
-4. **Phase 8** — the config-defect ledger, which needs a running stack.
+1. **Phase 7.3** — the four system-monitor UI commits, scoped on their own.
+2. **Phase 8** — the config-defect ledger, which needs a running stack.
 
 Three things need a machine this one is not. The workspace here has no
 `install/`, so: the cuda_ndt_matcher bump is unbuilt, the `gnss_enabled` and

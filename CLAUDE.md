@@ -190,7 +190,7 @@ merged, so the patch series stays a readable list of what we changed and why.
 ### Build & Run
 ```bash
 ./setup.sh              # Interactive setup (ROS 2, dependencies)
-./setup.sh status       # Check installation status
+./setup.sh --status     # Check installation status
 just build              # Build all packages
 just test               # Run tests
 just launch             # Launch system (web UI: http://localhost:8081)
@@ -632,56 +632,73 @@ Standard ROS 2 conventions: setup.py/setup.cfg, test files for copyright/flake8/
 
 ### Setup Script Architecture
 
-The setup system (`setup/`) uses a two-layer design:
+`setup/` is a Python program with a `curses` menu, nothing to bootstrap (the
+standard library only), and one list of steps:
 
-1. **`setup.sh`** - Wrapper that collects every choice upfront, in one
-   navigable checkbox menu, before any installation begins
-2. **`justfile`** - Recipe definitions that perform actual installations
-
-```bash
-./setup.sh                  # component menu, then install
-./setup.sh --all            # everything, no questions
-./setup.sh --minimal        # core only
-./setup.sh --dry-run        # print the selection, install nothing (combines with --all/--minimal)
-./setup.sh status           # what is installed
-./setup.sh <recipe>         # one recipe, e.g. opencv, network-dds, ros2
+```
+setup/setup.sh          launcher; the repo root symlinks to it
+setup/main.py           CLI
+setup/autosdv_setup/registry.py   every step, in the order they must run
+setup/autosdv_setup/model.py      Step, Requires, Machine (host detection)
+setup/autosdv_setup/menu.py       the curses UI
+setup/autosdv_setup/runner.py     execution
+setup/autosdv_setup/state.py      what ran, what failed, what changed since
 ```
 
-**Adding new optional components:**
+```bash
+./setup.sh                              # pick a profile, then the steps
+./setup.sh --status                     # what is installed
+./setup.sh --list                       # every step, and whether it applies here
+./setup.sh --run --profile vehicle --yes
+./setup.sh --run --all --skip tensorrt-engines
+./setup.sh --rerun opencv               # one step again
+./setup.sh --run --dry-run --profile ci # print what would run, install nothing
+./setup.sh --plain                      # numbered menu, when curses cannot drive the terminal
+```
 
-1. Add installation script to `setup/scripts/install-<name>.sh`
-2. Add recipe to `setup/justfile`:
-   ```just
-   # Direct recipe (for manual invocation)
-   my-component: _init
-       @just _run my-component "{{scripts_dir}}/install-my-component.sh"
+**Profiles**, not one flat list. Each step declares which of `dev`, `vehicle`
+and `ci` selects it by default; `all` and `none` are computed, so a new step
+joins them without being listed anywhere. `--profile vehicle --yes` is a
+complete unattended install.
 
-   # Conditional recipe (for interactive setup)
-   _setup-my-component:
-       #!/usr/bin/env bash
-       if [[ "${INSTALL_MY_COMPONENT:-n}" == "y" ]]; then
-           just my-component
-       else
-           printf "{{yellow}}⊘{{nc}} my-component skipped (user choice)\n"
-       fi
-   ```
-3. Add `_setup-my-component` to the `setup:` recipe chain
-4. Add one row to `MENU_ITEMS` in `setup.sh` — `key|default|indent|label|note`:
-   ```bash
-   "MY_COMPONENT|n|0|My Component|What it costs, and what breaks without it."
-   ```
-   `indent=1` makes it a sub-option of the row above: shown indented, greyed
-   out when the parent is off, and forced to `n` in that case.
-5. Export it in `export_choices()`, and add a row to the justfile `status` recipe
+**Adding a step** is one entry in `registry.py`:
 
-**Key pattern:** the menu is one table, choices are exported as env vars, and
-justfile conditionals execute based on those vars. Nothing asks a question
-after the install starts — the Autoware installer's own two prompts are folded
-in as the `AUTOWARE_PREREQ_*` sub-options and passed to it as flags.
+```python
+Step(
+    id="my-component",
+    label="My Component",
+    why="What it costs, and what breaks without it.",
+    group="Libraries",
+    run=[_S("install-my-component.sh")],   # argv, no shell
+    requires=Requires(sudo=True, hardware="cuda"),
+    after=("ros2",),                       # ordering only, never auto-selection
+    profiles=_on(*DEV),
+    verify=["bash", "-c", "command -v mything >/dev/null"],
+)
+```
 
-**Status reads the machine, not just markers.** The OpenCV, DDS and
-autoware-data rows check the live state, because a marker says a step ran once
-while a reboot or a JetPack OTA can undo what it did.
+If it is not in that list it does not run, and if it is in that list the UI
+shows it. The previous design split this three ways — a `MENU_ITEMS` table in
+`setup.sh`, the order in a justfile `setup:` chain, and a `_setup-*` wrapper per
+option — so a step nobody wrote a wrapper for ran unconditionally and appeared
+in no menu.
+
+**Two mechanics worth knowing:**
+
+- **Digests, not markers.** `Step.digest()` fingerprints the argv *and* the
+  contents of any in-repo script it runs, so the UI can say "ran, but the script
+  has changed since". A marker file cannot express that, and it is what bites
+  when an install script is edited. State lives in `setup/.state.json`; the old
+  `.markers/` directory is imported automatically on first run.
+- **`--status` reads the machine where it can.** A step may carry a `verify`
+  command, and where one exists its answer wins over the recorded run: a reboot
+  drops the loopback `MULTICAST` flag, a JetPack OTA replaces the OpenCV
+  headers, and an Autoware upgrade leaves the mirrored data tree pointing at a
+  version that is gone.
+
+`run` is argv executed without a shell. `_BASH(...)` and `_ros_bash(...)` are
+the deliberate exceptions; the latter exists because ROS's setup hooks read
+variables that are unset, so `set -u` has to come off around the sourcing.
 
 ### Preset System
 

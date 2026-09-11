@@ -45,7 +45,7 @@ technologies.
 AutoSDV uses [Just](https://just.systems) for command running. Run `just` to see all available commands.
 
 ```bash
-just setup    # Interactive setup (first time)
+./setup.sh    # Interactive setup (first time)
 just build    # Build all packages
 just launch   # Launch AutoSDV system
 ```

@@ -127,7 +127,7 @@ sudo apt install -y "$TEMP_DEB"
 # see AUTOWARE_PREREQ_* in setup.sh.
 #
 # Defaults when the variables are unset (i.e. this script run directly):
-#   ROS 2  -> --no-ros, because `just setup` installs ROS 2 itself, before
+#   ROS 2  -> --no-ros, because the ros2 step installs ROS 2 itself, before
 #             this step. Letting the nested script install it again is at best
 #             redundant and at worst a different configuration.
 #   SpConv -> --no-spconv, matching the nested script's own default. It is

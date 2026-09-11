@@ -32,3 +32,7 @@ data/autoware_data/
 
 # Typst build artefacts
 docs/tech/*.pdf
+
+# Setup state, machine-local: what ran here, and what changed since.
+setup/.state.json
+setup/.markers/
