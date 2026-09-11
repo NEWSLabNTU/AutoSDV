@@ -120,33 +120,70 @@ sudo apt install -y "$TEMP_DEB"
 
 # Run setup-prerequisites.sh
 #
-# Left to itself this script asks its own two questions — ROS 2 Humble, and
-# SpConv/Cumm — partway through ours, which is a second interactive session
-# arriving after the user thought they had answered everything. It accepts
-# flags for both, so the answers are collected in our menu and passed through;
-# see AUTOWARE_PREREQ_* in setup.sh.
+# Left to itself this script asks its own questions partway through ours, which
+# is a second interactive session arriving after the user thought they had
+# answered everything. What it will and will not accept as flags decides how
+# much of that can be avoided, and the answer is narrower than it looks:
 #
-# Defaults when the variables are unset (i.e. this script run directly):
-#   ROS 2  -> --no-ros, because the ros2 step installs ROS 2 itself, before
-#             this step. Letting the nested script install it again is at best
-#             redundant and at worst a different configuration.
-#   SpConv -> --no-spconv, matching the nested script's own default. It is
-#             needed only by perception models this stack does not use
-#             (BEVFusion and friends).
+#   --no-ros / --install-ros    answer the ROS question. Fine.
+#   --all-nvidia / --no-nvidia  answer the NVIDIA question AND set
+#                               NVIDIA_PROMPTED, so the menu does not open.
+#   --cuda --cudnn --tensorrt   set the variables but NOT NVIDIA_PROMPTED, so
+#                               the four-item menu opens anyway.
+#   --no-spconv                 DOES NOT EXIST. Passing it is a hard error:
+#                               "[ERROR] Unknown option: --no-spconv", and the
+#                               step dies there. This script used to pass it.
+#
+# So there is no flag that installs CUDA, cuDNN and TensorRT while declining
+# SpConv. The choice is between everything and nothing, and it is made here from
+# what the machine already has rather than from a menu answer:
+#
+#   NVIDIA stack already present -> --no-nvidia. Nothing to install, no menu,
+#                                   and no SpConv tarball built for CUDA 12.8
+#                                   landing on a box running something else.
+#   not present                  -> --all-nvidia, which is the nested script's
+#                                   own default selection. SpConv comes with it;
+#                                   it is dead weight for this stack (BEVFusion
+#                                   and friends), not a hazard.
+#
+# Override either way with AUTOWARE_PREREQ_NVIDIA=y|n.
+#
+# The final "Proceed with installation?" prompt is unconditional -- even -y does
+# not skip it -- so it is answered on stdin. That is the one question this
+# wrapper cannot remove with a flag.
 if [ -f /usr/share/autoware/setup-prerequisites.sh ]; then
     PREREQ_ARGS=()
+
+    # ROS 2: the ros2 step installs it before this one. Letting the nested
+    # script install it again is at best redundant and at worst a different
+    # configuration.
     if [ "${AUTOWARE_PREREQ_ROS:-n}" = "y" ]; then
         PREREQ_ARGS+=(--install-ros)
     else
         PREREQ_ARGS+=(--no-ros)
     fi
-    if [ "${AUTOWARE_PREREQ_SPCONV:-n}" = "y" ]; then
-        PREREQ_ARGS+=(--spconv)
+
+    if [ -n "${AUTOWARE_PREREQ_NVIDIA:-}" ]; then
+        nvidia_wanted="$AUTOWARE_PREREQ_NVIDIA"
+    elif command -v nvcc >/dev/null 2>&1 && \
+         ls /usr/lib/x86_64-linux-gnu/libnvinfer.so* >/dev/null 2>&1; then
+        echo "  CUDA and TensorRT are already installed; skipping the NVIDIA step."
+        nvidia_wanted=n
     else
-        PREREQ_ARGS+=(--no-spconv)
+        echo "  CUDA or TensorRT missing; installing the full NVIDIA set."
+        nvidia_wanted=y
     fi
+
+    if [ "$nvidia_wanted" = "y" ]; then
+        PREREQ_ARGS+=(--all-nvidia)
+    else
+        PREREQ_ARGS+=(--no-nvidia)
+    fi
+
     echo "  Running /usr/share/autoware/setup-prerequisites.sh ${PREREQ_ARGS[*]}..."
-    sudo /usr/share/autoware/setup-prerequisites.sh "${PREREQ_ARGS[@]}"
+    # `yes` rather than a single y: the prompt loop re-asks on anything it does
+    # not recognise, and a closed stdin would spin it.
+    yes | sudo /usr/share/autoware/setup-prerequisites.sh "${PREREQ_ARGS[@]}"
 else
     echo "  Warning: /usr/share/autoware/setup-prerequisites.sh not found. Skipping."
 fi
