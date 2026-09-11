@@ -4,7 +4,31 @@
 accessible to newcomers without physical vehicles. Add tutorial content
 covering planning simulation, logging simulation, and full scenario replay.
 
-**Status**: Done
+**Status**: **NOT DONE — this file's completion record was wrong.** Corrected
+2026-09-12.
+
+Every success criterion below was ticked and every page it claims to have
+written is absent. Searched the whole of `AutoSDV-book` history:
+
+```
+git log --all --oneline -- 'src/simulation/*' \
+                           'src/getting-started/installation/recommended.md'
+(no output)
+```
+
+No `src/simulation/` directory, no `planning-simulation.md`,
+`logging-simulation.md`, `datasets.md` or `coss-park-scenario.md`, and no
+`installation/recommended.md` has ever existed on any branch. `mkdocs.yml` had
+no `Simulation Guide` nav section.
+
+**The content plan below is still good, and is being executed** — the
+`[x]` marks are not. Roadmap 7 phase 3 wrote the four simulation pages against
+this plan, and [roadmap 9](9-book-tutorial-restructure.md) rebuilds them as a
+numbered tutorial. Read this file as a specification, never as history.
+
+The lesson is the one `CLAUDE.md` states for submodules, applied to our own
+status documents: **read the state out of the repository, not out of a record
+of intent.**
 
 **Book Repository**: `~/repos/AutoSDV-book` (branch: `main` for develop)
 

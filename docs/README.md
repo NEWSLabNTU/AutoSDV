@@ -19,20 +19,22 @@ Architecture and integration design documents
 
 Implementation status and timelines
 
+- [Book: Simulation Tutorials](roadmap/5-book_simulation_tutorials.md) - ⚠️ Spec only (its "Done" record was wrong; superseded by roadmaps 7 and 9)
 - [Golf Cart Backport](roadmap/6-golfcart-backport.md) - ✅ Complete (all 10 phases)
 - [Backport Verification](roadmap/7-backport-verification.md) - 📋 Proposed (what to run, in what order, to see it working)
-- [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - 📝 Planned (installation + launch chapters)
-- [Workshop: Laptop Onboarding](roadmap/8-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class)
-- [Isaac VSLAM](roadmaps/isaac_vslam.md) - ✅ Complete
-- [AR Tag Integration](roadmaps/ar_tag_integration/) - 🚧 In Progress
-  - [Overview & Architecture](roadmaps/ar_tag_integration/README.md)
-  - [Phase 1: Setup & Preparation](roadmaps/ar_tag_integration/phase_1_setup.md) - 🚧 In Progress
-  - [Phase 2: AR Tag Map Creation](roadmaps/ar_tag_integration/phase_2_map_creation.md) - ⏸️ Pending
-  - [Phase 3: AR Tag Localizer Integration](roadmaps/ar_tag_integration/phase_3_localizer.md) - ⏸️ Pending
-  - [Phase 4: Isaac VSLAM Modification](roadmaps/ar_tag_integration/phase_4_vslam.md) - ⏸️ Pending
-  - [Phase 5: EKF Fusion Configuration](roadmaps/ar_tag_integration/phase_5_fusion.md) - ⏸️ Pending
-  - [Phase 6: Integration Testing](roadmaps/ar_tag_integration/phase_6_testing.md) - ⏸️ Pending
-  - [Phase 7: Documentation & Deployment](roadmaps/ar_tag_integration/phase_7_deployment.md) - ⏸️ Pending
+- [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - ✅ Phases 0-4 done, EN + zh-TW; **tag held** pending roadmap 9
+- [Workshop: Laptop Onboarding](roadmap/8-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class; blocked on roadmap 9)
+- [Book: Tutorial Restructure](roadmap/9-book-tutorial-restructure.md) - 🚧 **Active** (concepts + tutorial chapter)
+- [Isaac VSLAM](roadmap/1-isaac_vslam.md) - ✅ Complete
+- [AR Tag Integration](roadmap/3-ar_tag_integration/) - 🚧 In Progress
+  - [Overview & Architecture](roadmap/3-ar_tag_integration/README.md)
+  - [Phase 1: Setup & Preparation](roadmap/3-ar_tag_integration/3.1-setup.md) - 🚧 In Progress
+  - [Phase 2: AR Tag Map Creation](roadmap/3-ar_tag_integration/3.2-map_creation.md) - ⏸️ Pending
+  - [Phase 3: AR Tag Localizer Integration](roadmap/3-ar_tag_integration/3.3-localizer.md) - ⏸️ Pending
+  - [Phase 4: Isaac VSLAM Modification](roadmap/3-ar_tag_integration/3.4-vslam.md) - ⏸️ Pending
+  - [Phase 5: EKF Fusion Configuration](roadmap/3-ar_tag_integration/3.5-fusion.md) - ⏸️ Pending
+  - [Phase 6: Integration Testing](roadmap/3-ar_tag_integration/3.6-testing.md) - ⏸️ Pending
+  - [Phase 7: Documentation & Deployment](roadmap/3-ar_tag_integration/3.7-deployment.md) - ⏸️ Pending
 
 ## 📖 Guides
 

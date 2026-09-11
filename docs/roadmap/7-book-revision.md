@@ -7,7 +7,10 @@ every one of its version numbers and describes a setup script that was
 replaced; and the **launch chapter**, which teaches `just launch` and leaves the
 reader unable to launch anything themselves.
 
-**Status**: Phases 0-4 complete except the tag. Everything is committed locally and unpushed; `book-v0.3.0` and the push are the only steps left, and they publish.
+**Status**: Phases 0-4 complete in both languages. **The release is deliberately
+held.** Everything is committed locally and unpushed; `book-v0.3.0` is not cut,
+because the book is correct but not yet teachable — see
+[roadmap 9](9-book-tutorial-restructure.md), which lands before the tag.
 
 **Book repository**: `~/repos/AutoSDV-book`, branch `main`. It is a *separate
 repository*, not a submodule — `feb8a6f Remove book submodule` took it out of
@@ -543,7 +546,35 @@ languages.
 | 1 | Installation chapter | versions true, setup registry, the five omitted steps | **Done (EN)** |
 | 2 | Launch chapter | `play_launch` taught first, 45-argument table, 25 recipe fixes | **Done (EN)** |
 | 3 | The unwritten chapters | simulation, localization, presets, maps, CUDA, orphans | **Done (EN)** |
-| 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | **Translated; tag pending** |
+| 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | **Translated; tag deliberately held** |
+
+## What this roadmap did not fix, and why the tag is held
+
+Phases 0-4 made the book **true**. They did not make it **teachable**, and the
+difference showed up as soon as the result was read by someone who had used
+neither ROS 2 nor Autoware.
+
+The book now describes the system accurately and still never says what ROS 2 is,
+never draws the Autoware pipeline whose stage names it uses throughout, and —
+worst of the three — never explains the two-line `source` chain that AutoSDV's
+Debian-based Autoware install depends on, which the repository's own `.envrc`
+hides. A reader who sources only `install/setup.bash` gets dependency errors that
+point at AutoSDV rather than at the missing layer underneath.
+
+Two more, from the same read:
+
+- The simulation chapter these phases wrote is a set of **verification checks**,
+  not a tutorial. It documents three different ways to run the COSS scenario and
+  mentions which one works only in passing, on the third page.
+- Phase 2 taught `play_launch` and gave the reasons it is better than
+  `ros2 launch`, without saying that it is **our own software** and can differ —
+  a point its own `--parser python` and `--container-mode stock` flags concede.
+
+Tagging now would publish a book that is accurate and that a newcomer still
+cannot follow. [Roadmap 9](9-book-tutorial-restructure.md) carries the fix: a
+concepts section covering what is different *here* rather than re-teaching ROS 2,
+the simulation chapter rebuilt as a numbered tutorial with screenshots, and an
+honest page about `play_launch`. Phase F of that roadmap cuts `book-v0.3.0`.
 
 ## Open decisions
 
