@@ -1,0 +1,23 @@
+/**:
+  ros__parameters:
+
+    # Mirrors crop_box_filter_measurement_range.param.yaml from the CPU
+    # localization chain, so this node is a drop-in for
+    # autoware::pointcloud_preprocessor::CropBoxFilterComponent there.
+    min_x: -60.0
+    max_x: 60.0
+    min_y: -60.0
+    max_y: 60.0
+    min_z: -30.0
+    max_z: 50.0
+
+    negative: false
+
+    # The frame the box above is expressed in. This node does not transform, so
+    # this is an assertion, not a request: a cloud arriving in another frame is
+    # dropped with an error rather than cropped against the wrong box.
+    #
+    # There is deliberately no output_frame. The CPU component has one because it
+    # transforms; this one cannot, so offering the parameter would only invite
+    # someone to set it and believe it.
+    input_frame: "base_link"

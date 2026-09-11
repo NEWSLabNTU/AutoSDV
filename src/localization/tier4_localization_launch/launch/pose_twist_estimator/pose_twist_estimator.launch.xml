@@ -10,6 +10,7 @@
 
   <!-- Pluggable pose source: when set, replaces the built-in NDT pose estimator node -->
   <arg name="pose_source_package" default="" description="External package providing launch/pose_estimator.launch.xml. When set, replaces the built-in pose estimator node."/>
+  <arg name="localization_pointcloud_backend" default="cpu" description="cpu or cuda: which hardware runs the NDT input preprocessing chain"/>
   <!-- AutoSDV: forwarded to autosdv_mcl_launch below (pose_source:=mcl only). -->
   <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed; -1 = nondeterministic"/>
   <let name="is_external_plugin" value="$(eval &quot;'$(var pose_source_package)' != ''&quot;)"/>
@@ -191,6 +192,7 @@
     <include file="$(find-pkg-share tier4_localization_launch)/launch/util/util.launch.xml" if="$(var use_ndt_pose)">
       <arg name="localization_pointcloud_container_name" value="$(var localization_pointcloud_container_name)"/>
       <arg name="input_pointcloud" value="$(var override_input_pointcloud)"/>
+      <arg name="localization_pointcloud_backend" value="$(var localization_pointcloud_backend)"/>
     </include>
   </group>
 </launch>

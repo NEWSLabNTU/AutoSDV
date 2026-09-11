@@ -463,6 +463,37 @@ Design: `docs/design/mcl-user-setup-ux.md`. Diagnostics: the normaliser reports 
 missing scan, a missing TF, an all-non-finite scan, and an out-of-plane mount --
 every scan-side failure in this project's history was previously silent.
 
+### CUDA Point Cloud Pipeline
+
+Two whole-stage switches, both defaulting to `cpu`, plus the matcher:
+
+```bash
+just launch pointcloud_backend:=cuda \
+            localization_pointcloud_backend:=cuda \
+            pose_source:=cuda_ndt
+```
+
+| switch | selects |
+|--------|---------|
+| `pointcloud_backend` | sensing: crop-self, deskew, ring outlier filter |
+| `localization_pointcloud_backend` | the NDT input chain: crop, voxel, random downsample |
+| `pose_source` | the scan matcher |
+
+**`pointcloud_backend:=cuda` needs `lidar_model:=vlp32c`.** Deskewing needs a
+per-point time offset; Nebula publishes `PointXYZIRCAEDT`, which has one, while
+the Seyond (Robin-W) and Blickfeld (Cube1) drivers do not. Those models are
+refused with an error naming the reason rather than silently ignored.
+
+**Everything must load into one container.** `cuda_blackboard` is not a
+transport — it is a process-local map from an id to a device pointer, so a stage
+in another process receives the id and finds nothing behind it.
+
+The two filters Autoware does not ship (a standalone CUDA crop box, a CUDA
+random downsample) live in `src/sensing/autosdv_cuda_preprocessor`. The package
+skips itself when no CUDA toolkit is found.
+
+Design and measurements: `docs/design/cuda-pipeline-data-flow.md`.
+
 ### CUDA NDT Localization
 
 CUDA-accelerated NDT scan matching for faster localization on NVIDIA GPUs. This package is **maintained by AutoSDV** (not upstream Autoware).

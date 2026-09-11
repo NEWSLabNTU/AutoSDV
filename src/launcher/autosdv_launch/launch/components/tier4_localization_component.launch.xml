@@ -37,6 +37,11 @@
        asked. -->
   <arg name="ndt_param_file" default="$(var loc_config_path)/ndt_scan_matcher/ndt_scan_matcher.param.yaml" description="NDT parameter file; override for a tuning run"/>
 
+  <!-- AutoSDV: cpu or cuda for the NDT input chain (crop box, voxel grid,
+       random downsample). Independent of pointcloud_backend, which selects the
+       sensing stage. See docs/design/cuda-pipeline-data-flow.md. -->
+  <arg name="localization_pointcloud_backend" default="cpu" description="cpu or cuda: which hardware runs the NDT input preprocessing chain"/>
+
   <!-- Pluggable pose source: external package providing launch/pose_estimator.launch.xml -->
   <arg name="pose_source_package" default="cuda_ndt_matcher_launch" description="External package replacing the built-in NDT node. Empty string uses built-in Autoware NDT."/>
   <arg name="mcl_random_seed" default="-1" description="particle_filter RNG seed (pose_source:=mcl only); -1 = nondeterministic"/>
@@ -51,6 +56,7 @@
     <arg name="pose_source_package" value="$(var pose_source_package)"/>
     <arg name="mcl_random_seed" value="$(var mcl_random_seed)"/>
     <arg name="gnss_enabled" value="$(var gnss_enabled)"/>
+    <arg name="localization_pointcloud_backend" value="$(var localization_pointcloud_backend)"/>
 
     <!-- parameter paths for common -->
     <arg name="localization_error_monitor_param_path" value="$(var loc_config_path)/localization_error_monitor.param.yaml"/>

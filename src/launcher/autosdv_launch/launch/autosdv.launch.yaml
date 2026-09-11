@@ -174,6 +174,18 @@ launch:
     default: "auto"
     description: "Package providing launch/pose_estimator.launch.xml. 'auto' derives it from pose_source (cuda_ndt -> cuda_ndt_matcher_launch, anything else -> built-in Autoware NDT). Set explicitly only to plug in a third-party estimator; use pose_source:=ndt for built-in NDT (ros2 launch rejects an empty value)"
 
+# CUDA point cloud pipeline. Two independent whole-stage switches; neither can
+# be half-applied, because each stage's nodes hand each other cuda_blackboard
+# device pointers rather than data. See docs/design/cuda-pipeline-data-flow.md.
+- arg:
+    name: pointcloud_backend
+    default: "cpu"
+    description: "cpu or cuda: sensing-side point cloud preprocessing (crop-self, deskew, ring outlier). cuda needs a per-point time offset and so applies to lidar_model:=vlp32c only"
+- arg:
+    name: localization_pointcloud_backend
+    default: "cpu"
+    description: "cpu or cuda: the NDT input chain (crop box, voxel grid, random downsample). Correctness verified, speed not yet measured"
+
 # Resolve 'auto' into a concrete package name. Without this, pose_source_package
 # defaulted to cuda_ndt_matcher_launch regardless of pose_source, and because the
 # selector in pose_twist_estimator.launch.xml splits pose_source on underscores
@@ -380,6 +392,12 @@ launch:
     -
       name: pose_source_package
       value: $(var resolved_pose_source_package)
+    -
+      name: localization_pointcloud_backend
+      value: $(var localization_pointcloud_backend)
+    -
+      name: pointcloud_backend
+      value: $(var pointcloud_backend)
     -
       name: twist_source
       value: $(var twist_source)

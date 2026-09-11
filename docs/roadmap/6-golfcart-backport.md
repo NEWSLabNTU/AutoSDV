@@ -5,7 +5,7 @@ back into AutoSDV — the CUDA point cloud pipeline, the `cuda_ndt_matcher`
 bump, a driver QoS fix that is currently costing 60% of the Robin-W's points,
 and the tooling and system-package work that accumulated on that side.
 
-**Status**: phases 1, 3, 4, 5, 6, 7 (fixes) and 9 done; 2, 7.3, 8 and 10 open
+**Status**: phases 1, 3, 4, 5, 6, 7 (fixes) and 9 done; phase 2's pipeline done, its driver work (2.3) open; 7.3, 8 and 10 open
 
 **Source**: `~/repos/2026-golf-cart`, branch `main`
 
@@ -97,7 +97,7 @@ counters. Nothing here can be checked without the LiDAR.
 
 ---
 
-## Phase 2 — CUDA point cloud pipeline
+## Phase 2 — CUDA point cloud pipeline — package and launch DONE 2026-09-11
 
 AutoSDV has no CUDA sensing path at all. The golf cart has three independent
 whole-stage switches:
@@ -276,60 +276,48 @@ actually straightening structure, which a stationary bag cannot show.
 **When this lands**, move the Robin-W from the passthrough list to the
 preprocessed list in `pointcloud_preprocessor.launch.py`, and revisit 2.2.
 
-### 2.4 Tasks
+### 2.4 Tasks — package and launch DONE 2026-09-11, driver work open
 
-1. Port `src/sensing/golfcart_cuda_preprocessor` as
-   `src/sensing/autosdv_cuda_preprocessor` (~19 files). Two CUDA nodes that
-   upstream does not provide:
-   - `cuda_crop_box_filter_node` — there is no standalone CUDA crop box
-     upstream; the cropping in `CudaPointcloudPreprocessorNode` is fused with
-     distortion correction.
-   - `cuda_random_downsample_filter_node` — no CUDA version exists at all.
+**Done:**
 
-   Without both, the localization chain would pay a device-to-host copy before
-   the one accelerated stage and a host-to-device copy after it.
+1. `src/sensing/autosdv_cuda_preprocessor` — ported, renamed, namespace
+   `autosdv::cuda_preprocessor`. Builds in 11.5 s, and its **12 unit tests run
+   and pass on this machine's GPU** rather than skipping: the sm_120 RTX 5090 is
+   not in `CMAKE_CUDA_ARCHITECTURES` and CUDA 12.3 cannot target it, but the
+   driver JITs the compute_89 PTX.
+2. The sensing CUDA branch in `autosdv_sensor_kit_launch`, plumbed through
+   `lidar.launch.xml` and `sensing.launch.xml`.
+3. The localization CUDA branch in
+   `tier4_localization_launch/launch/util/util.launch.xml`, plumbed through
+   `pose_twist_estimator.launch.xml`, `localization.launch.xml`, the localization
+   component and the Autoware wrapper.
+4. `pointcloud_backend` and `localization_pointcloud_backend` on both top-level
+   launch files, defaulting to `cpu`.
+5. `docs/design/cuda-pipeline-data-flow.md`, rewritten for this vehicle.
 
-   Two design decisions to preserve on the way across: non-finite points are
-   dropped in **both** polarities (every comparison against NaN is false, so a
-   `negative` implemented as `!inside` would hand NDT a NaN), and the crop box
-   deliberately has no `output_frame` and does not transform — `input_frame` is
-   an assertion, and a mismatched cloud is dropped with an error rather than
-   cropped in the wrong frame.
+**Two findings that changed the design.**
 
-2. Port the CUDA branch of `pointcloud_preprocessor.launch.py` into
-   `autosdv_sensor_kit_launch` (golf cart: 326 lines, AutoSDV: 130). AutoSDV
-   has one LiDAR where the golf cart has three, so the per-LiDAR table
-   collapses, but keep the preprocessed/passthrough split from 2.2.
+*The concatenator cannot be used with one LiDAR.* Both the CPU and the CUDA
+concatenator refuse a single input topic — `Only one topic given. Need at least
+two topics to continue.` — and the duplicate-topic workaround the kit already
+carried in its `use_single_lidar=false` branch was measured against a synthetic
+10 Hz publisher at **1.7–2.4 Hz output**, logging `Reset the oldest collector`
+every cycle and losing about 80% of frames. So the sensing chain ends at the
+existing `PassThroughFilterComponent`, which also does the transform to
+`base_link` that the CUDA preprocessor does not do. The cost is a device-to-host
+copy there: the per-point work is on the GPU, the path is not GPU-resident.
 
-3. Add `pointcloud_backend` and `localization_pointcloud_backend` arguments to
-   the top-level launch files.
+*The AutoSDV localization chain does not go through `cuda_ndt_matcher_launch`'s
+`util.launch.xml`.* That file hardcodes `golfcart_cuda_preprocessor`, and it
+would have had to be parameterised — but AutoSDV reaches the matcher through
+`pose_source_package` → `pose_estimator.launch.xml` only, and runs its own
+vendored `tier4_localization_launch/util/util.launch.xml`. The CUDA branch went
+there instead, so the shared submodule needed no change at all.
 
-4. Port `docs/design/cuda-pipeline-data-flow.md`.
-
-**Dependencies**: already installed. `/opt/autoware/1.5.0/share` carries
-`autoware_cuda_pointcloud_preprocessor`, `cuda_blackboard`, `autoware_cuda_utils`
-and `autoware_cuda_dependency_meta`.
-
-**Build**: the package is CUDA end to end with no CPU fallback, so its
-`CMakeLists.txt` skips itself when no CUDA toolkit is found rather than
-installing nodes that cannot load. `CMAKE_CUDA_ARCHITECTURES` defaults to
-`87;86;89`; pass `-DCMAKE_CUDA_ARCHITECTURES=87` on the Orin.
-
-**What is measured and what is not**:
-
-| | |
-|---|---|
-| `pointcloud_backend:=cuda` | measured on the Orin: −23.7 points of container CPU, +33 points of GPU, +465 mW, equal throughput |
-| `localization_pointcloud_backend:=cuda` | correctness verified, **speed never measured**. The CPU chain is ~19% of a core; the CUDA one has not been timed and could be slower |
-
-Do not present the second as an optimisation until it is timed on AutoSDV
-hardware.
-
-**Verification**: `just launch pointcloud_backend:=cuda` reaches the same
-concatenated cloud rate as `:=cpu`, and NDT converges on a COSS replay under
-both.
-
----
+**Not verified here**: nothing is launched. This machine has no full build, and
+the two backends have never run together on a vehicle. Before trusting either
+switch, run a COSS replay with `pointcloud_backend:=cuda` and confirm the
+concatenated cloud rate matches `cpu`, then measure with `scripts/profiling/`.
 
 ## Phase 3 — cuda_ndt_matcher submodule bump — DONE 2026-09-11
 

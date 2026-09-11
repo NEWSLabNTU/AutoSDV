@@ -38,6 +38,12 @@
        initializer kept the upstream gnss_enabled default of true under
        use_gnss:=false. Empty means the sensor suite decides. -->
   <arg name="use_gnss" default="" description="GNSS available; empty means the sensor suite decides"/>
+  <!-- AutoSDV: the two CUDA pipeline switches. pointcloud_backend reaches the
+       sensor kit the way lidar_model does, through the stock sensing chain's
+       launch configurations; localization_pointcloud_backend is forwarded
+       explicitly to the localization component below. -->
+  <arg name="pointcloud_backend" default="cpu" description="cpu or cuda: sensing-side point cloud preprocessing"/>
+  <arg name="localization_pointcloud_backend" default="cpu" description="cpu or cuda: the NDT input preprocessing chain"/>
 
   <!-- AutoSDV: retarget map_height_fitter (used by autoware_pose_initializer
        for GNSS auto-init, and by the RViz initial-pose adaptor for "2D Pose
@@ -214,6 +220,7 @@
       <arg name="input_pointcloud" value="$(var input_pointcloud)"/>
       <arg name="use_sim_time" value="$(var use_sim_time)"/>
       <arg name="use_gnss" value="$(var use_gnss)"/>
+      <arg name="localization_pointcloud_backend" value="$(var localization_pointcloud_backend)"/>
     </include>
   </group>
 
