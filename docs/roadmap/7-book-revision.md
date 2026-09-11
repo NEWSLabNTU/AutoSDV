@@ -100,7 +100,7 @@ Replace with the separate-repository location and the `X.Y-N` tag flow.
 
 ### 0.4 Audit the book's own toolchain
 
-`just lint` in the book runs `mkdocs build --strict`. Confirm it still passes on
+`just check` in the book runs `mkdocs build --strict`. Confirm it still passes on
 `main` before adding pages, so a later failure is attributable.
 
 **Success criteria**:
@@ -108,7 +108,7 @@ Replace with the separate-repository location and the `X.Y-N` tag flow.
 - [x] `just test` outcome recorded
 - [x] `versions.yaml` bumped
 - [x] `CLAUDE.md` book path corrected
-- [x] book `just lint` passes on `main`
+- [x] book `just check` passes on `main`
 
 ### Phase 0 results — 2026-09-12
 
@@ -484,7 +484,7 @@ sensor kit fork followed by a pin bump here, per the lockstep rule in
 
 ### 4.1 zh-TW for every changed and new page
 
-Then `just lint` and `just audit-translations`.
+Then `just check` and `just audit-translations`.
 
 ### 4.2 Add the new pages to `nav` and `nav_translations`
 
@@ -502,7 +502,7 @@ the `autosdv-book` submodule in `NEWSLabNTU.github.io`. It fires **only** on a
 `X.Y-N` tag; a push to `main` publishes the `dev` version instead.
 
 **Success criteria**:
-- [x] `just lint` clean — see the note on the checker below
+- [x] `just check` clean — see the note on the checker below
 - [x] `mkdocs build --strict` clean locally
 - [ ] `0.2-1` tagged and the site serving the new content
 - [ ] the website submodule moved

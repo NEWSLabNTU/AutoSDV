@@ -664,7 +664,7 @@ timings from A and the screenshots from B.
 | | Task |
 |---|------|
 | F1 | zh-TW for every new and changed page |
-| F2 | `just lint`; `mkdocs build --strict` |
+| F2 | `just check`; `mkdocs build --strict` |
 | F3 | Tag `0.2-1`, which mike deploys as a new version and aliases to `latest` |
 
 ---

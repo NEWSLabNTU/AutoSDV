@@ -887,7 +887,7 @@ submodule — `feb8a6f Remove book submodule` took it out of this tree. Editing
 - **Setup**: `just setup` (uv; installs dependencies)
 - **Build**: `just build` (builds to `site/`)
 - **Serve**: `just serve` (http://localhost:3000)
-- **Lint**: `just lint` (`mkdocs build --strict` plus translation sync)
+- **Check**: `just check` (dependency check, `mkdocs build --strict`, translation sync)
 - **Source**: `src/` (Markdown files) — **`src/`, not `book/src/`**
 - **Config**: `mkdocs.yml`
 
