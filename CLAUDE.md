@@ -489,7 +489,7 @@ transport — it is a process-local map from an id to a device pointer, so a sta
 in another process receives the id and finds nothing behind it.
 
 The two filters Autoware does not ship (a standalone CUDA crop box, a CUDA
-random downsample) live in `src/sensing/autosdv_cuda_preprocessor`. The package
+random downsample) live in `src/sensing/cuda_pointcloud_filters`. The package
 skips itself when no CUDA toolkit is found.
 
 Design and measurements: `docs/design/cuda-pipeline-data-flow.md`.

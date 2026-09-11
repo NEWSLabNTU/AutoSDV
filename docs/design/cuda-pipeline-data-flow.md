@@ -144,12 +144,12 @@ is the one that can use this.
 |---|---|---|
 | sensing CUDA chain | `autoware_cuda_pointcloud_preprocessor` (installed, upstream) | C++/CUDA |
 | which sensing chain runs | `autosdv_sensor_kit_launch/launch/pointcloud_preprocessor.launch.py` | launch |
-| localization CUDA filters | `src/sensing/autosdv_cuda_preprocessor` | C++/CUDA |
+| localization CUDA filters | `src/sensing/cuda_pointcloud_filters` | C++/CUDA |
 | which localization chain runs | `tier4_localization_launch/launch/util/util.launch.xml` | launch |
 | the matcher | `cuda_ndt_matcher/src/{ndt_cuda,cuda_ffi,cuda_ndt_matcher}` | Rust |
 | top-level switches | `autosdv_launch/launch/{autosdv,logging_simulation}.launch.yaml` | launch |
 
-`autosdv_cuda_preprocessor` exists to fill two gaps upstream leaves. Autoware
+`cuda_pointcloud_filters` exists to fill two gaps upstream leaves. Autoware
 ships `CudaVoxelGridDownsampleFilterNode`, but no standalone CUDA crop box — the
 cropping it has is fused inside `CudaPointcloudPreprocessorNode` and needs a
 per-point time field — and no CUDA random downsample at all. Without both, the

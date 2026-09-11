@@ -69,3 +69,7 @@
 	path = src/localization/external/range_libc
 	url = https://github.com/NEWSLabNTU/range_libc.git
 	branch = autosdv
+[submodule "src/sensing/cuda_pointcloud_filters"]
+	path = src/sensing/cuda_pointcloud_filters
+	url = https://github.com/NEWSLabNTU/cuda_pointcloud_filters.git
+	branch = main

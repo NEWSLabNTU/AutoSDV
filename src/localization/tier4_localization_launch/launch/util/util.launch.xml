@@ -60,7 +60,7 @@
   </load_composable_node>
 
   <!-- AutoSDV: the same three stages on the GPU. The crop box and the random
-       downsample are autosdv_cuda_preprocessor's, because Autoware ships
+       downsample are cuda_pointcloud_filters's, because Autoware ships
        neither: its CUDA cropping is fused inside CudaPointcloudPreprocessorNode
        with distortion correction, and there is no CUDA random downsample at
        all. The voxel grid in the middle is Autoware's own.
@@ -69,7 +69,7 @@
        components above which use bare input/output. The localization_ prefix on
        the voxel filter is load-bearing for the same reason it is above. -->
   <load_composable_node target="$(var localization_pointcloud_container_name)" if="$(eval &quot;'$(var localization_pointcloud_backend)' == 'cuda'&quot;)">
-    <composable_node pkg="autosdv_cuda_preprocessor" plugin="autosdv::cuda_preprocessor::CudaCropBoxFilterNode" name="crop_box_filter_measurement_range">
+    <composable_node pkg="cuda_pointcloud_filters" plugin="cuda_pointcloud_filters::CudaCropBoxFilterNode" name="crop_box_filter_measurement_range">
       <param from="$(var ndt_scan_matcher/pointcloud_preprocessor/crop_box_filter_measurement_range_param_path)"/>
       <remap from="~/input/pointcloud" to="$(var input_pointcloud)"/>
       <remap from="~/output/pointcloud" to="measurement_range/pointcloud"/>
@@ -81,7 +81,7 @@
       <remap from="~/output/pointcloud" to="voxel_grid_downsample/pointcloud"/>
     </composable_node>
 
-    <composable_node pkg="autosdv_cuda_preprocessor" plugin="autosdv::cuda_preprocessor::CudaRandomDownsampleFilterNode" name="random_downsample_filter">
+    <composable_node pkg="cuda_pointcloud_filters" plugin="cuda_pointcloud_filters::CudaRandomDownsampleFilterNode" name="random_downsample_filter">
       <param from="$(var ndt_scan_matcher/pointcloud_preprocessor/random_downsample_filter_param_path)"/>
       <remap from="~/input/pointcloud" to="voxel_grid_downsample/pointcloud"/>
       <remap from="~/output/pointcloud" to="$(var output/pointcloud)"/>

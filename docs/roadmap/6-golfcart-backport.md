@@ -280,11 +280,14 @@ preprocessed list in `pointcloud_preprocessor.launch.py`, and revisit 2.2.
 
 **Done:**
 
-1. `src/sensing/autosdv_cuda_preprocessor` — ported, renamed, namespace
-   `autosdv::cuda_preprocessor`. Builds in 11.5 s, and its **12 unit tests run
-   and pass on this machine's GPU** rather than skipping: the sm_120 RTX 5090 is
-   not in `CMAKE_CUDA_ARCHITECTURES` and CUDA 12.3 cannot target it, but the
-   driver JITs the compute_89 PTX.
+1. The two filters live in **`github.com/NEWSLabNTU/cuda_pointcloud_filters`**,
+   a standalone repository both vehicles submodule at
+   `src/sensing/cuda_pointcloud_filters`, rather than as a copy per project.
+   They were briefly copied in as `autosdv_cuda_preprocessor`; see "One package,
+   one repository" below. Builds in 11 s, and its **12 unit tests run and pass
+   on this machine's GPU** rather than skipping: the sm_120 RTX 5090 is not in
+   `CMAKE_CUDA_ARCHITECTURES` and CUDA 12.3 cannot target it, but the driver
+   JITs the compute_89 PTX.
 2. The sensing CUDA branch in `autosdv_sensor_kit_launch`, plumbed through
    `lidar.launch.xml` and `sensing.launch.xml`.
 3. The localization CUDA branch in
@@ -308,11 +311,40 @@ existing `PassThroughFilterComponent`, which also does the transform to
 copy there: the per-point work is on the GPU, the path is not GPU-resident.
 
 *The AutoSDV localization chain does not go through `cuda_ndt_matcher_launch`'s
-`util.launch.xml`.* That file hardcodes `golfcart_cuda_preprocessor`, and it
-would have had to be parameterised — but AutoSDV reaches the matcher through
-`pose_source_package` → `pose_estimator.launch.xml` only, and runs its own
-vendored `tier4_localization_launch/util/util.launch.xml`. The CUDA branch went
-there instead, so the shared submodule needed no change at all.
+`util.launch.xml`.* AutoSDV reaches the matcher through `pose_source_package` →
+`pose_estimator.launch.xml` only, and runs its own vendored
+`tier4_localization_launch/util/util.launch.xml`, so the CUDA branch went there.
+
+That let the first version of this work route *around* a problem rather than fix
+it: `cuda_ndt_matcher_launch/util.launch.xml`, a file both vehicles submodule,
+hardcoded `golfcart_cuda_preprocessor` and its plugin namespace. It now takes
+`cuda_filters_package` and `cuda_filters_namespace` as arguments, defaulting to
+`cuda_pointcloud_filters`, so the shared launch names no project.
+
+### One package, one repository
+
+The filters were the only pure duplicate between the two vehicles: 19 files, 14
+byte-identical once the project name was normalised away, the rest differing
+only by the rename. They are now
+`github.com/NEWSLabNTU/cuda_pointcloud_filters`, public, submoduled by both
+projects, and the package, namespace, README and licence text name no vehicle.
+
+What is genuinely shared and already a submodule: `cuda_ndt_matcher`,
+`seyond_ros_driver`, `CalibrationTools`, `autoware_individual_params`,
+`gnss_locator`, `ros-nmea-reader`, `zed-ros2-wrapper`, `autoware_manual_control`.
+
+What is duplicated and still could be unified, measured by files identical after
+normalising the project name:
+
+| Code | Files | Identical | Note |
+|---|---|---|---|
+| `control_test` | 16 | 10 | shared tool, drifting |
+| `system_monitor` | 12 | 6 | one repo, renamed then diverged by four UI features |
+| `runtime` | 24 | 4 | same origin, most diverged: unit names and env resolution now differ |
+| diagnostics + profiling scripts | ~10 | 1 | copied in phase 6 |
+
+`sensor_kit_launch`, `vehicle_launch` and the launchers are per-vehicle and
+should stay separate; the launcher is 209 files with 29 identical.
 
 **Not verified here**: nothing is launched. This machine has no full build, and
 the two backends have never run together on a vehicle. Before trusting either
