@@ -106,6 +106,14 @@ collectors is equal to the limit of (3)` on every cycle. Each message fills one
 slot, the collector waits out `timeout_sec` for a second that never arrives, and
 the collector limit thrashes. Roughly 80% of frames are lost.
 
+The golf cart measured the same mechanism from the other direction, on a bag
+where one of its two LiDARs is silent: preprocessing held 10.00 Hz while the
+concatenated cloud ran at 4.47 Hz, each cloud arriving **p50 190 ms** after its
+own header stamp against a 100 ms scan period — that is `timeout_sec: 0.2`, not
+compute. Their remedy was a timeout shorter than the scan period, which costs one
+short wait per scan instead of a dropped one. It does not help here: with a
+single input the concatenator publishes nothing at all, whatever the timeout.
+
 So the chain ends at `PassThroughFilterComponent`, which is what this kit
 already used for its single LiDAR and which does the transform to `base_link`
 that the CUDA preprocessor does not do — its output stays in the sensor frame.
