@@ -494,11 +494,13 @@ The two filters Autoware does not ship (a standalone CUDA crop box, a CUDA
 random downsample) live in `src/sensing/cuda_pointcloud_filters`. The package
 skips itself when no CUDA toolkit is found.
 
-**Do not fix those two filters here.** They are upstream as
-autowarefoundation/autoware_universe#13301 and cherry-picked onto
-`NEWSLabNTU/autoware_universe:1.5.0-patches`, which is what our Debians build
-from; the submodule is a temporary home that goes away once a Debian carrying
-them is installed. The retirement steps, in order, are in
+**Fix those two filters upstream first.** They are
+autowarefoundation/autoware_universe#13301, on
+`jerry73204/autoware_universe:feat/cuda-standalone-filters`; that branch is
+canonical, and this submodule mirrors it. The submodule goes away only once we
+ship an Autoware release containing the merged PR — not by patching the Debian,
+because `autoware-localrepo` builds official Autoware source and every
+vehicle-side patch belongs here instead. Retirement steps:
 `docs/design/cuda-pipeline-data-flow.md`.
 
 Design and measurements: `docs/design/cuda-pipeline-data-flow.md`.
@@ -914,6 +916,15 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 ## Important Notes
 
 - **Autoware 1.5.0**: Installed at `/opt/autoware/1.5.0/` via the setup script (autoware-localrepo)
+- **The installed Autoware is official Autoware.** `NEWSLabNTU/autoware-localrepo`
+  builds the Debians from official source, so `/opt/autoware/<version>` is a
+  clean baseline: what it does is what upstream does, and a bug reproduced
+  against it is reportable. Every patch of ours lives in this repository or one
+  of its submodules instead — including patches to packages Autoware owns, which
+  are carried as a submodule under `src/` until they land upstream. Do not fix
+  an Autoware bug by patching the localrepo build; the cost is an installed
+  Autoware that silently is not Autoware, and nobody reading a launch file can
+  see it.
 - Source Autoware environment: `source /opt/autoware/1.5.0/setup.bash` (includes ROS 2)
 - Source ROS only: `source /opt/ros/humble/setup.bash`
 - Requires ROS 2 Humble, Ubuntu, NVIDIA GPU
