@@ -5,7 +5,7 @@ set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
 **Status**: Phase C done (English). Phase A partially answered — the CPU matcher result is below. Roadmap 7 phases 0-4 are done (English and zh-TW);
-`book-v0.3.0` is deliberately **not** tagged, so this work lands before the
+no release tag is cut, so this work lands before the
 release.
 
 **Premise from the campaign owner**: the planning simulation teaches the
@@ -387,8 +387,8 @@ pages changes depth, and the zh-TW image paths carry their extra `../`.
 
 ### Do the moves now, or not at all
 
-Moving pages changes their published URLs. The live site is `book-v0.2.1` and is
-already months stale, and `book-v0.3.0` is not tagged — so **this is the cheapest
+Moving pages changes their published URLs. The site is mike-versioned, so old URLs stay frozen under `0.1/`, and it is
+mike-versioned, so old URLs stay frozen under `0.1/` — so **this is the cheapest
 moment this restructure will ever have.** After a release that people link to,
 it costs redirects.
 
@@ -584,17 +584,17 @@ timings from A and the screenshots from B.
 |---|------|
 | F1 | zh-TW for every new and changed page |
 | F2 | `just lint`; `mkdocs build --strict` |
-| F3 | Tag `book-v0.3.0`, which deploys and moves the website submodule |
+| F3 | Tag `0.2-1`, which mike deploys as a new version and aliases to `latest` |
 
 ---
 
 ## Open decisions
 
-1. **The Part 4-6 moves.** They change published URLs. The live site is
-   `book-v0.2.1`, already months stale, and `book-v0.3.0` is untagged — this is
-   the cheapest moment the restructure will ever have. Declining them still
-   leaves a working book: add `concepts/` and `tutorial/`, leave the rest in
-   place, and accept paths that no longer match the nav.
+1. **The Part 4-6 moves.** They change published URLs. The site is
+   **mike-versioned**, so `0.1/` is frozen and keeps working whatever we do, and
+   new work lands under a new version — the moves therefore cost less than an
+   unversioned site would imply. `/dev/` already tracks `main` on every push.
+
 2. **Screenshot display.** Reuse TurboVNC `:1` at 1240x900, or start a
    1920x1080 session.
 3. **`data/COSS-map-planning` is misnamed** — it holds the PCD and the occupancy

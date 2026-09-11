@@ -891,18 +891,18 @@ submodule — `feb8a6f Remove book submodule` took it out of this tree. Editing
 - **Source**: `src/` (Markdown files) — **`src/`, not `book/src/`**
 - **Config**: `mkdocs.yml`
 
-**Publishing is tag-driven.** The deploy workflow fires only on a `book-v*`
-tag; pushing to `main` publishes nothing. It builds `--strict`, pushes
-`gh-pages`, and moves the `autosdv-book` submodule in `NEWSLabNTU.github.io`.
+**Publishing is versioned, with mike.** A push to `main` deploys the `dev`
+version; a release is an `X.Y-N` tag — `X.Y` the AutoSDV version, `N` the book
+revision — which mike deploys and aliases to `latest`. The older `book-v*`
+scheme is obsolete.
 
 ```bash
-git tag -a book-v0.3.0 -m "Documentation v0.3.0"
-git push origin book-v0.3.0
+git tag -a 0.2-1 -m "Book revision 1 for AutoSDV 0.2"
+git push origin 0.2-1
 ```
 
-The book's version line is its own and is already past the project's: tags
-`book-v0.1.0`, `book-v0.2.0`, `book-v0.2.1` exist while `autosdv.version` is
-0.2.0. Do not assume the two numbers match.
+The live site serves `/latest/` (currently mike version `0.1`) and `/dev/`,
+which tracks `main`.
 
 Every English page has a `.zh-TW.md` sibling, so a new page is two files plus a
 `nav` entry plus a `nav_translations` entry.

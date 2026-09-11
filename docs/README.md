@@ -19,7 +19,7 @@ Architecture and integration design documents
 
 Implementation status and timelines
 
-- [Book: Simulation Tutorials](roadmap/5-book_simulation_tutorials.md) - ⚠️ Spec only (its "Done" record was wrong; superseded by roadmaps 7 and 9)
+- [Book: Simulation Tutorials](roadmap/5-book_simulation_tutorials.md) - ✅ Complete (pages shipped; superseded by roadmap 9's tutorial)
 - [Golf Cart Backport](roadmap/6-golfcart-backport.md) - ✅ Complete (all 10 phases)
 - [Backport Verification](roadmap/7-backport-verification.md) - 📋 Proposed (what to run, in what order, to see it working)
 - [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - ✅ Phases 0-4 done, EN + zh-TW; **tag held** pending roadmap 9

@@ -4,31 +4,28 @@
 accessible to newcomers without physical vehicles. Add tutorial content
 covering planning simulation, logging simulation, and full scenario replay.
 
-**Status**: **NOT DONE — this file's completion record was wrong.** Corrected
-2026-09-12.
+**Status**: Done. The pages exist on `AutoSDV-book` `main` — this record was
+briefly and wrongly marked "NOT DONE" on 2026-09-12; see the correction note
+below.
 
-Every success criterion below was ticked and every page it claims to have
-written is absent. Searched the whole of `AutoSDV-book` history:
+!!! note "Correction, 2026-09-12"
 
-```
-git log --all --oneline -- 'src/simulation/*' \
-                           'src/getting-started/installation/recommended.md'
-(no output)
-```
+    This file was edited to claim its work had never been done, on the strength
+    of a `git log --all` that returned nothing for `src/simulation/*`. That
+    search was run against a **clone that had never been fetched**, whose refs
+    predated the work by months. `src/simulation/{planning-simulation,
+    logging-simulation,coss-park-scenario,datasets}.md` and
+    `installation/recommended.md` were all present on `origin/main` the whole
+    time, added by `6ebde6f Add simulation tutorial` and
+    `063f89d Extract the recommended installation step from overview.md`.
 
-No `src/simulation/` directory, no `planning-simulation.md`,
-`logging-simulation.md`, `datasets.md` or `coss-park-scenario.md`, and no
-`installation/recommended.md` has ever existed on any branch. `mkdocs.yml` had
-no `Simulation Guide` nav section.
+    The accusation is withdrawn. The lesson stands, but it lands on the
+    accuser: **`git log --all` is not a search of the repository, it is a search
+    of your refs.** Fetch first.
 
-**The content plan below is still good, and is being executed** — the
-`[x]` marks are not. Roadmap 7 phase 3 wrote the four simulation pages against
-this plan, and [roadmap 9](9-book-tutorial-restructure.md) rebuilds them as a
-numbered tutorial. Read this file as a specification, never as history.
-
-The lesson is the one `CLAUDE.md` states for submodules, applied to our own
-status documents: **read the state out of the repository, not out of a record
-of intent.**
+    Roadmap 9 has since rebuilt these pages as a numbered tutorial, and
+    `planning-simulation.md`/`logging-simulation.md` are now superseded by
+    `tutorial/02` and `tutorial/03`.
 
 **Book Repository**: `~/repos/AutoSDV-book` (branch: `main` for develop)
 

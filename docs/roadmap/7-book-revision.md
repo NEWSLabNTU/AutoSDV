@@ -8,7 +8,7 @@ replaced; and the **launch chapter**, which teaches `just launch` and leaves the
 reader unable to launch anything themselves.
 
 **Status**: Phases 0-4 complete in both languages. **The release is deliberately
-held.** Everything is committed locally and unpushed; `book-v0.3.0` is not cut,
+held.** Everything is committed locally and unpushed; no release tag is cut,
 because the book is correct but not yet teachable — see
 [roadmap 9](9-book-tutorial-restructure.md), which lands before the tag.
 
@@ -22,52 +22,45 @@ that path does not exist.
 ## Why now
 
 The book's last commit is `03a38ee`, 2026-01-26. The live site is older still —
-it is built from tag `book-v0.2.1` (`17274a3`, 2026-01-15), so three commits on
-`main` are unpublished. Since that tag this repository has landed the setup
+its `latest` alias points at mike version `0.1`, while `/dev/` tracks `main` on
+every push. Since that tag this repository has landed the setup
 rewrite, the justfile module split, the CUDA point cloud pipeline, MCL, and the
 demo runner. None of it is in the book, and several pages now give commands that
 fail.
 
 ### Version numbers, and which "v0.2" this is
 
-The book already has tags `book-v0.1.0`, `book-v0.2.0`, `book-v0.2.1`. Its
+The book already has tags `0.1-1` and `0.1-2` (and older `book-v*` ones). Its
 versioning is its own and is already past 0.2. The **AutoSDV** version in
 `versions.yaml` is `0.1.0-dev`, so the v0.2 being cut is the *project's*, and
-the book release that accompanies it is `book-v0.3.0`.
+the book release that accompanies it is **`0.2-1`**.
+
+!!! note "The tag scheme changed, 2026-09-12"
+
+    `book-v*` is obsolete. The book now publishes with **mike**, versioned, and
+    the release workflow triggers on `X.Y-N` where `X.Y` is the AutoSDV version
+    and `N` the book revision — `0.1-1`, `0.1-2`, and next `0.2-1`. A separate
+    workflow deploys `dev` on every push to `main`. The live site therefore
+    serves `/latest/` (aliased to `0.1`) and `/dev/`.
 
 ---
 
-## A correction to roadmap 5 before anything else
+## A correction, withdrawn
 
-`docs/roadmap/5-book_simulation_tutorials.md` is marked **Done**, with every
-success criterion ticked. The work is not in the book. Searched the whole of
-`AutoSDV-book` history:
+An earlier version of this file accused
+[roadmap 5](5-book_simulation_tutorials.md) of recording work that had never
+been done, citing a `git log --all` over `src/simulation/*` that returned
+nothing.
 
-```
-git log --all --oneline -- 'src/simulation/*' \
-                           'src/getting-started/installation/recommended.md'
-(no output)
-```
+**That accusation was wrong and is withdrawn.** The search ran against a clone
+that had never been fetched; its refs were months stale. The pages were on
+`origin/main` throughout. Roadmap 5's own file carries the full correction.
 
-No `src/simulation/` directory, no `planning-simulation.md`, no
-`logging-simulation.md`, no `datasets.md`, no `coss-park-scenario.md`, and no
-`installation/recommended.md` has ever existed on any branch of that repository.
-`mkdocs.yml` has no `Simulation Guide` nav section. The pages roadmap 5 claims
-to have written do not exist anywhere.
-
-Two consequences:
-
-1. Roadmap 5's status must be corrected to reflect reality before it is cited as
-   a completed dependency. This roadmap does not assume any of it landed.
-2. Its **content plan is still good** and is largely what phase 3 below needs.
-   Treat `5-book_simulation_tutorials.md` as a specification to execute, not as
-   history.
-
-Do not rely on a roadmap's checkboxes over the repository. This is the same
-habit `CLAUDE.md` states for submodules — read the config out of git, not out of
-a working tree — applied to our own status documents.
-
----
+The habit this campaign kept quoting from `CLAUDE.md` — *read the config out of
+git, not out of a working tree* — has a second half that had to be learned the
+expensive way: **`git log --all` searches your refs, not the repository.** Fetch
+first. The cost here was four commits written against a stale base and a rebase
+to reconcile them.
 
 ## Phase 0 — Release readiness gate
 
@@ -103,7 +96,7 @@ The "Documentation" section still says:
 > **Setup**: `cd book && just setup`
 > **Source**: `book/src/`
 
-Replace with the separate-repository location and the `book-v*` tag flow.
+Replace with the separate-repository location and the `X.Y-N` tag flow.
 
 ### 0.4 Audit the book's own toolchain
 
@@ -167,7 +160,7 @@ Repaired with values taken from the repository, never invented:
   repeat the guess. They need the autoware-localrepo build manifest.
 
 **CLAUDE.md corrected** in two places: the book is a separate repository with
-`src/`, not `book/src/`, and is published only by a `book-v*` tag; and the
+`src/`, not `book/src/`, and is published by mike on an `X.Y-N` tag; and the
 versioning section no longer describes fields that do not exist.
 
 **Book lint: `mkdocs build --strict` passes** on `main`. The translation checker
@@ -500,18 +493,18 @@ An untranslated nav entry shows an English label in the Chinese build.
 ### 4.3 Tag and deploy
 
 ```bash
-git tag -a book-v0.3.0 -m "Documentation v0.3.0"
-git push origin book-v0.3.0
+git tag -a 0.2-1 -m "Book revision 1 for AutoSDV 0.2"
+git push origin 0.2-1
 ```
 
 The deploy workflow builds with `--strict`, publishes `gh-pages`, and updates
 the `autosdv-book` submodule in `NEWSLabNTU.github.io`. It fires **only** on a
-`book-v*` tag, so an untagged push publishes nothing.
+`X.Y-N` tag; a push to `main` publishes the `dev` version instead.
 
 **Success criteria**:
 - [x] `just lint` clean — see the note on the checker below
 - [x] `mkdocs build --strict` clean locally
-- [ ] `book-v0.3.0` tagged and the site serving the new content
+- [ ] `0.2-1` tagged and the site serving the new content
 - [ ] the website submodule moved
 
 ### Phase 4 results — 2026-09-12
@@ -546,7 +539,7 @@ languages.
 | 1 | Installation chapter | versions true, setup registry, the five omitted steps | **Done (EN)** |
 | 2 | Launch chapter | `play_launch` taught first, 45-argument table, 25 recipe fixes | **Done (EN)** |
 | 3 | The unwritten chapters | simulation, localization, presets, maps, CUDA, orphans | **Done (EN)** |
-| 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | **Translated; tag deliberately held** |
+| 4 | Translate and publish | zh-TW, lint, `0.2-1` | **Translated; tag deliberately held** |
 
 ## What this roadmap did not fix, and why the tag is held
 
@@ -574,7 +567,7 @@ Tagging now would publish a book that is accurate and that a newcomer still
 cannot follow. [Roadmap 9](9-book-tutorial-restructure.md) carries the fix: a
 concepts section covering what is different *here* rather than re-teaching ROS 2,
 the simulation chapter rebuilt as a numbered tutorial with screenshots, and an
-honest page about `play_launch`. Phase F of that roadmap cuts `book-v0.3.0`.
+honest page about `play_launch`. Phase F of that roadmap cuts `0.2-1`.
 
 ## Open decisions
 
