@@ -173,7 +173,39 @@ per-point time field — and no CUDA random downsample at all. Without both, the
 localization chain would pay a D2H before the one accelerated stage and an H2D
 after it.
 
-Two of its design decisions are worth not undoing:
+### It is on its way out
+
+The package is a temporary home, not the source of truth. The same two filters
+were submitted upstream as
+[autowarefoundation/autoware_universe#13301](https://github.com/autowarefoundation/autoware_universe/pull/13301)
+(branch `jerry73204/autoware_universe:feat/cuda-standalone-filters`), where they
+live **inside** `autoware_cuda_pointcloud_preprocessor` rather than in a package
+of their own. That branch is canonical: fix a filter there, not here.
+
+The same three commits are cherry-picked onto
+`NEWSLabNTU/autoware_universe:1.5.0-patches`, which is what
+`NEWSLabNTU/autoware-localrepo` builds the Debians from. So the retirement is
+gated on a rebuild, in this order:
+
+1. build and install an Autoware 1.5.0 Debian from the updated `1.5.0-patches`;
+2. check the plugins arrived —
+   `ros2 component types | grep -i cudacropbox` should name
+   `autoware::cuda_pointcloud_preprocessor::CudaCropBoxFilterNode`;
+3. repoint the two `<composable_node>` entries in
+   `tier4_localization_launch/launch/util/util.launch.xml` and the
+   `cuda_filters_package` default in `cuda_ndt_matcher_launch`'s
+   `util.launch.xml` at `autoware_cuda_pointcloud_preprocessor` and the
+   `autoware::cuda_pointcloud_preprocessor::` namespace;
+4. drop the `src/sensing/cuda_pointcloud_filters` submodule from this repo and
+   from `2026-golf-cart`, and archive `NEWSLabNTU/cuda_pointcloud_filters`.
+
+Until step 1 lands on a board, the submodule stays: the installed Debian at
+`/opt/autoware/1.5.0` ships neither filter, so removing it now would leave the
+localization CUDA chain with no provider. The namespaces differ
+(`cuda_pointcloud_filters::` here, `autoware::cuda_pointcloud_preprocessor::`
+upstream), which is why the switch is a launch edit rather than a drop-in.
+
+Two of its design decisions are worth not undoing, and were carried upstream:
 
 - Non-finite points are dropped in **both** polarities. Every comparison against
   NaN is false, so a `negative` implemented as `!inside` would keep a NaN point

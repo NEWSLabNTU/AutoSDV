@@ -494,6 +494,13 @@ The two filters Autoware does not ship (a standalone CUDA crop box, a CUDA
 random downsample) live in `src/sensing/cuda_pointcloud_filters`. The package
 skips itself when no CUDA toolkit is found.
 
+**Do not fix those two filters here.** They are upstream as
+autowarefoundation/autoware_universe#13301 and cherry-picked onto
+`NEWSLabNTU/autoware_universe:1.5.0-patches`, which is what our Debians build
+from; the submodule is a temporary home that goes away once a Debian carrying
+them is installed. The retirement steps, in order, are in
+`docs/design/cuda-pipeline-data-flow.md`.
+
 Design and measurements: `docs/design/cuda-pipeline-data-flow.md`.
 
 ### CUDA NDT Localization

@@ -160,6 +160,47 @@ collected here. `rm -f /dev/shm/fastrtps_*` when a graph starts behaving oddly.
 
 ---
 
+## 6. The Autoware 1.5.0 Debian exports paths from the machine that built it
+
+Four packages ship CMake target exports that name the build container's
+workspace instead of the install prefix:
+
+```text
+CMake Error in CMakeLists.txt:
+  Imported target
+  "autoware_pointcloud_preprocessor::pointcloud_preprocessor_filter_base"
+  includes non-existent path
+
+    "/output/workspace/install/autoware_point_types/include"
+
+  in its INTERFACE_INCLUDE_DIRECTORIES.
+```
+
+`/output/workspace` exists only inside the Debian build container. The headers
+are really at `/opt/autoware/1.5.0/include`. Affected exports:
+
+| File | Package |
+|---|---|
+| `share/autoware_pointcloud_preprocessor/cmake/export_autoware_pointcloud_preprocessorExport.cmake` | `autoware_pointcloud_preprocessor` |
+| `share/nebula_decoders/cmake/export_nebula_decoders_{robosense,robosense_info,continental}Export.cmake` | `nebula_decoders` |
+| `share/nebula_ros/cmake/export_{hesai,robosense,velodyne}_ros_wrapperExport.cmake` | `nebula_ros` |
+| `share/llh_converter/cmake/ament_cmake_export_include_directories-extras.cmake` | `llh_converter` |
+
+**What it breaks.** Nothing this repository builds today — no package here links
+those imported targets. It bites the moment you build a package against them
+out of tree, which is how it was found: a colcon build of a patched
+`autoware_cuda_pointcloud_preprocessor` failed at *CMake Generate step failed*
+before compiling a single file.
+
+**Where the fix belongs.** In `NEWSLabNTU/autoware-localrepo`, not here: the
+packaging step should rewrite `/output/workspace/install/<pkg>/include` to the
+install prefix, the way ament's own export generation does for in-tree
+dependencies. Until then, a local build against those targets needs the path to
+exist — `sudo mkdir -p /output/workspace/install/autoware_point_types/include`
+is enough to get past generate, because CMake only checks existence.
+
+---
+
 ## Did not transfer
 
 Checked, and not defects here:
