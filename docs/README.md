@@ -21,6 +21,8 @@ Implementation status and timelines
 
 - [Golf Cart Backport](roadmap/6-golfcart-backport.md) - ✅ Complete (all 10 phases)
 - [Backport Verification](roadmap/7-backport-verification.md) - 📋 Proposed (what to run, in what order, to see it working)
+- [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - 📝 Planned (installation + launch chapters)
+- [Workshop: Laptop Onboarding](roadmap/8-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class)
 - [Isaac VSLAM](roadmaps/isaac_vslam.md) - ✅ Complete
 - [AR Tag Integration](roadmaps/ar_tag_integration/) - 🚧 In Progress
   - [Overview & Architecture](roadmaps/ar_tag_integration/README.md)

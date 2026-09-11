@@ -13,27 +13,45 @@ AutoSDV uses [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH[-PRE
 ### Single Source of Truth: `versions.yaml`
 
 All version information is centralized in `versions.yaml` at the repo root:
-- **AutoSDV version**: Project version and release channel (stable/development)
-- **Autoware version**: Pinned Autoware base version
+- **AutoSDV version**: Project version, prerelease suffix, release channel
+- **Autoware version**: Pinned base version, the Debian filenames, install prefix
 - **ROS**: Distribution, installation type, RMW implementation
-- **NVIDIA stack**: CUDA, cuDNN, TensorRT versions (AMD64 and ARM64/Jetson)
-- **JetPack/L4T**: Jetson platform versions
+- **NVIDIA platform**: the target JetPack; the CUDA/cuDNN/TensorRT triples are
+  **declared but empty** — see below
 - **Tool versions**: clang-format, etc.
-- **Package checksums**: SHA256 for verification
+- **Package checksums**: SHA256 for the Autoware Debian packages
+
+**Every key `export-versions.sh` reads must exist here.** It indexes the YAML
+directly, so one missing key raises `KeyError` and the whole export produces
+nothing — while still exiting 0, because the failing Python runs inside a
+command substitution. A `source` that silently sets no variables is the failure
+mode to watch for; if `$AUTOSDV_VERSION` is empty after sourcing, a key is
+missing, not mistyped.
+
+**The NVIDIA versions are not installed by `setup.sh`.** CUDA, cuDNN and
+TensorRT come from the host image — JetPack on a Jetson, distribution packages
+on an amd64 workstation — so these keys record what the Autoware build targets,
+not something this repository provisions. The amd64 triple is empty on purpose:
+the values previously documented here (CUDA 12.3, TensorRT 8.6) match no machine
+this has been built on, and nothing in the repo pins them. The arm64 target is
+**JetPack 6.2**, which is what `install-autoware-debian.sh` downloads
+(`...-1jetpack62_all.deb`); documentation still saying "JetPack 6.0 exactly"
+predates that.
 
 ### Version Helper Scripts
 
 ```bash
 # Get a specific version value
-./scripts/version/get-version.sh autosdv.version      # Returns "0.1.0-dev"
+./scripts/version/get-version.sh autosdv.version      # Returns "0.2.0"
 ./scripts/version/get-version.sh autoware.version     # Returns "1.5.0"
-./scripts/version/get-version.sh nvidia_amd64.cuda    # Returns "12.3"
+./scripts/version/get-version.sh autoware.deb_amd64   # Returns the .deb filename
 
-# Export all versions as environment variables
+# Export all versions as environment variables (bash; BASH_SOURCE-based)
 source ./scripts/version/export-versions.sh
-echo $AUTOSDV_VERSION    # 0.1.0-dev
+echo $AUTOSDV_VERSION    # 0.2.0
+echo $AUTOSDV_CHANNEL    # development
 echo $AUTOWARE_VERSION   # 1.5.0
-echo $CUDA_VERSION_AMD64 # 12.3
+echo $JETPACK_VERSION    # 6.2
 ```
 
 ### Version Bumping Guidelines
@@ -858,12 +876,36 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 ## Documentation
 
 ### Main Documentation Book (MkDocs)
+
+**The book is a SEPARATE REPOSITORY**, not a directory here and not a
+submodule — `feb8a6f Remove book submodule` took it out of this tree. Editing
+`book/` in this checkout edits nothing, because there is no `book/`.
+
+- **Repository**: <https://github.com/NEWSLabNTU/AutoSDV-book> (`~/repos/AutoSDV-book`)
+- **Published at**: <https://newslabntu.github.io/autosdv-book/>
 - **Framework**: MkDocs with Material theme (following Autoware conventions)
-- **Setup**: `cd book && just setup` (installs dependencies)
-- **Build**: `cd book && just build` (builds to `site/`)
-- **Serve**: `cd book && just serve` (http://localhost:3000)
-- **Source**: `book/src/` (Markdown files)
-- **Config**: `book/mkdocs.yml`
+- **Setup**: `just setup` (uv; installs dependencies)
+- **Build**: `just build` (builds to `site/`)
+- **Serve**: `just serve` (http://localhost:3000)
+- **Lint**: `just lint` (`mkdocs build --strict` plus translation sync)
+- **Source**: `src/` (Markdown files) — **`src/`, not `book/src/`**
+- **Config**: `mkdocs.yml`
+
+**Publishing is tag-driven.** The deploy workflow fires only on a `book-v*`
+tag; pushing to `main` publishes nothing. It builds `--strict`, pushes
+`gh-pages`, and moves the `autosdv-book` submodule in `NEWSLabNTU.github.io`.
+
+```bash
+git tag -a book-v0.3.0 -m "Documentation v0.3.0"
+git push origin book-v0.3.0
+```
+
+The book's version line is its own and is already past the project's: tags
+`book-v0.1.0`, `book-v0.2.0`, `book-v0.2.1` exist while `autosdv.version` is
+0.2.0. Do not assume the two numbers match.
+
+Every English page has a `.zh-TW.md` sibling, so a new page is two files plus a
+`nav` entry plus a `nav_translations` entry.
 
 **Features**:
 - ✅ Material Design theme
@@ -872,12 +914,16 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 - ✅ Math rendering (MathJax)
 - ✅ Search, dark mode, mobile responsive
 
-**Key Guides** (in book):
-- **Sensor Integration**: `book/src/guides/sensor-integration/`
+**Key Guides** (in book, paths relative to that repository):
+- **Sensor Integration**: `src/guides/sensor-integration/`
   - Simple usage guide, Robin-W walkthrough, sensor-specific details
-- **Vehicle Control**: `book/src/guides/vehicle-control/`
+- **Vehicle Control**: `src/guides/vehicle-control/`
   - Overview, hardware, control details, tuning & testing
   - Multi-mode controllers, PCA9685 I2C, hall effect sensor, PID tuning
+
+**Revision in progress**: [docs/roadmap/7-book-revision.md](docs/roadmap/7-book-revision.md).
+The published site is stale — it still says Autoware 2025.02 and gives `just`
+recipes that no longer exist.
 
 ### Legacy Guides (docs/)
 | Guide | Description |

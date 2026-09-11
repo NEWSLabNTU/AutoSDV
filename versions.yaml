@@ -1,17 +1,36 @@
 # versions.yaml - Single source of truth for all AutoSDV versions
 # This file is read by setup scripts, CI, and documentation generators.
+#
+# Read one value:   ./scripts/version/get-version.sh autosdv.version
+# Export them all:  source ./scripts/version/export-versions.sh
+#
+# Every key here is consumed by export-versions.sh. Adding a key there without
+# adding it here makes `source export-versions.sh` a silent no-op, which is how
+# the nvidia/tools/checksums sections came to be documented but absent.
 
 # =============================================================================
 # AutoSDV Project Version
 # =============================================================================
 autosdv:
-  version: "0.1.0-dev"
+  version: "0.2.0"
+  prerelease: "dev"       # "" on a release branch; "dev" on develop; "rc.N" on release/X.Y
+  channel: "development"  # development | stable
 
 # =============================================================================
 # Autoware Base
+#
+# Installed from the autoware-localrepo Debian package, not from source. The
+# filenames and checksums below are what setup/scripts/install-autoware-debian.sh
+# downloads and verifies; keep the two in step.
 # =============================================================================
 autoware:
   version: "1.5.0"
+  package_version: "1.5.0-1"
+  rosdebian_release: "1.5.0-1"
+  install_prefix: "/opt/autoware/1.5.0"
+  localrepo_url_base: "https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-1"
+  deb_amd64: "autoware-localrepo-1-5-0_1.5.0-1ubuntu2204_all.deb"
+  deb_jetpack62: "autoware-localrepo-1-5-0_1.5.0-1jetpack62_all.deb"
 
 # =============================================================================
 # ROS 2
@@ -20,3 +39,48 @@ ros:
   distro: "humble"
   installation_type: "desktop"  # desktop, ros-base
   rmw_implementation: "rmw_cyclonedds_cpp"
+
+# =============================================================================
+# NVIDIA platform
+#
+# NOT INSTALLED BY setup.sh. CUDA, cuDNN and TensorRT come from the host image:
+# JetPack on a Jetson, and the distribution packages on an amd64 workstation.
+# These values therefore record the TARGET the Autoware Debian package is built
+# against, not something this repository installs or can verify at runtime.
+#
+# The arm64 target is JetPack 6.2 -- the Debian package's own suffix is
+# `jetpack62`. Documentation that still says "JetPack 6.0 exactly" predates it.
+#
+# The amd64 CUDA/cuDNN/TensorRT triple is deliberately left empty rather than
+# guessed: the previously documented values (CUDA 12.3, TensorRT 8.6) do not
+# match the machines this has been built on, and no script in this repository
+# pins them. Fill them in from the autoware-localrepo build manifest.
+# =============================================================================
+nvidia_amd64:
+  cuda: ""
+  cudnn: ""
+  tensorrt: ""
+
+nvidia_arm64:
+  jetpack: "6.2"
+  l4t: ""
+  cuda: ""
+  cudnn: ""
+  tensorrt: ""
+
+# =============================================================================
+# Tool versions
+# =============================================================================
+tools:
+  pre_commit_clang_format: ""
+
+# =============================================================================
+# Package checksums (SHA256)
+#
+# Mirrors setup/scripts/install-autoware-debian.sh.
+# =============================================================================
+checksums:
+  autoware_deb_amd64: "9f433f7ae4642c9501b9b1f53853a3d724627cc2e85088ac6a2e2e21775898ea"
+  autoware_deb_jetpack62: "5c50148e9d9ad5426e92fdee68d2ab22ca23f37d9de83fe9e7fd06db330f0ae0"
+  autoware_deb_arm64: "5c50148e9d9ad5426e92fdee68d2ab22ca23f37d9de83fe9e7fd06db330f0ae0"
+  autoware_deb_jetpack60: ""
