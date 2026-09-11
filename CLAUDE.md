@@ -486,12 +486,6 @@ with the default `POINT_TYPE`, since a driver built as `PointXYZIRC` publishes a
 cloud the CUDA preprocessor rejects. The Blickfeld driver has no per-point time
 at all, so `cube1` is refused with an error naming the reason.
 
-**The two switches are not independent.**
-`localization_pointcloud_backend:=cuda` requires `pointcloud_backend:=cuda`:
-Autoware's CUDA voxel filter rejects the 32-byte `PointXYZIRCAEDT` layout the
-CPU sensing path produces, and NDT then never activates. Measured, and both
-default to `cpu`.
-
 **Everything must load into one container.** `cuda_blackboard` is not a
 transport — it is a process-local map from an id to a device pointer, so a stage
 in another process receives the id and finds nothing behind it.
