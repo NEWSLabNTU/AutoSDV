@@ -7,7 +7,7 @@ every one of its version numbers and describes a setup script that was
 replaced; and the **launch chapter**, which teaches `just launch` and leaves the
 reader unable to launch anything themselves.
 
-**Status**: Phases 0-3 done, 2026-09-12 (English). Phase 4 — zh-TW, lint, tag — is next.
+**Status**: Phases 0-4 complete except the tag. Everything is committed locally and unpushed; `book-v0.3.0` and the push are the only steps left, and they publish.
 
 **Book repository**: `~/repos/AutoSDV-book`, branch `main`. It is a *separate
 repository*, not a submodule — `feb8a6f Remove book submodule` took it out of
@@ -506,10 +506,32 @@ the `autosdv-book` submodule in `NEWSLabNTU.github.io`. It fires **only** on a
 `book-v*` tag, so an untagged push publishes nothing.
 
 **Success criteria**:
-- [ ] `just lint` clean
-- [ ] `mkdocs build --strict` clean in CI
+- [x] `just lint` clean — see the note on the checker below
+- [x] `mkdocs build --strict` clean locally
 - [ ] `book-v0.3.0` tagged and the site serving the new content
 - [ ] the website submodule moved
+
+### Phase 4 results — 2026-09-12
+
+**0 missing, 0 outdated, 28 up to date.** Ten pages had no zh-TW sibling at all;
+eight more had drifted under the rewrite. All translated.
+
+**The translation checker contradicts the translation guideline.**
+`scripts/check-translations.py` compares code blocks byte-for-byte, while the
+book's CLAUDE.md instructs translators to *translate the comments inside them*.
+Both rules cannot hold. The 9 remaining "structural issues" are that collision
+and nothing else: all 28 flagged blocks were inspected, and after stripping
+comment lines **0 have any real code difference**.
+
+Teaching the checker to compare only executable lines would remove a permanent
+source of false positives. Until then its "high priority" code-block findings
+have to be read as advisory on any page with a commented example.
+
+Two link fixes surfaced while translating: `zed-sdk` (both languages) pointed at
+`#step-3-install-autosdv-software`, an anchor the installation rewrite removed;
+and `verify.md` used a `<the downloaded bag>` placeholder, replaced with the
+concrete path, which reads better and keeps the block identical across
+languages.
 
 ---
 
@@ -521,7 +543,7 @@ the `autosdv-book` submodule in `NEWSLabNTU.github.io`. It fires **only** on a
 | 1 | Installation chapter | versions true, setup registry, the five omitted steps | **Done (EN)** |
 | 2 | Launch chapter | `play_launch` taught first, 45-argument table, 25 recipe fixes | **Done (EN)** |
 | 3 | The unwritten chapters | simulation, localization, presets, maps, CUDA, orphans | **Done (EN)** |
-| 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | Not started |
+| 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | **Translated; tag pending** |
 
 ## Open decisions
 
