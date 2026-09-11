@@ -153,7 +153,7 @@ the stage switches whole, which is the design.
 
 ---
 
-## Phase C — The CUDA sensing chain — STRUCTURE VERIFIED 2026-09-12
+## Phase C — The CUDA sensing chain — PASS 2026-09-12
 
 Run on `vlp32_1`, copied to `data/rosbags/`, with the stack trimmed to sensing +
 vehicle + map and `--container-mode stock`.
@@ -187,13 +187,39 @@ measured exactly that and looked like a null result. The replay is now an
 allowlist — the raw cloud, IMU, velocity report and TF — so the only publisher
 of the topic under test is the stack.
 
-**Rates are not reliably measurable in this harness.** Across runs the
-concatenated cloud read 3.4, 9.1, 11.3 and 11.6 Hz against a 10 Hz bag, with
-`ros2 topic hz` sometimes failing to see a topic that a direct subscriber reads
-without trouble. The bag loops, the probes contend, and discovery is slow on a
-130-member graph. Rate parity and the CPU/GPU comparison need the Orin and a
-quieter method — `scripts/profiling/` sampling while a single long replay runs —
-rather than this desktop.
+**Rate parity holds.** Once the DDS problem below was fixed:
+
+| | `cpu` | `cuda` |
+|---|---|---|
+| `velodyne_points` | 10.204 Hz | 10.235 Hz |
+| `concatenated/pointcloud` | 9.631 Hz, std 0.0075 s | 10.124 Hz, std 0.0084 s |
+| GPU power while running | 7.39 W | **57.85 W** |
+
+Both arms hold the bag's own 10 Hz with tight jitter: the CUDA chain drops no
+frames. The GPU power difference is the clearest evidence the work actually
+moved — a 50 W swing on an idle desktop card. Instantaneous `nvidia-smi`
+utilization read 0% in both, having sampled between kernel bursts, and the
+per-container CPU comparison did not survive this instrument either; the CPU
+side of the trade needs `scripts/profiling/` on the Orin, not `top` on a
+desktop.
+
+**Everything above was unmeasurable until the DDS environment was fixed**, and
+this is the finding with the longest reach. `install/setup.bash` alone leaves
+`RMW_IMPLEMENTATION` unset, so a script that sources only the workspace overlay
+runs on **Fast-DDS**, while this repo's kernel-buffer setup step, its
+`cyclonedds.xml` and CLAUDE.md all assume CycloneDDS. Nothing errors. Discovery
+half-works: `ros2 topic list` returns two topics, `ros2 topic echo` cannot
+resolve a type that `ros2 topic hz` is already reading, and the same arm
+measures 3.4, 9.1, 11.3 or 20.2 Hz depending on the run. Stale
+`/dev/shm/fastrtps_*` segments from killed runs compound it
+("open_and_lock_file failed"); 473 had accumulated here.
+
+Sourcing `/opt/autoware/1.5.0/setup.bash` *before* the overlay fixes it — that
+is where `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` comes from. Two related facts
+worth knowing: `.envrc` sets the RMW only in its *fallback* branch, so on any
+machine with Autoware installed it never runs; and Autoware's own
+`/opt/autoware/1.5.0/config/cyclonedds.xml` wins, so the repo's tuned
+`cyclonedds.xml` is not what any of this used.
 
 ---
 

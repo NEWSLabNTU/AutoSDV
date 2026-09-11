@@ -120,6 +120,46 @@ showed NO DATA whether or not anything published. Also fixed.
 
 ---
 
+## 5. The DDS environment depends on how you enter the workspace
+
+Found on 2026-09-12, while trying to measure the sensing chain.
+
+`install/setup.bash` does **not** set `RMW_IMPLEMENTATION`. A script that sources
+only the workspace overlay therefore runs on Fast-DDS, while this repo's
+kernel-buffer setup step, its `cyclonedds.xml`, and CLAUDE.md all assume
+CycloneDDS.
+
+Nothing errors. Discovery half-works, and the symptoms look like broken code
+rather than a broken transport:
+
+- `ros2 topic list` returns two topics while the stack is running 130 members.
+- `ros2 topic echo` reports a topic as unpublished while `ros2 topic hz` on the
+  same topic is printing rates — echo resolves the type through the graph
+  inventory, a direct subscriber does not.
+- The same measurement reads 3.4, 9.1, 11.3 or 20.2 Hz on different runs.
+
+Sourcing `/opt/autoware/1.5.0/setup.bash` before the overlay fixes it: that is
+where `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` comes from.
+
+Two related facts:
+
+- **`.envrc` sets the RMW only in its fallback branch.** The `if` branch sources
+  Autoware and returns; the `export RMW_IMPLEMENTATION` and `export
+  CYCLONEDDS_URI` lines live in the `else`, which runs only when Autoware is
+  *absent*. On any machine with Autoware installed they never execute. It works
+  anyway, because Autoware's setup.bash sets both — but not because this repo
+  does.
+- **The repo's own `cyclonedds.xml` is not what runs.** Autoware exports
+  `CYCLONEDDS_URI=file:///opt/autoware/1.5.0/config/cyclonedds.xml`, and nothing
+  overrides it. Whatever tuning the repo's copy carries has never been in
+  effect on a machine with Autoware installed.
+
+**Also**: stale `/dev/shm/fastrtps_*` segments accumulate from killed runs and
+break Fast-DDS shared memory outright ("open_and_lock_file failed"). 473 had
+collected here. `rm -f /dev/shm/fastrtps_*` when a graph starts behaving oddly.
+
+---
+
 ## Did not transfer
 
 Checked, and not defects here:
