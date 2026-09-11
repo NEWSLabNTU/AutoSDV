@@ -163,7 +163,7 @@ at two binary files. It is optional: absent means "infer from what is on disk".
 **The UX payoff is one command**, which is where the real value is:
 
 ```bash
-$ just map-check data/COSS-map-planning pose_source=mcl
+$ just map check data/COSS-map-planning pose_source=mcl
 map: data/COSS-map-planning
   lanelet2_map.osm            ok    (4.2 MB)
   map_projector_info.yaml     ok    TransverseMercator @ 25.0201, 121.5423 — georeferenced, GNSS init available
@@ -180,7 +180,7 @@ and, when it is wrong, an error that names the fix rather than a stack trace:
   grid vs lanelet2 extent     FAIL  lanelet2 spans x[89512,89604] y[42276,42416]
                                     but the grid covers x[-65,65] y[-25,50]
                                     -> the grid is not in the map frame. Either rebuild it from
-                                       the PCD (just map-grid-from-pcd), or set
+                                       the PCD (just map grid-from-pcd), or set
                                        projector_type: Local and author lanelet2 in local coords.
 ```
 
@@ -192,7 +192,7 @@ why" and "your grid is in the wrong frame, here is what to do".
 ### 5.1 From an existing PCD (recommended)
 
 ```bash
-just map-grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
+just map grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
 ```
 
 Wraps `scripts/map/pcd_to_pgm.py`, writes `occupancy_grid.{pgm,yaml}` into the
@@ -217,10 +217,10 @@ Two sub-paths, matching §3:
 
 ```bash
 # a) accumulate scans at known poses (needs a localized run — e.g. an NDT bag)
-just map-grid-from-bag my_run.bag data/my_site --min-hits 1 --resolution 0.05
+just map grid-from-bag my_run.bag data/my_site --min-hits 1 --resolution 0.05
 
 # b) SLAM a new site with no prior map  (slam_toolbox — NOT yet implemented)
-just map-survey                      # teleop + slam_toolbox, saves grid + posegraph
+just map survey                      # teleop + slam_toolbox, saves grid + posegraph
 ```
 
 Path (a) exists today as `scripts/2dlidar/scan_accumulate_grid.py` and is
@@ -233,8 +233,8 @@ to `projector_type: Local`.
 
 ```bash
 # existing site, already has a PCD map: add a grid and switch method
-just map-grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
-just map-check          data/COSS-map-planning pose_source=mcl
+just map grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
+just map check          data/COSS-map-planning pose_source=mcl
 just launch ARGS="pose_source:=mcl"                       # map_path default
 just launch ARGS="pose_source:=cuda_ndt"                  # same directory, 3-D path
 
@@ -242,7 +242,7 @@ just launch ARGS="pose_source:=cuda_ndt"                  # same directory, 3-D 
 just launch ARGS="pose_source:=mcl map_path:=/data/my_site"
 
 # replay
-just launch-sim-logging ARGS="pose_source:=mcl"
+just sim logging ARGS="pose_source:=mcl"
 ```
 
 `map_path` never changes meaning; `pose_source` decides which geometry map inside
@@ -257,9 +257,9 @@ it gets loaded. A user who only ever runs NDT sees no change at all.
    pre-existing wiring gap) and set it `false` for `mcl`.
 3. **Bypass `map_height_fitter`** for `mcl`, since RViz initial-pose and GNSS
    init currently snap height against the PCD.
-4. **`just map-check`** with the frame-extent comparison of §4 — highest UX value
+4. **`just map check`** with the frame-extent comparison of §4 — highest UX value
    per line of code, and it is what prevents silent frame mismatches.
-5. **`just map-grid-from-pcd` / `map-grid-from-bag`** wrappers plus
+5. **`just map grid-from-pcd` / `map-grid-from-bag`** wrappers plus
    `autosdv_map.yaml` emission. *Done.* Both recipes write the grid, emit the
    sidecar (`--sidecar` on the underlying tools; off by default so existing
    callers are unaffected) and finish by running `map-check`. `map-check`
@@ -268,7 +268,7 @@ it gets loaded. A user who only ever runs NDT sees no change at all.
 6. **`pose_source:=mcl`** in the localization fork: add `'mcl'` to
    `available_args` and a `use_mcl_pose` branch (the fork is NEWSLabNTU-owned, so
    this is ours to change).
-7. `just map-survey` / `slam_toolbox`, last, and only if a site genuinely has no
+7. `just map survey` / `slam_toolbox`, last, and only if a site genuinely has no
    PCD.
 
 Items 1-3 are what make `pose_source:=mcl` *runnable*; 4-5 are what make it

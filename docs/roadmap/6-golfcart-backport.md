@@ -5,7 +5,7 @@ back into AutoSDV — the CUDA point cloud pipeline, the `cuda_ndt_matcher`
 bump, a driver QoS fix that is currently costing 60% of the Robin-W's points,
 and the tooling and system-package work that accumulated on that side.
 
-**Status**: Planning
+**Status**: Phase 6 done; the rest planned
 
 **Source**: `~/repos/2026-golf-cart`, branch `main`
 
@@ -455,58 +455,113 @@ logging sim 130, planning sim 118, aruco sim 124 nodes).
 
 ---
 
-## Phase 6 — Tooling
+## Phase 6 — Tooling — DONE 2026-09-11
 
 ### 6.1 Localization diagnostics scripts
 
-Port `scripts/localization/` (AutoSDV has no such directory):
+Seven scripts ported, into `scripts/testing/localization/` rather than a new
+`scripts/localization/` — AutoSDV already had that directory with offline
+counterparts (`summarize_ndt_run.py`, `compare_ndt_runs.py`, `ndt_yaw_bias.py`,
+`tegrastats_summary.py`), and the two sets answer different halves of the same
+question. The new ones are live tools:
 
-| Script | What it does |
-|--------|--------------|
-| `ndt_quality_report.py` | NDT match quality summary |
-| `ndt_alignment_report.py` | scan-to-map alignment residuals |
-| `ndt_timeseries.py` | per-frame NDT series |
-| `check_ndt_activated.py` | whether the matcher is actually publishing |
-| `capture_initial_pose.py` | record an initial pose for replay seeding |
-| `set_initial_pose.py` | seed one |
+| Script | What it answers |
+|--------|-----------------|
+| `check_ndt_activated.py` | is the matcher ACTIVATED, not merely alive? Exits 0/1 so a harness can gate |
+| `ndt_quality_report.py` | pose quality over a window: scatter, yaw step, init-to-result, exe time |
+| `ndt_alignment_report.py` | how far the live scan sits from the map, point by point |
+| `ndt_timeseries.py` | every NDT signal against time, to CSV and PNG |
+| `check_imu_velocity.py` | the two inputs the EKF prior is built from |
+| `capture_initial_pose.py` | save a settled pose per named site |
+| `set_initial_pose.py` | replay it, so a run needs no human at RViz |
 
-Check each against AutoSDV's existing `scripts/2dlidar/compare_poses.py` and
-`scripts/rosbag/` first — some overlap is likely, and `demo/justfile` already
-seeds a pose for the COSS replay.
+Adaptations, each a place a straight copy would have been wrong:
+
+- `ndt_alignment_report.py` hardcoded `/home/aeon/Downloads/2026-04_ntu_map/...`
+  as its map; it now defaults to `data/COSS-map-planning/pointcloud_map.pcd`.
+- `check_imu_velocity.py` hardcoded the golf cart's raw IMU topic. AutoSDV's
+  depends on `imu_source` — `/sensing/camera/zedxm/imu/data` for the ZED,
+  `/sensing/imu/mpu9250/imu_raw` for the MPU9250 — so it is now `--raw-topic`,
+  defaulting to the ZED's.
+- The pose pair wrote to `config/ntu_initial_poses/`, resolved three directories
+  up. AutoSDV has no root `config/`, and one more directory level, so both now
+  use `data/initial_poses/`.
+- `ndt_timeseries.py` wrote to `/tmp`; it now resolves a relative `--out`
+  against the repo root and defaults to `tmp/`, per CLAUDE.md.
+- The Apache headers came off, matching the convention of every other script
+  here; the repo's `LICENSE` covers them.
+
+The existing `demo/scripts/seed_initialpose.py` stays as it is — it carries one
+hardcoded COSS pose and is wired into `run-coss-ndt.sh`. The ported pair
+generalises it to a named file per site and records which source the pose came
+from: the planning simulator's is the click unchanged, a replay's is NDT
+agreeing with the map. Both seed; only the second is a measurement.
+
+Documented in `scripts/testing/localization/README.md`, whose stale
+`scripts/localization-test/` paths were corrected while there.
 
 ### 6.2 Profiling scripts
 
-Port `scripts/profiling/`: `jetson_gpu_sampler.py`, `kernel_cpu_report.sh`,
-`perf_kernel.sh`. Orin-specific and directly reusable; these are what produced
-the phase 2 CPU and GPU numbers, so they are also how phase 2 gets verified on
-AutoSDV hardware.
+Three scripts into a new `scripts/profiling/`, with a README:
+`jetson_gpu_sampler.py`, `kernel_cpu_report.sh`, `perf_kernel.sh`.
+
+The sampler earns its place on a fact worth repeating: **NVML does not exist on
+Jetson**, so `play_launch`'s `gpu_*` columns are empty in every capture taken on
+an Orin. The sampler reads sysfs instead, needs no root, and stamps ISO-8601 UTC
+with milliseconds to match `system_stats.csv`, so a run joins on time.
+
+`perf_kernel.sh` now writes to `./tmp/autosdv-perf.data`
+(`AUTOSDV_PERF_DIR` overrides), and its dangling reference to a golf-cart-only
+research doc is gone.
+
+These are how phase 2 gets measured on AutoSDV hardware, which is why they came
+before it.
 
 ### 6.3 Justfile module split
 
-AutoSDV's justfile is 351 lines with 27 top-level recipes and one module
-(`demo`). The golf cart splits the same shape into `just/*.just` modules — bag,
-diag, profile, record, rmw, service, sim, tool, vehicle — with the root keeping
-only the daily verbs.
+The root justfile went from 351 lines and 26 recipes to 9 recipes plus six
+modules. New files under `just/`:
 
-Two mechanics to carry over:
+| Module | Recipes | Was |
+|--------|---------|-----|
+| `bag` | `record`, `play`, `download` | `bag-record`, `bag-play`, `download-data` |
+| `control` | `basic`, `straight`, `circle` | `control-*` |
+| `map` | `check`, `grid-from-pcd`, `grid-from-bag` | `map-*` |
+| `sim` | `planning`, `logging`, `coss-park` | `launch-sim-planning`, `launch-sim-logging`, `sim-coss-park` |
+| `tool` | `rviz`, `plotjuggler`, `controller`, `tui`, `zed` | `tool-*`, `launch-zed` |
 
-- `just --list --list-submodules` as the default recipe. Without
-  `--list-submodules` each module collapses to a single line and its recipes are
+`demo` stays where it was. The root keeps the daily verbs — `build`, `test`,
+`clean`, `launch`, `checkout`, `setup` — plus `setup-autoware-data` and
+`build-engines`, which are provisioning steps CLAUDE.md documents by name.
+
+Four mechanics the split depends on, all of which bite silently:
+
+- **`just --list --list-submodules`** is now the default recipe. Without
+  `--list-submodules` each module collapses to one line and its recipes are
   invisible.
-- A module may **not** share a name with a recipe. `mod launch` beside a
-  `launch:` recipe is a hard error that kills the whole justfile, which is why
-  the daily verbs stay at the root.
+- **A module may not share a name with a recipe.** `mod launch` beside a
+  `launch:` recipe is a hard error that kills the whole justfile. This is the
+  real reason the daily verbs stay at the root.
+- **`just <module>` runs the module's FIRST recipe**, so each file opens with a
+  private `default` that only lists itself. Without it `just bag` would start
+  recording.
+- **`set working-directory := '..'`** in each module file. Otherwise recipes run
+  with the cwd set to `just/` and every `./scripts/...` path breaks. Verified by
+  running `just bag play` from `src/` and watching it read the repo root's
+  `rosbags/`.
+- A recipe calling a sibling needs the module name: `just map check ...`, not
+  `just check ...`, because `just` resolves against the root justfile.
 
-Candidate AutoSDV modules from the existing groups: `tool` (rviz, plotjuggler,
-controller, tui), `control` (basic, straight, circle), `map` (check,
-grid-from-pcd, grid-from-bag), `bag` (record, play), `sim` (planning, logging,
-coss-park). `demo` already exists. Keep `build`, `test`, `clean`, `launch`,
-`checkout`, `setup` at the root.
+`just --list` descriptions come from the LAST comment line only, which turned
+four long comment blocks into nonsense descriptions ("`# Drive. Installs
+synology-dl via cargo…`"). Each now ends with a one-line description.
 
-This changes the documented command surface, so `CLAUDE.md` and the book need
-updating in the same change.
-
----
+Renamed recipes were updated in `CLAUDE.md`, `docs/guides/simulation_testing.md`,
+two design docs, two roadmaps, two `.typ` reports, `scripts/map/check_map.py`
+and `map_sidecar.py` (which print these commands as hints), the map component
+launch comment, and the COSS map's `autosdv_map.yaml`. `docs/reports/` and
+`docs/superpowers/plans/` were deliberately left alone: they record what was run
+at the time.
 
 ## Phase 7 — System packages, generic revisions only
 
@@ -743,8 +798,8 @@ set up by the old script.
 2. **Phase 3** — fast-forward, and phase 2 needs its launch plumbing.
 3. **Phase 5** — cheap, and a working parser floor makes every later
    verification easier.
-4. **Phase 6** — tooling. 6.2's profiling scripts are how phase 2 gets measured,
-   so they come before it.
+4. ~~**Phase 6** — tooling.~~ Done; 6.2's profiling scripts are what phase 2
+   gets measured with.
 5. **Phase 9** — do the branch renames before phase 7 repins the same forks.
 6. **Phase 2** — the real work, including the driver rebase and per-point time.
 7. **Phase 7** — mechanical, and inherits phase 9's branch names.

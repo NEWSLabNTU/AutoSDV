@@ -110,11 +110,11 @@ Already supported:
 
 ```bash
 # from an existing PCD map
-just map-grid-from-pcd data/my_site                       # prints z distribution + suggested band
-just map-grid-from-pcd data/my_site --z-min 9.1 --z-max 9.4
+just map grid-from-pcd data/my_site                       # prints z distribution + suggested band
+just map grid-from-pcd data/my_site --z-min 9.1 --z-max 9.4
 
 # or accumulate scans from a recorded drive
-just map-grid-from-bag my_run.bag data/my_site
+just map grid-from-bag my_run.bag data/my_site
 ```
 
 Note the asymmetry, which is intentional: the **map** band is a property of the
@@ -124,7 +124,7 @@ band is a property of the mounting, which the kit now owns.
 ### Step 3 — validate before launching
 
 ```bash
-just map-check data/my_site mcl
+just map check data/my_site mcl
 ```
 
 Reports the grid, the lanelet2 map, and the frame-extent agreement between them.
@@ -150,7 +150,7 @@ MCL should refuse to run quietly.
 | `/scan` arrives, TF `base_link → <frame>` missing | `/scan is in frame 'laser' but no TF connects it to base_link; check the kit's calibration` |
 | every range non-finite | `/scan carries N beams, all non-finite — ring selection or range limits are likely wrong` |
 | scan and grid disagree in scale | `scan max range 60 m but the grid spans 12 m; wrong map?` |
-| grid never becomes ACTIVE | `map_server did not activate; run just map-check <dir> mcl` |
+| grid never becomes ACTIVE | `map_server did not activate; run just map check <dir> mcl` |
 
 The first three are the ones that would have saved days on this project.
 

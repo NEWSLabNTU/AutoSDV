@@ -108,7 +108,7 @@ def dumps(data: dict) -> str:
         "# autosdv_map.yaml -- AutoSDV-only map directory sidecar (optional).\n"
         "# Records which geometry maps this directory holds and how the\n"
         "# occupancy grid was produced. Written by the map-building tools;\n"
-        "# read by `just map-check`. Safe to delete: absent means \"infer\n"
+        "# read by `just map check`. Safe to delete: absent means \"infer\n"
         "# from what is on disk\".\n"
         "# Schema: docs/design/map-handling-per-localization-method.md Sec. 4\n"
         + body

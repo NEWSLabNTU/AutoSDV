@@ -16,7 +16,7 @@ The Autoware planning simulator runs the planning and control stack with the
 AutoSDV vehicle model and COSS Park map. No sensors are involved.
 
 ```bash
-just launch-sim-planning
+just sim planning
 ```
 
 Open [http://localhost:8081](http://localhost:8081). In RViz, set a 2D Pose
@@ -30,8 +30,8 @@ vehicle control.
 Replay recorded sensor data through the full Autoware stack.
 
 ```bash
-just download-data                  # Download COSS Park recording (~2.8 GB)
-just launch-sim-logging             # Start Autoware in sim mode
+just bag download                  # Download COSS Park recording (~2.8 GB)
+just sim logging             # Start Autoware in sim mode
 # In second terminal:
 ros2 bag play data/rosbags/outdoor_20251226_153115/ --clock
 ```
@@ -43,7 +43,7 @@ planning, control — the same code that runs on the physical vehicle.
 
 | Dataset | Size | Sensors | Download |
 |---------|------|---------|----------|
-| COSS Park outdoor | 2.8 GB | Velodyne VLP-32C, ZED IMU, u-blox GNSS | `just download-data` |
+| COSS Park outdoor | 2.8 GB | Velodyne VLP-32C, ZED IMU, u-blox GNSS | `just bag download` |
 | Leo Drive Bus-ODD | 10.9 GB | VLP-16, VLP-32C x2, cameras, GNSS/INS | `cd scripts/leodrive-bus-launch && just setup` |
 
 ### Automated scenario: COSS Park
@@ -51,7 +51,7 @@ planning, control — the same code that runs on the physical vehicle.
 Run the full stack with automated rosbag playback and localization recording:
 
 ```bash
-just sim-coss-park
+just sim coss-park
 ```
 
 This launches three parallel processes: logging simulation, rosbag playback
@@ -61,9 +61,9 @@ parallel (`sudo apt install parallel`).
 ### Monitoring tools
 
 ```bash
-just tool-plotjuggler   # Plot any ROS topic over time
-just tool-tui           # Terminal dashboard (pose, speed, states)
-just tool-rviz          # Additional RViz instance
+just tool plotjuggler   # Plot any ROS topic over time
+just tool tui           # Terminal dashboard (pose, speed, states)
+just tool rviz          # Additional RViz instance
 ```
 
 ## Tier 3: CARLA Simulation

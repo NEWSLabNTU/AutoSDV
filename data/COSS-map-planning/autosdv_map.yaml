@@ -1,7 +1,7 @@
 # autosdv_map.yaml -- AutoSDV-only map directory sidecar (optional).
 # Records which geometry maps this directory holds and how the
 # occupancy grid was produced. Written by the map-building tools;
-# read by `just map-check`. Safe to delete: absent means "infer
+# read by `just map check`. Safe to delete: absent means "infer
 # from what is on disk".
 # Schema: docs/design/map-handling-per-localization-method.md Sec. 4
 geometry: {pointcloud: pointcloud_map.pcd, occupancy_grid: occupancy_grid.yaml}

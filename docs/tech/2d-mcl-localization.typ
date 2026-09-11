@@ -307,7 +307,7 @@ The grid's `origin` is expressed in *`map`-frame metres*, and the `map` frame is
 defined by the projector. A grid sliced from the site's PCD is therefore
 frame-correct by construction; a grid built by SLAM is not, and must either be
 georeferenced or declare `projector_type: Local`. A silent mismatch here
-produces tens of metres of error with no error message, so `just map-check`
+produces tens of metres of error with no error message, so `just map check`
 compares the grid's coverage against the Lanelet2 bounding box and refuses to
 pass when it cannot verify the projection honestly.
 
@@ -582,7 +582,7 @@ from `ekf_localizer` rightwards is identical.
   table.header([*File*], [*Change*], [*Detail*]),
   [`autosdv.launch.yaml`,\ `logging_simulation.launch.yaml`], [modified], [`pose_source` default moved `ndt` → `cuda_ndt`; `pose_source_package` now defaults to the sentinel `auto`, resolved by a `let`. Previously `ndt` silently ran the CUDA plugin, and the documented workaround was impossible because `ros2 launch` rejects an empty argument value.],
   [`autosdv_autoware.launch.xml`], [modified], [Includes the new map component; forwards `use_pointcloud_map` and `occupancy_grid_file`; retargets the height fitter.],
-  [`just map-check`], [added], [Validates a map directory against a `pose_source`, including a grid-versus-lanelet2 frame-extent comparison. It reports *cannot verify* rather than passing when the projection cannot be reproduced honestly.],
+  [`just map check`], [added], [Validates a map directory against a `pose_source`, including a grid-versus-lanelet2 frame-extent comparison. It reports *cannot verify* rather than passing when the projection cannot be reproduced honestly.],
 )
 
 = Results
@@ -711,8 +711,8 @@ result row records that they ran.
 - *A residual 0.05–0.22 m offline offset* between the model's argmax and the true
   pose is unexplained.
 - *No survey path for a site with neither a PCD nor a recorded drive.*
-  `just map-grid-from-pcd` and `just map-grid-from-bag` cover the two cases
-  this project has; a `slam_toolbox` survey (`just map-survey`) is not
+  `just map grid-from-pcd` and `just map grid-from-bag` cover the two cases
+  this project has; a `slam_toolbox` survey (`just map survey`) is not
   implemented.
 - *Only the pose-estimator path is measured.* The gate scores
   `kinematic_state` against NDT on a replayed bag. Nothing here exercises
@@ -723,19 +723,19 @@ result row records that they ran.
 
 ```bash
 # validate a map directory for the method
-just map-check data/sample-rosbag-replay/sample-map-rosbag mcl
+just map check data/sample-rosbag-replay/sample-map-rosbag mcl
 
 # build a grid from an existing PCD map. Omit the band first: the tool prints
 # the height distribution, the estimated ground level and a suggested band,
 # and refuses to guess one for you.
-just map-grid-from-pcd <map_dir>
-just map-grid-from-pcd <map_dir> --z-min <ground+0.2> --z-max <ground+0.5>
+just map grid-from-pcd <map_dir>
+just map grid-from-pcd <map_dir> --z-min <ground+0.2> --z-max <ground+0.5>
 
 # or, for a site with no PCD, accumulate scans from a recorded drive
-just map-grid-from-bag <bag> <map_dir>
+just map grid-from-bag <bag> <map_dir>
 
 # replay with 2D-MCL
-just launch-sim-logging ARGS="pose_source:=mcl \
+just sim logging ARGS="pose_source:=mcl \
     occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml"
 
 # the five-seed accuracy matrix: fresh stack per seed, seed readback asserted

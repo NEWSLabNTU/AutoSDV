@@ -73,7 +73,7 @@ Content outline:
 1. **What it is**: Autoware planning simulator with AutoSDV vehicle model.
    Tests mission planning, behavior planning, motion planning, and control.
    No perception or localization involved.
-2. **Launch**: `just launch-sim-planning`
+2. **Launch**: `just sim planning`
 3. **Open web UI**: Navigate to `http://localhost:8081`
 4. **Set a goal**: Click "2D Goal Pose" → click on map → watch the vehicle
    plan and follow the route
@@ -113,14 +113,14 @@ Content:
 - **What it is**: Replay recorded sensor data through the Autoware stack
 - **What it tests**: Localization (NDT), perception (LiDAR detection),
   full pipeline minus hardware
-- **Prerequisites**: Download test rosbag (`just download-data`)
-- **How to launch**: `just launch-sim-logging` + rosbag playback
+- **Prerequisites**: Download test rosbag (`just bag download`)
+- **How to launch**: `just sim logging` + rosbag playback
 - **The outdoor test rosbag**: What sensors were recorded, map area,
   duration, expected behavior
-- **Monitoring output**: PlotJuggler (`just tool-plotjuggler`), RViz,
+- **Monitoring output**: PlotJuggler (`just tool plotjuggler`), RViz,
   web UI topics
 - **Localization modes**: `pose_source:=ndt` vs others
-- **Recording your own rosbags**: `just bag-record`, topic selection
+- **Recording your own rosbags**: `just bag record`, topic selection
 - **Troubleshooting**: NDT initialization, timing issues, missing topics
 
 ### 5.3.2 Create `src/simulation/logging-simulation.zh-TW.md`
@@ -132,8 +132,8 @@ Chinese translation.
 Content:
 
 - **Available datasets**: COSS Park outdoor rosbag, Leo Drive Bus-ODD
-- **Downloading**: `just download-data` (auto-installs synology-dl if needed)
-- **Rosbag management**: `just bag-record`, `just bag-play`
+- **Downloading**: `just bag download` (auto-installs synology-dl if needed)
+- **Rosbag management**: `just bag record`, `just bag play`
 - **Dataset format**: ROS 2 bag format, topic list, sensor configuration
 - **Using external datasets**: How to adapt Autoware-compatible bags
 
@@ -159,7 +159,7 @@ Content:
 
 - **What it is**: Full-stack simulation using COSS Park rosbag + map
 - **What it tests**: Entire autonomy stack end-to-end
-- **How to launch**: `just sim-coss-park`
+- **How to launch**: `just sim coss-park`
 - **What happens**: Launch → bag playback → localization recording
   (all managed by GNU parallel)
 - **Inspecting results**: PlotJuggler, recorded localization bags

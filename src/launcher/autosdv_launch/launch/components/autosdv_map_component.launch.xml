@@ -36,7 +36,7 @@
   itself, as an earlier version of this file did, works correctly under
   plain `ros2 launch` but silently loads pointcloud_map_loader anyway under
   play_launch: it looks fixed and is not, on the exact tool this repo's
-  `just launch` / `just launch-sim-logging` actually invoke (justfile).
+  `just launch` / `just sim logging` actually invoke (justfile).
   Confirmed empirically: `if="true"` and `if="false"` on the same
   <composable_node> both loaded it under play_launch's Rust parser.
   Fix: move the PCD/no-PCD choice entirely outside any node_container by

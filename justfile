@@ -1,17 +1,41 @@
 # AutoSDV Development Commands
 # Use `just --list` to see all available commands
 
-# Demo scenarios live in their own module so the top-level list stays short.
-# `just demo` lists them; `just demo run` runs the COSS NDT replay end to end.
+# ============================================================================
+# Modules -- grouped commands. `just <module>` lists that module's recipes.
+#
+# Invoke either way:  `just bag play`  or  `just bag::play`
+#
+# Only families entered deliberately live here. The daily verbs (build, test,
+# clean, launch, checkout, setup) stay at the root -- partly by choice, and
+# partly because a module may NOT share a name with a recipe: `mod launch`
+# beside a `launch:` recipe is a hard error that kills the whole justfile.
+# ============================================================================
+
+# Demo scenarios: `just demo run` runs the COSS NDT replay end to end
 mod demo
+# Rosbag recording, playback and download
+mod bag 'just/bag.just'
+# Control system testing: trajectories and the basic control launch
+mod control 'just/control.just'
+# Map validation and occupancy-grid construction
+mod map 'just/map.just'
+# Simulation: planning simulator, rosbag replay, full scenarios
+mod sim 'just/sim.just'
+# Development and monitoring tools: RViz, PlotJuggler, TUI, manual control
+mod tool 'just/tool.just'
 
 # ============================================================================
 # Core Commands
 # ============================================================================
 
-# Default recipe: show all available commands
+# --list-submodules is not optional. Without it each module collapses to a
+# single `bag ...` line and its recipes are invisible, which is the difference
+# between a menu and a riddle.
+# just --list shows only the LAST comment line, so the description goes here.
+# Show all available commands, modules expanded
 default:
-    @just --list
+    @just --list --list-submodules
 
 # Initialize and update all git submodules
 checkout:
@@ -168,184 +192,3 @@ launch ARGS="":
             autosdv_launch autosdv.launch.yaml \
             rviz:=false {{ARGS}}; \
     fi
-
-# Launch Autoware planning simulator with AutoSDV vehicle
-launch-sim-planning:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    play_launch launch \
-        --web-addr 0.0.0.0:8081 \
-        autoware_launch planning_simulator.launch.xml \
-        map_path:={{justfile_directory()}}/data/COSS-map-planning \
-        vehicle_model:=autosdv_vehicle \
-        sensor_model:=autosdv_sensor_kit
-
-# Launch logging simulation for rosbag replay testing
-launch-sim-logging ARGS="":
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    if [ -n "$DISPLAY" ]; then \
-        play_launch launch \
-            --web-addr 0.0.0.0:8081 \
-            autosdv_launch logging_simulation.launch.yaml {{ARGS}}; \
-    else \
-        play_launch launch \
-            --web-addr 0.0.0.0:8081 \
-            autosdv_launch logging_simulation.launch.yaml \
-            rviz:=false {{ARGS}}; \
-    fi
-
-# Launch only ZED camera node for testing
-launch-zed:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    play_launch launch \
-        --web-addr 0.0.0.0:8081 \
-        zed_wrapper zed_camera.launch.py camera_model:=zedxm
-
-# ============================================================================
-# Tool Commands - Development and monitoring tools
-# ============================================================================
-
-# Launch RViz with AutoSDV configuration
-tool-rviz:
-    rviz2 -d ./src/launcher/autosdv_launch/rviz/autosdv.rviz
-
-# Launch PlotJuggler for data visualization
-tool-plotjuggler:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    ros2 run plotjuggler plotjuggler
-
-# Launch manual keyboard control
-tool-controller:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    ros2 run control_test keyboard_control
-
-# Launch drive monitor TUI (shows pose, speed, component states)
-tool-tui:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    python3 ./scripts/testing/drive/run.py
-
-# ============================================================================
-# Control Commands - Control system testing
-# ============================================================================
-
-# Launch vehicle control test (basic_control.launch.xml)
-control-basic:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    play_launch launch control_test basic_control.launch.xml
-
-# Run trajectory player with straight_10m.yaml (10m straight line)
-control-straight:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    ros2 run control_test trajectory_player --ros-args -p trajectory_file:=straight_10m.yaml
-
-# Run trajectory player with circle.yaml (circular path)
-control-circle:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    ros2 run control_test trajectory_player --ros-args -p trajectory_file:=circle.yaml
-
-# ============================================================================
-# Data Commands - Download datasets
-# ============================================================================
-
-# Download test rosbag (outdoor_20251226_153115) from Synology Drive
-# Automatically installs synology-dl via cargo if not found.
-download-data:
-    ./scripts/rosbag/download-test-rosbag.sh
-
-# ============================================================================
-# Map Commands - Validate map directories
-# ============================================================================
-
-# Check a map directory is usable for a given pose_source (default: cuda_ndt).
-# Verifies lanelet2/projector/PCD/grid presence, and -- the point of the
-# whole check -- that the occupancy grid's frame matches the lanelet2 map's,
-# which catches the "grid built in the wrong frame" failure class.
-# Further flags pass through, e.g. --grid-yaml NAME to check a grid variant
-# other than occupancy_grid.yaml, or --autoware-setup PATH.
-map-check MAP_DIR POSE_SOURCE="cuda_ndt" *FLAGS:
-    python3 ./scripts/map/check_map.py "{{MAP_DIR}}" --pose-source "{{POSE_SOURCE}}" {{FLAGS}}
-
-# Build MAP_DIR/occupancy_grid.{pgm,yaml} by slicing a height band out of the
-# PCD map already in MAP_DIR, record how it was built in autosdv_map.yaml, then
-# validate the result for pose_source:=mcl.
-#
-# The z band is the one judgement you have to make, and it is not forgiving:
-# a wrong band yields a valid-looking grid that localizes badly rather than an
-# error. Run without FLAGS to see the height distribution, the estimated ground
-# level and a suggested band, then re-run with them:
-#
-#   just map-grid-from-pcd data/COSS-map-planning
-#   just map-grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
-#
-# Further flags pass straight through: --resolution (default 0.05 m/px), and
-# --min-points (points needed in the band before a cell counts as occupied).
-map-grid-from-pcd MAP_DIR *FLAGS:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    PCD="{{MAP_DIR}}/pointcloud_map.pcd"
-    if [ ! -f "$PCD" ]; then
-        echo "no $PCD -- this recipe slices an existing PCD map." >&2
-        echo "For a site with no PCD, build the grid from a recorded drive:" >&2
-        echo "  just map-grid-from-bag <bag> {{MAP_DIR}}" >&2
-        exit 1
-    fi
-    python3 ./scripts/map/pcd_to_pgm.py "$PCD" "{{MAP_DIR}}/occupancy_grid" \
-        --sidecar {{FLAGS}}
-    echo
-    just map-check "{{MAP_DIR}}" mcl
-
-# Build MAP_DIR/occupancy_grid.{pgm,yaml} by accumulating 2-D scans from a
-# recorded drive (BAG) at their ground-truth poses, for a site with no PCD map.
-# Records provenance in autosdv_map.yaml, then validates for pose_source:=mcl.
-#
-# The band here is relative to the scan plane rather than to site ground level,
-# so its defaults (-0.15..0.15 m) are meaningful; override them, and
-# --resolution (default 0.1) / --min-hits (default 3), by passing them through.
-map-grid-from-bag BAG MAP_DIR *FLAGS:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    python3 ./scripts/2dlidar/scan_accumulate_grid.py "{{BAG}}" \
-        "{{MAP_DIR}}/occupancy_grid" --sidecar {{FLAGS}}
-    echo
-    just map-check "{{MAP_DIR}}" mcl
-
-# ============================================================================
-# Bag Commands - Rosbag recording and playback
-# ============================================================================
-
-# Record outdoor sensor topics to rosbags/ directory
-bag-record:
-    ./scripts/rosbag/record_outdoor.sh
-
-# Play the most recent outdoor recording
-bag-play:
-    #!/usr/bin/env bash
-    LATEST=$(ls -td rosbags/outdoor_* 2>/dev/null | head -1); \
-    if [ -z "$LATEST" ]; then \
-        echo "No outdoor recordings found in rosbags/"; \
-        exit 1; \
-    fi; \
-    echo "Playing: $LATEST"; \
-    ros2 bag play "$LATEST" --clock
-
-# ============================================================================
-# Simulation Commands - Full simulation scenarios
-# ============================================================================
-
-# Run COSS Park simulation (launch + rosbag feed + localization recording)
-# Requires: rosbag data from NTU COSS Park (run ./scripts/rosbag/download-test-rosbag.sh)
-sim-coss-park:
-    #!/usr/bin/env bash
-    source install/setup.bash && \
-    parallel --line-buffer ::: \
-        "just launch-sim-logging" \
-        "sleep 40 && ros2 bag play data/rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \
-        "sleep 45 && ./scripts/rosbag/record_localization.sh"

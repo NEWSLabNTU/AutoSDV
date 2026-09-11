@@ -20,7 +20,7 @@ Displays real-time GPS data and converted meter coordinates.
 **Usage:**
 ```bash
 source install/setup.bash
-./scripts/localization-test/monitor_gps.py
+./scripts/testing/localization/monitor_gps.py
 ```
 
 **Shows:**
@@ -36,7 +36,7 @@ Compares GPS pose with NDT localization in real-time.
 **Usage:**
 ```bash
 source install/setup.bash
-./scripts/localization-test/monitor_localization.py
+./scripts/testing/localization/monitor_localization.py
 ```
 
 **Shows:**
@@ -53,7 +53,7 @@ Checks if GPS position is within the mapped area.
 **Usage:**
 ```bash
 source install/setup.bash
-./scripts/localization-test/check_map_bounds.py
+./scripts/testing/localization/check_map_bounds.py
 ```
 
 **Shows:**
@@ -68,7 +68,7 @@ Starts all monitoring tools in a tmux session for easy viewing.
 
 **Usage:**
 ```bash
-./scripts/localization-test/launch_monitors.sh
+./scripts/testing/localization/launch_monitors.sh
 ```
 
 **Tmux Controls:**
@@ -76,6 +76,47 @@ Starts all monitoring tools in a tmux session for easy viewing.
 - `Ctrl+B, d` - Detach (monitors keep running)
 - `tmux attach -t outdoor-test` - Re-attach
 - Exit: Close each window with Ctrl+C, then exit tmux
+
+## NDT diagnostics
+
+Live tools, run while a replay or a drive is in progress:
+
+| Script | What it answers |
+|--------|-----------------|
+| `check_ndt_activated.py` | is `ndt_scan_matcher` ACTIVATED, not merely alive? Exits 0/1, so a harness can gate on it |
+| `ndt_quality_report.py` | pose quality over a window — scatter, yaw step, init-to-result, exe time. Deliberately not NVTL |
+| `ndt_alignment_report.py` | how far the live scan actually sits from the map, point by point. `--map` defaults to the COSS map |
+| `ndt_timeseries.py` | every NDT signal against time, to CSV and PNG. For "which signal moved first?" |
+| `check_imu_velocity.py` | the two inputs the EKF prior is built from. `--raw-topic` follows `imu_source` |
+| `capture_initial_pose.py` | save the settled pose for a named site to `data/initial_poses/<name>.yaml` |
+| `set_initial_pose.py` | replay that pose, so a run needs no human at the RViz window |
+
+Offline tools, run against a recorded run directory:
+
+| Script | What it answers |
+|--------|-----------------|
+| `summarize_ndt_run.py` | one run's diagnostics, split into init and tracking phase |
+| `compare_ndt_runs.py` | several runs side by side; `--row` for machine-readable output |
+| `ndt_yaw_bias.py` | heading-minus-course bias on straight segments — a mounting calibration error |
+| `tegrastats_summary.py` | GPU busy, rail power and CPU load from a tegrastats log |
+| `export_ndt_frames.py` | dump frames for the offline GPU-vs-CPU benchmark |
+
+**On NVTL.** `ndt_quality_report.py` reports pose quality rather than NVTL on
+purpose. NVTL is a mean per-point fit that rises with `ndt.resolution` and rises
+again when imperfect far returns are cropped away, so maximising it selects for
+coarse voxels and narrow crop boxes whether or not the pose improves. See
+`docs/research/localization/ndt_parameter_tuning_coss_map.md`, whose headline
+conclusions reversed when re-measured against pose quality.
+
+**Note on the pose pair.** `demo/scripts/seed_initialpose.py` predates these and
+stays wired into `run-coss-ndt.sh`; it carries one hardcoded COSS pose.
+`capture_initial_pose.py` generalises that to a named file per site, and records
+which source the pose came from — the planning simulator's own ground truth is
+the click unchanged, while a replay's is NDT agreeing with the map. Both seed;
+only the second is a measurement.
+
+Both scripts read `/localization/kinematic_state`, i.e. after NDT converged and
+the EKF settled, not the raw click.
 
 ## Outdoor Testing Workflow
 
@@ -87,7 +128,7 @@ Starts all monitoring tools in a tmux session for easy viewing.
 
 ### Step 1: Check GPS Signal
 ```bash
-./scripts/localization-test/monitor_gps.py
+./scripts/testing/localization/monitor_gps.py
 ```
 - Wait for GPS fix (status should show "FIX" or "SBAS FIX")
 - Check horizontal error < 5m (ideally < 2m)
@@ -95,7 +136,7 @@ Starts all monitoring tools in a tmux session for easy viewing.
 
 ### Step 2: Verify Position is in Map
 ```bash
-./scripts/localization-test/check_map_bounds.py
+./scripts/testing/localization/check_map_bounds.py
 ```
 - Confirm GPS position is within map bounds
 - Check height (Z) is reasonable
@@ -103,7 +144,7 @@ Starts all monitoring tools in a tmux session for easy viewing.
 
 ### Step 3: Monitor Localization
 ```bash
-./scripts/localization-test/monitor_localization.py
+./scripts/testing/localization/monitor_localization.py
 ```
 - Watch GPS vs NDT difference
 - Should converge to < 2m if localization is working

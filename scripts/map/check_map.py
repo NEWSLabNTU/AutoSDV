@@ -403,7 +403,7 @@ def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
         if not pcd_path.exists():
             lines.append(Line("pointcloud_map.pcd", "FAIL",
                                f"missing -> required for pose_source={pose_source}, "
-                               "run just map-grid-from-pcd or copy the PCD map here"))
+                               "run just map grid-from-pcd or copy the PCD map here"))
             ready = False
         else:
             lines.append(Line("pointcloud_map.pcd", "ok",
@@ -434,7 +434,7 @@ def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
         if not grid_yaml_path.exists():
             lines.append(Line(grid_yaml_name, "FAIL",
                                f"missing -> required for pose_source={pose_source}, "
-                               "run just map-grid-from-pcd"))
+                               "run just map grid-from-pcd"))
             if require_grid:
                 ready = False
         else:
@@ -519,7 +519,7 @@ def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
                         f"y[{lbbox.ymin:.1f},{lbbox.ymax:.1f}] but the grid covers "
                         f"x[{gbbox.xmin:.1f},{gbbox.xmax:.1f}] y[{gbbox.ymin:.1f},{gbbox.ymax:.1f}] "
                         f"(via {path_desc}) -> the grid is not in the map frame. Either "
-                        "rebuild it from the PCD (just map-grid-from-pcd), or set "
+                        "rebuild it from the PCD (just map grid-from-pcd), or set "
                         "projector_type: Local and author lanelet2 in local coords."
                     )
                     lines.append(Line("grid vs lanelet2 extent", "FAIL", msg))

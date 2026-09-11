@@ -66,7 +66,7 @@ The regression procedure for each phase that changes launch wiring:
 
 ```bash
 # 1. Replay the rosbag against the localization stack
-just launch-sim-logging pose_source:=ndt
+just sim logging pose_source:=ndt
 
 # Or directly:
 play_launch launch autosdv_launch logging_simulation.launch.yaml \
@@ -81,7 +81,7 @@ ros2 bag record /localization/pose_with_covariance \
                 -o /tmp/regression_after.bag
 
 # 3. Compare pose traces (visual inspection in RViz or PlotJuggler)
-just tool-plotjuggler
+just tool plotjuggler
 ```
 
 **Pass criteria**: `/localization/pose_with_covariance` trace from the new
@@ -139,7 +139,7 @@ play_launch context tmp/scope_cuda_ndt_baseline.json --tree \
 ### 1.3 COSS rosbag regression — NDT baseline
 
 ```bash
-just launch-sim-logging pose_source:=ndt
+just sim logging pose_source:=ndt
 # (in separate terminal)
 ros2 bag play rosbags/localization_test_20260205_084127 --clock
 
@@ -158,7 +158,7 @@ ros2 bag record /localization/pose_with_covariance \
 ### 1.4 COSS rosbag regression — CUDA NDT baseline
 
 ```bash
-just launch-sim-logging pose_source:=cuda_ndt
+just sim logging pose_source:=cuda_ndt
 ros2 bag play rosbags/localization_test_20260205_084127 --clock
 ros2 bag record /localization/pose_with_covariance \
                 /localization/kinematic_state \
@@ -322,7 +322,7 @@ diff tmp/tree_ndt_baseline.txt tmp/tree_ndt_after.txt
 ### 3.6 COSS rosbag regression — NDT
 
 ```bash
-just launch-sim-logging pose_source:=ndt
+just sim logging pose_source:=ndt
 ros2 bag play rosbags/localization_test_20260205_084127 --clock
 ros2 bag record /localization/pose_with_covariance \
                 /localization/kinematic_state \
@@ -402,7 +402,7 @@ diff tmp/tree_cuda_ndt_baseline.txt tmp/tree_cuda_ndt_after.txt
 ### 4.5 COSS rosbag regression — CUDA NDT
 
 ```bash
-just launch-sim-logging pose_source:=cuda_ndt
+just sim logging pose_source:=cuda_ndt
 ros2 bag play rosbags/localization_test_20260205_084127 --clock
 ros2 bag record /localization/pose_with_covariance \
                 /localization/kinematic_state \

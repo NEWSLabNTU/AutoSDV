@@ -202,6 +202,23 @@ just build-engines      # Pre-compile TensorRT engines (minutes; run on the targ
 just --list             # Show all available commands
 ```
 
+Grouped commands live in justfile modules under `just/`, so the top-level list
+stays short: `bag`, `control`, `map`, `sim`, `tool`, plus `demo` in `demo/`.
+`just <module>` lists that module's recipes, and both spellings work —
+`just bag play` and `just bag::play`.
+
+Two mechanics worth knowing before adding one:
+
+- **A module may not share a name with a recipe.** `mod launch` beside a
+  `launch:` recipe is a hard error that kills the whole justfile, which is why
+  the daily verbs stay at the root.
+- **`just <module>` runs the module's FIRST recipe**, so each module file opens
+  with a private `default` that only lists itself. Without it, `just bag` would
+  start recording.
+
+A module file also needs `set working-directory := '..'`; otherwise its recipes
+run with the cwd set to `just/` and every `./scripts/...` path breaks.
+
 ### Demos
 
 Scenarios that run end to end from one command, data preparation included.
@@ -217,42 +234,59 @@ just demo report       # metrics for the most recent run
 
 ### Tools
 ```bash
-just tool-rviz          # Launch RViz
-just tool-plotjuggler   # PlotJuggler visualization
-just tool-controller    # Keyboard manual control
-just tool-tui           # Drive monitor TUI (pose, speed, states)
+just tool rviz          # Launch RViz
+just tool plotjuggler   # PlotJuggler visualization
+just tool controller    # Keyboard manual control
+just tool tui           # Drive monitor TUI (pose, speed, states)
+just tool zed           # ZED camera node alone, for camera testing
 ```
+
+### Diagnostics
+```bash
+# live, while a replay or drive is running
+python3 scripts/testing/localization/check_ndt_activated.py      # activated, or just alive?
+python3 scripts/testing/localization/ndt_quality_report.py       # pose quality, not NVTL
+python3 scripts/testing/localization/ndt_alignment_report.py     # scan-to-map residual
+python3 scripts/testing/localization/ndt_timeseries.py -o tmp/ndt  # every signal vs time
+python3 scripts/testing/localization/check_imu_velocity.py       # the EKF's two inputs
+
+# Jetson resource accounting
+scripts/profiling/jetson_gpu_sampler.py -o tmp/gpu.csv           # NVML is absent on Tegra
+scripts/profiling/kernel_cpu_report.sh                           # softirq, UDP, DDS cost
+```
+`scripts/testing/localization/README.md` and `scripts/profiling/README.md` list
+the offline counterparts and say what each number means.
 
 ### Control Testing
 ```bash
-just control-basic      # Launch vehicle control test
-just control-straight   # Run 10m straight trajectory
-just control-circle     # Run circular trajectory
+just control basic      # Launch vehicle control test
+just control straight   # Run 10m straight trajectory
+just control circle     # Run circular trajectory
 ```
 
 ### Maps
 ```bash
-just map-check <map_dir> [pose_source]   # validate a map dir for a method
-just map-grid-from-pcd <map_dir>         # prints z distribution + suggested band, refuses to guess
-just map-grid-from-pcd <map_dir> --z-min A --z-max B   # writes the grid + autosdv_map.yaml
-just map-grid-from-bag <bag> <map_dir>   # accumulate scans instead, for a site with no PCD
+just map check <map_dir> [pose_source]   # validate a map dir for a method
+just map grid-from-pcd <map_dir>         # prints z distribution + suggested band, refuses to guess
+just map grid-from-pcd <map_dir> --z-min A --z-max B   # writes the grid + autosdv_map.yaml
+just map grid-from-bag <bag> <map_dir>   # accumulate scans instead, for a site with no PCD
 ```
-`pose_source:=mcl` needs an occupancy grid rather than a PCD; `map-check`
+`pose_source:=mcl` needs an occupancy grid rather than a PCD; `just map check`
 verifies the grid is in the lanelet2 map's frame, which is the failure class
 that otherwise costs days. See `docs/design/map-handling-per-localization-method.md`.
 
 ### Rosbag
 ```bash
-just bag-record         # Record outdoor sensor topics
-just bag-play           # Play most recent recording
+just bag record         # Record outdoor sensor topics
+just bag play           # Play most recent recording
 ```
 
 ### Simulation
 ```bash
-just launch-sim-planning  # Autoware planning simulator (no sensors needed)
-just launch-sim-logging   # Logging simulation (rosbag replay)
-just sim-coss-park        # Full COSS Park simulation scenario
-just download-data        # Download test rosbag (~2.8 GB)
+just sim planning       # Autoware planning simulator (no sensors needed)
+just sim logging        # Logging simulation (rosbag replay)
+just sim coss-park      # Full COSS Park simulation scenario
+just bag download       # Download test rosbag (~2.8 GB)
 ```
 See `docs/guides/simulation_testing.md` for the full simulation guide
 (planning sim, rosbag replay, CARLA integration).
@@ -378,7 +412,7 @@ and its mounting:
 just launch pose_source:=mcl map_path:=data/my_site
 
 # MCL synthesises one from a 3-D cloud (test scaffolding only)
-just launch-sim-logging ARGS="pose_source:=mcl scan_source:=test_pointcloud"
+just sim logging ARGS="pose_source:=mcl scan_source:=test_pointcloud"
 ```
 
 `mcl_scan_normalizer` resolves the mounting offset itself: `particle_filter`
@@ -423,7 +457,7 @@ ring points too far up to meet the ground (a low vehicle can otherwise be
 configured with a ring aimed at the sky).
 
 **Map:** needs `occupancy_grid.yaml` + `.pgm` rather than a PCD; build with
-`just map-grid-from-pcd` or `map-grid-from-bag`, validate with `just map-check`.
+`just map grid-from-pcd` or `map-grid-from-bag`, validate with `just map check`.
 
 Design: `docs/design/mcl-user-setup-ux.md`. Diagnostics: the normaliser reports a
 missing scan, a missing TF, an all-non-finite scan, and an out-of-plane mount --
@@ -446,7 +480,7 @@ src/localization/cuda_ndt_matcher/  # AutoSDV-maintained, can be modified direct
 just launch pose_source:=cuda_ndt
 
 # In logging simulation
-just launch-sim-logging pose_source:=cuda_ndt
+just sim logging pose_source:=cuda_ndt
 ```
 
 **Performance:** 1.3-1.6x faster than standard NDT, 57% less CPU usage on Jetson platforms.
