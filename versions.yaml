@@ -45,21 +45,32 @@ ros:
 #
 # NOT INSTALLED BY setup.sh. CUDA, cuDNN and TensorRT come from the host image:
 # JetPack on a Jetson, and the distribution packages on an amd64 workstation.
-# These values therefore record the TARGET the Autoware Debian package is built
-# against, not something this repository installs or can verify at runtime.
+# These values record what the Autoware Debian packages REQUIRE, not something
+# this repository installs.
 #
 # The arm64 target is JetPack 6.2 -- the Debian package's own suffix is
 # `jetpack62`. Documentation that still says "JetPack 6.0 exactly" predates it.
 #
-# The amd64 CUDA/cuDNN/TensorRT triple is deliberately left empty rather than
-# guessed: the previously documented values (CUDA 12.3, TensorRT 8.6) do not
-# match the machines this has been built on, and no script in this repository
-# pins them. Fill them in from the autoware-localrepo build manifest.
+# The amd64 values are MAJOR versions, because that is what is actually
+# required: they are the sonames Autoware's own shipped libraries link against,
+# read off the installed tree rather than guessed --
+#
+#   ldd /opt/autoware/1.5.0/lib/libtensorrt_ops.so | grep nvinfer
+#     libnvinfer.so.10          -> TensorRT 10.x
+#   ldd /opt/autoware/1.5.0/lib/libautoware_lidar_centerpoint_cuda_lib.so
+#     libcublas.so.12           -> CUDA 12.x
+#
+# Any patch version satisfying those sonames works. The book previously told
+# amd64 users to install TensorRT 8.6, which provides libnvinfer.so.8 and makes
+# perception fail to load; that is the defect these values exist to prevent.
+#
+# cuDNN is left empty because none of the Autoware CUDA libraries inspected
+# link it directly.
 # =============================================================================
 nvidia_amd64:
-  cuda: ""
+  cuda: "12"
   cudnn: ""
-  tensorrt: ""
+  tensorrt: "10"
 
 nvidia_arm64:
   jetpack: "6.2"

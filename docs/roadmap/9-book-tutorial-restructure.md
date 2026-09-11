@@ -4,7 +4,7 @@
 set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
-**Status**: Phase C done (English). Phase A partially answered — the CPU matcher result is below. Roadmap 7 phases 0-4 are done (English and zh-TW);
+**Status**: Phases C and D done (English). Rebased onto `origin/main` 2026-09-12; the plan below is the post-rebase version. Phase A partially answered. Roadmap 7 phases 0-4 are done (English and zh-TW);
 no release tag is cut, so this work lands before the
 release.
 
@@ -518,6 +518,87 @@ simulation" should be read as plausible rather than measured.
 
 Artefacts: `tmp/demo-runs/label=coss-cpu_20260912_054957/` (matcher_metrics.csv,
 launch.log, the recorded diagnostics bag).
+
+---
+
+## Post-rebase revision — 2026-09-12
+
+This plan was written against a clone that had never been fetched. `origin/main`
+was **eleven commits ahead**, and had already done several things the plan
+proposed. After rebasing, four parts of it change.
+
+### What upstream had already done
+
+| Planned here | Already upstream |
+|---|---|
+| split the installation page | `063f89d` — `overview.md` + `recommended.md` |
+| correct the Autoware version | `974faa8` — 2025.02 → 1.5.0, and JetPack → 6.2.1 |
+| a simulation chapter | `6ebde6f` — four pages under `simulation/` |
+| **fix `deploy.yml`** | `e641353` — mike, versioned, plus `deploy-dev.yml` |
+
+The `deploy.yml` hazard this roadmap raised — `peaceiris` with
+`force_orphan: true`, which would have flattened the versioned site — **was real
+but already fixed.** Nothing to do.
+
+### 1. The tag is `0.2-1`, not `book-v0.3.0`
+
+Publishing is mike-versioned. A push to `main` deploys the `dev` version; a
+release is an `X.Y-N` tag, `X.Y` the AutoSDV version and `N` the book revision.
+Existing tags are `0.1-1` and `0.1-2`; `latest` currently aliases `0.1`.
+
+**A consequence worth planning around:** pushing `main` publishes to `/dev/`
+immediately. The work becomes publicly visible before any tag is cut, which is a
+useful preview — and means "unpushed" has so far been the only thing preventing
+a premature publish.
+
+### 2. Phase E shrinks
+
+`simulation/` is now two pages, not four: `planning-simulation.md` and
+`logging-simulation.md` were deleted as duplicates of `tutorial/02` and
+`tutorial/03`. The installation split is done. What remains of the restructure:
+
+- `simulation/{coss-park-scenario,datasets}` → Operate
+- `guides/{presets,localization-methods,maps,cuda-pipeline}` → Operate
+- `getting-started/usage.md` → `operate/launching.md`
+- hardware after simulation
+
+**And the URL argument in this roadmap was wrong.** The site is mike-versioned,
+so `0.1/` is frozen whatever we do and new work lands under a new version.
+Moving pages costs less than an unversioned site would imply, not more.
+
+### 3. New work: `recommended.md` had to be reconciled — DONE
+
+Upstream's `recommended.md` described the setup script's **old prompting flow**,
+not the step registry: "first asks whether to install all optional components",
+`golang`, `play_launch` as a Python dependency, and `./setup.sh
+cyclonedds-sysctl` as a subcommand. Taking upstream's page structure left the
+Phase 1 content homeless, so it has been rewritten into that page — profiles,
+flags, the full step table, and the steps whose absence is undiagnosable.
+
+### 4. New gate before Phase F: a blocking install defect — DONE
+
+The installation page told amd64 readers to install **TensorRT 8.6**. Autoware
+1.5.0's shipped libraries link `libnvinfer.so.10`:
+
+```
+ldd /opt/autoware/1.5.0/lib/libtensorrt_ops.so | grep nvinfer
+  libnvinfer.so.10 => ...
+```
+
+8.6 provides `libnvinfer.so.8`, so perception cannot load. Publishing that would
+be worse than publishing late. Corrected in both languages, and `versions.yaml`
+now carries `cuda: "12"` / `tensorrt: "10"` — major versions, because the soname
+is the requirement.
+
+### Still open, unchanged
+
+- **Phase A4**, the CPU-only path on a machine with no NVIDIA GPU. Still the
+  gate on roadmap 8's workshop.
+- **Phase B**, 11 of 13 screenshots. Two captured; the rest need a person at the
+  RViz window, because setting a route needs the ADAPI service rather than a
+  topic publish.
+- **Phase F**, zh-TW for the 12 pages that lack it — the 5 concepts and the 7
+  tutorial pages.
 
 ---
 

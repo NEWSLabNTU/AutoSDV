@@ -24,7 +24,7 @@ Implementation status and timelines
 - [Backport Verification](roadmap/7-backport-verification.md) - 📋 Proposed (what to run, in what order, to see it working)
 - [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - ✅ Phases 0-4 done, EN + zh-TW; **tag held** pending roadmap 9
 - [Workshop: Laptop Onboarding](roadmap/8-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class; blocked on roadmap 9)
-- [Book: Tutorial Restructure](roadmap/9-book-tutorial-restructure.md) - 🚧 **Active** (concepts + tutorial chapter)
+- [Book: Tutorial Restructure](roadmap/9-book-tutorial-restructure.md) - 🚧 **Active** (concepts + tutorial written; rebased onto upstream; cuts book tag `0.2-1`)
 - [Isaac VSLAM](roadmap/1-isaac_vslam.md) - ✅ Complete
 - [AR Tag Integration](roadmap/3-ar_tag_integration/) - 🚧 In Progress
   - [Overview & Architecture](roadmap/3-ar_tag_integration/README.md)
