@@ -4,7 +4,7 @@
 set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
-**Status**: Phases C and D done (English). Rebased onto `origin/main` 2026-09-12; the plan below is the post-rebase version. Phase A partially answered. Roadmap 7 phases 0-4 are done (English and zh-TW);
+**Status**: Phases C, D and F done. Rebased onto `origin/main` 2026-09-12. Remaining: A4 (needs a GPU-less machine), B (needs a person at RViz), E (the moves decision). Roadmap 7 phases 0-4 are done (English and zh-TW);
 no release tag is cut, so this work lands before the
 release.
 
@@ -597,8 +597,12 @@ is the requirement.
 - **Phase B**, 11 of 13 screenshots. Two captured; the rest need a person at the
   RViz window, because setting a route needs the ADAPI service rather than a
   topic publish.
-- **Phase F**, zh-TW for the 12 pages that lack it — the 5 concepts and the 7
-  tutorial pages.
+- ~~**Phase F**, zh-TW for the 12 pages that lack it.~~ **Done 2026-09-12** —
+  45 up to date, 0 missing, 0 outdated. Two defects surfaced in the process: the
+  Chinese `manual-environment` still carried a clone URL corrected only on the
+  English side, and the book's own CLAUDE.md rule for translated image paths
+  ("add one extra `../`") is wrong — the suffix-based i18n plugin resolves
+  against the source tree, so the path must be identical. Both fixed.
 
 ---
 
