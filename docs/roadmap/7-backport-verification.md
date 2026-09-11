@@ -61,92 +61,141 @@ the QoS fix unblocked.
 
 ---
 
-## Phase A — Build, on this machine
+## Running any of this: five traps
 
-Nothing else can start until this passes, and it has never been done since the
-campaign began: this workspace has no `install/`.
+Found the hard way on 2026-09-11/12, each producing a silent non-measurement
+rather than an error. Anyone repeating phases C or D will meet them.
 
-```bash
-just build 2>&1 | tee tmp/build.log
-just test
+1. **No `set -u` in a script that sources ROS.** `setup.bash` and the ament
+   hooks read deliberately unset variables, so under nounset the source aborts
+   *inside the sourced file* and the script dies before launching anything, with
+   no output. This cost three separate debugging rounds.
+2. **`--container-mode` decides whether you can measure at all.** play_launch's
+   default, `isolated`, forks composable nodes behind its private control
+   channel, and an outside `ros2 topic hz` sees none of the graph — it reports
+   "does not appear to be published yet" while the stack runs perfectly. But
+   `observable` costs **36 LoadNode service calls timing out at 30 s each** on
+   this stack before deferring to ComponentEvent. Use `--container-mode stock`:
+   ordinary ROS containers, visible, no waiting.
+3. **Copy the bag to local disk.** Played off the NAS, `ros2 bag play` logs
+   "Message queue starved" every second and delivers almost nothing, so the
+   measurement window sees an idle graph. `data/rosbags/` is gitignored.
+4. **Launch only the modules under test.** The full stack is 130 members and
+   takes minutes to construct; two overlapping launches exhausted a 125 GB
+   machine's memory and the OOM killer took the harness with it. For the sensing
+   chain, `launch_perception:=false launch_planning:=false launch_control:=false
+   launch_system:=false` is enough, and the vehicle and map stay because the
+   chain ends in a transform to `base_link`.
+5. **Discovery completes per-subscription long before the CLI inventory.**
+   `ros2 topic hz` on a named topic returns data while `ros2 topic list` still
+   shows two topics. Allow ~40 s, and run the probes one at a time: in parallel
+   they compete for discovery and each reports a partial answer.
+
+---
+
+## Phase A — Build and test — PASS 2026-09-12
+
+33 packages, exit 0, 2 min 8 s. `cuda_ndt_matcher` compiled for the first time
+since the 22-commit bump (2 min 5 s of that total). `seyond` built with
+`PointXYZIRCAEDT` as the default, and the built binary carries the `time_stamp`
+field. `cuda_pointcloud_filters` built from its submodule path.
+
+`colcon test`: the functional tests pass. Of 687 tests, the failures are
+overwhelmingly lint — copyright, flake8, pep257, uncrustify, cpplint,
+lint_cmake — in vendored packages (`zed_*`, Isaac, manual control).
+
+**One package could not build at all, and it is now fixed.** `range_libc`'s
+`RangeLibc.pyx` carried seven Python-2 `print` statements, which Cython 3
+rejects as syntax errors:
+
+```
+print "Failed to construct PyOMap, check argument types."
+      ^
+RangeLibc.pyx:179:18: Syntax error in simple statement list
 ```
 
-Watch for, specifically:
+So `import range_libc` failed, `particle_filter`'s test suite errored during
+collection rather than running, and `pose_source:=mcl` had no raycaster. An
+older Cython compiled it, which is why the machine that measured MCL never saw
+this. Fixed in the fork (`eee866b`), and it now has a setup step of its own —
+it had none, and no documentation beyond a `compile.sh` reading
+`sudo python setup.py install`. `particle_filter` now runs 57 tests, 54 passing,
+the other 3 being lint.
 
-1. `cuda_ndt_matcher` at its new pin (22 commits, never compiled here).
-2. `seyond` at the rebased pin, default `POINT_TYPE=PointXYZIRCAEDT`.
-3. `cuda_pointcloud_filters` as a submodule rather than an in-tree package.
-4. `autosdv_system_monitor` with its new template and `rosbridge_server`
-   dependency — `rosdep install` must resolve that, or the launch fails at run
-   time rather than build time.
+---
 
-**Pass**: a clean build and `colcon test` with no new failures.
+## Phase B — Launch resolution — PASS 2026-09-12
 
-## Phase B — Launch resolution, no nodes started
+**Parser parity**, the item phase 5 left open: 165 nodes, 113 topics, and
+identical node key sets under the Rust and the Python parser. The Rust parser is
+safe to rely on here.
 
-`play_launch` resolves the whole tree without running anything, which is the
-cheapest way to catch a launch file that parses but cannot resolve.
+**The `gnss_enabled` fix is confirmed at the graph level.** `use_gnss:=false`
+now removes four nodes:
 
-```bash
-play_launch dump launch autosdv_launch autosdv.launch.yaml -o tmp/rust.json
-play_launch dump launch autosdv_launch autosdv.launch.yaml --parser python -o tmp/py.json
-play_launch context tmp/rust.json --tree | head -50
+```
+- /localization/util/default_adapi/helpers/autoware_automatic_pose_initializer_node-1
+- /sensing/gnss/gnss_poser
+- /sensing/gnss/ublox/sensing/gnss/ntrip/ntrip_client
+- /sensing/gnss/ublox/ublox
 ```
 
-Three things this settles at once:
+The first is the point: before the fix it ran regardless of `use_gnss`, and
+`pose_initializer` then waited on a GNSS pose that never came.
 
-1. **Phase 5's parser parity**, the one item that phase left open. Compare node
-   counts between the two dumps, as the golf cart did for its five entry points.
-2. **The new arguments resolve**: `pointcloud_backend`,
-   `localization_pointcloud_backend`, `ndt_param_file`, `use_gnss` →
-   `gnss_enabled`.
-3. **`gnss_enabled` actually reaches `pose_twist_estimator`** — the bug fixed in
-   phase 3 was precisely that it did not, and a dump shows the resolved
-   parameter:
+**Both CUDA switches resolve.** `pointcloud_backend:=cuda` adds
+`/sensing/lidar/cuda_pointcloud_preprocessor_node`;
+`localization_pointcloud_backend:=cuda` swaps the three localization filters to
+`cuda_pointcloud_filters::CudaCropBoxFilterNode`, Autoware's
+`CudaVoxelGridDownsampleFilterNode` and
+`cuda_pointcloud_filters::CudaRandomDownsampleFilterNode` — same node names, so
+the stage switches whole, which is the design.
 
-```bash
-play_launch context tmp/rust.json --node /localization/pose_initializer | grep -i gnss
-play_launch dump launch autosdv_launch autosdv.launch.yaml use_gnss:=false -o tmp/nognss.json
-```
+---
 
-**Pass**: identical node sets under both parsers; `gnss_enabled` false in the
-second dump and true in the first.
+## Phase C — The CUDA sensing chain — STRUCTURE VERIFIED 2026-09-12
 
-## Phase C — The CUDA sensing chain, on a Velodyne bag
+Run on `vlp32_1`, copied to `data/rosbags/`, with the stack trimmed to sensing +
+vehicle + map and `--container-mode stock`.
 
-This is the check the bags make possible without hardware.
+| | `pointcloud_backend:=cpu` | `pointcloud_backend:=cuda` |
+|---|---|---|
+| `/sensing/lidar/preprocessed/pointcloud` | absent | `point_step` 16, 33,353 pts, `base_link` |
+| `/sensing/lidar/concatenated/pointcloud` | `point_step` **32**, 42,951 pts, `base_link` | `point_step` **16**, 33,444 pts, `base_link` |
+| fields on the concatenated cloud | all ten (x…time_stamp) | six (x…channel) |
 
-```bash
-# terminal 1
-just sim logging ARGS="pointcloud_backend:=cpu"
-# terminal 2
-ros2 bag play "/home/aeon/nas/.../vlp32_1" --clock
-ros2 topic hz /sensing/lidar/concatenated/pointcloud
-```
+What this establishes:
 
-then the same with `pointcloud_backend:=cuda`, and with
-`localization_pointcloud_backend:=cuda` added.
+- **The switch is whole-stage and it works.** In `cuda` the CUDA preprocessor
+  runs, publishes, and its output is what reaches `concatenated/pointcloud` —
+  six fields at 16 bytes, against the raw layout's ten at 32.
+- **Both arms deliver in `base_link`.** This was the check worth making: the
+  CUDA preprocessor does not transform frames, so had the passthrough been
+  bypassed the cloud would silently have arrived in the sensor frame and
+  everything downstream would have been wrong with no error anywhere.
+- **The preprocessing does work**: 42,951 → 33,444 points, −22%, which is
+  crop-self plus the ring outlier filter removing returns.
+- One correction to the design doc: the CUDA preprocessor's own output is
+  already in `base_link` here, not the sensor frame.
 
-Measure, per arm, with `scripts/profiling/`:
+**A methodological trap, worth more than the numbers.** The bag *contains*
+`/sensing/lidar/concatenated/pointcloud` — 284 messages of it, recorded by the
+run that produced the bag. Replayed whole, that topic is published by the
+player, not by the stack, and **both backends then measure identically**: 32
+bytes, 42.7k points, ~10 Hz, whatever the switch is set to. The first CUDA arm
+measured exactly that and looked like a null result. The replay is now an
+allowlist — the raw cloud, IMU, velocity report and TF — so the only publisher
+of the topic under test is the stack.
 
-```bash
-scripts/profiling/jetson_gpu_sampler.py -o tmp/gpu-cuda.csv     # on the Orin
-scripts/profiling/kernel_cpu_report.sh                          # either host
-```
+**Rates are not reliably measurable in this harness.** Across runs the
+concatenated cloud read 3.4, 9.1, 11.3 and 11.6 Hz against a 10 Hz bag, with
+`ros2 topic hz` sometimes failing to see a topic that a direct subscriber reads
+without trouble. The bag loops, the probes contend, and discovery is slow on a
+130-member graph. Rate parity and the CPU/GPU comparison need the Orin and a
+quieter method — `scripts/profiling/` sampling while a single long replay runs —
+rather than this desktop.
 
-**Pass**:
-
-- `concatenated/pointcloud` holds the bag's own rate (about 10 Hz) in **both**
-  arms. A lower rate in the `cuda` arm is the finding, not a nuisance: the golf
-  cart's concatenator lost 55% of its frames to a `timeout_sec` shorter than it
-  needed, and AutoSDV's chain ends in a passthrough precisely to avoid that.
-- The cloud stays in `base_link` in both arms. The CUDA preprocessor does not
-  transform, so if the passthrough were bypassed this would silently become the
-  sensor frame and everything downstream would be wrong in a way no error
-  reports.
-- CPU falls and GPU rises in the `cuda` arm. The golf cart measured −23.7 points
-  of container CPU on its Orin; ours ends differently, so the number will
-  differ. Record what it is rather than expecting theirs.
+---
 
 ## Phase D — Localization on the same bags
 
