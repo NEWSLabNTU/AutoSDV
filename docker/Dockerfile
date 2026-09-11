@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/l4t-tensorrt:r8.6.2-devel
 
 # Accept commit hash as build arg
-ARG COMMIT_HASH=2025.02
+ARG COMMIT_HASH=main
 
 # Update system packages
 RUN apt update -y

@@ -179,7 +179,7 @@ This method launches everything in one command with pre-configured visualization
 
 ```bash
 # Source workspace
-cd ~/repos/AutoSDV/2025.02
+cd ~/repos/AutoSDV
 source install/setup.bash
 
 # Launch complete standalone test

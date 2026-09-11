@@ -5,9 +5,9 @@
 #   get-version.sh <key> [default]
 #
 # Examples:
-#   get-version.sh autosdv.version           # Returns "1.0.0-dev"
+#   get-version.sh autosdv.version           # Returns "0.1.0-dev"
 #   get-version.sh nvidia_amd64.cuda         # Returns "12.3"
-#   get-version.sh autoware.version          # Returns "2025.02"
+#   get-version.sh autoware.version          # Returns "1.5.0"
 #   get-version.sh missing.key "default"     # Returns "default"
 
 set -e

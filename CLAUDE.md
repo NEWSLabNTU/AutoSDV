@@ -115,6 +115,76 @@ If the fast-forward is refused, `develop` moved on — rebase the feature branch
 again rather than creating a merge commit. PRs into `develop` are still welcome
 for review; merge them with squash or rebase for the same reason.
 
+## Submodule Workflow
+
+This workspace is mostly submodules, and two rules keep them from drifting.
+
+### Lockstep: push the submodule first, then the pin
+
+A superproject pin is a commit hash. A hash that exists only in a local
+submodule checkout is a pin nobody else can resolve: their `git submodule
+update` fails, and CI fails with it. So the order is never negotiable:
+
+```bash
+# 1. commit and push inside the submodule
+cd src/sensor_component/external/seyond_ros_driver
+git checkout autosdv-1.5.0        # never commit on a detached HEAD
+git commit -am "..."
+git push origin autosdv-1.5.0
+
+# 2. only then record the new pin in the superproject
+cd -
+git add src/sensor_component/external/seyond_ros_driver
+git commit -m "Bump the Seyond driver (...)"
+git push origin develop
+```
+
+Nested submodules repeat this innermost-first. `seyond_ros_driver` contains
+`seyond_sdk`, so a change reaching into the SDK is three pushes in order: SDK,
+driver, superproject.
+
+Before committing a pin, check that nothing is uncommitted underneath — a `+`
+in this output means the working tree is ahead of the recorded pin:
+
+```bash
+git submodule status --recursive | grep '^+'
+```
+
+A related habit worth keeping: **read a config out of git, not out of a
+submodule working tree.** A working tree can be ahead of, behind, or unrelated
+to what the pin actually builds, so a conclusion drawn from it can be about code
+that no one else has.
+
+### Two kinds of submodule, two pinning conventions
+
+**Upstream, unforked.** Pinned to a tag or a commit that names a stable release.
+There is no branch to follow — following one would silently move the pin — so
+these need no `branch` line in `.gitmodules`. Example: `zed-ros2-wrapper` at
+`humble-v5.0.0`.
+
+**Our forks** (`NEWSLabNTU/*`, `jerry73204/*`). These carry patches rebased onto
+an upstream stable version or `main`, and the patch series lives on a tracking
+branch. Record that branch in `.gitmodules`:
+
+```
+[submodule "src/localization/external/particle_filter"]
+	path = src/localization/external/particle_filter
+	url = https://github.com/NEWSLabNTU/particle_filter.git
+	branch = autosdv
+```
+
+Without the `branch` line the fork's own branch structure is undiscoverable from
+this repo: the pin still resolves, but nothing says which branch to commit to,
+which branch to rebase, or which branch a rename would strand.
+
+Branch naming follows the Autoware release the patches are current for —
+`autosdv-1.5.0`, previously `autosdv-2025.02` and `autosdv-0.45.1`. Keep the old
+branches after a rebase; they are the record of what worked against that
+release.
+
+When upstream releases, the fork is **rebased** onto the new tag rather than
+merged, so the patch series stays a readable list of what we changed and why.
+
 ## Essential Commands
 
 ### Build & Run

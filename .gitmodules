@@ -4,48 +4,63 @@
 [submodule "src/sensor_kit/autosdv_sensor_kit_launch"]
 	path = src/sensor_kit/autosdv_sensor_kit_launch
 	url = https://github.com/NEWSLabNTU/autosdv_sensor_kit_launch.git
+	branch = main
 [submodule "src/vehicle/autosdv_vehicle_launch"]
 	path = src/vehicle/autosdv_vehicle_launch
 	url = https://github.com/NEWSLabNTU/autosdv_vehicle_launch.git
+	branch = 1.5.0
 [submodule "src/sensor_component/external/gnss_locator"]
 	path = src/sensor_component/external/gnss_locator
 	url = https://github.com/NEWSLabNTU/gnss_locator.git
+	branch = main
 [submodule "src/sensor_component/external/zed-ros2-wrapper"]
 	path = src/sensor_component/external/zed-ros2-wrapper
 	url = https://github.com/NEWSLabNTU/zed-ros2-wrapper.git
+	branch = ntust-workshop
 [submodule "src/sensor_component/external/ros2_mpu9250_driver"]
 	path = src/sensor_component/external/ros2_mpu9250_driver
 	url = https://github.com/NEWSLabNTU/ros2_mpu9250_driver.git
+	branch = main
 [submodule "src/sensor_component/external/ros-nmea-reader"]
 	path = src/sensor_component/external/ros-nmea-reader
 	url = https://github.com/jerry73204/ros-nmea-reader.git
+	branch = main
 [submodule "src/param/autoware_individual_params"]
 	path = src/param/autoware_individual_params
 	url = https://github.com/NEWSLabNTU/autoware_individual_params.git
+	branch = 2025.02
 [submodule "src/sensor_component/external/seyond_ros_driver"]
 	path = src/sensor_component/external/seyond_ros_driver
 	url = https://github.com/NEWSLabNTU/seyond_ros_driver.git
+	branch = autosdv-2025.02
 [submodule "src/system/autosdv_runtime"]
 	path = src/system/autosdv_runtime
 	url = https://github.com/NEWSLabNTU/autosdv_runtime.git
+	branch = 2025.02
 [submodule "src/system/autosdv_system_monitor"]
 	path = src/system/autosdv_system_monitor
 	url = https://github.com/NEWSLabNTU/autosdv_system_monitor.git
+	branch = 2025.02
 [submodule "src/calibration/CalibrationTools"]
 	path = src/calibration/CalibrationTools
 	url = https://github.com/NEWSLabNTU/CalibrationTools.git
+	branch = 2025.02
 [submodule "src/sensor_component/external/autoware_zed"]
 	path = src/sensor_component/external/autoware_zed
 	url = https://github.com/NEWSLabNTU/autoware_zed.git
+	branch = main
 [submodule "src/localization/autoware_isaac_localization"]
 	path = src/localization/autoware_isaac_localization
 	url = https://github.com/NEWSLabNTU/autoware_isaac_localization.git
+	branch = main
 [submodule "src/localization/cuda_ndt_matcher"]
 	path = src/localization/cuda_ndt_matcher
 	url = https://github.com/NEWSLabNTU/cuda_ndt_matcher.git
+	branch = main
 [submodule "scripts/leodrive-bus-launch"]
 	path = scripts/leodrive-bus-launch
 	url = https://github.com/jerry73204/leodrive-bus-launch.git
+	branch = main
 [submodule "src/localization/external/particle_filter"]
 	path = src/localization/external/particle_filter
 	url = https://github.com/NEWSLabNTU/particle_filter.git

@@ -97,7 +97,7 @@
 
 - [x] **2.1** Create package directory structure
   ```bash
-  cd /home/aeon/repos/AutoSDV/2025.02
+  cd /home/aeon/repos/AutoSDV
   mkdir -p src/localization/odometry_pose_bridge/{src,config,launch}
   ```
 
@@ -591,7 +591,7 @@
 
 - [ ] **8.6** Push to branch (if using)
   ```bash
-  git push origin 2025.02
+  git push origin develop
   ```
 
 ### Success Criteria
@@ -696,7 +696,7 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 All integration work is complete and ready to use:
 
 ```bash
-cd /home/aeon/repos/AutoSDV/2025.02
+cd /home/aeon/repos/AutoSDV
 
 # Build the workspace
 make build

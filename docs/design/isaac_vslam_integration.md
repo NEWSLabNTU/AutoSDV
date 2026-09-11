@@ -149,7 +149,7 @@ https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_image_pipeline.git
 ### 2.3 Submodule Addition Commands
 
 ```bash
-cd /home/aeon/repos/AutoSDV/2025.02
+cd /home/aeon/repos/AutoSDV
 
 # Isaac ROS Common (base)
 git submodule add https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git \
@@ -777,7 +777,7 @@ make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
 
 4. ⬜ **Add Isaac ROS dependencies as submodules** (AutoSDV workspace only)
    ```bash
-   cd /home/aeon/repos/AutoSDV/2025.02
+   cd /home/aeon/repos/AutoSDV
 
    # isaac_ros_common
    git submodule add https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git \

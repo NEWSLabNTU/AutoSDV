@@ -19,6 +19,7 @@ Architecture and integration design documents
 
 Implementation status and timelines
 
+- [Golf Cart Backport](roadmap/6-golfcart-backport.md) - 📋 Planning (CUDA pipeline, cuda_ndt bump, driver QoS fix, tooling)
 - [Isaac VSLAM](roadmaps/isaac_vslam.md) - ✅ Complete
 - [AR Tag Integration](roadmaps/ar_tag_integration/) - 🚧 In Progress
   - [Overview & Architecture](roadmaps/ar_tag_integration/README.md)
