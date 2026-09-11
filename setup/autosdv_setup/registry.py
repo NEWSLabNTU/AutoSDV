@@ -322,6 +322,29 @@ STEPS: list[Step] = [
         profiles=_on(),                 # opt-in: large, and not every vehicle uses it
     ),
     Step(
+        id="range-libc",
+        label="range_libc (the MCL raycaster)",
+        why="pose_source:=mcl raycasts through this Cython extension, and "
+            "particle_filter imports it at module scope -- without it that "
+            "package cannot even be imported, let alone run.",
+        group="Libraries",
+        # Built from the submodule rather than pip: it is a Cython extension
+        # over the vendored C++ in src/localization/external/range_libc, and
+        # there is no wheel of our fork anywhere.
+        run=_BASH(
+            f'cd "{REPO_ROOT}/src/localization/external/range_libc/pywrapper" && '
+            "python3 setup.py install --user"
+        ),
+        profiles=_on(*DEV),
+        # range_libc imports nav_msgs.msg at module scope, so the check has to
+        # source ROS. Importing it from a bare python3 fails on nav_msgs and
+        # would report the extension as missing when it is present.
+        verify=["bash", "-c",
+                "source /opt/ros/humble/setup.bash >/dev/null 2>&1 && "
+                "python3 -c 'import range_libc'"],
+        note="Rebuild this after changing the range_libc submodule pin.",
+    ),
+    Step(
         id="blickfeld",
         label="Blickfeld Scanner Library",
         why="The Cube1 LiDAR driver. Selecting it accepts the library's "
