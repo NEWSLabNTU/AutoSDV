@@ -55,6 +55,66 @@ echo $CUDA_VERSION_AMD64 # 12.3
 | `develop` | `X.Y.Z-dev` | `development` |
 | `release/X.Y` | `X.Y.Z-rc.N` | `stable` |
 
+`main` is the stable branch; day-to-day work goes to `develop`. Feature
+branches start from `develop` and merge back into it; `develop` merges into
+`main` for a release.
+
+### Branch Protection (GitHub rulesets)
+
+Both `main` and `develop` are protected, and the rules change how you merge:
+
+| Rule | `main` | `develop` |
+|------|--------|-----------|
+| Pull request required | yes | no (direct push allowed) |
+| Linear history required | yes | yes |
+| Force push blocked | yes | yes |
+| Branch deletion blocked | yes | yes |
+| Allowed merge methods | squash, rebase | — (no merge commits either way) |
+
+**Linear history means no merge commits on either branch.** Rebase instead of
+merging when you bring in upstream changes:
+
+```bash
+# update a feature branch onto develop
+git checkout feature/my-thing
+git fetch origin
+git rebase origin/develop
+
+# update develop itself
+git checkout develop
+git pull --rebase origin develop
+```
+
+Set `git config pull.rebase true` in this repo so `git pull` never creates a
+merge commit by accident.
+
+**Merging to `main`** requires a pull request (approvals are not required, but
+the PR itself is). Merge it with squash or rebase — the "Create a merge commit"
+button is rejected by the ruleset:
+
+```bash
+git checkout -b release/X.Y develop     # or push develop and open the PR from it
+gh pr create --base main --head develop --title "Release X.Y.Z"
+gh pr merge --rebase                    # or --squash; never --merge
+```
+
+Prefer `--rebase` for a release PR so each commit from `develop` keeps its own
+identity on `main`, and `--squash` for a single-topic PR that should land as one
+commit.
+
+**Merging to `develop`** does not need a PR, so a rebased feature branch can be
+fast-forwarded in directly:
+
+```bash
+git checkout develop
+git merge --ff-only feature/my-thing
+git push origin develop
+```
+
+If the fast-forward is refused, `develop` moved on — rebase the feature branch
+again rather than creating a merge commit. PRs into `develop` are still welcome
+for review; merge them with squash or rebase for the same reason.
+
 ## Essential Commands
 
 ### Build & Run
