@@ -32,7 +32,7 @@
 [submodule "src/sensor_component/external/seyond_ros_driver"]
 	path = src/sensor_component/external/seyond_ros_driver
 	url = https://github.com/NEWSLabNTU/seyond_ros_driver.git
-	branch = autosdv-1.5.0
+	branch = 1.5.0
 [submodule "src/system/autosdv_runtime"]
 	path = src/system/autosdv_runtime
 	url = https://github.com/NEWSLabNTU/autosdv_runtime.git

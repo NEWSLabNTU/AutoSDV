@@ -781,8 +781,16 @@ Nothing was installed.
 
 ## What is left
 
-Every phase is done. Nothing below is a porting task; all of it is verification
-that needs hardware or a full build this machine did not have.
+Every phase is done. Nothing below is a porting task; all of it is verification,
+and it now has a plan of its own: **`docs/roadmap/7-backport-verification.md`**.
+
+That plan supersedes the list below in one important way. The COSS bags at
+`/home/aeon/nas/autoveh/dataset/2025-11-14 AutoSDV Localization RosBags in COSS`
+carry a Velodyne cloud already in `PointXYZIRCAEDT` — the exact layout this
+campaign taught the Seyond driver to publish — so the build, the launch
+resolution, the CUDA sensing chain and the localization chain can all be
+exercised on a desktop. Only the Robin-W deskew, the diagnostic graph and the
+golf cart's Falcon still need hardware.
 
 1. **Build the workspace and launch it.** Nothing here was launched. The
    `gnss_enabled` and `ndt_param_file` changes parse; the CUDA branches resolve
