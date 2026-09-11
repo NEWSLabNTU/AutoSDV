@@ -7,7 +7,7 @@ every one of its version numbers and describes a setup script that was
 replaced; and the **launch chapter**, which teaches `just launch` and leaves the
 reader unable to launch anything themselves.
 
-**Status**: Phase 0 done, 2026-09-12. Phase 1 next.
+**Status**: Phases 0-3 done, 2026-09-12 (English). Phase 4 — zh-TW, lint, tag — is next.
 
 **Book repository**: `~/repos/AutoSDV-book`, branch `main`. It is a *separate
 repository*, not a submodule — `feb8a6f Remove book submodule` took it out of
@@ -403,6 +403,87 @@ missing ones or stop promising them.
 
 ---
 
+## Phases 1-3 results — 2026-09-12 (English)
+
+`mkdocs build --strict` passes. The translation checker reports 10 pages without
+a zh-TW sibling and 8 with structural drift — all of it phase 4's work, and none
+of it failing the build, since `fallback_to_default` serves the English page.
+
+### Pages written
+
+| Page | Phase | |
+|------|-------|---|
+| `getting-started/installation/overview.md` | 1 | rewritten |
+| `getting-started/installation/verify.md` | 1 | new |
+| `getting-started/installation/docker.md` | 1 | rewritten as unmaintained |
+| `getting-started/installation/manual-environment.md` | 1 | corrected |
+| `getting-started/usage.md` | 2 | rewritten |
+| `simulation/planning-simulation.md` | 3 | new |
+| `simulation/logging-simulation.md` | 3 | new |
+| `simulation/coss-park-scenario.md` | 3 | new |
+| `simulation/datasets.md` | 3 | new |
+| `guides/localization-methods.md` | 3 | new |
+| `guides/presets.md` | 3 | new |
+| `guides/maps.md` | 3 | new |
+| `guides/cuda-pipeline.md` | 3 | new |
+| `guides/development.md` | 3 | rewritten — it promised five sections and linked none |
+| `index.md` | 3 | two entry paths, simulation first |
+| `replay_simulation.md`, `build_the_vehicle.md` | 3 | deleted |
+| `reference/software/vehicle-interface.md` | 3 | added to the nav |
+
+### Findings that changed the work
+
+**"Autoware 1.5.0" is an `autoware_core` version, not an Autoware release.**
+`manual-environment.md` told readers to clone `autowarefoundation/autoware` at
+`release/2025.02`. Correcting that to "1.5.0" would have sent them looking for a
+tag that does not exist: upstream's workspace releases are dated (`2024.11`,
+`2025.02`, and a `v1.0`), and there is no `1.5.0` among them. The version refers
+to `core/autoware_core`, pinned at `version: 1.5.0` in the `autoware.repos` of
+**`NEWSLabNTU/autoware`, branch `1.5.0-ws`** — which is what the Debian packages
+are built from. The page now says so.
+
+**The Docker image cannot build, for two independent reasons**, so the page is
+marked unmaintained rather than version-corrected:
+
+1. its final step runs `./scripts/setup-dev-env/setup-dev-env.sh -y`, deleted by
+   `311bb00 Re-organize script files`
+2. its base is `nvcr.io/nvidia/l4t-tensorrt:r8.6.2-devel`, a JetPack 5 image,
+   against a JetPack 6.2 target
+
+The page keeps a record of what was there and what reviving it would take. Note
+the fourth item of that list: TensorRT engines are tied to the TensorRT version
+*and* the GPU, so they cannot be baked into an image at all — which is what makes
+a self-contained AutoSDV image impossible rather than merely large.
+
+**`just sim coss-park` is the worse of the two COSS runners** and the book says
+so. It starts the stack, the bag and the recorder under GNU `parallel` with fixed
+`sleep 40` / `sleep 45` waits and a hardcoded bag path, so on a slower machine the
+bag starts before the 4.9 M-point map has loaded. `just demo run` waits for
+`ndt_scan_matcher` instead. The simulation chapter leads with `just demo run`.
+
+### Two stale strings fixed in this repository
+
+Both are launch argument descriptions, and both are what a reader sees from
+`ros2 launch ... --show-args`:
+
+- `pose_source` listed `cuda_ndt, ndt, isaac, visual` and omitted **`mcl`**,
+  although `mcl_random_seed` is plumbed through
+  `tier4_localization_component.launch.xml` and MCL is a supported source.
+- `pointcloud_backend` said cuda "applies to `lidar_model:=vlp32c` only". Since
+  `1edcbbe Give the Robin-W a per-point time, and the CUDA path with it`,
+  `robin-w` joins `vlp32c` in the kit's DESKEWABLE list; only `cube1` is excluded,
+  the Blickfeld driver publishing no per-point time at all.
+
+Fixed in `autosdv.launch.yaml` and `logging_simulation.launch.yaml`.
+
+**Not fixed, because it is a submodule**:
+`autosdv_sensor_kit_launch/launch/sensing.launch.xml:12` still describes the same
+argument as "cuda needs vlp32c". Correcting it means a commit and push on the
+sensor kit fork followed by a pin bump here, per the lockstep rule in
+`CLAUDE.md` — worth doing, but not inside a documentation change.
+
+---
+
 ## Phase 4 — Translate, verify, publish
 
 ### 4.1 zh-TW for every changed and new page
@@ -437,9 +518,9 @@ the `autosdv-book` submodule in `NEWSLabNTU.github.io`. It fires **only** on a
 | Phase | Description | Payload | Status |
 |-------|-------------|---------|--------|
 | 0 | Release readiness gate | build/test verified, version bumped, paths corrected | **Done 2026-09-12** |
-| 1 | Installation chapter | versions true, setup registry, the five omitted steps | Not started |
-| 2 | Launch chapter | `play_launch` taught first, 45-argument table, 25 recipe fixes | Not started |
-| 3 | The unwritten chapters | simulation, localization, presets, maps, CUDA, orphans | Not started |
+| 1 | Installation chapter | versions true, setup registry, the five omitted steps | **Done (EN)** |
+| 2 | Launch chapter | `play_launch` taught first, 45-argument table, 25 recipe fixes | **Done (EN)** |
+| 3 | The unwritten chapters | simulation, localization, presets, maps, CUDA, orphans | **Done (EN)** |
 | 4 | Translate and publish | zh-TW, lint, `book-v0.3.0` | Not started |
 
 ## Open decisions

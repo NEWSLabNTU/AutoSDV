@@ -237,7 +237,7 @@ launch:
 - arg:
     name: pose_source
     default: "cuda_ndt"
-    description: "Pose estimation source: cuda_ndt (default, CUDA NDT), ndt (built-in Autoware CPU NDT), isaac, visual"
+    description: "Pose estimation source: cuda_ndt (default, CUDA NDT), ndt (built-in Autoware CPU NDT), mcl (2-D Monte Carlo against an occupancy grid), isaac, visual"
 
 - arg:
     name: pose_source_package
@@ -250,7 +250,7 @@ launch:
 - arg:
     name: pointcloud_backend
     default: "cpu"
-    description: "cpu or cuda: sensing-side point cloud preprocessing (crop-self, deskew, ring outlier). cuda needs a per-point time offset and so applies to lidar_model:=vlp32c only"
+    description: "cpu or cuda: sensing-side point cloud preprocessing (crop-self, deskew, ring outlier). cuda needs a per-point time offset, so it applies to lidar_model:=vlp32c and robin-w, not cube1"
 - arg:
     name: localization_pointcloud_backend
     default: "cpu"
