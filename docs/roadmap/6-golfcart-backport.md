@@ -5,7 +5,7 @@ back into AutoSDV — the CUDA point cloud pipeline, the `cuda_ndt_matcher`
 bump, a driver QoS fix that is currently costing 60% of the Robin-W's points,
 and the tooling and system-package work that accumulated on that side.
 
-**Status**: phases 1-6, 7 (fixes), 9 and 10 done; 7.3 and 8 open
+**Status**: every phase done. What remains is verification on the vehicle, listed below.
 
 **Source**: `~/repos/2026-golf-cart`, branch `main`
 
@@ -542,7 +542,7 @@ launch comment, and the COSS map's `autosdv_map.yaml`. `docs/reports/` and
 `docs/superpowers/plans/` were deliberately left alone: they record what was run
 at the time.
 
-## Phase 7 — System packages — fixes DONE 2026-09-11, features deferred
+## Phase 7 — System packages — DONE 2026-09-11
 
 Both packages were renamed on the golf cart side, so nothing could be
 cherry-picked; each commit was re-applied by hand against AutoSDV's names, and
@@ -599,60 +599,58 @@ Golf-cart topic names were **not** taken: AutoSDV's Velodyne genuinely publishes
 `/sensing/lidar/velodyne_points`, unnamespaced, where the golf cart's sits under
 `vlp32`.
 
-### 7.3 Deferred: the four UI commits
+### 7.3 The four UI commits — DONE 2026-09-11
 
-`acfeaa7`, `36b3f81`, `4651fa7` and `2b20654` are a feature, not a fix, and do
-not belong in a mechanical pass. Together they are ~2,200 lines including a
-1,365-line captured graph fixture and a Node test, they build on each other
-(`2b20654` only makes sense once the mode strip exists), and the mode strip
-launches `rosbridge_server` from the monitor's launch file — a new runtime
-dependency. AutoSDV's `monitor.html` is 499 lines against the golf cart's 1,072,
-so this is a port onto a diverged template.
+Cheaper than scoped. The golf cart's `monitor.html` turned out to be a **strict
+superset** of ours — zero lines here that are not there, after normalising the
+project name — so this was the file taken whole, not a port onto a diverged
+1,072-against-499-line template.
 
-Worth doing, and worth scoping on its own. Two design facts to carry across when
-it happens:
+What came with it: the mode availability strip, the failing-path view, the
+fail-safe timeline, and the refresh-scope labelling. Plus, on our side, the
+`rosbridge_port` parameter and `rosbridge_server` in the launch file and as an
+`exec_depend` — which the original launch file started without declaring.
 
-- The page must talk to rosbridge directly rather than through this node. The
-  two graph topics **disagree on QoS** — struct is RELIABLE + TRANSIENT_LOCAL,
-  status is BEST_EFFORT + VOLATILE — and one subscriber applying a single
-  profile silently receives nothing on one of them.
-- struct and status are joined **by array index**; `DiagNodeStatus` carries no
-  path, so an off-by-one mislabels every chip while looking entirely plausible.
-  The strip re-subscribes when the graph id changes for exactly this reason.
+Two adjacent fixes: `monitor_gps` now follows `use_gnss`, so a deliberately
+disabled receiver does not sit red and teach everyone to ignore the monitor; and
+`CameraInfo` joins the type map, the same defect class as the three GNSS types
+that were missing from it.
 
----
+Verified: **29 checks** in `test/mode_strip_render_test.js` pass, driving the
+shipped page JavaScript against a graph fixture captured from a live aggregator,
+with a stub DOM and WebSocket. No vehicle and no ROS needed. Nothing here has
+run against a real graph.
 
-## Phase 8 — Cross-project fact ledgers
+Pushed as `f6b0632` on the monitor's `1.5.0`.
 
-The golf cart keeps two documents AutoSDV has no equivalent of:
+## Phase 8 — Cross-project fact ledgers — DONE 2026-09-11
 
-- `docs/known-config-defects.md` — things wrong in configuration rather than in
-  hardware or code, which therefore stay wrong on every run until somebody edits
-  a file.
-- `docs/roadblocks.md` — what is blocked, and what was found and fixed.
+`docs/known-config-defects.md` now exists here, seeded from the golf cart's and
+**checked entry by entry against this repository** rather than copied. Statically
+— no stack was running — so anything needing a live graph is listed as needing a
+run instead of asserted.
 
-Several entries are properties of any Autoware 1.5.0 install rather than of that
-vehicle, and should be checked against AutoSDV:
+What the check found:
 
-- RViz asks for `rviz_plugins/MrmSummaryOverlayDisplay`, which does not exist in
-  this Autoware release. It fails loudly at every startup. The install does ship
-  `autoware_overlay_rviz_plugin/SignalDisplay` and
-  `autoware_string_stamped_rviz_plugin/StringStampedOverlayDisplay`.
-- `topic_state_monitor_initialpose3d` ships with all-zero thresholds.
-- On the measured runs, **31.1% of all diagnostic reports were ERROR or STALE**,
-  most of it configuration. A diagnostic graph that is permanently a third red
-  trains everyone to ignore it.
+| Entry | Here |
+|---|---|
+| RViz asks for `rviz_plugins/MrmSummaryOverlayDisplay` | **true, and fixed.** Autoware 1.5.0 declares 21 `rviz_plugins/*` classes and that is not one; resolving every class our two configs name showed it was the only dead reference. Removed from both. |
+| `topic_state_monitor_initialpose3d` all-zero thresholds | **true, and upstream's own value** — `autoware_launch`'s `topics.yaml` carries the same three zeros, so this is a report to make upstream rather than a local divergence |
+| `system_monitor` on stock desktop defaults | **true, and worse**: we ship override files but the launch passes `autoware_launch`'s paths, so our copies never run. Our `net_monitor.param.yaml` also still says `devices: ["*"]`. |
+| `/diagnostics_agg` in the web monitor | true; fixed in phase 7 |
+| Two nodes claiming `/sensing/gnss/ublox` | **not here** — one `ublox_gps` node, guarded by `launch_driver` |
+| The aruco sim's missing arguments | golf-cart only |
+| A wrong comment in the sensor kit analyzer config | **not here** |
 
-One method from that document is worth adopting regardless: **read a config out
-of git, not out of a submodule working tree.** One entry there was wrong for
-exactly that reason. The guard is one line:
+The `system_monitor` one is left unfixed deliberately: the fix is a local copy of
+`tier4_system_component.launch.xml` plus a decision not to launch three
+monitors, and it should be checked against a running graph on the board rather
+than reasoned about from another vehicle's numbers.
 
-```bash
-git submodule status --recursive | grep '^+'
-```
-
-**Task**: start `docs/known-config-defects.md` for AutoSDV, seeded by checking
-the golf cart's entries against an AutoSDV run.
+Also carried across is the method, which is worth more than any single entry:
+**read a config out of git, not out of a submodule working tree** — one of the
+golf cart's own entries was wrong for exactly that reason. The guard is
+`git submodule status --recursive | grep '^+'`.
 
 ---
 
@@ -781,14 +779,27 @@ Nothing was installed.
 
 ---
 
-## Suggested order
+## What is left
 
-Phases 1, 3, 4, 5, 6, 7 (fixes) and 9 are done. What is left:
+Every phase is done. Nothing below is a porting task; all of it is verification
+that needs hardware or a full build this machine did not have.
 
-1. **Phase 7.3** — the four system-monitor UI commits, scoped on their own.
-2. **Phase 8** — the config-defect ledger, which needs a running stack.
-
-Three things need a machine this one is not. The workspace here has no
-`install/`, so: the cuda_ndt_matcher bump is unbuilt, the `gnss_enabled` and
-`ndt_param_file` launch changes are unlaunched (they parse, nothing more), and
-phase 5's parser parity check is unrun. The Seyond QoS fix needs the LiDAR.
+1. **Build the workspace and launch it.** Nothing here was launched. The
+   `gnss_enabled` and `ndt_param_file` changes parse; the CUDA branches resolve
+   under a stub context; the two point layouts compile. None of that is a run.
+2. **A COSS replay** comparing `pointcloud_backend:=cpu` against `:=cuda` —
+   concatenated cloud rate, then CPU and GPU with `scripts/profiling/`. The Orin
+   numbers in the design doc are the golf cart's, and its chain ends differently
+   from ours.
+3. **A Robin-W bag**, for two things at once: that the QoS fix stops the 60%
+   drop, and that the per-point time offsets are right in the sense that
+   matters, which is a *moving* bag whose deskewed structure straightens.
+4. **`play_launch` parser parity** on our own entry points, which needs
+   `autosdv_launch` installed:
+   ```bash
+   play_launch dump launch autosdv_launch autosdv.launch.yaml -o tmp/rust.json
+   play_launch dump launch autosdv_launch autosdv.launch.yaml --parser python -o tmp/py.json
+   ```
+5. **The diagnostic graph on the board**, which settles the open entries in
+   `docs/known-config-defects.md`: the `system_monitor` defaults, and how much of
+   the graph is permanently red.

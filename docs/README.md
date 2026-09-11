@@ -19,7 +19,7 @@ Architecture and integration design documents
 
 Implementation status and timelines
 
-- [Golf Cart Backport](roadmap/6-golfcart-backport.md) - 🚧 In Progress (7 of 10 phases done; CUDA pipeline and the setup rewrite remain)
+- [Golf Cart Backport](roadmap/6-golfcart-backport.md) - ✅ Complete (all 10 phases; vehicle verification outstanding)
 - [Isaac VSLAM](roadmaps/isaac_vslam.md) - ✅ Complete
 - [AR Tag Integration](roadmaps/ar_tag_integration/) - 🚧 In Progress
   - [Overview & Architecture](roadmaps/ar_tag_integration/README.md)
