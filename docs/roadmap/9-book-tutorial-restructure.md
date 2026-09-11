@@ -4,7 +4,7 @@
 set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
-**Status**: proposal. Roadmap 7 phases 0-4 are done (English and zh-TW);
+**Status**: Phase C done (English). Phase A partially answered — the CPU matcher result is below. Roadmap 7 phases 0-4 are done (English and zh-TW);
 `book-v0.3.0` is deliberately **not** tagged, so this work lands before the
 release.
 
@@ -468,6 +468,56 @@ Before writing a tutorial around them, run them and record what happens:
 
 The last two matter most: the CPU-only claim is currently an assertion, and the
 workshop in roadmap 8 depends on it being true.
+
+---
+
+## Phase A, first result — 2026-09-12
+
+### `pose_source:=ndt` works, and holds the sensor rate
+
+`POSE_SOURCE=ndt just demo run-headless` completed, exit 0. Autoware's OpenMP CPU
+matcher localized the whole COSS replay.
+
+| | all | init (parked) | track (driving) |
+|---|---|---|---|
+| matches | 1412 | 1010 | 402 |
+| `exe_ms` mean | 10.36 | 7.81 | **16.74** |
+| `exe_ms` p50 | 5.47 | 5.02 | 12.25 |
+| `exe_ms` p95 | 32.8 | 24.4 | **44.3** |
+| `exe_ms` max | 147.8 | 147.8 | 70.1 |
+| NVTL mean | 4.60 | 4.58 | 4.64 |
+| TP mean | 10.31 | 10.23 | 10.49 |
+| iterations mean | 4.27 | 4.20 | 4.46 |
+
+Published 1395 NDT poses with a mean gap of **0.100 s** — 10 Hz, matching the
+LiDAR — p95 0.101, max 0.200 (one gap doubled). Oscillation count zero.
+
+The budget is 100 ms per scan at 10 Hz. Driving p95 is 44 ms, so there is
+roughly 2x headroom on this machine, with one 148 ms outlier during
+initialisation.
+
+It also confirms a number the tutorial needs: **first motion at +116.3 s** of a
+157 s bag. The parked prefix is real and must be stated before a reader presses
+play.
+
+### What this does NOT prove
+
+The machine is an **AMD Ryzen 9 9950X with an RTX 5090**. So:
+
+- ✅ The CPU scan matcher works end to end and keeps up at 10 Hz.
+- ❌ It does **not** prove the GPU-less laptop path. Perception still ran on the
+  5090 during this run, `NDT_USE_GPU` was still 1, and a 16-core desktop CPU is
+  not a student laptop.
+- ❌ `launch_perception:=false` — the other half of the book's CPU-only
+  recommendation — is still untested.
+
+**Still open, and still gating roadmap 8**: run this on a machine with no NVIDIA
+GPU, with `launch_perception:=false`, and see whether the p95 above survives a
+laptop CPU. Until then the book's "a GPU is not needed for the logging
+simulation" should be read as plausible rather than measured.
+
+Artefacts: `tmp/demo-runs/label=coss-cpu_20260912_054957/` (matcher_metrics.csv,
+launch.log, the recorded diagnostics bag).
 
 ---
 
