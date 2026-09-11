@@ -127,24 +127,25 @@ upstream does not ship.
 
 ## Which LiDARs can be preprocessed at all
 
-**The Velodyne VLP-32C only.** The CUDA node fuses cropping with distortion
-correction, and distortion correction needs a per-point time offset. Nebula
-publishes `velodyne_points` in the `PointXYZIRCAEDT` layout, which carries one.
+**The Velodyne VLP-32C and the Robin-W.** The CUDA node fuses cropping with
+distortion correction, and distortion correction needs a per-point time offset.
+Nebula publishes `velodyne_points` in the `PointXYZIRCAEDT` layout, which
+carries one, and `seyond_ros_driver` publishes the same layout from
+`autosdv-1.5.0` onwards — it used to register `PointXYZIRC` (x, y, z, intensity,
+return_type, ring), which made the Robin-W not merely un-accelerated on this
+path but uncorrectable on any path.
 
-`seyond_ros_driver` registers `PointXYZIRC`: x, y, z, intensity, return_type,
-ring. No azimuth, no elevation, no distance, no per-point time. A cloud with no
-per-point time cannot be deskewed by anything, CPU or GPU, so the Robin-W branch
-is not merely un-accelerated, it is uncorrectable until the driver emits
-`PointXYZIRCAEDT`. The Blickfeld Cube1 is in the same position.
+The **Blickfeld Cube1** remains out: its driver publishes no per-point time at
+all. `pointcloud_backend:=cuda` with `cube1` is **refused with an error naming
+the reason**, rather than silently ignored.
 
-`pointcloud_backend:=cuda` with either model is **refused with an error naming
-the reason**, rather than silently ignored. Phase 2.3 of
-`docs/roadmap/6-golfcart-backport.md` adds the field to the Seyond driver; when
-it lands, move `robin-w` into `DESKEWABLE` in
-`pointcloud_preprocessor.launch.py`.
+One dependency worth stating plainly: the Robin-W needs a driver **built** at
+that pin with the default `POINT_TYPE`. A driver built as `PointXYZIRC`
+publishes a cloud `CudaPointcloudPreprocessorNode` rejects at runtime rather
+than deskews.
 
 AutoSDV's default sensor suite is `vlp32c_zed_imu`, so the default configuration
-is the one that can use this.
+can use this too.
 
 ## Source organisation
 
@@ -188,3 +189,4 @@ a question about that boundary, not about CUDA.
 | `localization_pointcloud_backend:=cuda` | **correctness verified, speed never measured.** The CPU chain is ~19% of a core; the CUDA one has not been timed and could be slower. |
 | `pose_source:=cuda_ndt` | measured: 30.7 ms per frame against Autoware's 47.0, 3 cm RMSE, 9.0 s initialisation. |
 | the filters themselves | 12 unit tests against real device memory, run on this machine's GPU. |
+| the Robin-W's new layout | `CudaPointcloudPreprocessorNode` accepts a synthetic `PointXYZIRCAEDT` cloud and processes it at the full 10 Hz input rate, emitting `PointXYZIRC`. Measured here; a bag off the sensor still needs the vehicle. |

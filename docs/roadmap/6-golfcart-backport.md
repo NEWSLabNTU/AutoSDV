@@ -97,7 +97,7 @@ counters. Nothing here can be checked without the LiDAR.
 
 ---
 
-## Phase 2 — CUDA point cloud pipeline — package and launch DONE 2026-09-11
+## Phase 2 — CUDA point cloud pipeline — DONE 2026-09-11
 
 AutoSDV has no CUDA sensing path at all. The golf cart has three independent
 whole-stage switches:
@@ -150,133 +150,59 @@ AutoSDV's default suite is `vlp32c_zed_imu`, so the default configuration does
 benefit. `sensor_suite:=robin_zed` will not — until 2.3, which adds the missing
 field to the driver and moves the Robin-W onto the accelerated path.
 
-### 2.3 Seyond driver: rebase onto upstream 1.0.3, and add per-point time
+### 2.3 Seyond driver: rebase onto v1.0.3, per-point time — DONE 2026-09-11
 
-The passthrough in 2.2 is a driver limitation, not a law. Fixing it is what
-brings the Robin-W onto the accelerated path, so it belongs in this phase.
+**The rebase.** Nine commits replayed onto `v1.0.3` (`e1ac1e5`), plus the nested
+SDK fork rebased onto `c199dc7`, the SDK commit 1.0.3 pins. Pushed innermost
+first: `inno-lidar-sdk` `autosdv-1.5.0` (`1c1bedc`), then `seyond_ros_driver`
+`autosdv-1.5.0` (`2049a46`), then the pin here.
 
-#### Where our fork stands
+Two things the rebase turned up:
 
-`NEWSLabNTU/seyond_ros_driver` carries 7 commits on top of upstream `v1.0.2`
-(`ff961b0`):
+- The SDK patch is still needed, and was incomplete. Upstream still writes
+  `cmake_minimum_required(VERSION 3.0)`, which CMake 3.27 and later refuse
+  outright; 3.22 only warns, which is why this had not bitten. The root
+  `CMakeLists.txt` is now covered as well as the three subdirectories.
+- **Our QoS commit broke upstream's new IMU publisher.** v1.0.3 added `/iv_imu`
+  sharing one `qos` object with the point cloud, and taking `SensorDataQoS()`
+  for the cloud left the IMU referring to a variable that no longer existed — a
+  compile error, so it surfaced immediately. The IMU keeps a reliable profile of
+  its own: a small message at a low rate cannot stall the deliver thread the way
+  the point cloud's writer did.
 
-| Commit | Change |
-|--------|--------|
-| `037766f` | point the nested `seyond_sdk` submodule at `NEWSLabNTU/inno-lidar-sdk` |
-| `6e824b0` | fix incorrect library names in CMakeLists.txt |
-| `b92c1e6` | build `seyond_sdk` automatically |
-| `540ca30` | fix a CMakeLists.txt syntax error |
-| `3e12060` | add `PointXYZIRC` |
-| `8e99e38` | follow Autoware's preprocessor point spec for `PointXYZIRC` |
-| `10c9599` | stop RViz starting from the launch file |
+**Per-point time.** `PointXYZIRCAEDT` is now the default `POINT_TYPE`. The
+layout matches `nebula_common/point_types.hpp` field for field, because Autoware
+reads these clouds by offset: x0 y4 z8, intensity12, return_type13, channel14,
+azimuth16, elevation20, distance24, time_stamp28, `point_step` 32.
 
-The golf cart branch adds two more, of which one is the phase 1 QoS fix
-(`98dbcc8`) and the other is a comment rename (`85f2af8`, drop it).
+| field | source |
+|---|---|
+| `time_stamp` | unsigned **nanoseconds after the header stamp**, which is the frame start — upstream's `41b1f20`. The point's absolute time is the packet start plus `ts_10us * 10 us`; the offset is that minus `frame_start_ts_`. |
+| `azimuth`, `elevation` | computed here; the SDK point carries no angles |
+| `distance` | the SDK's own `radius`, not recomputed from x/y/z |
+| `channel` | `ring_id` when `enable_falcon_ring` is set, else `scan_id` |
 
-The nested SDK fork is one commit deep: `73e456c` ("set minimum required CMake
-version to 3.5") on top of the SDK commit upstream v1.0.2 pinned, `d4a8c40`.
+The packet start is now kept unscaled in microseconds rather than differenced
+through the existing seconds-since-epoch double, which is already carrying an
+epoch. Getting the origin wrong does not fail loudly — it yields a plausible
+cloud that the distortion corrector then shears — so the reasoning is written at
+the site.
 
-#### What upstream 1.0.3 brings
+**Cost**: 32 bytes per point against 16, about 1.6 MB per frame at 50k points.
+`-DPOINT_TYPE=PointXYZIRC` still builds and is one flag away.
 
-`v1.0.3` is `e1ac1e5`, 9 commits past v1.0.2:
+**Verified here**: both layouts compile, and a synthetic cloud in exactly this
+layout is accepted by `CudaPointcloudPreprocessorNode`, which processes it at the
+full 10 Hz input rate and emits `PointXYZIRC`, with no errors. `robin-w` has
+moved into `DESKEWABLE` in the kit's `pointcloud_preprocessor.launch.py`
+accordingly — with the caveat that this needs a driver *built* at that pin, since
+one built as `PointXYZIRC` publishes a cloud the preprocessor rejects.
 
-```
-e1ac1e5 [feature]: support imu data publishing (#5)
-41b1f20 [feat]: use frame start time (#6)
-7ae9288 [fix]: update package.xml, del unused package
-95d913e Added dependencies needed for building (#3)
-48fd199 [chore]: update license, submodule
-254373b [doc]: update readme
-8c5ffd5 [fix]: scan_id set in PointXYZI
-7d4c73e [chore]: del redundant parameters
-6930e3e [feat]: support falcon ring_id
-```
+**Not verified**: anything involving the sensor. The offsets are only as right as
+the reasoning above until a bag off the Robin-W shows deskew straightening real
+structure, which a stationary bag cannot show either.
 
-Three matter here:
-
-- **`41b1f20` use frame start time.** The header stamp becomes the frame start.
-  Autoware's per-point `time_stamp` is an offset from the header stamp, so this
-  is the reference the offset needs, and it arrives for free.
-- **`6930e3e` falcon ring_id** — upstream now sets the ring for the Falcon
-  family, which our `PointXYZIRC` patch had to derive itself.
-- **`48fd199` update submodule** — 1.0.3 pins SDK `c199dc7`, not the `d4a8c40`
-  our SDK fork branched from, so the SDK fork rebases too.
-
-#### The rebase
-
-1. Rebase the nested SDK fork first: replay `73e456c` onto `c199dc7`, then check
-   whether it is still needed — `c199dc7` may already carry a CMake minimum
-   version fix, in which case the patch drops.
-2. Rebase the driver's 7 commits plus `98dbcc8` onto `v1.0.3`. Expect
-   `3e12060` and `8e99e38` to conflict with `6930e3e` (both touch the ring) and
-   `037766f` to conflict with `48fd199` (both touch `.gitmodules` and the SDK
-   pin). The three CMakeLists fixes may be answered by `95d913e`; verify before
-   replaying them.
-3. Push to `NEWSLabNTU/seyond_ros_driver` as **`autosdv-1.5.0`**.
-
-The branch name follows this project's existing convention, where the suffix is
-the Autoware release the patches are current for: the fork already carries
-`autosdv-0.45.1` and `autosdv-2025.02`, and phase 9 settles that the current
-target is 1.5.0. The old branches stay; they are the record of what worked
-against those releases.
-
-Nested submodule, so the lockstep rule applies twice over: push the SDK fork,
-then the driver's SDK pin, then the AutoSDV superproject pin. See CLAUDE.md,
-*Submodule Workflow*.
-
-#### Adding per-point time
-
-The driver already has the data. Upstream's own `seyond::PointXYZIT` carries a
-`double timestamp` per point, and our `PointXYZIRC` path drops it. What is
-missing is the Autoware layout, not the measurement.
-
-Target layout, from `nebula_common/point_types.hpp`:
-
-```cpp
-struct PointXYZIRCAEDT
-{
-  float x; float y; float z;
-  std::uint8_t  intensity;
-  std::uint8_t  return_type;
-  std::uint16_t channel;
-  float azimuth; float elevation; float distance;
-  std::uint32_t time_stamp;     // nanoseconds, offset from header.stamp
-};
-```
-
-`ros2_driver_adapter.hpp` hand-builds the `PointCloud2` fields with compact
-offsets, so this is an extension of an existing enumeration rather than new
-machinery: six fields at `point_step` 16 become ten at 32.
-
-Four things to decide while implementing, each a place the port can go quietly
-wrong:
-
-- **`time_stamp` is an offset, not an absolute.** Upstream's per-point value is
-  absolute microseconds. The offset must be computed against the same origin
-  the header carries, which is what `41b1f20` makes the frame start. Subtracting
-  against the wrong origin yields a plausible-looking cloud that the distortion
-  corrector shears.
-- **Azimuth, elevation and distance are derived.** The SDK supplies none of the
-  three; Nebula computes them in the driver from x, y, z, and so must this. That
-  is three transcendentals per point on the CPU, before any GPU stage sees the
-  cloud — measure it, because the point of the exercise is to save CPU.
-- **`point_step` doubles.** 51,743 points went from 828 kB at step 16 to about
-  1.66 MB at step 32. On the wire that interacts directly with phase 1: the
-  driver's deliver thread is what was dropping 60% of the sensor, and this
-  doubles what it has to hand to the publisher.
-- **Keep `PointXYZIRC` selectable.** It is a compile-time typedef in
-  `driver_lidar.h`; adding a third option rather than replacing the second keeps
-  a fallback if the AEDT path misbehaves on the vehicle.
-
-**Verification**: `ros2 topic echo --field fields` shows ten fields at the
-offsets above; `CudaPointcloudPreprocessorNode` accepts the Robin-W cloud
-without the layout error; and a bag recorded while driving shows the deskew
-actually straightening structure, which a stationary bag cannot show.
-
-**When this lands**, move the Robin-W from the passthrough list to the
-preprocessed list in `pointcloud_preprocessor.launch.py`, and revisit 2.2.
-
-### 2.4 Tasks — package and launch DONE 2026-09-11, driver work open
+### 2.4 Tasks — DONE 2026-09-11
 
 **Done:**
 

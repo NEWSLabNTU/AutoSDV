@@ -479,10 +479,12 @@ just launch pointcloud_backend:=cuda \
 | `localization_pointcloud_backend` | the NDT input chain: crop, voxel, random downsample |
 | `pose_source` | the scan matcher |
 
-**`pointcloud_backend:=cuda` needs `lidar_model:=vlp32c`.** Deskewing needs a
-per-point time offset; Nebula publishes `PointXYZIRCAEDT`, which has one, while
-the Seyond (Robin-W) and Blickfeld (Cube1) drivers do not. Those models are
-refused with an error naming the reason rather than silently ignored.
+**`pointcloud_backend:=cuda` works with `vlp32c` and `robin-w`, not `cube1`.**
+Deskewing needs a per-point time offset. Nebula publishes `PointXYZIRCAEDT`,
+which has one, and `seyond_ros_driver` does too from `autosdv-1.5.0` onwards —
+with the default `POINT_TYPE`, since a driver built as `PointXYZIRC` publishes a
+cloud the CUDA preprocessor rejects. The Blickfeld driver has no per-point time
+at all, so `cube1` is refused with an error naming the reason.
 
 **Everything must load into one container.** `cuda_blackboard` is not a
 transport — it is a process-local map from an id to a device pointer, so a stage
