@@ -160,13 +160,26 @@ if [ -f /usr/share/autoware/setup-prerequisites.sh ]; then
     if [ "${AUTOWARE_PREREQ_ROS:-n}" = "y" ]; then
         PREREQ_ARGS+=(--install-ros)
     else
+        # --no-ros is a promise that ROS is already there. Break that promise
+        # and the failure surfaces later as a wall of unmet apt dependencies
+        # from autoware-full-1-5-0, naming ros-humble packages rather than the
+        # step that installs them. (Guard borrowed from the golf cart, which
+        # hit exactly that.)
+        if [ ! -f /opt/ros/humble/setup.bash ]; then
+            echo "ROS 2 Humble is not installed, and this step is configured not to" >&2
+            echo "install it (AUTOWARE_PREREQ_ROS is not 'y')." >&2
+            echo "Run the ros2 step first:  ./setup.sh --only ros2" >&2
+            echo "Or set AUTOWARE_PREREQ_ROS=y to let Autoware's own prerequisite" >&2
+            echo "script install it." >&2
+            exit 1
+        fi
         PREREQ_ARGS+=(--no-ros)
     fi
 
     if [ -n "${AUTOWARE_PREREQ_NVIDIA:-}" ]; then
         nvidia_wanted="$AUTOWARE_PREREQ_NVIDIA"
     elif command -v nvcc >/dev/null 2>&1 && \
-         ls /usr/lib/x86_64-linux-gnu/libnvinfer.so* >/dev/null 2>&1; then
+         ls /usr/lib/*-linux-gnu/libnvinfer.so* >/dev/null 2>&1; then
         echo "  CUDA and TensorRT are already installed; skipping the NVIDIA step."
         nvidia_wanted=n
     else
