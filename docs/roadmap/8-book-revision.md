@@ -10,7 +10,7 @@ reader unable to launch anything themselves.
 **Status**: Phases 0-4 complete in both languages. **The release is deliberately
 held.** Everything is committed locally and unpushed; no release tag is cut,
 because the book is correct but not yet teachable — see
-[roadmap 9](9-book-tutorial-restructure.md), which lands before the tag.
+[roadmap 10](10-book-tutorial-restructure.md), which lands before the tag.
 
 **Book repository**: `~/repos/AutoSDV-book`, branch `main`. It is a *separate
 repository*, not a submodule — `feb8a6f Remove book submodule` took it out of
@@ -564,7 +564,7 @@ Two more, from the same read:
   a point its own `--parser python` and `--container-mode stock` flags concede.
 
 Tagging now would publish a book that is accurate and that a newcomer still
-cannot follow. [Roadmap 9](9-book-tutorial-restructure.md) carries the fix: a
+cannot follow. [Roadmap 10](10-book-tutorial-restructure.md) carries the fix: a
 concepts section covering what is different *here* rather than re-teaching ROS 2,
 the simulation chapter rebuilt as a numbered tutorial with screenshots, and an
 honest page about `play_launch`. Phase F of that roadmap cuts `0.2-1`.

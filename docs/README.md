@@ -19,12 +19,12 @@ Architecture and integration design documents
 
 Implementation status and timelines
 
-- [Book: Simulation Tutorials](roadmap/5-book_simulation_tutorials.md) - ✅ Complete (pages shipped; superseded by roadmap 9's tutorial)
+- [Book: Simulation Tutorials](roadmap/5-book_simulation_tutorials.md) - ✅ Complete (pages shipped; superseded by roadmap 10's tutorial)
 - [Golf Cart Backport](roadmap/6-golfcart-backport.md) - ✅ Complete (all 10 phases)
 - [Backport Verification](roadmap/7-backport-verification.md) - 📋 Proposed (what to run, in what order, to see it working)
-- [Book Revision (v0.2 release)](roadmap/7-book-revision.md) - ✅ Phases 0-4 done, EN + zh-TW; **tag held** pending roadmap 9
-- [Workshop: Laptop Onboarding](roadmap/8-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class; blocked on roadmap 9)
-- [Book: Tutorial Restructure](roadmap/9-book-tutorial-restructure.md) - 🚧 **Active** (concepts + tutorial written; rebased onto upstream; cuts book tag `0.2-1`)
+- [Book Revision (v0.2 release)](roadmap/8-book-revision.md) - ✅ Phases 0-4 done, EN + zh-TW; **tag held** pending roadmap 10
+- [Workshop: Laptop Onboarding](roadmap/9-workshop-laptop-onboarding.md) - 📝 Planned (2-hour class; blocked on roadmap 10)
+- [Book: Tutorial Restructure](roadmap/10-book-tutorial-restructure.md) - 🚧 **Active** (concepts + tutorial written; rebased onto upstream; cuts book tag `0.2-1`)
 - [Isaac VSLAM](roadmap/1-isaac_vslam.md) - ✅ Complete
 - [AR Tag Integration](roadmap/3-ar_tag_integration/) - 🚧 In Progress
   - [Overview & Architecture](roadmap/3-ar_tag_integration/README.md)

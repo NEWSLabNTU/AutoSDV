@@ -23,7 +23,7 @@ below.
     accuser: **`git log --all` is not a search of the repository, it is a search
     of your refs.** Fetch first.
 
-    Roadmap 9 has since rebuilt these pages as a numbered tutorial, and
+    Roadmap 10 has since rebuilt these pages as a numbered tutorial, and
     `planning-simulation.md`/`logging-simulation.md` are now superseded by
     `tutorial/02` and `tutorial/03`.
 

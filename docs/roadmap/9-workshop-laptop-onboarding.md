@@ -5,7 +5,7 @@ their own laptop, learns the ROS 2 concepts the installation is made of while it
 runs, and verifies the result by driving both simulations.
 
 **Status**: Not started. Blocked on the book revision — see
-[7-book-revision.md](7-book-revision.md).
+[8-book-revision.md](8-book-revision.md).
 
 **Source material**: `Lab_0__Autoware_Setup_and_Camera_Calibration.pptx`, 44
 slides, the existing NTU lab deck. Camera calibration is out of scope and its
@@ -26,7 +26,7 @@ thirty people who cannot debug it themselves. Every defect catalogued in roadmap
 - the setup script the deck describes was replaced by the step registry
 - `just tool-*` and `just control-*` no longer exist
 
-So: roadmap 7 phases 0–2 first, then this. The workshop's handout should be
+So: roadmap 8 phases 0–2 first, then this. The workshop's handout should be
 book pages, not a parallel set of instructions that drifts on its own.
 
 ---
@@ -83,7 +83,7 @@ compilation. Neither is acceptable in a 2-hour class on mixed laptops.
 
 This also makes a teaching point out of a constraint: the student types the
 argument that selects a CPU matcher, and thereby learns what `pose_source`
-means. That is the launch-argument lesson roadmap 7 phase 2 is built around.
+means. That is the launch-argument lesson roadmap 8 phase 2 is built around.
 
 ### Fallback for laptops that do not qualify
 
@@ -121,7 +121,7 @@ already exists in this repo to support it.
 **Author from nothing — not in the deck at all**:
 
 - hardware requirements and the laptop triage above
-- `play_launch` — the deck teaches `ros2 launch` only, while roadmap 7 phase 2
+- `play_launch` — the deck teaches `ros2 launch` only, while roadmap 8 phase 2
   makes `play_launch launch` the form students should learn
 - the logging simulation (block 6); the deck stops at planning
 - what a successful install looks like (`./setup.sh --status`)
@@ -135,9 +135,9 @@ says, and link to it.
 
 | Need | Source |
 |------|--------|
-| Install steps, profiles, flags | roadmap 7 phase 1 → book installation chapter |
-| Launch syntax, `arg:=value` | roadmap 7 phase 2 → book launch chapter |
-| Planning / logging simulation walkthroughs | roadmap 5's content plan, which was **never written** (see roadmap 7) — so this is real work, tracked in roadmap 7 phase 3.1 |
+| Install steps, profiles, flags | roadmap 8 phase 1 → book installation chapter |
+| Launch syntax, `arg:=value` | roadmap 8 phase 2 → book launch chapter |
+| Planning / logging simulation walkthroughs | roadmap 5's content plan, which was **never written** (see roadmap 8) — so this is real work, tracked in roadmap 8 phase 3.1 |
 | Rosbag download | `just bag download`, ~2.8 GB |
 
 ---
@@ -166,7 +166,7 @@ says, and link to it.
 
 ## Before this can be scheduled
 
-- [ ] Roadmap 7 phases 0–2 complete — the book is correct
+- [ ] Roadmap 8 phases 0–2 complete — the book is correct
 - [ ] Requirements measured on a real non-NVIDIA laptop
 - [ ] Logging simulation verified with `pose_source:=ndt` on that laptop
 - [ ] A full install timed end to end, from a clean Ubuntu 22.04

@@ -4,7 +4,7 @@
 set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
-**Status**: Phases C, D and F done. Rebased onto `origin/main` 2026-09-12. Remaining: A4 (needs a GPU-less machine), B (needs a person at RViz), E (the moves decision). Roadmap 7 phases 0-4 are done (English and zh-TW);
+**Status**: Phases C, D and F done. Rebased onto `origin/main` 2026-09-12. Remaining: A4 (needs a GPU-less machine), B (needs a person at RViz), E (the moves decision). Roadmap 8 phases 0-4 are done (English and zh-TW);
 no release tag is cut, so this work lands before the
 release.
 
@@ -226,7 +226,7 @@ raw command it wraps, never instead of it.
 
 | | Page | Purpose |
 |---|------|---------|
-| R | `install/overview.md` | As rewritten in roadmap 7, **plus a new section up front: "what this installation is, and how it differs from Autoware's."** Debian Autoware vs a source build, what that buys (hours on an Orin) and what it costs (you take the pinned version), and the fact that AutoSDV itself still compiles. A "what you are working toward" picture at the top. |
+| R | `install/overview.md` | As rewritten in roadmap 8, **plus a new section up front: "what this installation is, and how it differs from Autoware's."** Debian Autoware vs a source build, what that buys (hours on an Orin) and what it costs (you take the pinned version), and the fact that AutoSDV itself still compiles. A "what you are working toward" picture at the top. |
 | **T** | `install/verify.md` | Trimmed to checks 1–3. Check 4 links into the Tutorial instead of duplicating it. Gains an explicit environment check: source the chain in a **fresh** terminal and confirm `ros2 pkg prefix autoware_launch` resolves — the cheapest proof the underlay is really there. |
 | — | `install/manual-environment.md` | Already explains the source-build alternative; now cross-links to `concepts/environment.md` rather than restating it. |
 | — | `install/zed-sdk.md` | |
@@ -467,7 +467,7 @@ Before writing a tutorial around them, run them and record what happens:
 - [ ] time each, so the tutorial can say how long to wait instead of "a while"
 
 The last two matter most: the CPU-only claim is currently an assertion, and the
-workshop in roadmap 8 depends on it being true.
+workshop in roadmap 9 depends on it being true.
 
 ---
 
@@ -511,7 +511,7 @@ The machine is an **AMD Ryzen 9 9950X with an RTX 5090**. So:
 - ❌ `launch_perception:=false` — the other half of the book's CPU-only
   recommendation — is still untested.
 
-**Still open, and still gating roadmap 8**: run this on a machine with no NVIDIA
+**Still open, and still gating roadmap 9**: run this on a machine with no NVIDIA
 GPU, with `launch_perception:=false`, and see whether the p95 above survives a
 laptop CPU. Until then the book's "a GPU is not needed for the logging
 simulation" should be read as plausible rather than measured.
@@ -593,7 +593,7 @@ is the requirement.
 ### Still open, unchanged
 
 - **Phase A4**, the CPU-only path on a machine with no NVIDIA GPU. Still the
-  gate on roadmap 8's workshop.
+  gate on roadmap 9's workshop.
 - **Phase B**, 11 of 13 screenshots. Two captured; the rest need a person at the
   RViz window, because setting a route needs the ADAPI service rather than a
   topic publish.
@@ -622,7 +622,7 @@ instead of "wait a while".
 | A1 | `just demo check`, then `just demo run` end to end | the tutorial's step 1; keep the metrics output verbatim |
 | A2 | `just sim planning`, set a pose, set a goal, engage | time from launch to RViz usable |
 | A3 | `just sim logging` + a manual `ros2 bag play --clock` in a second terminal | confirms the two-terminal sequence the book describes, and that `--clock` is the failure everyone hits |
-| A4 | **`pose_source:=ndt launch_perception:=false`** on CPU | currently an **untested assertion** in the book, and the roadmap 8 workshop depends on it |
+| A4 | **`pose_source:=ndt launch_perception:=false`** on CPU | currently an **untested assertion** in the book, and the roadmap 9 workshop depends on it |
 | A5 | Record every wait: map load, scan matcher up, engine compile | replaces every vague "wait for it to come up" |
 
 A4 is the one that can invalidate other work. If the CPU-only path does not
@@ -684,7 +684,7 @@ timings from A and the screenshots from B.
    1920x1080 session.
 3. **`data/COSS-map-planning` is misnamed** — it holds the PCD and the occupancy
    grid too. Rename in the repository, or explain it in the book and leave it.
-4. Two items still open from roadmap 7: the project version on `develop`
+4. Two items still open from roadmap 8: the project version on `develop`
    (`0.2.0` with a separate `prerelease: dev`, rather than a composed
    `0.2.0-dev`), and the deliberately empty amd64 CUDA/cuDNN/TensorRT triple in
    `versions.yaml`.

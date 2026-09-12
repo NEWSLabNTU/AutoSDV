@@ -921,7 +921,7 @@ Every English page has a `.zh-TW.md` sibling, so a new page is two files plus a
   - Overview, hardware, control details, tuning & testing
   - Multi-mode controllers, PCA9685 I2C, hall effect sensor, PID tuning
 
-**Revision in progress**: [docs/roadmap/7-book-revision.md](docs/roadmap/7-book-revision.md).
+**Revision in progress**: [docs/roadmap/8-book-revision.md](docs/roadmap/8-book-revision.md).
 The published site is stale — it still says Autoware 2025.02 and gives `just`
 recipes that no longer exist.
 
