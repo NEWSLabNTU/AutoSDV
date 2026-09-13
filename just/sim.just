@@ -3,8 +3,6 @@
 # Recipes here run from the REPO ROOT; see the note in just/tool.just.
 set working-directory := '..'
 
-repo := justfile_directory() / '..'
-
 # `just <module>` runs the module's FIRST recipe, so it has to be harmless.
 [private]
 default:
@@ -17,7 +15,7 @@ planning:
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         autoware_launch planning_simulator.launch.xml \
-        map_path:={{ repo }}/data/COSS-map-planning \
+        map_path:="$PWD/data/COSS-map-planning" \
         vehicle_model:=autosdv_vehicle \
         sensor_model:=autosdv_sensor_kit
 
