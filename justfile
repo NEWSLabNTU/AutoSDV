@@ -129,6 +129,85 @@ build-engines:
     find "${DATA}" -name '*.engine' -type f -printf '    %p (%s bytes)\n' 2>/dev/null | sort
     echo "    total: $(find "${DATA}" -name '*.engine' -type f 2>/dev/null | wc -l)"
 
+# Populate the engine cache from a NEWSLabNTU/AutoSDV release, if this board's
+# fingerprint has a match there, then build-engines -- which is the correct
+# verify step for free: `build_only:=true` already loads a matching .engine in
+# seconds instead of rebuilding it, so a good download is confirmed by how fast
+# this finishes, and a bad or missing one just falls through to a real build.
+# This is what the tensorrt-engines setup step runs; `just build-engines`
+# alone always skips the cache. See docs/roadmap/11-engine-file-delivery.md.
+#
+# just --list shows only the LAST comment line, so the description goes here.
+# Use a cached engine set if one matches this board, else build (setup.sh default)
+engines:
+    #!/usr/bin/env bash
+    set -o pipefail
+    just setup-autoware-data
+    DATA="${AUTOSDV_DATA_PATH:-{{justfile_directory()}}/data/autoware_data}"
+    REPO="NEWSLabNTU/AutoSDV"
+
+    if KEY=$(scripts/version/engine-fingerprint.sh 2>&1); then
+        AUTOWARE_VERSION=$(scripts/version/get-version.sh autoware.version)
+        TAG="engines-autoware-${AUTOWARE_VERSION}"
+        BASE="https://github.com/${REPO}/releases/download/${TAG}"
+        echo "=== fingerprint: ${KEY}"
+
+        TMP=$(mktemp -d)
+        if curl -fsSL "${BASE}/manifest.json" -o "${TMP}/manifest.json" 2>/dev/null; then
+            read -r ASSET ASSET_SHA <<< "$(python3 -c "import json; m = json.load(open('${TMP}/manifest.json')); e = m.get('${KEY}') or {}; print(e.get('asset', ''), e.get('sha256', ''))" 2>/dev/null)"
+            if [[ -n "${ASSET:-}" ]] && curl -fsSL "${BASE}/${ASSET}" -o "${TMP}/${ASSET}" 2>/dev/null; then
+                if [[ -n "${ASSET_SHA:-}" ]]; then
+                    ACTUAL=$(sha256sum "${TMP}/${ASSET}" | cut -d' ' -f1)
+                    if [[ "${ACTUAL}" != "${ASSET_SHA}" ]]; then
+                        echo "=== ${ASSET}: checksum mismatch, discarding"
+                        rm -f "${TMP}/${ASSET}"
+                    fi
+                fi
+                if [[ -f "${TMP}/${ASSET}" ]]; then
+                    echo "=== ${KEY}: downloading ${ASSET}"
+                    tar -xzf "${TMP}/${ASSET}" -C "${DATA}"
+                fi
+            else
+                echo "=== ${KEY}: no cached engine set yet"
+            fi
+        else
+            echo "=== no manifest at release ${TAG} (not published yet, or no network)"
+        fi
+        rm -rf "${TMP}"
+    else
+        echo "=== could not fingerprint this board (${KEY}); building locally"
+    fi
+
+    just build-engines
+
+# Package this board's already-built engines for a NEWSLabNTU/AutoSDV release.
+# Run after `just build-engines`, once per distinct Orin SKU or desktop
+# hardware-compat build. Upload the printed asset and fold the printed
+# manifest line into that release's manifest.json by hand -- there is no
+# maintainer-side release automation yet (phase 3 of the roadmap doc above).
+#
+# just --list shows only the LAST comment line, so the description goes here.
+# Tar this board's engines + print the manifest.json entry for them
+export-engines:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    DATA="${AUTOSDV_DATA_PATH:-{{justfile_directory()}}/data/autoware_data}"
+    KEY=$(scripts/version/engine-fingerprint.sh)
+    ASSET="${KEY}.tar.gz"
+
+    if ! find "${DATA}" -name '*.engine' -type f -print -quit | grep -q .; then
+        echo "error: no .engine files under ${DATA} -- run 'just build-engines' first" >&2
+        exit 1
+    fi
+
+    find "${DATA}" -name '*.engine' -type f -printf '%P\0' \
+        | tar --null -T - -czf "${ASSET}" -C "${DATA}"
+
+    SHA=$(sha256sum "${ASSET}" | cut -d' ' -f1)
+    echo "=== wrote ${ASSET}"
+    echo "=== manifest.json entry:"
+    echo "  \"${KEY}\": {\"asset\": \"${ASSET}\", \"sha256\": \"${SHA}\"}"
+
 # --cargo-args --release applies to the Rust packages (cuda_ndt_matcher); without
 # it colcon-cargo builds them unoptimized while CMAKE_BUILD_TYPE=Release covers
 # only the C++ ones, so pose_source:=cuda_ndt ran a debug binary at ~80 ms per
