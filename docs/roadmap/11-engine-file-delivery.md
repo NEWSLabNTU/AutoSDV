@@ -268,19 +268,51 @@ Two side findings from the same session, both small and both now fixed:
 **Objective**: a place these artifacts live that isn't "whoever built it last
 keeps the tarball on their laptop."
 
-**Ready to publish**: the `engines-autoware-1.5.0` release already carries the
-AGX Orin asset and a `manifest.json`. The desktop asset built for this phase is
-`desktop-rtx-3090-10.8.0-autoware1.5.0.targz` (54 MB, 6 engines); adding it is
-an upload plus one more entry in that manifest:
+**Published.** `engines-autoware-1.5.0` now carries both assets and a
+`manifest.json` naming both keys:
+
+| key | asset | size |
+|---|---|---|
+| `orin-agx-orin-R36.4.4-10.3.0.30-autoware1.5.0` | `…tar.gz` | 48.9 MB |
+| `desktop-rtx-3090-10.8.0-autoware1.5.0` | `…tar.gz` | 56.2 MB |
+
+Adding one is an upload plus one manifest entry, which `just export-engines`
+prints with its sha256 already computed:
 
 ```bash
-gh release upload engines-autoware-1.5.0 desktop-rtx-3090-10.8.0-autoware1.5.0.tar.gz
-# then edit manifest.json to hold both keys and re-upload it with --clobber
+gh release upload engines-autoware-1.5.0 <asset>
+# then add the printed entry to manifest.json and re-upload it with --clobber
 ```
 
-`just export-engines` prints the exact entry, sha256 included. The asset itself
-is gitignored (`/desktop-*.tar.gz`, `/orin-*.tar.gz`) so a 54 MB release
-artifact cannot be committed by accident.
+The assets are gitignored (`/desktop-*.tar.gz`, `/orin-*.tar.gz`) so a 50 MB
+release artifact cannot be committed by accident.
+
+**The download path, measured against that release** (RTX 3090, engines deleted
+first):
+
+| run | time | what happened |
+|---|---|---|
+| cold | 30.7 s | manifest, 56 MB asset, extract, all 5 models load |
+| again | 19.9 s | marker matches, network skipped entirely |
+| local build | ~9 min | what both of the above replace |
+
+`./setup.sh --run --only tensorrt-engines --yes` drives the same path and
+reports `ok` on both a cold and a warm cache.
+
+**Failure modes exercised, not assumed** — each of the first three used to end
+in the full local build:
+
+- a resumed download finishing with `curl` exit 0 and a corrupt file (the
+  release URL redirects to a storage host, and `-C -` through that redirect was
+  measured doing exactly this). A checksum failure now forces one clean whole
+  re-fetch; a cleanly truncated partial still resumes.
+- a marker sitting beside a deleted engine. `.engine-cache-files` records what
+  the sync placed, and the marker is believed only while all of it is present.
+- a `manifest.json` served stale by the CDN for ~30 s after upload, where a
+  missing key is indistinguishable from an unpublished asset. Fetched with
+  `Cache-Control: no-cache` and a query salt now.
+- a kill mid-download: no marker, no engines moved, the partial kept as the
+  resume point. Verified by killing the transfer at 16 MB of 56 MB.
 
 - one GitHub Release per Autoware version bump (matches when engines actually
   change), tagged e.g. `engines-autoware-1.5.0`
@@ -293,6 +325,9 @@ artifact cannot be committed by accident.
   scale instead of per-checkout
 
 **Success criteria**:
+- [x] a box with no engines pulls the release asset and reaches loaded engines
+      with zero real builds — confirmed on the desktop key; the equivalent on a
+      second Orin is still to do, and is the same code path
 - [ ] a fresh Orin box, `gh release download` + import, running pipeline,
       zero local `build_only` invocations
 - [x] the release is reproducible in the only sense available: re-running the
@@ -386,7 +421,7 @@ engines` in front of it as a cache-checking wrapper, not a rewrite.
 | 2 | Desktop build | exact-GPU key (same mechanism as Orin) | Implemented and tested on an RTX 3090 |
 | 2a | amd64 TensorRT must match Autoware's build to the patch, or no engine is ever reused | `tensorrt_engine_abi`, setup step `tensorrt-runtime`, `scripts/trt-runtime-env.sh` | Implemented, measured |
 | 2f | Desktop cross-generation `kAMPERE_PLUS` sharing | — | Blocked on an upstream `autoware_tensorrt_common` patch |
-| 3 | GitHub Release packaging | release + manifest convention | Not started — yours to publish when ready |
+| 3 | GitHub Release packaging | release + manifest convention | Published: Orin + desktop assets, manifest with both keys; download path measured and its failure modes tested |
 | 4 | `setup.sh` integration | two `registry.py` steps | Implemented, tested |
 
 ## Open decisions
