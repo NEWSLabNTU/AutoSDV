@@ -117,6 +117,49 @@ those as "already installed", so a build that copied a developer's markers
 would skip ROS 2 and Autoware entirely and produce a broken image with no
 error. The Dockerfile deletes them too, because a mistake there is silent.
 
+## State of play, and what the amd64 build taught
+
+The amd64 image has not completed a build yet. That is not a warning sign
+about the design -- every failure so far has been a real defect in the
+clean-install path, fixed at source, and the build reaches further each time:
+
+| Attempt failed on | Fixed by |
+|---|---|
+| host `setup/.markers` copied into the image | `Dockerfile.dockerignore` + a defensive `rm` |
+| `range-libc`: no Cython | the step installs `cython3` and `python3-dev` |
+| `cyclonedds-sysctl` ran despite `--skip` | `--skip` accumulates (`action="extend"`) |
+| `blickfeld_driver`: SDK hard-required | skips itself |
+| `zed_components`: SDK and CUDA hard-required | skips itself |
+| `autoware-debian`: no `libnvinfer10` | the `tensorrt` step |
+| `rosdep update` fetch failure | three retries |
+
+**Expect the same shape on arm64.** Every one of these was a package or step
+assuming something the developer's machine happened to provide. The Orin has
+JetPack, so it will provide things an Apple Silicon container will not -- which
+is the same trap in a new place.
+
+### Two mistakes worth not repeating
+
+Both of mine, and both cost a build cycle.
+
+**A skip that fails in its own right.** Twice, a package taught to skip itself
+failed while skipping:
+
+- `zed_components` called `ament_package()` at a point above where the file
+  finds `ament_cmake`, giving `Unknown CMake command "ament_package"`
+- `blickfeld_driver` used `find_package(... QUIET full)`, but a bare word is
+  only a component after `REQUIRED` or `COMPONENTS`, giving
+  `find_package called with invalid argument "full"`
+
+In both cases the skip's warning still printed, so the log read as though the
+skip had worked. Check the exit status, not the message.
+
+**Testing the skip on a machine that has the dependency.** This workstation has
+the ZED SDK, CUDA, Cython and TensorRT -- every dependency whose absence broke
+something. A local `cmake` run took the normal path and reported success,
+proving nothing. Verify a skip in a container that genuinely lacks the thing,
+or in an isolated CMake snippet.
+
 ## Known gaps
 
 - **The arm64 image has never been built.** The arm64 branch of
