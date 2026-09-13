@@ -201,7 +201,7 @@ export-engines:
     fi
 
     find "${DATA}" -name '*.engine' -type f -printf '%P\0' \
-        | tar --null -T - -czf "${ASSET}" -C "${DATA}"
+        | tar -czf "${ASSET}" -C "${DATA}" --null -T -
 
     SHA=$(sha256sum "${ASSET}" | cut -d' ' -f1)
     echo "=== wrote ${ASSET}"
