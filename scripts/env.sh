@@ -3,18 +3,30 @@
 #
 # Why this file exists
 # --------------------
-# `install/setup.bash` does not chain to Autoware, and Autoware's own
-# setup.bash is what sets RMW_IMPLEMENTATION and CYCLONEDDS_URI. Source only
-# ROS and the workspace and you get rmw_fastrtps_cpp, which is a *different
-# middleware* from the one the rest of the stack is using -- so nodes start
-# cleanly, report themselves ready, and cannot see each other. There is no
-# error message for this; topics are simply empty. It has cost this project
-# days more than once, and it is defect 5 in docs/known-config-defects.md.
+# Two layers have to be present and `install/setup.bash` does not chain to the
+# one underneath it, so a shell with only ROS and the workspace cannot see the
+# Autoware packages AutoSDV is built against -- and, because Autoware's
+# setup.bash is also what selects the middleware, cannot see a running stack
+# either. Nodes start cleanly, report themselves ready, and publish into a void.
+# There is no error message for that; topics are simply empty. It is defect 5 in
+# docs/known-config-defects.md.
 #
 # Order matters: Autoware first, workspace last, so the workspace's overlay
 # wins for packages it rebuilds.
+#
+# What this file deliberately does NOT do
+# ---------------------------------------
+# It sets no middleware of its own. Which RMW to run is the user's choice --
+# CycloneDDS, Zenoh, something else -- and it belongs in `.envrc`, not in a
+# helper every recipe sources. The one thing done here is to keep a choice the
+# user has already made: Autoware's setup.bash exports
+# RMW_IMPLEMENTATION=rmw_cyclonedds_cpp unconditionally, so an explicit
+# selection has to be restored after it runs or it is silently overwritten.
 
 _autosdv_env_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Empty unless the user picked one; restored below.
+_autosdv_env_rmw="${RMW_IMPLEMENTATION:-}"
 
 # The prefix is recorded in versions.yaml so an Autoware upgrade is one edit.
 _autosdv_env_prefix="$(
@@ -30,7 +42,6 @@ else
     # needs an Autoware package is about to fail with a confusing message.
     echo "scripts/env.sh: ${_autosdv_env_prefix} not found; sourcing ROS only." >&2
     source /opt/ros/humble/setup.bash
-    export RMW_IMPLEMENTATION="${RMW_IMPLEMENTATION:-rmw_cyclonedds_cpp}"
 fi
 
 if [ -f "${_autosdv_env_repo}/install/setup.bash" ]; then
@@ -38,4 +49,8 @@ if [ -f "${_autosdv_env_repo}/install/setup.bash" ]; then
 fi
 set -u
 
-unset _autosdv_env_repo _autosdv_env_prefix
+if [ -n "${_autosdv_env_rmw}" ]; then
+    export RMW_IMPLEMENTATION="${_autosdv_env_rmw}"
+fi
+
+unset _autosdv_env_repo _autosdv_env_prefix _autosdv_env_rmw
