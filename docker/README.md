@@ -16,7 +16,6 @@ Ubuntu and assumes no GPU at all.
 
 ```bash
 docker run -it --rm -p 6080:6080 \
-  --sysctl net.core.rmem_max=2147483647 \
   autosdv:desktop
 # then open http://localhost:6080
 ```

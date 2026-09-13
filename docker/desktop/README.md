@@ -11,7 +11,6 @@ PLATFORM=linux/arm64 ./docker/desktop/build.sh   # arm64, ON THE ORIN
 
 ```bash
 docker run -it --rm -p 6080:6080 \
-  --sysctl net.core.rmem_max=2147483647 \
   jerry73204/autosdv:desktop
 # then open http://localhost:6080
 ```

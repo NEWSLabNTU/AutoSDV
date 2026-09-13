@@ -21,7 +21,18 @@ say() { printf '  %s\n' "$*"; }
 # an error that says nothing about buffers.
 check_dds_buffers() {
     local want=10485760 have
-    have=$(cat /proc/sys/net/core/rmem_max 2>/dev/null || echo 0)
+    # net.core.rmem_max is NOT namespaced, so inside a container it is neither
+    # readable nor settable: /proc/sys/net/core holds only the namespaced
+    # entries. `docker run --sysctl net.core.rmem_max=...` does not merely fail
+    # to help, it stops the container starting at all:
+    #   open /proc/sys/net/core/rmem_max: no such file or directory
+    # The value that governs these sockets belongs to whatever kernel is
+    # underneath -- the Linux host, or Docker Desktop's virtual machine.
+    if [ ! -r /proc/sys/net/core/rmem_max ]; then
+        say "DDS socket buffers: set by the host kernel, not visible from here"
+        return
+    fi
+    have=$(cat /proc/sys/net/core/rmem_max)
     if [ "$have" -lt "$want" ]; then
         cat >&2 <<EOF
 
@@ -29,13 +40,12 @@ check_dds_buffers() {
   net.core.rmem_max is ${have}, which is below the ~10 MB
   CycloneDDS needs. No ROS 2 node will start.
 
-  This is a HOST setting; a container cannot change it. Re-run
-  with:
+  Fix it on the HOST, not here:
 
-      docker run --sysctl net.core.rmem_max=2147483647 \\
-                 --sysctl net.core.wmem_max=2147483647 ...
+      sudo sysctl -w net.core.rmem_max=2147483647
+      sudo sysctl -w net.core.wmem_max=2147483647
 
-  (docker compose: see compose.yaml, which sets both.)
+  (AutoSDV hosts: ./setup.sh --run --only cyclonedds-sysctl)
   ============================================================
 
 EOF
@@ -94,12 +104,20 @@ start_desktop() {
     /opt/TurboVNC/bin/vncserver -kill "$DISPLAY" >/dev/null 2>&1 || true
     rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
 
+    # No -localhost argument: TurboVNC's is a boolean, so `-localhost no`
+    # is parsed as a stray option and Xvnc dies with
+    #   Fatal server error: Unrecognized option: no
+    # Keeping Xvnc on localhost is also correct: websockify runs inside this
+    # container and connects locally, and only 6080 is published.
+    #
+    # -xstartup is explicit because TurboVNC runs its OWN
+    # /opt/TurboVNC/bin/xstartup.turbovnc otherwise, and that one kills Xvnc
+    # when it cannot find a session file for a window manager it knows.
     /opt/TurboVNC/bin/vncserver "$DISPLAY" \
         -geometry "$GEOMETRY" -depth 24 \
-        -SecurityTypes None -localhost no \
+        -SecurityTypes None \
+        -xstartup /root/.vnc/xstartup.turbovnc \
         >/var/log/vncserver.log 2>&1
-
-    openbox --sm-disable >/var/log/openbox.log 2>&1 &
 
     websockify -D --web=/usr/share/novnc "${NOVNC_PORT}" "localhost:590${DISPLAY_NUM}" \
         >/var/log/websockify.log 2>&1

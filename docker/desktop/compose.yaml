@@ -11,11 +11,14 @@
 
 x-common: &common
   image: autosdv:desktop-dev
-  # net.core.rmem_max is NOT namespaced, so it is read from the host. Below
-  # ~10 MB CycloneDDS cannot open its sockets and no ROS 2 node starts at all.
-  sysctls:
-    net.core.rmem_max: "2147483647"
-    net.core.wmem_max: "2147483647"
+  # No `sysctls:` here for net.core.rmem_max. It is NOT a namespaced sysctl,
+  # so Docker cannot set it in a container and refuses to start one that asks:
+  #
+  #   open /proc/sys/net/core/rmem_max: no such file or directory
+  #
+  # The value that governs these sockets is the one on the kernel underneath --
+  # the Linux host, or Docker Desktop's VM. On a Linux host:
+  #     ./setup.sh --run --only cyclonedds-sysctl
   # Loopback multicast: ROS 2 nodes in one container find each other over lo,
   # which comes up without the MULTICAST flag.
   cap_add:

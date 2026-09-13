@@ -102,9 +102,11 @@ RUN rm -rf setup/.markers setup/.state.json
 # rather than a parallel list that would drift.
 #
 # Two steps are skipped because they cannot work inside a container:
-#   cyclonedds-sysctl  net.core.rmem_max is not namespaced; it must be set on
-#                      the host, or passed as --sysctl at run time. Without it
-#                      NO ROS 2 node starts at all, so the entrypoint checks it.
+#   cyclonedds-sysctl  net.core.rmem_max is not namespaced, so it can be set
+#                      neither here nor with `docker run --sysctl` -- Docker
+#                      refuses to start a container that asks for it. The value
+#                      comes from the kernel underneath: the Linux host, or
+#                      Docker Desktop's VM.
 #   multicast-lo       installs a systemd unit; there is no systemd here. The
 #                      entrypoint sets the loopback MULTICAST flag instead.
 RUN ./setup.sh --run --profile dev --yes \
@@ -129,8 +131,12 @@ RUN ./setup/scripts/install-turbovnc-virtualgl.sh \
         openbox xterm dbus-x11 x11-xserver-utils mesa-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# TurboVNC kills Xvnc when it cannot find a session desktop file for a window
+# manager it recognises, and openbox ships none. This supplies the session.
+COPY docker/desktop/rootfs/root/.vnc/xstartup.turbovnc /root/.vnc/xstartup.turbovnc
+
 COPY docker/desktop/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /root/.vnc/xstartup.turbovnc
 
 EXPOSE 6080 8081
 ENV DISPLAY=:1

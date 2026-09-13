@@ -1,0 +1,25 @@
+#!/bin/sh
+# What TurboVNC runs when a session starts.
+#
+# Its stock xstartup hunts for a session desktop file belonging to a window
+# manager it knows -- gnome, ubuntu, mate, xfce -- and when it finds none it
+# gives up and KILLS Xvnc:
+#
+#   xstartup.turbovnc: The session desktop file for the default window manager
+#   xstartup.turbovnc:   was not found at: /usr/share/xsessions/gnome.desktop ...
+#   Killing Xvnc process ID 24
+#
+# This image ships openbox, which has no /usr/share/xsessions entry, so the
+# session has to be started here instead. openbox is deliberate: a full desktop
+# would add gigabytes for a window manager whose only job is to give RViz a
+# title bar.
+unset SESSION_MANAGER
+unset DBUS_SESSION_BUS_ADDRESS
+
+# A terminal, open and ready: the student's first act is to type a launch
+# command, and an empty grey desktop does not say that.
+xsetroot -solid '#2a2a2e' 2>/dev/null || true
+xterm -geometry 110x30+60+60 -title 'AutoSDV' \
+      -fa 'Monospace' -fs 11 -bg '#1e1e1e' -fg '#d0d0d0' &
+
+exec openbox

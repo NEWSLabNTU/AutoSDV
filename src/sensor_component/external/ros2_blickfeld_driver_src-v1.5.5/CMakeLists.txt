@@ -64,6 +64,21 @@ if(NOT blickfeld-scanner_FOUND)
     "Blickfeld Scanner Library not found; skipping ${PROJECT_NAME}. "
     "It is only needed for the Cube1 LiDAR -- install it with "
     "'./setup.sh --rerun blickfeld'.")
+  # Install config/ even when skipping. It is data, not a build artifact, and
+  # the sensor kit's URDF includes one of its files unconditionally:
+  #
+  #   sensor_kit.xacro:17
+  #     <xacro:include filename="$(find blickfeld_driver)/config/blickfeld_cube1.xacro"/>
+  #
+  # Without it that xacro fails, robot_description resolves EMPTY, and
+  # robot_state_publisher dies with "robot_description parameter must not be
+  # empty" -- so the vehicle has no transforms at all. A skip meant to drop one
+  # unused LiDAR driver would otherwise take the whole vehicle description with
+  # it, on every machine that has no Blickfeld hardware.
+  install(
+      DIRECTORY config
+      DESTINATION share/${PROJECT_NAME}
+  )
   ament_package()
   return()
 endif()
