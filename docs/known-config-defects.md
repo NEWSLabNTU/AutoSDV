@@ -120,7 +120,7 @@ showed NO DATA whether or not anything published. Also fixed.
 
 ---
 
-## 5. The DDS environment depends on how you enter the workspace
+## 5. The DDS environment depends on how you enter the workspace — FIXED 2026-09-13
 
 Found on 2026-09-12, while trying to measure the sensing chain.
 
@@ -157,6 +157,27 @@ Two related facts:
 **Also**: stale `/dev/shm/fastrtps_*` segments accumulate from killed runs and
 break Fast-DDS shared memory outright ("open_and_lock_file failed"). 473 had
 collected here. `rm -f /dev/shm/fastrtps_*` when a graph starts behaving oddly.
+
+### The fix, 2026-09-13
+
+`scripts/env.sh` sources the Autoware prefix from `versions.yaml` and then the
+workspace, and every runtime entry point uses it: `just/{sim,tool,control}.just`,
+`demo/justfile`, `demo/scripts/run-coss-ndt.sh`, the root justfile's `launch`.
+`just build` and `just test` still source ROS alone, deliberately — the
+middleware does not matter to a compiler.
+
+What it cost before the fix, on a clean shell:
+
+- `just demo run` with `pose_source:=ndt` left the pose seeder waiting out its
+  whole 60-second timeout — "no /clock after 60 s -- is the bag playing with
+  --clock?" — while the bag had been playing the entire time.
+- The same run recorded a 24 KiB bag holding **zero** messages, while
+  `play_launch` reported every node ready.
+- 197 stale `/dev/shm/fastrtps_*` segments had collected from earlier runs that
+  failed the same silent way.
+
+The two related facts above are unchanged: `.envrc` still sets the RMW only in
+its fallback branch, and the repo's own `cyclonedds.xml` still never runs.
 
 ---
 
