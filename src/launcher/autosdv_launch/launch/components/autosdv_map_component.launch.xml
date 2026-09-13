@@ -44,8 +44,8 @@
   autosdv_map_container_with_pcd.launch.xml and
   autosdv_map_container_no_pcd.launch.xml below, selected via sibling
   <group if=.../unless=...> blocks wrapping plain <include> elements, the
-  same pattern autosdv.launch.yaml / logging_simulation.launch.yaml already
-  use for isaac/visual and that play_launch is known to handle correctly.
+  same pattern pose_twist_estimator.launch.xml uses to select the 2-D MCL
+  pose source, and that play_launch is known to handle correctly.
   Tracked upstream: https://github.com/NEWSLabNTU/play_launch/issues/7
 -->
 <launch>

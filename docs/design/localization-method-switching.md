@@ -1,5 +1,22 @@
 # Switching AutoSDV's Localization Method
 
+!!! warning "Isaac visual localization was removed — 2026-09-13"
+
+    **This document predates the removal of Isaac visual localization from
+    AutoSDV.** The evaluation was not promising enough to keep carrying the
+    dependency, so the submodule, the `isaac-ros` setup step, the
+    `pose_source:=isaac` and `pose_source:=visual` options, the visual-map
+    scripts and every operational reference are gone.
+
+    The `isaac` and `visual` branches it analyses no longer exist in the launch
+    files. The document stays because the *bypass pattern* it names is still in
+    use — `pose_source:=mcl` reaches the contract topic the same way, and the MCL
+    launch files cite this file by name for the explanation.
+
+    It is kept as the record of the reasoning at the time. Where it names Isaac
+    as available, planned or recommended, read that as historical.
+
+
 How `pose_source` actually dispatches today, what contract a pose estimator must
 satisfy, and what it would take to make AutoSDV 2D-MCL selectable the same way
 NDT and CUDA NDT are. Written from the shipped launch files, not from the design

@@ -1,5 +1,22 @@
 # ROS Indoor Localization Solutions
 
+!!! warning "Isaac visual localization was removed — 2026-09-13"
+
+    **This document predates the removal of Isaac visual localization from
+    AutoSDV.** The evaluation was not promising enough to keep carrying the
+    dependency, so the submodule, the `isaac-ros` setup step, the
+    `pose_source:=isaac` and `pose_source:=visual` options, the visual-map
+    scripts and every operational reference are gone.
+
+    Its primary recommendation is Isaac ROS Visual SLAM. That recommendation was
+    acted on, tested, and reversed; the linked `nvidia_isaac_ros_localization.md`
+    does not exist. See `research/nvidia_isaac_ros.md` for the evaluation that
+    superseded it.
+
+    It is kept as the record of the reasoning at the time. Where it names Isaac
+    as available, planned or recommended, read that as historical.
+
+
 ## Overview
 
 This document provides a comprehensive survey of indoor localization solutions available for ROS (Robot Operating System), focusing on ROS 2 compatibility. Indoor environments present unique challenges due to the absence of GPS signals, requiring alternative positioning methods.

@@ -1,5 +1,20 @@
 # Modular Localization Launch Design
 
+!!! warning "Isaac visual localization was removed — 2026-09-13"
+
+    **This document predates the removal of Isaac visual localization from
+    AutoSDV.** The evaluation was not promising enough to keep carrying the
+    dependency, so the submodule, the `isaac-ros` setup step, the
+    `pose_source:=isaac` and `pose_source:=visual` options, the visual-map
+    scripts and every operational reference are gone.
+
+    Its Phase 4 plans Isaac visual plugins, and the package paths it lists under
+    `autoware_isaac_localization/` are deleted.
+
+    It is kept as the record of the reasoning at the time. Where it names Isaac
+    as available, planned or recommended, read that as historical.
+
+
 ## Overview
 
 This document proposes a modular replacement for Autoware's

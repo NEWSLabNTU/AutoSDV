@@ -1,5 +1,20 @@
 # AutoDRIVE-Autoware vs AutoSDV: Architectural Comparison
 
+!!! warning "Isaac visual localization was removed — 2026-09-13"
+
+    **This document predates the removal of Isaac visual localization from
+    AutoSDV.** The evaluation was not promising enough to keep carrying the
+    dependency, so the submodule, the `isaac-ros` setup step, the
+    `pose_source:=isaac` and `pose_source:=visual` options, the visual-map
+    scripts and every operational reference are gone.
+
+    It describes Isaac SLAM integration as a current AutoSDV capability. It is not
+    one any more; the comparison is a snapshot of when it was written.
+
+    It is kept as the record of the reasoning at the time. Where it names Isaac
+    as available, planned or recommended, read that as historical.
+
+
 This document compares two Autoware-based autonomous vehicle platforms for small-scale vehicles.
 
 ## Executive Summary

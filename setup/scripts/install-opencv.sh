@@ -3,7 +3,7 @@
 #
 # JetPack 6.2 leaves two OpenCVs installed. NVIDIA's repo ships
 # libopencv/libopencv-dev at 4.8.0; Ubuntu ships the libopencv-*4.5d runtime at
-# 4.5.4. Nothing on the system links 4.8.0 -- cv_bridge, Autoware, Isaac and
+# 4.5.4. Nothing on the system links 4.8.0 -- cv_bridge, Autoware and
 # python3-opencv all use 4.5.4 -- but libopencv-dev owns /usr/include/opencv4
 # and the /usr/lib/libopencv_*.so symlinks, so every local build compiles
 # against 4.8.0 headers and links a 4.5.4 runtime. Silent ABI mismatch.

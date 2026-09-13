@@ -15,8 +15,10 @@ behaviour parity using COSS park rosbags.
 The current AutoSDV localization launch has three incompatible code paths
 (`cuda_localization.launch.xml`, `autoware_localization.launch.xml`, upstream
 fallthrough) that each duplicate the full localization stack (EKF, gyro
-odometer, pose initializer, error monitor). Adding the Isaac visual sources
-requires yet another ad-hoc path.
+odometer, pose initializer, error monitor). Adding any further pose source
+requires yet another ad-hoc path. (This originally read "the Isaac visual
+sources"; Isaac visual localization was removed on 2026-09-13, but the
+duplication argument holds for `mcl` and for whatever comes next.)
 
 This roadmap implements the pluggable design from the design doc: a central
 `autosdv_localization_launch` orchestrator that dynamically resolves
@@ -538,7 +540,7 @@ Verify `src/launcher/autosdv_launch/config/localization/preset/` docs
 still accurately describe which `pose_source` values are valid.
 
 **Success criteria**:
-- [ ] Preset docs list: `ndt`, `cuda_ndt`, `eagleye`, `visual`, `isaac`
+- [ ] Preset docs list: `ndt`, `cuda_ndt`, `eagleye`, `mcl`
 
 ---
 

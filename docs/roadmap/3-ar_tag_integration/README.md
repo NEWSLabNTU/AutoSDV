@@ -1,5 +1,21 @@
 # AR Tag + Isaac Visual SLAM Integration
 
+!!! warning "Isaac visual localization was removed — 2026-09-13"
+
+    **This document predates the removal of Isaac visual localization from
+    AutoSDV.** The evaluation was not promising enough to keep carrying the
+    dependency, so the submodule, the `isaac-ros` setup step, the
+    `pose_source:=isaac` and `pose_source:=visual` options, the visual-map
+    scripts and every operational reference are gone.
+
+    This whole roadmap is built on Isaac VSLAM supplying twist alongside AR tag
+    pose, and `pose_source:=artag` was never implemented either. Nothing in it
+    can be followed as written.
+
+    It is kept as the record of the reasoning at the time. Where it names Isaac
+    as available, planned or recommended, read that as historical.
+
+
 **Status:** Planning Phase
 **Current Phase:** Phase 1 - Setup & Preparation
 
