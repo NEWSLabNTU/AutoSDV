@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
 set -e
 
-echo "→ Installing Autoware Localrepo 1.5.0-1..."
+echo "→ Installing Autoware Localrepo 1.5.0-2..."
 
-REPO_URL_BASE="https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-1"
+REPO_URL_BASE="https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-2"
 DEB_FILE=""
 SHA256SUM=""
 
 # Checksums
-SHA256SUM_UBUNTU2204="9f433f7ae4642c9501b9b1f53853a3d724627cc2e85088ac6a2e2e21775898ea"
-SHA256SUM_JETPACK62="5c50148e9d9ad5426e92fdee68d2ab22ca23f37d9de83fe9e7fd06db330f0ae0"
+SHA256SUM_UBUNTU2204="f8e2d1d2f43d7a7186b7fbcd391b473783d1ef9cd131a12bfea898255d450acb"
+SHA256SUM_JETPACK62="e3187ca5a7e175aaabd239b5056d7ec1fb6eba92f6c232f8be67ee9958a6a064"
 
 ARCH=$(uname -m)
 
 if [[ "$ARCH" == "x86_64" ]]; then
     echo "  Detected architecture: amd64 (x86_64)"
-    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-1ubuntu2204_all.deb"
+    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-2ubuntu2204_all.deb"
     SHA256SUM="${SHA256SUM_UBUNTU2204}"
 elif [[ "$ARCH" == "aarch64" ]]; then
     echo "  Detected architecture: arm64 (aarch64) - JetPack 6.x target (Jetson)"
-    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-1jetpack62_all.deb"
+    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-2jetpack62_all.deb"
     SHA256SUM="${SHA256SUM_JETPACK62}"
 else
     echo "Error: Unsupported architecture: $ARCH"
@@ -214,5 +214,5 @@ fi
 echo "  Installing autoware-full-1-5-0..."
 sudo apt install -y autoware-full-1-5-0
 
-echo "✓ Autoware Localrepo 1.5.0-1 and Autoware Full 1.5.0 installed successfully."
+echo "✓ Autoware Localrepo 1.5.0-2 and Autoware Full 1.5.0 installed successfully."
 
