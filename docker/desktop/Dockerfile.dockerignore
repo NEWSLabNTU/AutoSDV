@@ -1,0 +1,46 @@
+# Build context for docker/desktop/Dockerfile.
+#
+# The working tree is ~30 GB, nearly all of it build output. Without this the
+# context alone would take longer to send than the image takes to build.
+#
+# BuildKit reads this file because it is named <dockerfile>.dockerignore.
+
+# Build output
+build/
+install/
+log/
+play_log/
+tmp/
+**/target/
+
+# Data is mounted or downloaded, never copied: the rosbag alone is ~934 MB and
+# would land in a layer that invalidates on every source change.
+data/
+rosbags/
+
+# Version control
+.git
+**/.git
+.github/
+
+# Editor and local state
+.vscode/
+.idea/
+*.swp
+record.json
+resume.org
+
+# HOST setup state. This one matters: setup.sh imports .markers/ and concludes
+# the step already ran, so a build that copies this host's markers SKIPS
+# installing ROS 2 and Autoware and produces a broken image without an error.
+# The Dockerfile also deletes these, because a mistake here is silent.
+setup/.markers/
+setup/.state.json
+**/.markers/
+
+# direnv state belongs to the host checkout
+.envrc
+.direnv/
+
+# The site build of the book, if anyone has one here
+site/

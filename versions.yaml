@@ -79,6 +79,32 @@ nvidia_arm64:
   cudnn: ""
   tensorrt: ""
 
+# =============================================================================
+# Container images
+# =============================================================================
+# The desktop (workshop) image builds FROM an NVIDIA CUDA image rather than
+# plain Ubuntu, because setup.sh deliberately does not install CUDA or TensorRT
+# -- on the vehicle they come from JetPack, on a workstation from the host image
+# -- and the Autoware debs then refuse to resolve:
+#
+#   ros-humble-autoware-tensorrt-common-1-5-0 : Depends: libnvinfer10
+#                                                        but it is not installable
+#
+# Pinned HERE, and passed to the Dockerfile as a build arg, so the FROM line
+# does not become a second copy of the version. `install-autoware-debian.sh`
+# keeping its own copy of the Autoware version is exactly how that drifts.
+#
+# 12.8 is the CUDA version upstream Autoware selects for humble, so this keeps
+# the container aligned with what Autoware itself targets. `devel` rather than
+# `runtime` because the workspace is BUILT in the image and cuda_ffi/build.rs
+# panics without nvcc and the CUB headers. The `-cudnn-` variant carries cuDNN;
+# nothing in Autoware was observed to link it directly, but having it in the
+# base costs a layer rather than an install step.
+#
+# Published for linux/amd64 AND linux/arm64, which is what lets one Dockerfile
+# serve Apple Silicon natively.
+container:
+  desktop_base: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
 
 # =============================================================================
 # Tool versions

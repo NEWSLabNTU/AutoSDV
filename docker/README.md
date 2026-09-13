@@ -1,98 +1,49 @@
-# AutoSDV Docker Environment
+# Container images
 
-This directory contains Docker configuration files for building and running AutoSDV in a containerized NVIDIA Jetson Linux environment. The setup provides a consistent development and testing environment regardless of the host system.
+Two images that share a name and nothing else. Read this before editing either.
 
-## Overview
+| Directory | Image | Runs on | Purpose |
+|---|---|---|---|
+| [`desktop/`](desktop/) | `autosdv:desktop` | any laptop — Windows, macOS, Linux | the workshop and tutorial environment: a browser desktop with RViz, AutoSDV prebuilt |
+| [`jetson/`](jetson/) | `autosdv:<commit>` | Jetson / L4T only | a target-device image for the AGX Orin |
 
-The Docker environment is configured to:
+They are not variants of one another. `jetson/` builds *the vehicle's* software
+on NVIDIA's L4T base and expects the NVIDIA container runtime to mount the Tegra
+driver in from the host. `desktop/` builds a *teaching* environment on plain
+Ubuntu and assumes no GPU at all.
 
-- Use NVIDIA L4T (Linux for Tegra) as the base image
-- Include TensorRT for deep learning acceleration
-- Configure necessary NVIDIA repositories and dependencies
-- Clone the AutoSDV repository and check out the **exact same commit** as your local repository
-- Provide a ready-to-use environment that matches your current code state
-
-## Requirements
-
-The build script was tested on Ubuntu 22.04 operating system.
-
-- Docker with NVIDIA container toolkit installed. You may read
-  - the [installation guide](https://docs.docker.com/engine/install/ubuntu/) to install Docker engine, and
-  - the [installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) to install NVIDIA Container Toolkit.
-
-- `rocker` for container management with GUI and NVIDIA support. You can read the installation instructions in the [README](https://github.com/osrf/rocker?tab=readme-ov-file#installation).
-- QEMU for ARM64 emulation (if building on x86_64).
-
-## Usage
-
-### Initial Setup
-
-Before building containers for the first time, run the bootstrap command to set up cross-architecture support:
+## `desktop/` — the one students use
 
 ```bash
-make bootstrap
+docker run -it --rm -p 6080:6080 \
+  --sysctl net.core.rmem_max=2147483647 \
+  autosdv:desktop
+# then open http://localhost:6080
 ```
 
-This installs required dependencies like QEMU and configures Docker to handle ARM64 images.
+Graphics are decided at start-up, not in the instructions: the container always
+runs its own X server, and the entrypoint picks the fastest renderer the host
+actually exposes — WSL2's d3d12, VirtualGL on a Linux GPU, or software. macOS
+always lands on software, because Hypervisor.framework exposes no GPU to a
+container and no flag can change that.
 
-### Building the Image
+That floor is the reason `src/launcher/autosdv_launch/rviz/workshop.rviz`
+exists. Measurements: [`docs/reports/gpu-less-simulation-and-rviz.md`](../docs/reports/gpu-less-simulation-and-rviz.md).
 
-Build the AutoSDV Docker image with:
+`compose.yaml` carries the accelerated profiles so nobody memorises device
+flags.
 
-```bash
-make build
-```
+## `jetson/` — not currently buildable
 
-This creates a Docker image named `autosdv` configured for ARM64 architecture, suitable for Jetson devices. The image will:
+Moved here unchanged from `docker/`, where its generic path implied it was the
+project's container image. It is stale in three independent ways and will not
+build as it stands:
 
-1. Use the **current commit** of your local repository
-2. Clone the repository and check out that same commit inside the container
-3. Build with all necessary dependencies and artifacts
-4. Create two tags:
-   - `autosdv:<short-hash>` (e.g., `autosdv:a05519`)
-   - `autosdv:<full-hash>` (e.g., `autosdv:a0551926248c75aac9411d53...")
+- `Dockerfile:50` runs `scripts/setup-dev-env/setup-dev-env.sh`, deleted when
+  the setup step registry replaced it
+- `nvidia-l4t-apt-source.list` pins **r36.3** (JetPack 6.0); the target is
+  JetPack **6.2**, which is r36.4
+- the base image is `l4t-tensorrt:r8.6.2`, but Autoware 1.5.0 links
+  `libnvinfer.so.10` — TensorRT **10**
 
-### Running the Container
-
-Launch an interactive shell in the container with:
-
-```bash
-make run
-```
-
-### Saving the Image
-
-To save the built Docker image as a compressed file for transfer to other systems:
-
-```bash
-make save
-```
-
-This exports the image to `autosdv-<short-hash>.tar.zstd` using zstd compression.
-
-## Other Commands
-
-### Cleaning Up
-
-To remove the Docker image:
-
-```bash
-make clean
-```
-
-This removes both the short hash tag and the full hash tag of the image.
-
-## Customization
-
-To customize the Docker environment:
-
-1. Modify the `Dockerfile` to add additional dependencies
-2. Update version numbers in `nvidia-l4t-apt-source.list` if using a different L4T version
-3. Edit the `Makefile` to adjust container runtime settings
-
-## Important Notes
-
-- Each Docker image is tagged with both the short commit hash and the full commit hash
-- Changes to your local repository will not automatically update existing Docker images
-- Use `make build` after committing changes to create a new image with the updated code
-- Remember to push your commits to the remote repository before building
+Repairing it is its own task and is not part of the workshop work.

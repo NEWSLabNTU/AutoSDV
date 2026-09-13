@@ -1,0 +1,67 @@
+# Run profiles for the desktop image.
+#
+#   docker compose up desktop            software rendering; works everywhere
+#   docker compose --profile nvidia up   Linux + NVIDIA
+#   docker compose --profile dri up      Linux + Intel/AMD
+#   docker compose --profile wsl up      Windows, GPU via WSL2
+#
+# The `desktop` service is the one the workshop teaches. The others exist so
+# nobody has to memorise device flags; they are the same image with the host's
+# GPU passed through.
+
+x-common: &common
+  image: autosdv:desktop-dev
+  # net.core.rmem_max is NOT namespaced, so it is read from the host. Below
+  # ~10 MB CycloneDDS cannot open its sockets and no ROS 2 node starts at all.
+  sysctls:
+    net.core.rmem_max: "2147483647"
+    net.core.wmem_max: "2147483647"
+  # Loopback multicast: ROS 2 nodes in one container find each other over lo,
+  # which comes up without the MULTICAST flag.
+  cap_add:
+    - NET_ADMIN
+  # Autoware's containers are memory-hungry; the default 64 MB /dev/shm causes
+  # failures that look like DDS problems.
+  shm_size: "2gb"
+  ports:
+    - "6080:6080"   # noVNC, the browser desktop
+    - "8081:8081"   # play_launch web UI
+  volumes:
+    # Maps and rosbags live outside the image: baking ~1 GB of data in would
+    # invalidate the layer on every source change.
+    - ../../data:/opt/AutoSDV/data
+  stdin_open: true
+  tty: true
+
+services:
+  desktop:
+    <<: *common
+
+  desktop-nvidia:
+    <<: *common
+    profiles: ["nvidia"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  desktop-dri:
+    <<: *common
+    profiles: ["dri"]
+    devices:
+      - /dev/dri:/dev/dri
+
+  desktop-wsl:
+    <<: *common
+    profiles: ["wsl"]
+    # Mesa's d3d12 driver forwards GL to the Windows GPU through /dev/dxg.
+    # UNVERIFIED: written from Microsoft's documented requirements, never run
+    # on a real Windows host. Treat as a starting point, not a tested path.
+    devices:
+      - /dev/dxg:/dev/dxg
+    volumes:
+      - ../../data:/opt/AutoSDV/data
+      - /usr/lib/wsl:/usr/lib/wsl:ro
