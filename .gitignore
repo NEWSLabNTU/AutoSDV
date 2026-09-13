@@ -30,6 +30,12 @@ data/leodrive-busood/
 # plus the .engine files TensorRT writes there.
 data/autoware_data/
 
+# `just export-engines` output: a release asset, ~50 MB of .engine files named
+# by this board's fingerprint. Uploaded to a GitHub Release, never committed --
+# same reasoning as data/autoware_data above, at release scale.
+/orin-*.tar.gz
+/desktop-*.tar.gz
+
 # Typst build artefacts
 docs/tech/*.pdf
 

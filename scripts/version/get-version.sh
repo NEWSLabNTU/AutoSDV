@@ -29,31 +29,31 @@ if [[ ! -f "$VERSIONS_FILE" ]]; then
     exit 1
 fi
 
-# Use yq if available (faster), fallback to Python
-if command -v yq &>/dev/null; then
-    VALUE=$(yq -r ".${KEY} // \"${DEFAULT}\"" "$VERSIONS_FILE" 2>/dev/null)
-else
-    VALUE=$(python3 -c "
-import yaml
+# PyYAML only, deliberately: `yq` exists in two incompatible flavors (mikefarah
+# and the jq-wrapping Python one) whose argument forms differ, and a wrong guess
+# fails by printing nothing while exiting 0 -- the same silent-empty failure
+# export-versions.sh documents. export-versions.sh already reads this file with
+# PyYAML, so nothing new is required here.
+VALUE=$(python3 -c "
 import sys
+import yaml
 
 with open('$VERSIONS_FILE') as f:
     data = yaml.safe_load(f)
 
-keys = '$KEY'.split('.')
 val = data
-try:
-    for k in keys:
+for k in '$KEY'.split('.'):
+    try:
         val = val[k]
-    print(val)
-except (KeyError, TypeError):
-    default = '$DEFAULT'
-    if default:
-        print(default)
-    else:
+    except (KeyError, TypeError, IndexError):
+        default = '$DEFAULT'
+        if default:
+            print(default)
+            sys.exit(0)
+        print(\"Error: key '$KEY' not found in $VERSIONS_FILE\", file=sys.stderr)
         sys.exit(1)
-" 2>/dev/null)
-fi
+print(val)
+")
 
 if [[ -z "$VALUE" ]] && [[ -z "$DEFAULT" ]]; then
     echo "Error: Key '$KEY' not found in versions.yaml" >&2

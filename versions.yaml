@@ -60,9 +60,11 @@ ros:
 #   ldd /opt/autoware/1.5.0/lib/libautoware_lidar_centerpoint_cuda_lib.so
 #     libcublas.so.12           -> CUDA 12.x
 #
-# Any patch version satisfying those sonames works. The book previously told
+# Any patch version satisfying those sonames LOADS. The book previously told
 # amd64 users to install TensorRT 8.6, which provides libnvinfer.so.8 and makes
 # perception fail to load; that is the defect these values exist to prevent.
+#
+# Loading is not the whole story, though -- see tensorrt_engine_abi below.
 #
 # cuDNN is left empty because none of the Autoware CUDA libraries inspected
 # link it directly.
@@ -71,6 +73,38 @@ nvidia_amd64:
   cuda: "12"
   cudnn: ""
   tensorrt: "10"
+
+  # The EXACT TensorRT the Autoware amd64 Debians were compiled against, to the
+  # patch. This is not the same requirement as `tensorrt` above, and it is not
+  # pedantry:
+  #
+  # `autoware_tensorrt_common`'s TrtCommon::validateEngine() reads bytes 24-26
+  # of an existing .engine (the plan's TensorRT version) and compares them
+  # against the NV_TENSORRT_MAJOR/MINOR/PATCH macros baked into the shipped
+  # library at ITS build time. Any difference, however small, is discarded as
+  # "Validation failed for the existing engine file. Rebuilding" -- so a host
+  # running a *different patch* of TensorRT 10 rebuilds all five perception
+  # engines on every single launch and can never reuse a cached set.
+  #
+  # Measured on an RTX 3090 workstation whose loader resolved TensorRT 10.9.0
+  # while these Debians were built against 10.8.0: every launch rebuilt
+  # everything (~9 min), and `just build-engines` twice in a row rebuilt twice.
+  # With 10.8.0 in front of it on LD_LIBRARY_PATH the same five engines load in
+  # under 4 s. The Debian's own `Depends: libnvinfer10` cannot express this --
+  # it is satisfied by 10.9 and by 10.16 alike.
+  #
+  # JetPack hides the problem on the vehicle: the Orin's TensorRT is the same
+  # one the arm64 Debians were built against, so the versions agree by
+  # construction. amd64 has no such guarantee, which is why
+  # setup/scripts/install-tensorrt-runtime.sh exists and why scripts/env.sh
+  # puts this version ahead of whatever else the host has.
+  #
+  # Re-read it after an Autoware upgrade -- from a build log's own
+  # "Current version: X.Y.Z" line, which is the library speaking, not a guess:
+  #
+  #   ros2 launch autoware_lidar_centerpoint lidar_centerpoint.launch.xml \
+  #     build_only:=true model_name:=centerpoint_tiny 2>&1 | grep "Current version"
+  tensorrt_engine_abi: "10.8.0"
 
 nvidia_arm64:
   jetpack: "6.2"

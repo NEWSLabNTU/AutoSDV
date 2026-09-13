@@ -24,10 +24,24 @@ set -euo pipefail
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 AUTOWARE_VERSION="$("${SCRIPT_DIR}/get-version.sh" autoware.version)"
 
+# Key on the TensorRT the engines are built WITH, which on amd64 is the private
+# prefix ahead of the host's own -- so resolve it under the same
+# LD_LIBRARY_PATH the build runs with, not the bare ldconfig answer.
+if [[ -f "${SCRIPT_DIR}/../trt-runtime-env.sh" ]]; then
+    source "${SCRIPT_DIR}/../trt-runtime-env.sh"
+fi
+
 trt_version() {
     # Trim the Debian revision (e.g. "10.3.0.30-1+cuda12.5" -> "10.3.0.30"):
-    # the upstream TensorRT version is what the engine is tied to.
-    dpkg-query -W -f='${Version}' tensorrt 2>/dev/null | cut -d- -f1
+    # the upstream TensorRT version is what the engine is tied to. JetPack
+    # installs the `tensorrt` metapackage, so on an Orin this is exact.
+    dpkg-query -W -f='${Version}' tensorrt 2>/dev/null | cut -d- -f1 || true
+}
+
+trt_version_loaded() {
+    # amd64 has no `tensorrt` metapackage; ask the loader instead. See
+    # scripts/version/trt-loaded-version.sh for why dpkg is the wrong question.
+    "${SCRIPT_DIR}/trt-loaded-version.sh" 2>/dev/null || true
 }
 
 if [[ -f /etc/nv_tegra_release ]]; then
@@ -48,6 +62,7 @@ if [[ -f /etc/nv_tegra_release ]]; then
     echo "orin-${board}-${l4t}-${trt}-autoware${AUTOWARE_VERSION}"
 elif command -v nvidia-smi >/dev/null 2>&1; then
     trt="$(trt_version)"
+    [[ -n "$trt" ]] || trt="$(trt_version_loaded)"
     # e.g. "NVIDIA GeForce RTX 4090" -> "rtx-4090"
     gpu=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1 \
         | tr '[:upper:]' '[:lower:]' | sed -E 's/nvidia|geforce//g; s/[^a-z0-9]+/-/g; s/^-+|-+$//g')

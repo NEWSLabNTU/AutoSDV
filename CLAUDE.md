@@ -561,6 +561,27 @@ Override per launch with `data_path:=`, or globally with `AUTOSDV_DATA_PATH`.
 Re-run after an Autoware upgrade — engines are tied to the TensorRT version and
 the GPU, so they cannot be baked into an image built elsewhere.
 
+**On amd64, the TensorRT version must match Autoware's to the patch.**
+`autoware_tensorrt_common` compares an existing `.engine`'s recorded TensorRT
+version against the macros baked into its own build and discards any
+difference, so a workstation running a different patch of 10.x rebuilds all
+five perception engines on *every* launch — nine minutes on an RTX 3090 — no
+matter how many times `just build-engines` has run. `Depends: libnvinfer10`
+does not express this; 10.9 and 10.16 satisfy it and both void the cache.
+JetPack hides the problem on the vehicle, where the board's TensorRT *is* the
+one the arm64 Debians were built against.
+
+```bash
+./setup.sh --run --only tensorrt-runtime --yes   # amd64: the matching runtime
+just build-engines                               # warns if they still disagree
+```
+
+The required version is `nvidia_amd64.tensorrt_engine_abi` in `versions.yaml`;
+`scripts/trt-runtime-env.sh` (sourced by `scripts/env.sh`) puts it ahead of the
+host's own, and `scripts/version/trt-loaded-version.sh` prints what the loader
+actually resolves — which is the only honest answer, since a workstation may
+have several TensorRTs installed and `dpkg` names the wrong one.
+
 ### ROS 2 Launch Testing
 
 **IMPORTANT**: When testing launch files, use `play_launch` instead of `ros2 launch`:

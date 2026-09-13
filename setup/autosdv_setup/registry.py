@@ -299,6 +299,29 @@ STEPS: list[Step] = [
         verify=["test", "-d", str(REPO_ROOT / "data" / "autoware_data")],
     ),
     Step(
+        id="tensorrt-runtime",
+        label="TensorRT runtime matching Autoware's build (amd64)",
+        why="Autoware discards any cached .engine whose recorded TensorRT "
+            "version differs from the one its own libraries were compiled "
+            "against -- to the patch. A workstation whose TensorRT is a "
+            "different 10.x patch therefore rebuilds all five perception "
+            "engines on EVERY launch (~9 min on an RTX 3090) no matter how "
+            "often the engine step has run. This extracts the matching "
+            "runtime into /opt/tensorrt/<version>, which only shells that "
+            "sourced scripts/env.sh see, so nothing else on the machine "
+            "moves. No-op on a Jetson: JetPack already ships the one the "
+            "arm64 Debians were built against.",
+        group="Autoware",
+        run=[_S("install-tensorrt-runtime.sh")],
+        requires=Requires(sudo=True, arch=("x86_64",)),
+        after=("autoware-debian",),
+        profiles=_on(*DEV),
+        verify=["bash", "-c",
+                'v=$("' + str(REPO_ROOT / "scripts" / "version" / "get-version.sh")
+                + '" nvidia_amd64.tensorrt_engine_abi) '
+                  '&& test -f "/opt/tensorrt/${v}/lib/libnvinfer.so.${v}"'],
+    ),
+    Step(
         id="tensorrt-engines",
         label="Pre-compile TensorRT engines",
         why="Downloads a prebuilt engine set matching this board's "

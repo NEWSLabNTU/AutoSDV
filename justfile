@@ -92,7 +92,20 @@ build-engines:
     just setup-autoware-data
     source /opt/ros/humble/setup.bash
     source /opt/autoware/1.5.0/setup.bash
+    # An engine built by a different patch of TensorRT than these Debians were
+    # compiled against is discarded on the next launch, so building without this
+    # is worse than not building at all -- it burns the time and caches nothing.
+    source {{justfile_directory()}}/scripts/trt-runtime-env.sh
     DATA="${AUTOSDV_DATA_PATH:-{{justfile_directory()}}/data/autoware_data}"
+
+    # Whether these engines will be REUSED is decided before a single one is
+    # built: Autoware discards any plan whose TensorRT version differs from the
+    # one its own libraries were compiled against. Read both and compare, rather
+    # than scraping the build log -- the same warning line also appears on a
+    # legitimate rebuild of a plan left by an older TensorRT, and treating the
+    # two alike would cry wolf on exactly the run that fixes the problem.
+    TRT_WANT="$(scripts/version/get-version.sh nvidia_amd64.tensorrt_engine_abi 2>/dev/null || true)"
+    TRT_GOT="$(scripts/version/trt-loaded-version.sh 2>/dev/null || true)"
 
     # Each entry: <package> <launch file> [extra args]. `build_only:=true` makes
     # the node exit as soon as its engine is written — an Autoware-provided
@@ -128,6 +141,20 @@ build-engines:
     echo "=== engines in ${DATA}"
     find "${DATA}" -name '*.engine' -type f -printf '    %p (%s bytes)\n' 2>/dev/null | sort
     echo "    total: $(find "${DATA}" -name '*.engine' -type f 2>/dev/null | wc -l)"
+
+    # A version-skewed engine loads today and is rebuilt on every launch from
+    # here on, which looks exactly like never having run this recipe at all. Say
+    # so rather than letting the next person rediscover it.
+    if [[ -n "${TRT_WANT}" && -n "${TRT_GOT}" && "${TRT_WANT}" != "${TRT_GOT}" ]]; then
+        echo
+        echo "=== WARNING: these engines will NOT be reused."
+        echo "    This host loads TensorRT ${TRT_GOT}; Autoware was compiled against"
+        echo "    ${TRT_WANT}, and autoware_tensorrt_common discards any plan whose"
+        echo "    version differs -- so every launch rebuilds all of them. Install the"
+        echo "    matching runtime, then re-run this recipe:"
+        echo "        ./setup.sh --run --only tensorrt-runtime --yes"
+        echo "    See versions.yaml nvidia_amd64.tensorrt_engine_abi."
+    fi
 
 # Populate the engine cache from a NEWSLabNTU/AutoSDV release, if this board's
 # fingerprint has a match there, then build-engines -- which is the correct

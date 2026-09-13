@@ -53,4 +53,9 @@ if [ -n "${_autosdv_env_rmw}" ]; then
     export RMW_IMPLEMENTATION="${_autosdv_env_rmw}"
 fi
 
+# After Autoware, so this wins: on amd64 the host's TensorRT is usually a
+# different patch of 10.x than the Debians were built against, which silently
+# voids every cached .engine. No-op on arm64 and when the prefix is absent.
+source "$(dirname "${BASH_SOURCE[0]}")/trt-runtime-env.sh"
+
 unset _autosdv_env_repo _autosdv_env_prefix _autosdv_env_rmw
