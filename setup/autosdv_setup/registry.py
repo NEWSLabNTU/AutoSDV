@@ -242,6 +242,37 @@ STEPS: list[Step] = [
 
     # ---- Autoware --------------------------------------------------------
     Step(
+        id="tensorrt",
+        label="TensorRT runtime libraries",
+        why="autoware-debian cannot resolve without libnvinfer10, and nothing "
+            "else installs it: CUDA and TensorRT come from JetPack on the "
+            "vehicle and from the host image on a workstation, so a clean "
+            "Ubuntu machine has neither.",
+        group="Autoware",
+        run=[_S("install-tensorrt.sh")],
+        requires=Requires(sudo=True),
+        # Ordering is the point: autoware-debian fails without this.
+        after=("ros2",),
+        profiles=_on(*DEV),
+        # A soname check, not a package check, so it is true however TensorRT
+        # got here -- network repo, a downloaded local-repo deb, tar or
+        # runfile. A machine that already has it is never touched, and the step
+        # reads no apt configuration at all.
+        # Written to survive `pipefail`, which this does not set but a future
+        # caller might: `ldconfig -p | grep -q X` reports FAILURE on a match
+        # under pipefail, because grep exits at the first hit and ldconfig then
+        # takes SIGPIPE. Capturing once and matching a here-string has no
+        # pipeline to misreport, and calls ldconfig once instead of three times.
+        verify=["bash", "-c",
+                "set -o pipefail; "
+                "c=$(ldconfig -p 2>/dev/null) || exit 1; "
+                "grep -qF libnvinfer.so.10 <<<\"$c\" && "
+                "grep -qF libnvinfer_plugin.so.10 <<<\"$c\" && "
+                "grep -qF libnvonnxparser.so.10 <<<\"$c\""],
+        note="Installs three runtime libraries only: no CUDA toolkit, no "
+             "driver, and /usr/local/cuda is not touched.",
+    ),
+    Step(
         id="autoware-debian",
         label="Autoware Debian packages",
         why="The 1.5.0 localrepo, about 2-3 GB. Everything in src/ builds "
