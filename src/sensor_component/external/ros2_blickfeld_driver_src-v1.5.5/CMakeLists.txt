@@ -41,7 +41,29 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 ## System dependencies are found with CMake's conventions
-find_package(blickfeld-scanner 2.20.6 REQUIRED full)
+#
+# NOT REQUIRED, deliberately. The Blickfeld Scanner Library is an opt-in setup
+# step -- it is in no profile, because selecting it accepts that library's
+# licence terms and only the Cube1 LiDAR needs it. A hard find_package therefore
+# broke `just build` on every machine that had not opted in, which is every
+# clean install: colcon reported
+#
+#   Could not find a package configuration file provided by "blickfeld-scanner"
+#
+# and aborted the other nineteen packages behind it.
+#
+# So the package skips itself instead, the way cuda_pointcloud_filters skips
+# itself without a CUDA toolkit. Install the SDK with
+# `./setup.sh --rerun blickfeld` if you have a Cube1.
+find_package(blickfeld-scanner 2.20.6 QUIET full)
+if(NOT blickfeld-scanner_FOUND)
+  message(WARNING
+    "Blickfeld Scanner Library not found; skipping ${PROJECT_NAME}. "
+    "It is only needed for the Cube1 LiDAR -- install it with "
+    "'./setup.sh --rerun blickfeld'.")
+  ament_package()
+  return()
+endif()
 
 set(dependencies
   blickfeld-scanner

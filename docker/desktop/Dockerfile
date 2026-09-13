@@ -111,12 +111,6 @@ RUN ./setup.sh --run --profile dev --yes \
         --skip cyclonedds-sysctl multicast-lo \
     && rm -rf /var/lib/apt/lists/*
 
-# --- the ZED SDK is not installed, so do not try to build against it ---------
-# zed_components is the only package that hard-requires the SDK
-# (find_package(ZED REQUIRED)). zed_wrapper is NOT excluded: the TF-only path
-# the logging simulation uses xacros its URDF, and it builds without the SDK.
-RUN touch src/sensor_component/external/zed-ros2-wrapper/zed_components/COLCON_IGNORE
-
 # --- build the workspace ----------------------------------------------------
 # Shipped prebuilt: a student reaches a running simulation in minutes instead of
 # spending the first 40 of them watching colcon, and a laptop that would run out
