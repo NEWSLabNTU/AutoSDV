@@ -95,7 +95,7 @@ of memory while linking never has to.
 | 4 | Accelerated profiles (`nvidia`, `dri`, `wsl`) | pending |
 | 5 | arm64, built natively on the Orin | **next -- see below** |
 | 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | pending |
-| 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | pending |
+| 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | **done — NDT holds 9.89 Hz on 4 cores; RViz is the limit, 1 fps** |
 | 8 | Book page, EN + zh-TW | pending |
 | 9 | Rewrite roadmap 9's timetable | pending |
 

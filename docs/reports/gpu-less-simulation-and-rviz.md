@@ -96,16 +96,54 @@ The logging simulation is a different case — the scan aligning against the map
 *is* the thing being taught — so it likely wants the PCD decimated rather than
 removed. That has not been measured.
 
-## Not measured
+## The logging simulation, and a four-core laptop — measured 2026-09-14
 
-Both belong in the same report once done:
+The two items this report owed, on a second machine: Intel Core Ultra 7 270K
+Plus, 24 cores, 125 GB, VNC `:1` on the same `llvmpipe` software renderer. Run
+GPU-less with `CUDA_VISIBLE_DEVICES=""`, `pose_source:=ndt
+launch_perception:=false`, the full 157-second COSS replay at 1x, pose seeded
+8 s in, RViz on with the launch file's own default layout. The four-core run is
+the identical command under `taskset -c 0-3`, bag player included.
 
-- **The logging simulation.** Bag replay with `pose_source:=ndt
-  launch_perception:=false` adds live point clouds and CPU-side NDT, and is the
-  harder case. Untested.
-- **A realistic core count.** Everything above is on 32 threads. The key runs
-  should be repeated under `taskset -c 0-3` before any hardware requirement is
-  published.
+| | 24 cores | **4 cores** |
+|---|---|---|
+| NDT pose rate | 9.884 Hz | **9.892 Hz** |
+| RViz frame rate | 3 fps | **1 fps** |
+| Peak memory (RSS across the stack) | 6.3 GiB | 6.5 GiB |
+| Peak CPU used by the stack | 10.7 cores | 4.0 (the cap) |
+
+**The pipeline passes; the viewer does not.** NDT held the sensor's full 10 Hz
+on four cores — 9.89 Hz against a 10 Hz recording, which is the same figure the
+24-core run produced. Localization initialised, and the live scan sat on the map
+where it should. Nothing about the *simulation* needs more than four cores.
+
+RViz is the part that does not survive: 3 fps with 24 cores and **1 fps with
+four**, both with the map point cloud displayed. That is not a localization
+failure — the matcher does not care whether anything is drawn — but at 1 fps a
+student cannot see the thing the logging simulation exists to show.
+
+### What the point cloud layer costs, exactly
+
+The same run with a layout whose map-PCD display is off, everything else
+identical: **31 fps**, NDT 10.015 Hz. So the map point cloud is the whole
+difference between 3 fps and 31, confirming this report's earlier finding on the
+planning side and answering the question it left open.
+
+But the logging simulation is where the map matters most: watching the live scan
+settle onto the map *is* the lesson, and a layout with the map hidden shows a
+scan floating in nothing. Removing the layer is the wrong trade here, unlike in
+the planning simulation. The options are to decimate it rather than hide it, or
+to display the localization module's own
+`/localization/pose_estimator/debug/loaded_pointcloud_map` — the radius the
+matcher actually loaded — instead of the entire 4.9 M points. Neither is
+measured yet.
+
+### What this settles for the hardware requirement
+
+Four cores is enough to *run* both simulations. It is not enough to *watch* the
+logging one without a graphics path, which makes the container's renderer
+detection load-bearing rather than a nicety: on Linux and WSL2 it reaches a GPU,
+and only macOS is stuck on llvmpipe.
 
 ## Method notes
 
