@@ -337,8 +337,14 @@ Unattended:
                     help="forget these steps' state, then run them")
     ap.add_argument("--all", action="store_true",
                     help="select every step, not just the profile's")
-    ap.add_argument("--skip", nargs="+", metavar="STEP", default=[],
-                    help="subtract these steps from the selection")
+    # `extend`, not the default `store`: with plain nargs="+" a repeated
+    # `--skip a --skip b` keeps only `b` and drops `a` without a word, which is
+    # a quiet way to run a step you asked not to run. Both spellings now work:
+    #   --skip a b        --skip a --skip b
+    ap.add_argument("--skip", action="extend", nargs="+", metavar="STEP",
+                    default=None,
+                    help="subtract these steps from the selection "
+                         "(repeatable, or several after one flag)")
     ap.add_argument("--force", action="store_true",
                     help="run selected steps even if already done")
     ap.add_argument("--keep-going", action="store_true",

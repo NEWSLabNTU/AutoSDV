@@ -320,10 +320,24 @@ STEPS: list[Step] = [
         # Built from the submodule rather than pip: it is a Cython extension
         # over the vendored C++ in src/localization/external/range_libc, and
         # there is no wheel of our fork anywhere.
+        #
+        # cython3 and python3-dev are installed here because they are THIS
+        # step's build dependencies and nothing else provides them. Leaving
+        # them implicit worked on every machine this was developed on -- all of
+        # which already had Cython -- and failed on a clean Ubuntu install with
+        #
+        #   ModuleNotFoundError: No module named 'Cython'
+        #
+        # which names the symptom and not the fix. python3-dev is the same
+        # class of failure one step later: without Python.h the extension
+        # cannot compile.
         run=_BASH(
+            "sudo apt-get update && "
+            "sudo apt-get install -y --no-install-recommends cython3 python3-dev && "
             f'cd "{REPO_ROOT}/src/localization/external/range_libc/pywrapper" && '
             "python3 setup.py install --user"
         ),
+        requires=Requires(sudo=True),
         profiles=_on(*DEV),
         # range_libc imports nav_msgs.msg at module scope, so the check has to
         # source ROS. Importing it from a bare python3 fails on nav_msgs and
