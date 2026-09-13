@@ -168,7 +168,10 @@ build-engines:
 # - a `.engine-cache-key` marker (this fingerprint, written only after a full
 #   sync) makes a second run skip the network entirely when nothing changed --
 #   a stale or missing marker just means "try the network again", never a
-#   reason to refuse
+#   reason to refuse. The marker is believed only while every file the sync
+#   put in place is still there (`.engine-cache-files` lists them): a marker
+#   beside a deleted engine would otherwise skip the download and pay for a
+#   full local build instead.
 # - the archive is extracted into a staging directory UNDER `${DATA}` (so `mv`
 #   is same-filesystem and atomic), then moved into place file by file, and
 #   the marker is written only once every move has succeeded. A kill at any
@@ -177,6 +180,17 @@ build-engines:
 #   did not finish, so the next run just tries again rather than trusting a
 #   half-applied cache. `build-engines` at the end tolerates a partial mix of
 #   old/new/missing engines the same way it always has.
+# - the download itself RESUMES. A ~50 MB asset over a conference wifi is a
+#   minute of exposure, and starting again from zero after each interruption
+#   is how a step that is retried three times still never finishes. The partial
+#   file is kept in `.engine-download/` deliberately -- it is the resume point,
+#   not litter -- and removed once the sync has succeeded. A resumed file that
+#   fails its checksum is re-fetched whole once before being given up on,
+#   because that is what a resume onto a changed asset looks like.
+# - the manifest is fetched with cache-busting. GitHub's release CDN served a
+#   manifest.json 30 seconds stale immediately after an upload during this
+#   work; believing it costs a ~9 minute local build for an asset that is
+#   sitting on the release.
 #
 # just --list shows only the LAST comment line, so the description goes here.
 # Use a cached engine set if one matches this board, else build (setup.sh default)
@@ -187,9 +201,25 @@ engines:
     DATA="${AUTOSDV_DATA_PATH:-{{justfile_directory()}}/data/autoware_data}"
     REPO="NEWSLabNTU/AutoSDV"
     MARKER="${DATA}/.engine-cache-key"
+    SYNCED_FILES="${DATA}/.engine-cache-files"
+    DL_DIR="${DATA}/.engine-download"
+
+    # The marker is only as true as the files it claims are in place. A run that
+    # trusts it blindly skips the download and then pays for a full local build,
+    # which is the expensive way to discover that someone deleted an engine.
+    synced() {
+        [[ -f "${MARKER}" && "$(cat "${MARKER}" 2>/dev/null)" == "${KEY}" ]] || return 1
+        [[ -s "${SYNCED_FILES}" ]] || return 1
+        local rel
+        while IFS= read -r rel; do
+            [[ -n "${rel}" ]] || continue
+            [[ -f "${DATA}/${rel}" ]] || return 1
+        done < "${SYNCED_FILES}"
+        return 0
+    }
 
     if KEY=$(scripts/version/engine-fingerprint.sh 2>&1); then
-        if [[ -f "${MARKER}" && "$(cat "${MARKER}" 2>/dev/null)" == "${KEY}" ]]; then
+        if synced; then
             echo "=== ${KEY}: already synced from the cache, skipping download"
         else
             AUTOWARE_VERSION=$(scripts/version/get-version.sh autoware.version)
@@ -198,39 +228,89 @@ engines:
             echo "=== fingerprint: ${KEY}"
 
             TMP=$(mktemp -d)
-            if curl -fsSL "${BASE}/manifest.json" -o "${TMP}/manifest.json" 2>/dev/null; then
+            # A kill during the manifest fetch would otherwise leave this behind
+            # in /tmp on every attempt.
+            trap 'rm -rf "${TMP}"' EXIT
+            # `?t=` and no-cache because the CDN serves a stale manifest for a
+            # while after an upload, and a missing key there is indistinguishable
+            # from an asset that was never published.
+            if curl -fsSL -H 'Cache-Control: no-cache' \
+                    "${BASE}/manifest.json?t=$(date +%s)" -o "${TMP}/manifest.json" 2>/dev/null; then
                 read -r ASSET ASSET_SHA <<< "$(python3 -c "import json; m = json.load(open('${TMP}/manifest.json')); e = m.get('${KEY}') or {}; print(e.get('asset', ''), e.get('sha256', ''))" 2>/dev/null)"
-                if [[ -n "${ASSET:-}" ]] && curl -fsSL "${BASE}/${ASSET}" -o "${TMP}/${ASSET}" 2>/dev/null; then
-                    if [[ -n "${ASSET_SHA:-}" ]]; then
-                        ACTUAL=$(sha256sum "${TMP}/${ASSET}" | cut -d' ' -f1)
-                        if [[ "${ACTUAL}" != "${ASSET_SHA}" ]]; then
-                            echo "=== ${ASSET}: checksum mismatch, discarding"
-                            rm -f "${TMP}/${ASSET}"
+                if [[ -z "${ASSET:-}" ]]; then
+                    echo "=== ${KEY}: no cached engine set for this key yet"
+                else
+                    mkdir -p "${DL_DIR}"
+                    ARCHIVE="${DL_DIR}/${ASSET}"
+
+                    # Three states to handle, in order of cost: already have it
+                    # whole, have part of it, have nothing.
+                    have_it() {
+                        [[ -n "${ASSET_SHA:-}" && -f "${ARCHIVE}" ]] || return 1
+                        [[ "$(sha256sum "${ARCHIVE}" | cut -d' ' -f1)" == "${ASSET_SHA}" ]]
+                    }
+
+                    # Resume first, then fall back to a whole fetch. Both
+                    # attempts are needed, and the SECOND is not optional: a
+                    # release URL redirects to a storage host, and a resumed
+                    # transfer through that redirect was measured finishing with
+                    # curl exit 0 and a file that failed its checksum. Treating
+                    # only a curl error as failure sent that case to a ~9 minute
+                    # local build with a good asset sitting on the release.
+                    for attempt in resume whole; do
+                        if have_it; then break; fi
+                        if [[ "${attempt}" == "resume" && -f "${ARCHIVE}" ]]; then
+                            echo "=== ${ASSET}: resuming interrupted download"
+                            curl -fL -C - --retry 3 --retry-delay 2 \
+                                -o "${ARCHIVE}" "${BASE}/${ASSET}" 2>/dev/null || true
+                        else
+                            # No partial to resume, or the resumed file was bad:
+                            # start clean rather than resuming onto damage.
+                            [[ -f "${ARCHIVE}" ]] && echo "=== ${ASSET}: resumed copy is corrupt, refetching whole"
+                            rm -f "${ARCHIVE}"
+                            echo "=== ${KEY}: downloading ${ASSET}"
+                            curl -fL --retry 3 --retry-delay 2 \
+                                -o "${ARCHIVE}" "${BASE}/${ASSET}" 2>/dev/null || true
                         fi
-                    fi
-                    if [[ -f "${TMP}/${ASSET}" ]]; then
-                        echo "=== ${KEY}: downloading ${ASSET}"
+                        # No checksum published for this key: one attempt is all
+                        # that can be judged, so take what arrived.
+                        [[ -n "${ASSET_SHA:-}" ]] || break
+                    done
+
+                    if [[ ! -f "${ARCHIVE}" ]]; then
+                        echo "=== ${ASSET}: download failed; building locally instead"
+                    elif ! have_it && [[ -n "${ASSET_SHA:-}" ]]; then
+                        echo "=== ${ASSET}: checksum mismatch, discarding"
+                        rm -f "${ARCHIVE}"
+                    else
                         STAGE="${DATA}/.stage-engines"
                         rm -rf "${STAGE}"
                         mkdir -p "${STAGE}"
-                        if tar -xzf "${TMP}/${ASSET}" -C "${STAGE}"; then
+                        if tar -xzf "${ARCHIVE}" -C "${STAGE}"; then
+                            find "${STAGE}" -type f -printf '%P\n' > "${TMP}/files"
                             while IFS= read -r rel; do
                                 mkdir -p "${DATA}/$(dirname "${rel}")"
                                 mv -f "${STAGE}/${rel}" "${DATA}/${rel}"
-                            done < <(find "${STAGE}" -type f -printf '%P\n')
+                            done < "${TMP}/files"
+                            # Both written only now: every file is in place, so
+                            # the next run may believe them.
+                            cp "${TMP}/files" "${SYNCED_FILES}"
                             echo "${KEY}" > "${MARKER}"
+                            # The resume point is no longer needed, and it is
+                            # ~50 MB.
+                            rm -rf "${DL_DIR}"
                         else
                             echo "=== ${ASSET}: extraction failed, discarding"
+                            rm -f "${ARCHIVE}"
                         fi
                         rm -rf "${STAGE}"
                     fi
-                else
-                    echo "=== ${KEY}: no cached engine set yet"
                 fi
             else
                 echo "=== no manifest at release ${TAG} (not published yet, or no network)"
             fi
             rm -rf "${TMP}"
+            trap - EXIT
         fi
     else
         echo "=== could not fingerprint this board (${KEY}); building locally"
