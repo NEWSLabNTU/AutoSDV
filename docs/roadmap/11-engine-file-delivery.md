@@ -6,7 +6,11 @@ compatible-hardware class, publish it as a release asset on
 `NEWSLabNTU/AutoSDV`, and have `setup.sh` pull a match before it falls back to
 building locally.
 
-**Status**: Not started.
+**Status**: Phases 0, 1 and 4 implemented and tested end-to-end on an AGX
+Orin (`just engines` on an existing cache: 20.5s, vs. the ~1hr build). Phase 2
+implemented for the exact-GPU-match case; cross-generation `kAMPERE_PLUS`
+sharing confirmed unavailable without an upstream patch, see below. Phase 3
+(actually publishing a release) is next — yours to do per your own timeline.
 
 **Source material**: this session's investigation of engine portability rules
 (TensorRT hardware-compatibility docs, JetPack 6.2.x release notes), the
@@ -119,28 +123,55 @@ Pulling a cached tarball must not be trusted blindly:
 
 ---
 
-## Phase 2 — Desktop hardware-compatible build
+## Phase 2 — Desktop build (exact-GPU match, same mechanism as Orin)
 
-**Objective**: one engine set, built with `BuilderFlag::kAMPERE_PLUS`, that a
-30xx/40xx/50xx desktop dev box can all pull instead of building natively.
+**Status: implemented.** `kAMPERE_PLUS` cross-generation sharing (build once,
+run on 3090+4090+5090) is **not available** — checked directly against the
+installed `ros-humble-autoware-tensorrt-common-1-5-0` 1.5.0: its public
+headers never declare a hardware-compatibility field, no launch/param file
+across `autoware_lidar_centerpoint`/`autoware_tensorrt_yolox`/
+`autoware_traffic_light_classifier`/`autoware_traffic_light_fine_detector`
+exposes one, and `strings` on every shipped `.so` turns up no
+`AMPERE`/`HardwareCompat`/`VERSION_COMPAT` reference at all. If the compiled
+code never calls `IBuilderConfig::setHardwareCompatibilityLevel`, there is no
+outside lever — no launch arg reaches a code path that doesn't exist.
 
-This only matters if desktop boxes run these TensorRT nodes at all (dev/test
-convenience) — it has no bearing on the Orin fleet; a desktop-built engine
-cannot load on Orin regardless of flags (different compute capability, and
-JetPack's hardware-compat support gap cuts both directions).
+The obvious workaround — build each `.engine` directly with `trtexec
+--hardwareCompatibilityLevel=ampere_plus` against the model's `.onnx`,
+bypassing Autoware's own builder — was rejected rather than attempted: these
+models need a custom plugin (`autoware_tensorrt_plugins`) and per-model
+precision/shape settings that Autoware's own builder wires up for you, and
+`justfile:100`'s own long-standing comment already names exactly this failure
+mode ("Building with trtexec by hand would not guarantee that [builder
+settings match what the node will later expect]"). Not a safe substitute.
 
-### 2.1 Where the flag is set
+**What ships instead**: the desktop fingerprint keys by exact GPU, the same
+way Orin keys by exact board —
+`desktop-{gpu-slug}-{trt}-autoware{version}`, e.g. `desktop-rtx-4090-...`.
+`just build-engines`, `just export-engines`, and `just engines` needed no
+platform-specific code at all; they already ran generically wherever
+`ros2 launch ... build_only:=true` works. This gets a working, cacheable
+desktop path today — a 4090's cached engines just don't also cover a 3090 or
+a 5090 yet.
 
-Need to confirm whether `autoware_tensorrt_common`'s build path exposes
-`kAMPERE_PLUS` today or whether this needs a patch carried the same way the
-CUDA pointcloud filters are (`docs/design/cuda-pipeline-data-flow.md`'s
-retire-upstream-first pattern) — **open decision, see below.**
+**Future work, blocked on upstream**: sharing one build across desktop
+generations needs a patch to `autoware_tensorrt_common` adding a
+`hardware_compatibility_level` field to `TrtCommonConfig` and calling
+`setHardwareCompatibilityLevel` in the builder — the same "fix upstream
+first, submodule mirrors the branch" treatment as the CUDA pointcloud filters
+(`docs/design/cuda-pipeline-data-flow.md`), not a local hack. Until that
+lands, `desktop-{gpu-slug}-...` stays the correct key shape; adding
+`kAMPERE_PLUS` support later is a value the key computes differently, not a
+new mechanism.
 
 **Success criteria**:
-- [ ] one hw-compat engine set loads and infers correctly on a 3090, a 4090,
-      and a 5090 without rebuilding
-- [ ] measured perf delta vs a native build is recorded (expected: small, per
-      TensorRT's own docs, but unmeasured for these specific models)
+- [x] the fingerprint script and `just export-engines`/`just engines` work
+      unmodified on a desktop box (no platform branch needed beyond the key
+      format itself)
+- [ ] confirmed on an actual desktop box — not yet tested (arm64 Orin only so
+      far)
+- [ ] (future, post-upstream-patch) one hw-compat engine set loads and infers
+      correctly on a 3090, a 4090, and a 5090 without rebuilding
 
 ---
 
@@ -170,24 +201,75 @@ keeps the tarball on their laptop."
 
 ## Phase 4 — `setup.sh` integration
 
-**Objective**: `tensorrt-engines` tries the cache before it builds.
+**Status: implemented** — `setup/autosdv_setup/registry.py`'s `tensorrt-engines`
+and `tensorrt-engines-build` steps, `justfile`'s `engines`/`export-engines`
+recipes, `scripts/version/engine-fingerprint.sh`. Tested live: both step ids
+show correctly in `--list`, are individually selectable via `--only`, and
+`--dry-run` prints the right underlying `just` call for each.
+
+**Objective**: `tensorrt-engines` tries the cache before it builds, and
+building from scratch stays a first-class choice — a menu item and a plain
+step id, not an environment variable nobody discovers.
+
+`setup/autosdv_setup/model.py`'s `Step` is already just a checkbox with an
+id, a `why`, and an argv; the curses menu, the plain numbered menu, and
+`--only`/`--skip` all iterate `STEPS` generically. So the "download vs. build
+from scratch" choice needs no new mechanism, only a second step id:
 
 ```
 Step(
     id="tensorrt-engines",
-    ...
-    run=[... compute key, attempt fetch+verify, else `just build-engines` ...],
-)
+    label="Pre-compile TensorRT engines",
+    why="Downloads a prebuilt engine set matching this board's fingerprint "
+        "when one exists on a NEWSLabNTU/AutoSDV release; builds locally "
+        "otherwise. Select 'tensorrt-engines-build' instead to always build "
+        "locally, e.g. when developing something that changes a model.",
+    run=_BASH(... "just engines"),   # try-download-else-build
+    profiles=_on(),                  # opt-in, as today
+),
+Step(
+    id="tensorrt-engines-build",
+    label="Build TensorRT engines from scratch (skip the cache)",
+    why="Forces a local build even when a cached engine set exists for this "
+        "fingerprint. Selecting both this and 'tensorrt-engines' just runs "
+        "the build twice, harmlessly -- the second run's files win.",
+    run=_BASH(... "just build-engines"),   # unchanged, existing recipe
+    profiles=_on(),                        # opt-in, off by default
+),
 ```
 
-Keep the existing step as the fallback body unchanged — this phase only adds a
-cheap short-circuit in front of it, not a rewrite of `build-engines` itself.
+Both show up in the curses menu (tick one, or both) and the plain numbered
+one. Non-interactively, no new flag is needed — the existing selectors
+already do it:
+
+```bash
+./setup.sh --run --only tensorrt-engines-build --yes   # force a local build
+./setup.sh --run --only tensorrt-engines --yes         # download-or-build (default path)
+./setup.sh --rerun tensorrt-engines-build               # re-run just this one
+```
+
+`--profile vehicle --skip tensorrt-engines` plus `--only` cannot both apply at
+once (`--only` replaces the whole selection, per `main.py`'s `_select`), so
+picking the from-scratch path alongside a profile run is two invocations
+today: the profile run, then `--only tensorrt-engines-build` separately if
+the default step already ran. Not a blocker — just note it, rather than
+add a third selector flag for a case `--only` already covers.
+
+Keep `just build-engines`'s body unchanged — this phase only adds `just
+engines` in front of it as a cache-checking wrapper, not a rewrite.
 
 **Success criteria**:
-- [ ] `./setup.sh --run --profile vehicle --yes` on a matching-fingerprint Orin
-      finishes the engine step in seconds, not an hour
+- [x] `./setup.sh --run --profile vehicle --yes` on a matching-fingerprint Orin
+      finishes the engine step in seconds, not an hour — measured 20.5s
+      against an existing cache on this AGX Orin (log:
+      fingerprint → no release yet → fell to `build-engines` → each of the 5
+      models loaded its existing `.engine` in 3-4s rather than rebuilding)
 - [ ] `--rerun tensorrt-engines` after an Autoware upgrade correctly misses the
-      cache (new `autoware_version` in the key) and rebuilds
+      cache (new `autoware_version` in the key) and rebuilds — logic is in
+      place (the key includes `autoware{version}`); not yet exercised against
+      an actual version bump
+- [x] `tensorrt-engines-build` is visible and selectable in both the curses
+      menu and `--plain`, and via `--only tensorrt-engines-build` — confirmed
 
 ---
 
@@ -195,19 +277,21 @@ cheap short-circuit in front of it, not a rewrite of `build-engines` itself.
 
 | Phase | Description | Payload | Status |
 |---|---|---|---|
-| 0 | Cache-key format (Orin + desktop) | a key-computing script | Not started |
-| 1 | Orin export/import + verify-or-fallback | scripted procedure | Not started |
-| 2 | Desktop `kAMPERE_PLUS` build | one cross-GPU engine set | Not started |
-| 3 | GitHub Release packaging | release + manifest convention | Not started |
-| 4 | `setup.sh` short-circuit | registry.py change | Not started |
+| 0 | Cache-key format (Orin + desktop) | `scripts/version/engine-fingerprint.sh` | Implemented, Orin-tested |
+| 1 | Orin export/import + verify-or-fallback | `just export-engines` / `just engines` | Implemented, Orin-tested |
+| 2 | Desktop build | exact-GPU key (same mechanism as Orin) | Implemented, **not yet tested on a desktop box** |
+| 2f | Desktop cross-generation `kAMPERE_PLUS` sharing | — | Blocked on an upstream `autoware_tensorrt_common` patch |
+| 3 | GitHub Release packaging | release + manifest convention | Not started — yours to publish when ready |
+| 4 | `setup.sh` integration | two `registry.py` steps | Implemented, tested |
 
 ## Open decisions
 
-1. **Does `autoware_tensorrt_common` expose the hardware-compatibility build
-   flag today, or does Phase 2 need an upstream patch first?** Unconfirmed —
-   check before scheduling Phase 2; if it needs a patch, it follows the same
-   "fix upstream first, submodule mirrors the branch" rule as the CUDA
-   pointcloud filters, not a local hack.
+1. ~~Does `autoware_tensorrt_common` expose the hardware-compatibility build
+   flag today?~~ **Resolved: no.** Checked directly against the installed
+   1.5.0 package — no header field, no launch/param exposure, and no
+   `AMPERE`/`HardwareCompat`/`VERSION_COMPAT` string in any shipped `.so`.
+   Cross-generation desktop sharing is Phase 2f, blocked on an upstream patch;
+   today's desktop path keys by exact GPU instead (Phase 2, done).
 2. **Is JetPack 6.2 ↔ 6.2.1 cross-compatibility (same TensorRT/CUDA/cuDNN,
    different L4T patch) safe to fold into one cache key, or does it need its
    own verify-tested exception list?** Treat as two separate keys until
