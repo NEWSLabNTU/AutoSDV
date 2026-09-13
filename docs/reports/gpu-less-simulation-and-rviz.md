@@ -2,7 +2,7 @@
 
 Measured 2026-09-13, to decide whether a classroom container can run the book's
 tutorial on laptops that have no NVIDIA GPU. This is the gate for
-[roadmap 11](../roadmap/11-student-container.md); nothing else in that plan is
+[roadmap 11](../roadmap/12-student-container.md); nothing else in that plan is
 worth building if the answer here is no.
 
 **The answer is yes**, but only after fixing a defect in `just sim planning` and
