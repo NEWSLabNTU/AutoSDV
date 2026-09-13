@@ -55,7 +55,10 @@ find_package(Eigen3 REQUIRED)
 # So the package skips itself instead, the way cuda_pointcloud_filters skips
 # itself without a CUDA toolkit. Install the SDK with
 # `./setup.sh --rerun blickfeld` if you have a Cube1.
-find_package(blickfeld-scanner 2.20.6 QUIET full)
+# COMPONENTS is required to name `full`: a bare word after REQUIRED is taken
+# as a component, but after QUIET it is simply an invalid argument, and
+# find_package fails hard before the check below can skip anything.
+find_package(blickfeld-scanner 2.20.6 QUIET COMPONENTS full)
 if(NOT blickfeld-scanner_FOUND)
   message(WARNING
     "Blickfeld Scanner Library not found; skipping ${PROJECT_NAME}. "
