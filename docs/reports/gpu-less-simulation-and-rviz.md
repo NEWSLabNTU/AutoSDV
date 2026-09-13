@@ -145,6 +145,47 @@ logging one without a graphics path, which makes the container's renderer
 detection load-bearing rather than a nicety: on Linux and WSL2 it reaches a GPU,
 and only macOS is stuck on llvmpipe.
 
+## play_launch runs the CUDA matcher when you ask for the CPU one
+
+Found by running the logging simulation inside the desktop container, which has
+no GPU and therefore no `libcuda.so.1`:
+
+    thread 'main' panicked at cudarc-0.17.8/src/lib.rs:159:
+    Unable to dynamically load the "cuda" shared library
+
+That is `cuda_ndt_matcher`, and the launch had been given `pose_source:=ndt`.
+The node is renamed `ndt_scan_matcher`, so nothing in a process listing gives
+it away; only `play_log/<run>/node/ndt_scan_matcher/metadata.json` names the
+package it came from.
+
+Same launch file, same arguments, two launchers:
+
+| launcher | node started |
+|---|---|
+| `ros2 launch` | `autoware_ndt_scan_matcher_node` -- the CPU matcher, correct |
+| `play_launch` | `cuda_ndt_matcher` -- wrong |
+
+play_launch mis-evaluates the `$(eval ...)` substitution in the
+`resolved_pose_source_package` `<let>` and selects the CUDA plugin regardless.
+Both `autosdv.launch.yaml` and `logging_simulation.launch.yaml` carry the
+correct expression, so the launch files are not at fault.
+
+**Why this hid.** On any machine with an NVIDIA driver the CUDA matcher loads
+and runs, so `pose_source:=ndt` appears to work while quietly doing the
+opposite of what it says. The CPU path is only exercised where it cannot fall
+back -- a GPU-less container -- and that is the first place it has ever run.
+
+**It invalidates the four-core NDT rate in the section above.** That run went
+through `just sim logging`, hence through play_launch, so its 9.88 Hz is the
+CUDA matcher on a GPU rather than CPU NDT on four cores. The CPU matcher's
+throughput remains unmeasured: a first attempt in the container gave 2.9 Hz
+against a 10 Hz sensor, but the host was at load average 39 on 32 cores with
+the NDT process at 42% of one core -- waiting, not computing -- so that number
+measures contention and is not reported as the matcher's speed.
+
+`ros2 launch` is unaffected, and that is the form the book and the Lab 0 slides
+teach. `just sim logging` and `just launch` are affected.
+
 ## Method notes
 
 - RViz reports its own frame rate in the bottom-right corner; that readout was
