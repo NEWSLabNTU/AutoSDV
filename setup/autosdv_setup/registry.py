@@ -301,7 +301,9 @@ STEPS: list[Step] = [
     Step(
         id="tensorrt-runtime",
         label="TensorRT runtime matching Autoware's build (amd64)",
-        why="Autoware discards any cached .engine whose recorded TensorRT "
+        why="Complements the 'tensorrt' step, which installs any TensorRT 10 so "
+            "the Autoware packages resolve. This one is about engine REUSE: "
+            "Autoware discards any cached .engine whose recorded TensorRT "
             "version differs from the one its own libraries were compiled "
             "against -- to the patch. A workstation whose TensorRT is a "
             "different 10.x patch therefore rebuilds all five perception "
@@ -314,7 +316,11 @@ STEPS: list[Step] = [
         group="Autoware",
         run=[_S("install-tensorrt-runtime.sh")],
         requires=Requires(sudo=True, arch=("x86_64",)),
-        after=("autoware-debian",),
+        # After `tensorrt`, which makes the Autoware packages installable with
+        # any TensorRT 10 and asks for this exact patch when a source offers it.
+        # This step is what rescues the case it cannot fix: a workstation that
+        # already had a different 10.x, which is left alone there by design.
+        after=("autoware-debian", "tensorrt"),
         profiles=_on(*DEV),
         verify=["bash", "-c",
                 'v=$("' + str(REPO_ROOT / "scripts" / "version" / "get-version.sh")

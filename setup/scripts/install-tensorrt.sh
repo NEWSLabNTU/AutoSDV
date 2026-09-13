@@ -31,6 +31,40 @@ set -euo pipefail
 SONAMES=(libnvinfer.so.10 libnvinfer_plugin.so.10 libnvonnxparser.so.10)
 PACKAGES=(libnvinfer10 libnvinfer-plugin10 libnvonnxparsers10)
 
+REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
+
+# Which PATCH of TensorRT 10 gets installed is not a free choice, even though
+# the Autoware packages' own `Depends: libnvinfer10` says it is.
+# `autoware_tensorrt_common` discards any cached .engine whose recorded
+# TensorRT version differs from the one its libraries were compiled against, so
+# a machine that lands on 10.16 satisfies apt and then rebuilds all five
+# perception engines on every single launch -- minutes, with perception down,
+# forever. Ask for that version by name when a configured source has it, and
+# fall back to the newest rather than failing: any 10.x makes Autoware
+# installable, which is this step's actual job, and setup step
+# `tensorrt-runtime` fixes the engine side afterwards on a host that cannot be
+# moved.
+ENGINE_ABI="$(
+    "${REPO_DIR}/scripts/version/get-version.sh" nvidia_amd64.tensorrt_engine_abi 2>/dev/null || true
+)"
+
+# Print `pkg=version` for each package when the exact ABI version is offered by
+# a configured source, and bare package names otherwise.
+pinned_packages() {
+    local pkg listing want spec
+    local -a specs=()
+    [ -n "$ENGINE_ABI" ] || { printf '%s\n' "${PACKAGES[@]}"; return; }
+    for pkg in "${PACKAGES[@]}"; do
+        listing="$(apt-cache madison "$pkg" 2>/dev/null || true)"
+        # No `{exit}` in the awk: closing the pipe early costs apt-cache a
+        # SIGPIPE and `set -o pipefail` turns that into a fatal 141.
+        want="$(awk -v v="${ENGINE_ABI}." '$3 ~ ("^" v) && !seen { print $3; seen = 1 }' <<<"$listing")"
+        [ -n "$want" ] || { printf '%s\n' "${PACKAGES[@]}"; return; }
+        specs+=("${pkg}=${want}")
+    done
+    printf '%s\n' "${specs[@]}"
+}
+
 say() { printf '  %s\n' "$*"; }
 
 ARCH="$(uname -m)"
@@ -71,6 +105,13 @@ if [ -n "${LD_LIBRARY_PATH:-}" ]; then
     IFS=':' read -ra _dirs <<< "$LD_LIBRARY_PATH"
     for d in "${_dirs[@]}"; do
         [ -n "$d" ] || continue
+        # /opt/tensorrt/<version> is OUR prefix, put there by the
+        # `tensorrt-runtime` step and on LD_LIBRARY_PATH by scripts/env.sh. It
+        # is deliberate, it is deliberately outside the ldconfig cache, and it
+        # exists precisely because the system TensorRT is a different patch --
+        # so stopping here would refuse the step on every machine that has
+        # already had the engine problem fixed.
+        case "$d" in /opt/tensorrt/*) continue ;; esac
         if ls "$d"/libnvinfer.so.10* >/dev/null 2>&1; then
             cat >&2 <<EOF
 
@@ -110,7 +151,9 @@ candidate="$(awk '/Candidate:/ {print $2}' <<<"$policy")"
 if [ -n "$candidate" ] && [ "$candidate" != "(none)" ]; then
     say "a configured apt source already offers TensorRT ($candidate); using it"
     say "adding no apt source of our own"
-    sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}"
+    mapfile -t specs < <(pinned_packages)
+    say "installing: ${specs[*]}"
+    sudo apt-get install -y --no-install-recommends --allow-downgrades "${specs[@]}"
     say "done"
     exit 0
 fi
@@ -213,7 +256,9 @@ fi
 
 sudo dpkg -i "$tmp/$keyring"
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}"
+mapfile -t specs < <(pinned_packages)
+say "installing: ${specs[*]}"
+sudo apt-get install -y --no-install-recommends "${specs[@]}"
 
 # Prove it, rather than assume the install did what it said.
 sudo ldconfig
