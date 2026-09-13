@@ -137,6 +137,20 @@ build-engines:
 # This is what the tensorrt-engines setup step runs; `just build-engines`
 # alone always skips the cache. See docs/roadmap/11-engine-file-delivery.md.
 #
+# Idempotent and interrupt-safe by construction, not by special-casing:
+# - a `.engine-cache-key` marker (this fingerprint, written only after a full
+#   sync) makes a second run skip the network entirely when nothing changed --
+#   a stale or missing marker just means "try the network again", never a
+#   reason to refuse
+# - the archive is extracted into a staging directory UNDER `${DATA}` (so `mv`
+#   is same-filesystem and atomic), then moved into place file by file, and
+#   the marker is written only once every move has succeeded. A kill at any
+#   point leaves either the old file or the fully-moved new one at each final
+#   path -- never a truncated one -- and never writes a marker for a sync that
+#   did not finish, so the next run just tries again rather than trusting a
+#   half-applied cache. `build-engines` at the end tolerates a partial mix of
+#   old/new/missing engines the same way it always has.
+#
 # just --list shows only the LAST comment line, so the description goes here.
 # Use a cached engine set if one matches this board, else build (setup.sh default)
 engines:
@@ -145,35 +159,52 @@ engines:
     just setup-autoware-data
     DATA="${AUTOSDV_DATA_PATH:-{{justfile_directory()}}/data/autoware_data}"
     REPO="NEWSLabNTU/AutoSDV"
+    MARKER="${DATA}/.engine-cache-key"
 
     if KEY=$(scripts/version/engine-fingerprint.sh 2>&1); then
-        AUTOWARE_VERSION=$(scripts/version/get-version.sh autoware.version)
-        TAG="engines-autoware-${AUTOWARE_VERSION}"
-        BASE="https://github.com/${REPO}/releases/download/${TAG}"
-        echo "=== fingerprint: ${KEY}"
+        if [[ -f "${MARKER}" && "$(cat "${MARKER}" 2>/dev/null)" == "${KEY}" ]]; then
+            echo "=== ${KEY}: already synced from the cache, skipping download"
+        else
+            AUTOWARE_VERSION=$(scripts/version/get-version.sh autoware.version)
+            TAG="engines-autoware-${AUTOWARE_VERSION}"
+            BASE="https://github.com/${REPO}/releases/download/${TAG}"
+            echo "=== fingerprint: ${KEY}"
 
-        TMP=$(mktemp -d)
-        if curl -fsSL "${BASE}/manifest.json" -o "${TMP}/manifest.json" 2>/dev/null; then
-            read -r ASSET ASSET_SHA <<< "$(python3 -c "import json; m = json.load(open('${TMP}/manifest.json')); e = m.get('${KEY}') or {}; print(e.get('asset', ''), e.get('sha256', ''))" 2>/dev/null)"
-            if [[ -n "${ASSET:-}" ]] && curl -fsSL "${BASE}/${ASSET}" -o "${TMP}/${ASSET}" 2>/dev/null; then
-                if [[ -n "${ASSET_SHA:-}" ]]; then
-                    ACTUAL=$(sha256sum "${TMP}/${ASSET}" | cut -d' ' -f1)
-                    if [[ "${ACTUAL}" != "${ASSET_SHA}" ]]; then
-                        echo "=== ${ASSET}: checksum mismatch, discarding"
-                        rm -f "${TMP}/${ASSET}"
+            TMP=$(mktemp -d)
+            if curl -fsSL "${BASE}/manifest.json" -o "${TMP}/manifest.json" 2>/dev/null; then
+                read -r ASSET ASSET_SHA <<< "$(python3 -c "import json; m = json.load(open('${TMP}/manifest.json')); e = m.get('${KEY}') or {}; print(e.get('asset', ''), e.get('sha256', ''))" 2>/dev/null)"
+                if [[ -n "${ASSET:-}" ]] && curl -fsSL "${BASE}/${ASSET}" -o "${TMP}/${ASSET}" 2>/dev/null; then
+                    if [[ -n "${ASSET_SHA:-}" ]]; then
+                        ACTUAL=$(sha256sum "${TMP}/${ASSET}" | cut -d' ' -f1)
+                        if [[ "${ACTUAL}" != "${ASSET_SHA}" ]]; then
+                            echo "=== ${ASSET}: checksum mismatch, discarding"
+                            rm -f "${TMP}/${ASSET}"
+                        fi
                     fi
-                fi
-                if [[ -f "${TMP}/${ASSET}" ]]; then
-                    echo "=== ${KEY}: downloading ${ASSET}"
-                    tar -xzf "${TMP}/${ASSET}" -C "${DATA}"
+                    if [[ -f "${TMP}/${ASSET}" ]]; then
+                        echo "=== ${KEY}: downloading ${ASSET}"
+                        STAGE="${DATA}/.stage-engines"
+                        rm -rf "${STAGE}"
+                        mkdir -p "${STAGE}"
+                        if tar -xzf "${TMP}/${ASSET}" -C "${STAGE}"; then
+                            while IFS= read -r rel; do
+                                mkdir -p "${DATA}/$(dirname "${rel}")"
+                                mv -f "${STAGE}/${rel}" "${DATA}/${rel}"
+                            done < <(find "${STAGE}" -type f -printf '%P\n')
+                            echo "${KEY}" > "${MARKER}"
+                        else
+                            echo "=== ${ASSET}: extraction failed, discarding"
+                        fi
+                        rm -rf "${STAGE}"
+                    fi
+                else
+                    echo "=== ${KEY}: no cached engine set yet"
                 fi
             else
-                echo "=== ${KEY}: no cached engine set yet"
+                echo "=== no manifest at release ${TAG} (not published yet, or no network)"
             fi
-        else
-            echo "=== no manifest at release ${TAG} (not published yet, or no network)"
+            rm -rf "${TMP}"
         fi
-        rm -rf "${TMP}"
     else
         echo "=== could not fingerprint this board (${KEY}); building locally"
     fi
