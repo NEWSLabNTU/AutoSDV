@@ -270,10 +270,26 @@ STEPS: list[Step] = [
     Step(
         id="tensorrt-engines",
         label="Pre-compile TensorRT engines",
-        why="Minutes per model on an Orin, and otherwise paid inside each "
-            "node's constructor on the first launch, with perception "
-            "unavailable until it finishes. Engines are tied to the TensorRT "
-            "version AND the GPU, so this must run on the target board.",
+        why="Downloads a prebuilt engine set matching this board's "
+            "fingerprint from a NEWSLabNTU/AutoSDV release when one exists; "
+            "builds locally (minutes per model on an Orin) otherwise, which "
+            "is what would otherwise be paid inside each node's constructor "
+            "on the first launch. Select 'tensorrt-engines-build' instead to "
+            "always build locally and skip the cache lookup.",
+        group="Autoware",
+        run=_BASH(_LOCAL_BIN_ON_PATH + f'cd "{REPO_ROOT}" && just engines'),
+        after=("autoware-data", "just"),
+        profiles=_on(),                 # opt-in: slow (on a cache miss), and board-specific
+    ),
+    Step(
+        id="tensorrt-engines-build",
+        label="Build TensorRT engines from scratch (skip the cache)",
+        why="Forces a local build even when a cached engine set exists for "
+            "this board's fingerprint -- e.g. when developing something that "
+            "changes a model, or when the cache shouldn't be trusted. "
+            "Engines are tied to the TensorRT version AND the GPU, so this "
+            "must run on the target board. Selecting this alongside "
+            "'tensorrt-engines' just runs the build twice, harmlessly.",
         group="Autoware",
         run=_BASH(_LOCAL_BIN_ON_PATH + f'cd "{REPO_ROOT}" && just build-engines'),
         after=("autoware-data", "just"),
