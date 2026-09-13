@@ -363,57 +363,6 @@ scripts/
 - Preset files: `src/launcher/autosdv_launch/config/{perception,localization}/preset/`
 - Web UI: http://localhost:8081 (via play_launch)
 
-### Isaac Visual Localization
-
-Camera-only localization using NVIDIA Isaac ROS (cuVGL + cuVSLAM). Eliminates need for LiDAR NDT.
-Supported on both x86_64 (Ampere+ GPU) and ARM64 (Jetson). Install via `./setup.sh isaac-ros`.
-
-**Architecture:**
-```
-pose_source:=visual
-       │
-       ├── cuVGL (Global Localization)
-       │   └── Initial pose from visual map keyframes
-       │   └── Publishes: /visual_localization/.../pose
-       │
-       ├── cuVSLAM (Visual Odometry)
-       │   └── Continuous tracking via stereo camera + IMU
-       │   └── Publishes: /localization/pose_estimator/pose_with_covariance
-       │
-       └── Pose Initializer Bridge
-           └── Calls /localization/initialize on first cuVGL pose
-```
-
-**Packages:**
-```
-src/localization/autoware_isaac_localization/  # Standalone repo (github.com/NEWSLabNTU/autoware_isaac_localization)
-├── autoware_isaac_localization_launch/        # cuVSLAM + cuVGL launch files
-│   ├── launch/visual_localization.launch.xml  # Entry point for pose_source:=visual
-│   ├── launch/isaac_slam.launch.py            # cuVSLAM wrapper
-│   └── launch/visual_global_localization.launch.py
-└── autoware_isaac_pose_bridge/                # cuVGL → Autoware pose initializer bridge
-```
-
-**Usage:**
-```bash
-# Full visual localization (requires visual map)
-just launch pose_source:=visual visual_map_dir:=/path/to/visual_map
-
-# Visual odometry only (no global init, manual pose required)
-just launch pose_source:=isaac
-```
-
-**Creating Visual Maps:**
-```bash
-# 1. Record rosbag with ZED stereo + IMU
-./scripts/visual-map/record.sh ./data/visual_maps/my_location
-
-# 2. Create map (generates cuvgl_map/, cuvslam_map/, occupancy_map/)
-./scripts/visual-map/create-map.sh ./data/visual_maps/my_location_recording
-```
-
-**Roadmap:** See `docs/roadmaps/visual_global_localization.md`
-
 ### 2-D MCL Localization (`pose_source:=mcl`)
 
 Localizes a single-plane LaserScan against a 2-D occupancy grid instead of a PCD.
@@ -552,7 +501,7 @@ just sim logging pose_source:=cuda_ndt
 
 ### Leo Drive Bus-ODD Dataset
 
-The `scripts/leodrive-bus-launch` submodule provides tools for the [Leo Drive Bus-ODD dataset](https://autowarefoundation.github.io/autoware-documentation/main/datasets/) - an Autoware dataset with camera streams for testing visual localization.
+The `scripts/leodrive-bus-launch` submodule provides tools for the [Leo Drive Bus-ODD dataset](https://autowarefoundation.github.io/autoware-documentation/main/datasets/) - an Autoware dataset with camera streams.
 
 **Sensors in dataset:**
 | Sensor | Model | Quantity |
@@ -828,11 +777,6 @@ pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
 # explicitly only to plug in a third-party estimator. See
 # docs/design/localization-method-switching.md.
 pose_source:=mcl       # 2-D Monte-Carlo localization against an occupancy grid
-pose_source:=isaac     # cuVSLAM visual odometry only (relative tracking, manual init)
-pose_source:=visual    # cuVGL + cuVSLAM (camera-only, auto init from visual map)
-
-# For visual localization, specify map directory:
-visual_map_dir:=/path/to/visual_map  # Contains cuvgl_map/, cuvslam_map/
 ```
 
 #### System Features
@@ -937,8 +881,6 @@ recipes that no longer exist.
 | [docs/guides/lidar_integration.md](docs/guides/lidar_integration.md) | Robin-W, Velodyne, TensorRT |
 | [docs/guides/control_testing.md](docs/guides/control_testing.md) | Control system testing procedures |
 | [docs/guides/mrm_configuration.md](docs/guides/mrm_configuration.md) | MRM (emergency stop) configuration |
-| [docs/guides/isaac_vslam_testing.md](docs/guides/isaac_vslam_testing.md) | Isaac SLAM testing |
-| [docs/design/isaac_vslam_integration.md](docs/design/isaac_vslam_integration.md) | Isaac SLAM architecture |
 | [docs/research/localization/ndt_parameter_tuning_coss_map.md](docs/research/localization/ndt_parameter_tuning_coss_map.md) | NDT tuning research |
 
 ## Known Issues
@@ -951,14 +893,6 @@ recipes that no longer exist.
   in any bag recorded while disengaged.
 - **Network monitor errors**: AWS Greengrass socket errors (non-critical, ignore)
 - **ZED in VNC**: Requires TurboVNC with VirtualGL for hardware acceleration
-- **Isaac ROS GXF libraries**: If `pose_source:=visual` or `pose_source:=isaac` fails with "libgxf_*.so not found", the GXF library paths are not in `LD_LIBRARY_PATH`. Re-source the setup files:
-  ```bash
-  source /opt/ros/humble/setup.bash
-  source /opt/autoware/1.5.0/setup.bash
-  source install/setup.bash
-  ```
-  GXF libraries are located at `/opt/ros/humble/share/*/gxf/lib/` and should be added by Isaac ROS environment hooks.
-
 ## Important Notes
 
 - **Autoware 1.5.0**: Installed at `/opt/autoware/1.5.0/` via the setup script (autoware-localrepo)

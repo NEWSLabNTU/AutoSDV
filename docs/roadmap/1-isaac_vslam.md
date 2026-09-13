@@ -1,5 +1,20 @@
 # Isaac ROS Visual SLAM Integration Roadmap
 
+!!! warning "Retired — 2026-09-13"
+
+    **Isaac visual localization has been removed from AutoSDV.** The evaluation
+    did not look promising enough to keep carrying the dependency, so the
+    submodule, the `isaac-ros` setup step, the `pose_source:=isaac` and
+    `pose_source:=visual` options, the visual-map scripts and every operational
+    reference are gone.
+
+    This file is kept as the record of what was built and what was learned. Do
+    not treat it as describing the current system: nothing here is wired up any
+    more. If visual localization is revisited, start from the research rather
+    than from this implementation.
+
+
+
 **Goal**: Integrate NVIDIA Isaac ROS Visual SLAM into AutoSDV for indoor localization using ZED camera.
 
 **Overall Status**: ✅ **Implementation Complete** | ⏸️ **Testing Deferred**

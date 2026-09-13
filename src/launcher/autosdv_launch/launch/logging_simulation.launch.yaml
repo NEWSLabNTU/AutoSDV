@@ -192,36 +192,6 @@ launch:
     default: "true"
     description: "Launch localization"
 
-- arg:
-    name: enable_visualization
-    default: "false"
-    description: "Isaac: visualization output"
-
-- arg:
-    name: enable_visual_slam
-    default: "true"
-    description: "Isaac: run cuVSLAM"
-
-- arg:
-    name: enable_global_localization
-    default: "true"
-    description: "Isaac: run cuVGL global localization"
-
-- arg:
-    name: enable_pose_initializer
-    default: "true"
-    description: "Isaac: bridge first cuVGL pose to /localization/initialize"
-
-- arg:
-    name: enable_imu_fusion
-    default: "true"
-    description: "Isaac: fuse IMU into cuVSLAM"
-
-- arg:
-    name: auto_initialize
-    default: "true"
-    description: "Isaac: initialize pose automatically"
-
 # Distinct from launch_system_monitor above: that one gates AutoSDV's own
 # monitor node; this one is Autoware's system_monitor stack at the include.
 - arg:
@@ -237,7 +207,7 @@ launch:
 - arg:
     name: pose_source
     default: "cuda_ndt"
-    description: "Pose estimation source: cuda_ndt (default, CUDA NDT), ndt (built-in Autoware CPU NDT), mcl (2-D Monte Carlo against an occupancy grid), isaac, visual"
+    description: "Pose estimation source: cuda_ndt (default, CUDA NDT), ndt (built-in Autoware CPU NDT), mcl (2-D Monte Carlo against an occupancy grid)"
 
 - arg:
     name: pose_source_package
@@ -264,11 +234,6 @@ launch:
 - let:
     name: resolved_pose_source_package
     value: "$(eval \"('cuda_ndt_matcher_launch' if '$(var pose_source)' == 'cuda_ndt' else '') if '$(var pose_source_package)' == 'auto' else '$(var pose_source_package)'\")"
-
-- arg:
-    name: visual_map_dir
-    default: ""
-    description: "Path to visual map directory for pose_source:=visual (contains cuvgl_map/, cuvslam_map/)"
 
 - arg:
     name: enable_zed_object_detection
@@ -314,44 +279,6 @@ launch:
     name: rviz
     default: "true"
     description: "Launch RViz"
-
-# Launch Isaac ROS Visual SLAM when pose_source is isaac
-- group:
-    if: "$(eval '\"$(var pose_source)\" == \"isaac\"')"
-    children:
-    - include:
-        file: "$(find-pkg-share autoware_isaac_localization_launch)/launch/isaac_slam.launch.py"
-        arg:
-        - name: camera_namespace
-          value: /sensing/camera/$(var camera_model)/$(var camera_model)
-        - name: enable_imu_fusion
-          value: $(var enable_imu_fusion)
-        - name: enable_visualization
-          value: $(var enable_visualization)
-
-# Launch Visual Global Localization (cuVGL + cuVSLAM) when pose_source is visual
-- group:
-    if: "$(eval '\"$(var pose_source)\" == \"visual\"')"
-    children:
-    - include:
-        file: "$(find-pkg-share autoware_isaac_localization_launch)/launch/visual_localization.launch.xml"
-        arg:
-        - name: map_dir
-          value: $(var visual_map_dir)
-        - name: camera_namespace
-          value: /sensing/camera/$(var camera_model)/$(var camera_model)
-        - name: camera_model
-          value: $(var camera_model)
-        - name: enable_global_localization
-          value: $(var enable_global_localization)
-        - name: enable_visual_slam
-          value: $(var enable_visual_slam)
-        - name: enable_pose_initializer
-          value: $(var enable_pose_initializer)
-        - name: enable_imu_fusion
-          value: $(var enable_imu_fusion)
-        - name: auto_initialize
-          value: $(var auto_initialize)
 
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"

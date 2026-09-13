@@ -175,13 +175,3 @@ make launch  # cuda_ndt is the default pose_source
 - Resolution: 2.0m, Score threshold: 2.2, Voxel size: 0.5m, Points: 3000
 - See `docs/research/localization/ndt_parameter_tuning_coss_map.md` for tuning details
 
-### Isaac ROS Visual SLAM (GPU-Accelerated)
-
-```bash
-make launch ARGS="pose_source:=isaac use_gnss:=false camera_model:=zedxm"
-```
-
-- GPU-accelerated stereo visual-inertial odometry (cuVSLAM)
-- Suitable for indoor/GNSS-denied environments
-- Requires ZED X Mini (GMSL connection) + IMU + ZED SDK 5.x
-- See `docs/design/isaac_vslam_integration.md` and `docs/guides/isaac_vslam_testing.md`

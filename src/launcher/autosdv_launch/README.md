@@ -9,7 +9,7 @@ autosdv_launch/
 ├── launch/             # Launch files for AutoSDV system
 │   ├── autosdv.launch.yaml          # Main entry point
 │   ├── sensing.launch.xml           # Sensor suite configuration
-│   ├── localization.launch.xml      # Localization (NDT, EKF, Isaac SLAM)
+│   ├── localization.launch.xml      # Localization (NDT, EKF, MCL)
 │   ├── planning.launch.xml          # Path and motion planning
 │   └── ...
 ├── config/             # Autoware configuration files
@@ -34,7 +34,7 @@ All configuration files are in the `config/` directory. Below are AutoSDV-specif
 
 ### Localization (config/localization/)
 
-- **ekf_localizer.param.yaml**: Tuned for AR Tag + Isaac VSLAM sensor fusion
+- **ekf_localizer.param.yaml**: EKF tuning for pose/twist fusion
   - Custom process noise parameters for better fusion
   - Pose smoothing for AR tag corrections
   - Optimized for indoor/GPS-denied environments

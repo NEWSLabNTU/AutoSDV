@@ -86,10 +86,9 @@ To create a custom preset:
 
 Localization presets work together with other localization parameters:
 
-- **`pose_source`**: Selects pose estimation method (`cuda_ndt`, `ndt`, `isaac`, `visual`)
+- **`pose_source`**: Selects pose estimation method (`cuda_ndt`, `ndt`, `mcl`)
   - `cuda_ndt`: CUDA-accelerated NDT scan matching (default, 1.3-1.6x faster)
   - `ndt`: Autoware NDT scan matching (OpenMP CPU, fallback)
-  - `isaac`: Visual SLAM using Isaac ROS
 
 - **`use_gnss`**: Enables GNSS subsystem
   - Required for `eagleye` twist source
@@ -117,7 +116,7 @@ make launch ARGS="localization_preset:=default use_gnss:=false use_mapless_mode:
 
 ### Visual SLAM
 ```bash
-make launch ARGS="localization_preset:=default pose_source:=isaac use_gnss:=false"
+just launch ARGS="localization_preset:=default pose_source:=ndt use_gnss:=false"
 ```
 
 ### Eagleye with GNSS

@@ -20,8 +20,7 @@ Kept, against the golf cart's registry which drops it:
 
 * `gdown` -- still used here, by scripts/2dlidar/download-sample-rosbag.sh and
   cuda_ndt_matcher/scripts/download_sample_data.sh.
-* `isaac-ros`, `blickfeld`, `zed-sdk` -- AutoSDV has the hardware and the
-  pose_source options that need them.
+* `blickfeld`, `zed-sdk` -- AutoSDV has the hardware that needs them.
 
 `just` is an ordinary step now. It used to be a prerequisite installed by hand
 from a piped curl before setup would run at all; setup no longer needs it, but
@@ -310,16 +309,6 @@ STEPS: list[Step] = [
         profiles=_on(*DEV),
         verify=["bash", "-c",
                 "pkg-config --modversion opencv4 2>/dev/null | grep -q ."],
-    ),
-    Step(
-        id="isaac-ros",
-        label="Isaac ROS visual localization (cuVSLAM + cuVGL)",
-        why="pose_source:=visual and pose_source:=isaac. Needs an NVIDIA GPU.",
-        group="Libraries",
-        run=[_S("install-isaac-ros.sh")],
-        requires=Requires(sudo=True, hardware="cuda"),
-        after=("ros2",),
-        profiles=_on(),                 # opt-in: large, and not every vehicle uses it
     ),
     Step(
         id="range-libc",

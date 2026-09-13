@@ -87,7 +87,6 @@ slice the PCD you already have.
 |---|---|---|---|
 | `cuda_ndt`, `ndt` | on | off | on |
 | `mcl` | **off** | **on** | on |
-| `isaac`, `visual` | on (unchanged) | off | on |
 
 This requires an AutoSDV-owned map component, because the stock one cannot skip
 the PCD. That is consistent with what the repo already does for localization

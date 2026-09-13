@@ -49,10 +49,6 @@
 	path = src/sensor_component/external/autoware_zed
 	url = https://github.com/NEWSLabNTU/autoware_zed.git
 	branch = main
-[submodule "src/localization/autoware_isaac_localization"]
-	path = src/localization/autoware_isaac_localization
-	url = https://github.com/NEWSLabNTU/autoware_isaac_localization.git
-	branch = main
 [submodule "src/localization/cuda_ndt_matcher"]
 	path = src/localization/cuda_ndt_matcher
 	url = https://github.com/NEWSLabNTU/cuda_ndt_matcher.git
