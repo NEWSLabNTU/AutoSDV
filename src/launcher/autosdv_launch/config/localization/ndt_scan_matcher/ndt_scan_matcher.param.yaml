@@ -35,8 +35,7 @@
       resolution: 4.0
 
       # The number of iterations required to calculate alignment
-      # AutoSDV: Increased for better convergence with current resolution
-      max_iterations: 15
+      max_iterations: 30
 
       # Number of threads used for parallel computing
       num_threads: 4
