@@ -332,11 +332,32 @@ STEPS: list[Step] = [
         why="Resolves every key the packages under src/ declare, which is also "
             "why there are no per-driver apt steps here.",
         group="Autoware",
+        # `rosdep update` is retried because it fetches the whole rosdistro
+        # index from raw.githubusercontent.com, and one unreachable file fails
+        # the lot -- including legacy ROS 1 entries this project never uses:
+        #
+        #   ERROR: unable to process source [.../releases/fuerte.yaml]
+        #   ERROR: Not all sources were able to be updated.
+        #
+        # That is a transient network or rate-limit condition, not a broken
+        # workspace, and it should not end an install that has already spent
+        # twenty minutes downloading Autoware. Three attempts, then fail for
+        # real.
         run=_ros_bash(
             "if [[ -f /opt/autoware/1.5.0/setup.sh ]]; then set +u; "
             "source /opt/autoware/1.5.0/setup.sh; set -u; fi\n"
             f'cd "{REPO_ROOT}"\n'
-            "rosdep update --rosdistro=humble\n"
+            "updated=0\n"
+            "for attempt in 1 2 3; do\n"
+            "  if rosdep update --rosdistro=humble; then updated=1; break; fi\n"
+            "  echo \"rosdep update failed (attempt ${attempt}/3); retrying in 15s\" >&2\n"
+            "  sleep 15\n"
+            "done\n"
+            "if [[ $updated -ne 1 ]]; then\n"
+            "  echo 'rosdep update failed three times; check network access to "
+            "raw.githubusercontent.com' >&2\n"
+            "  exit 1\n"
+            "fi\n"
             "rosdep install -y --from-paths src --ignore-src -r"
         ),
         requires=Requires(sudo=True),
