@@ -142,6 +142,8 @@ build:
     # then the /usr/local/cuda symlink), and ndt_cuda pins cudarc's version
     # features so nothing runs `nvcc --version`. Verified by building with
     # nvcc absent from PATH.
+    set -e
+    {{justfile_directory()}}/scripts/build/check-python-env.sh
     source /opt/ros/humble/setup.bash && \
     colcon build \
         --base-paths src \
