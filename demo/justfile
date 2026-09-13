@@ -32,7 +32,7 @@ default:
 # Perception island: live LiDAR + camera detection, no map, no localization
 exhibition model="centerpoint":
     #!/usr/bin/env bash
-    cd "{{ repo }}" && source install/setup.bash && \
+    cd "{{ repo }}" && source scripts/env.sh && \
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         autosdv_launch autosdv.launch.yaml \
@@ -119,7 +119,7 @@ bench configs="gpu cpu autoware" repeats="1":
 bench-report runs_tsv:
     #!/usr/bin/env bash
     set -o pipefail
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     python3 "{{ repo }}/scripts/testing/localization/ndt_benchmark_report.py" "{{ runs_tsv }}" 2>/dev/null
 
 # Offline GPU-vs-CPU comparison on identical recorded input (the fair one)
@@ -129,7 +129,7 @@ bench-offline run_dir="" frames="300":
     dir="{{ run_dir }}"
     [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
     [[ -z "$dir" ]] && exit 1
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     dump="{{ repo }}/tmp/ndt-frames.bin"
     # Absolute: the exporter resolves --run relative to its own cwd, and the
     # recipe changes directory below.
@@ -197,7 +197,7 @@ report run_dir="":
     [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
     [[ -z "$dir" ]] && exit 1
     echo "run: $dir"
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     python3 "{{ repo }}/scripts/testing/localization/summarize_ndt_run.py" "$dir" 2>/dev/null \
         | grep -vE "^\[INFO|^\[WARN"
 
@@ -208,7 +208,7 @@ yaw-bias run_dir="":
     dir="{{ run_dir }}"
     [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
     [[ -z "$dir" ]] && exit 1
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     python3 "{{ repo }}/scripts/testing/localization/ndt_yaw_bias.py" "run=$dir/bag" 2>/dev/null \
         | grep -vE "^\[INFO|^\[WARN"
 
@@ -216,7 +216,7 @@ yaw-bias run_dir="":
 compare +runs_spec:
     #!/usr/bin/env bash
     set -o pipefail   # not -u: ROS setup scripts reference unset vars
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     tool="{{ repo }}/scripts/testing/localization/compare_ndt_runs.py"
     # Each run means scanning a multi-GB rosbag, and the runs are independent,
     # so extract them concurrently and format once they are all in.
@@ -231,7 +231,7 @@ map-quality run_dir="":
     dir="{{ run_dir }}"
     [[ -z "$dir" ]] && dir=$("{{ repo }}/demo/scripts/latest-run.sh") || true
     [[ -z "$dir" ]] && exit 1
-    source /opt/ros/humble/setup.bash && source "{{ repo }}/install/setup.bash"
+    source "{{ repo }}/scripts/env.sh"
     mc="{{ repo }}/scripts/testing/localization/mapcheck"
     echo "map quality for $dir"
     # The two analyses are independent and both slow (the second builds a

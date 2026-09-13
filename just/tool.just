@@ -18,25 +18,25 @@ rviz:
 # Launch PlotJuggler for data visualization
 plotjuggler:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     ros2 run plotjuggler plotjuggler
 
 # Launch manual keyboard control
 controller:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     ros2 run control_test keyboard_control
 
 # Launch drive monitor TUI (shows pose, speed, component states)
 tui:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     python3 ./scripts/testing/drive/run.py
 
 # Launch only the ZED camera node, for testing the camera alone
 zed:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         zed_wrapper zed_camera.launch.py camera_model:=zedxm

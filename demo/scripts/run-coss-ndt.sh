@@ -115,10 +115,13 @@ trap on_exit EXIT
 
 mkdir -p "$OUT"
 
-set +u
-source /opt/ros/humble/setup.bash
-source "$REPO/install/setup.bash"
-set -u
+# Autoware first, then the workspace. Sourcing ROS and the workspace alone
+# leaves RMW_IMPLEMENTATION unset, which means rmw_fastrtps_cpp -- a different
+# middleware from the one Autoware's setup.bash selects. Everything then starts
+# cleanly and sees nothing: the pose seeder waits 60 s for a /clock that is
+# being published on the other middleware, and the recorder writes an empty
+# bag. See scripts/env.sh and defect 5 in docs/known-config-defects.md.
+source "$REPO/scripts/env.sh"
 
 # ---- a previous stack would fight this one for topics --------------------
 for pid in $(pgrep -f "play_launch.*logging_simulation" 2>/dev/null); do

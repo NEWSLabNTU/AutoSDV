@@ -13,7 +13,7 @@ default:
 # Launch the Autoware planning simulator with the AutoSDV vehicle (no sensors)
 planning:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     play_launch launch \
         --web-addr 0.0.0.0:8081 \
         autoware_launch planning_simulator.launch.xml \
@@ -24,7 +24,7 @@ planning:
 # Launch the logging simulation, for rosbag replay testing
 logging ARGS="":
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
             --web-addr 0.0.0.0:8081 \
@@ -41,7 +41,7 @@ logging ARGS="":
 # Run the COSS Park scenario: logging sim + rosbag feed + localization recording
 coss-park:
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     parallel --line-buffer ::: \
         "just sim logging" \
         "sleep 40 && ros2 bag play data/rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \

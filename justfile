@@ -180,7 +180,7 @@ clean:
 # Launch AutoSDV system with web UI at http://localhost:8081
 launch ARGS="":
     #!/usr/bin/env bash
-    source install/setup.bash && \
+    source scripts/env.sh && \
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \
             --web-addr 0.0.0.0:8081 \
