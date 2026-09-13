@@ -65,6 +65,16 @@ check:
         fi
     fi
     check "play_launch"              'command -v play_launch >/dev/null'
+    # cuda_ndt compiles its kernels at run time, so the toolkit has to know this
+    # GPU's architecture. When it does not, the matcher panics on the first scan
+    # and nothing localizes, with every node still reporting ready.
+    if out=$("{{ repo }}/scripts/check-cuda-arch.sh" 2>&1); then
+        printf '  \033[32mok\033[0m   %s\n' "$(printf '%s' "$out" | head -1)"
+    else
+        printf '  \033[31mMISSING\033[0m %s\n' "$(printf '%s' "$out" | head -1)"
+        printf '%s\n' "$out" | tail -n +2 | sed 's/^/       /'
+        ok=1
+    fi
     [[ -n "${DISPLAY:-}" ]] && printf '  \033[32mok\033[0m   DISPLAY=%s (RViz will open)\n' "$DISPLAY" \
                             || printf '  \033[33mwarn\033[0m no DISPLAY; RViz disabled (headless is fine)\n'
     exit $ok
