@@ -33,13 +33,7 @@ PACKAGES=(libnvinfer10 libnvinfer-plugin10 libnvonnxparsers10)
 
 say() { printf '  %s\n' "$*"; }
 
-# ---------------------------------------------------------------- arm64 -----
-# JetPack carries TensorRT 10.3 already, and the Jetson apt repo serves these as
-# ordinary arm64 packages if it does not.
-if [ "$(uname -m)" = "aarch64" ]; then
-    say "arm64: TensorRT comes from JetPack. Nothing to do."
-    exit 0
-fi
+ARCH="$(uname -m)"
 
 # --------------------------------------------------- tier 1: already here ---
 # Deliberately a soname check and not a package check: it is true however the
@@ -125,6 +119,21 @@ fi
 # Only reached when the machine has no TensorRT and nothing that offers it, so
 # there is nothing to conflict with. This is NVIDIA's own documented network
 # repository method.
+#
+# A real Jetson never arrives here: JetPack puts TensorRT in the ldconfig cache,
+# so tier 1 has already exited.
+#
+# What arrives here on arm64 is the DESKTOP CONTAINER for Apple Silicon. That
+# image is Jetson-flavoured on purpose -- Autoware comes from the jetpack62
+# localrepo, because that is the only arm64 Autoware build there is -- so its
+# CUDA and TensorRT must come from the same place, the Jetson repository, and
+# not from some other arm64 packaging. Verified: cuda-cudart and libnvinfer10
+# install cleanly into a plain ubuntu:22.04 arm64 container from that
+# repository, pulling only config packages and nothing Tegra-specific.
+#
+# arm64 hosts other than the Orin are not a supported platform; this path
+# exists so an Apple Silicon laptop can run the Jetson container natively
+# rather than through emulation.
 # shellcheck source=/dev/null
 . /etc/os-release
 
@@ -137,6 +146,33 @@ if [ "${ID:-}" != "ubuntu" ]; then
     exit 1
 fi
 distro="ubuntu$(echo "${VERSION_ID:?VERSION_ID missing from /etc/os-release}" | tr -d '.')"
+
+if [ "$ARCH" = "aarch64" ]; then
+    say "arm64 without JetPack (the Apple Silicon container): installing from"
+    say "the Jetson repository, to match the jetpack62 Autoware packages"
+    sudo install -d /usr/share/keyrings
+    if command -v wget >/dev/null 2>&1; then
+        wget -qO- https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+            | sudo gpg --dearmor --yes -o /usr/share/keyrings/jetson.gpg
+    else
+        curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
+            | sudo gpg --dearmor --yes -o /usr/share/keyrings/jetson.gpg
+    fi
+    echo "deb [signed-by=/usr/share/keyrings/jetson.gpg] https://repo.download.nvidia.com/jetson/common ${JETSON_REPO:-r36.4} main" \
+        | sudo tee /etc/apt/sources.list.d/nvidia-jetson.list >/dev/null
+    sudo apt-get update
+    sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}"
+    sudo ldconfig
+    ldcache="$(ldconfig -p 2>/dev/null || true)"
+    for so in "${SONAMES[@]}"; do
+        grep -qF "$so" <<<"$ldcache" || {
+            echo "error: ${so} still not present after install" >&2
+            exit 1
+        }
+    done
+    say "TensorRT 10 installed from the Jetson repository"
+    exit 0
+fi
 
 cat <<EOF
 

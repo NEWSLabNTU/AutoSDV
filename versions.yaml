@@ -103,8 +103,25 @@ nvidia_arm64:
 #
 # Published for linux/amd64 AND linux/arm64, which is what lets one Dockerfile
 # serve Apple Silicon natively.
+# The two architectures are NOT the same image with a different arch. They are
+# two different platforms that happen to share a Dockerfile:
+#
+#   amd64  a workstation/laptop build. CUDA and TensorRT come from NVIDIA's
+#          x86 packages, so an NVIDIA CUDA image is the right base.
+#
+#   arm64  a JETSON-flavoured build that runs on Apple Silicon. Autoware comes
+#          from the jetpack62 localrepo (install-autoware-debian.sh already
+#          selects it on aarch64), and CUDA/TensorRT come from the Jetson apt
+#          repository. It works off a Jetson because JetPack 6.2 is Ubuntu
+#          22.04 underneath and Apple Silicon is arm64.
+#
+#          NOT nvidia/cuda's arm64 tag: that is built for SBSA, the server-ARM
+#          platform, and pairing SBSA CUDA with JetPack Autoware packages mixes
+#          two platforms. Plain Ubuntu plus the Jetson repository keeps the
+#          image on one.
 container:
-  desktop_base: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
+  desktop_base_amd64: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
+  desktop_base_arm64: "ubuntu:22.04"
 
 # =============================================================================
 # Tool versions
