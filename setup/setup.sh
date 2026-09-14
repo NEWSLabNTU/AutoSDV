@@ -32,4 +32,51 @@ command -v python3 >/dev/null || {
     exit 1
 }
 
+# PyYAML, before handing over. registry.py reads versions.yaml at import time,
+# so without it setup.sh cannot start at all -- it dies on a traceback from a
+# module the user has never heard of, before printing a single word of its own:
+#
+#   File ".../autosdv_setup/registry.py", line 43, in _versions
+#     import yaml
+#   ModuleNotFoundError: No module named 'yaml'
+#
+# Ubuntu 22.04 ships python3 without PyYAML, and nothing in this repository
+# installs it: scripts/version/ REQUIRES it and assumes it is there. That
+# assumption holds on every machine this was developed on and on none that a
+# student brings, which is the same way `install-tensorrt.sh` silently stopped
+# pinning its version. Here it is fatal rather than silent.
+#
+# Installed here rather than as a step, because a step cannot run before the
+# registry that declares it has been imported.
+if ! python3 -c 'import yaml' 2>/dev/null; then
+    printf 'installing python3-yaml (setup reads versions.yaml before it can start)\n'
+    # Root needs no sudo, and a root container may not even have it installed.
+    if [ "$(id -u)" -eq 0 ]; then
+        _sudo=""
+    elif command -v sudo >/dev/null 2>&1; then
+        _sudo="sudo"
+    else
+        _sudo=""
+    fi
+    if [ "$(id -u)" -eq 0 ] || [ -n "$_sudo" ]; then
+        $_sudo apt-get update -qq >/dev/null 2>&1 || true
+        $_sudo apt-get install -y --no-install-recommends python3-yaml >/dev/null 2>&1 || true
+    fi
+fi
+
+if ! python3 -c 'import yaml' 2>/dev/null; then
+    cat >&2 <<'EOF'
+
+  PyYAML is missing and could not be installed automatically.
+
+  setup reads versions.yaml before it can do anything, so install it first:
+
+      sudo apt-get install -y python3-yaml
+
+  then run this again.
+
+EOF
+    exit 1
+fi
+
 exec python3 "$MAIN" "$@"
