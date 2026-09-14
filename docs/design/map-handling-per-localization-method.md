@@ -234,14 +234,14 @@ to `projector_type: Local`.
 # existing site, already has a PCD map: add a grid and switch method
 just map grid-from-pcd data/COSS-map-planning --z-min 9.1 --z-max 9.4
 just map check          data/COSS-map-planning pose_source=mcl
-just launch ARGS="pose_source:=mcl"                       # map_path default
-just launch ARGS="pose_source:=cuda_ndt"                  # same directory, 3-D path
+just launch "pose_source:=mcl"                       # map_path default
+just launch "pose_source:=cuda_ndt"                  # same directory, 3-D path
 
 # a different site
-just launch ARGS="pose_source:=mcl map_path:=/data/my_site"
+just launch "pose_source:=mcl map_path:=/data/my_site"
 
 # replay
-just sim logging ARGS="pose_source:=mcl"
+just sim logging "pose_source:=mcl"
 ```
 
 `map_path` never changes meaning; `pose_source` decides which geometry map inside

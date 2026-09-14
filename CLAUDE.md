@@ -212,7 +212,7 @@ merged, so the patch series stays a readable list of what we changed and why.
 just build              # Build all packages
 just test               # Run tests
 just launch             # Launch system (web UI: http://localhost:8081)
-just launch ARGS="..."  # Launch with parameters
+just launch "..."  # Launch with parameters
 just clean              # Remove build artifacts
 just checkout           # Update git submodules
 just setup-autoware-data  # Writable model tree at data/autoware_data (TensorRT needs it)
@@ -376,10 +376,9 @@ and its mounting:
 
 ```bash
 # the kit publishes the scan (production)
-just launch pose_source:=mcl map_path:=data/my_site
-
+just launch "pose_source:=mcl map_path:=data/my_site"
 # MCL synthesises one from a 3-D cloud (test scaffolding only)
-just sim logging ARGS="pose_source:=mcl scan_source:=test_pointcloud"
+just sim logging "pose_source:=mcl scan_source:=test_pointcloud"
 ```
 
 `mcl_scan_normalizer` resolves the mounting offset itself: `particle_filter`
@@ -771,7 +770,7 @@ localization_preset:=default            # Default: gyro_odom
 localization_preset:=eagleye            # GNSS-based odometry (requires GNSS)
 
 # Example: Use camera-lidar fusion
-just launch perception_preset:=camera_lidar_fusion sensor_suite:=robin_zed
+just launch "perception_preset:=camera_lidar_fusion sensor_suite:=robin_zed"
 ```
 
 #### Sensor Configuration

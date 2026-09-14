@@ -22,6 +22,26 @@ planning:
 # Launch the logging simulation, for rosbag replay testing
 logging ARGS="":
     #!/usr/bin/env bash
+    # `just launch ARGS="x:=y"` is a spelling this project documented for years
+    # and which silently does nothing: in just, ARGS="..." AFTER a recipe name
+    # is a positional value, not a variable assignment, so this parameter
+    # receives the literal text `ARGS=x:=y` and hands it to play_launch, which
+    # cannot use it. The launch then runs with DEFAULT arguments.
+    #
+    # That is invisible on a machine with an NVIDIA driver -- the default
+    # pose_source:=cuda_ndt loads and works -- and fatal on one without, where
+    # it panics with no CUDA library to load. Fail loudly instead.
+    case "{{ARGS}}" in
+        ARGS=*)
+            echo "error: write the arguments positionally, without 'ARGS='." >&2
+            echo >&2
+            echo "    just RECIPE \"pose_source:=ndt launch_perception:=false\"" >&2
+            echo >&2
+            echo "ARGS= after the recipe name is passed through as a literal" >&2
+            echo "launch argument, and the launch silently uses its defaults." >&2
+            exit 2
+            ;;
+    esac
     source scripts/env.sh && \
     if [ -n "$DISPLAY" ]; then \
         play_launch launch \

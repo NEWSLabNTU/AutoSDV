@@ -132,7 +132,7 @@ Reports the grid, the lanelet2 map, and the frame-extent agreement between them.
 ### Step 4 — launch
 
 ```bash
-just launch pose_source:=mcl map_path:=data/my_site
+just launch "pose_source:=mcl map_path:=data/my_site"
 ```
 
 No scan geometry arguments. If the kit publishes `/scan` and TF is right, this

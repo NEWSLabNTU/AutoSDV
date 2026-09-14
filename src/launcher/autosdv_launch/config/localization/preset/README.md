@@ -20,9 +20,9 @@ Default localization preset using gyro odometry for twist estimation.
 
 **Launch**:
 ```bash
-make launch ARGS="localization_preset:=default"
+just launch "localization_preset:=default"
 # Or omit (it's the default)
-make launch
+just launch
 ```
 
 ### `eagleye`
@@ -44,7 +44,7 @@ Uses Eagleye for twist estimation. Eagleye provides GNSS-based odometry.
 
 **Launch**:
 ```bash
-make launch ARGS="localization_preset:=eagleye use_gnss:=true gnss_receiver:=ublox"
+just launch "localization_preset:=eagleye use_gnss:=true gnss_receiver:=ublox"
 ```
 
 ## Usage
@@ -53,7 +53,7 @@ Specify the preset when launching AutoSDV:
 
 ```bash
 # Real hardware mode
-make launch ARGS="localization_preset:=<preset_name>"
+just launch "localization_preset:=<preset_name>"
 
 # Logging simulation mode
 ros2 launch autosdv_launch logging_simulation.launch.yaml localization_preset:=<preset_name>
@@ -106,22 +106,22 @@ Localization presets work together with other localization parameters:
 
 ### Outdoor with RTK
 ```bash
-make launch ARGS="localization_preset:=default use_gnss:=true use_ntrip:=true"
+just launch "localization_preset:=default use_gnss:=true use_ntrip:=true"
 ```
 
 ### Indoor without GNSS
 ```bash
-make launch ARGS="localization_preset:=default use_gnss:=false use_mapless_mode:=true"
+just launch "localization_preset:=default use_gnss:=false use_mapless_mode:=true"
 ```
 
 ### Visual SLAM
 ```bash
-just launch ARGS="localization_preset:=default pose_source:=ndt use_gnss:=false"
+just launch "localization_preset:=default pose_source:=ndt use_gnss:=false"
 ```
 
 ### Eagleye with GNSS
 ```bash
-make launch ARGS="localization_preset:=eagleye use_gnss:=true use_ntrip:=true"
+just launch "localization_preset:=eagleye use_gnss:=true use_ntrip:=true"
 ```
 
 ## Notes

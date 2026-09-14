@@ -735,7 +735,7 @@ just map grid-from-pcd <map_dir> --z-min <ground+0.2> --z-max <ground+0.5>
 just map grid-from-bag <bag> <map_dir>
 
 # replay with 2D-MCL
-just sim logging ARGS="pose_source:=mcl \
+just sim logging "pose_source:=mcl \
     occupancy_grid_file:=occupancy_grid_scanaccum_mh1r05.yaml"
 
 # the five-seed accuracy matrix: fresh stack per seed, seed readback asserted
