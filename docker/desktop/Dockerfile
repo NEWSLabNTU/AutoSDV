@@ -62,6 +62,33 @@ ENV AUTOSDV_HOME=/opt/AutoSDV
 ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=/usr/local/cuda/bin:/root/.local/bin:/root/.cargo/bin:$PATH
 
+# --- the middleware, and why it is set here ----------------------------------
+# versions.yaml declares rmw_cyclonedds_cpp as this project's RMW, but nothing
+# in the install path exports it: scripts/env.sh deliberately leaves the choice
+# to the user, and Autoware's own setup.bash does not set it either (a comment
+# in env.sh says it does -- measured here, it does not). A shell that sources
+# the workspace and nothing else therefore runs ROS 2 Humble's default,
+# rmw_fastrtps_cpp.
+#
+# That is not a neutral difference at this scale. The logging simulation brings
+# up 125 participants, and FastDDS addresses participants through ports derived
+# from the participant index, which runs out around 120 per host per domain.
+# Past that point the STACK KEEPS WORKING -- every participant that joined
+# early still talks -- but nothing new can join: a second terminal running
+# `ros2 bag play` publishes into the void, and `ros2 topic list` reports two
+# topics while 150 nodes are running. Nothing reports an error.
+#
+# That is the book's entire two-terminal logging-simulation tutorial, so it is
+# not optional here. Measured on this image, same container, same stack:
+#
+#   rmw_fastrtps_cpp     2 topics,   0 nodes visible from a second shell
+#   rmw_cyclonedds_cpp   605 topics, 150 nodes
+#
+# CycloneDDS is already installed; only the selection was missing. Bridge
+# networking is enough -- this is not a networking problem and --network host
+# does not fix it, which was checked.
+ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+
 # --- base tools -------------------------------------------------------------
 # sudo is here because the setup scripts call it; we are already root, so it
 # resolves to a no-op wrapper rather than a privilege change.

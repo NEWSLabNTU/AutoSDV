@@ -122,6 +122,7 @@ start_desktop() {
     websockify -D --web=/usr/share/novnc "${NOVNC_PORT}" "localhost:590${DISPLAY_NUM}" \
         >/var/log/websockify.log 2>&1
 
+    say "middleware: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp (DEFAULT -- a second terminal will not see the stack)}"
     say "desktop: http://localhost:${NOVNC_PORT}/vnc.html?autoconnect=1&resize=remote"
 }
 
