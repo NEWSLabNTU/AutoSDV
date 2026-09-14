@@ -11,6 +11,7 @@ watching for.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import threading
@@ -18,6 +19,13 @@ import time
 
 from .model import REPO_ROOT, Machine, Step
 from .state import FAILED, OK, State
+
+
+def _highlight(text: str) -> str:
+    """Bright, but not when stdout is a pipe, a log file, or NO_COLOR is set."""
+    if not sys.stdout.isatty() or os.environ.get("NO_COLOR"):
+        return text
+    return f"\033[1;33m{text}\033[0m"
 
 
 class Runner:
@@ -77,6 +85,36 @@ class Runner:
         self.state.save()
         return False
 
+    def _advise(self, steps: list[Step], log=print) -> None:
+        """Repeat, at the end, what the run could not do for the user.
+
+        Only for steps that carry `advice` and whose `verify` still reports the
+        effect missing -- so a machine that already has the thing is not nagged,
+        and one that does not is told once, where the last thing on screen is
+        the thing to do next.
+        """
+        if self.dry_run:
+            return
+        pending = [s for s in steps if s.advice and not self._verified(s)]
+        if not pending:
+            return
+        for step in pending:
+            log("")
+            log(_highlight(f"  ACTION NEEDED: {step.label}"))
+            for line in step.advice.strip().splitlines():
+                log(f"  {line}")
+
+    @staticmethod
+    def _verified(step: Step) -> bool:
+        if not step.verify:
+            return False
+        try:
+            return subprocess.run(
+                step.verify, cwd=REPO_ROOT, capture_output=True
+            ).returncode == 0
+        except OSError:
+            return False
+
     def run_all(self, steps: list[Step], log=print, stop_on_error: bool = True) -> int:
         """Returns the number of failures."""
         if not self.ensure_sudo(steps):
@@ -99,6 +137,7 @@ class Runner:
                         log("Stopping. Fix the failure and re-run; "
                             "completed steps will be skipped.")
                         break
+            self._advise(steps, log=log)
             return failures
         finally:
             if keepalive is not None:

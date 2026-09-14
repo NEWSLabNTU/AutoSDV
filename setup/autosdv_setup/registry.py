@@ -34,6 +34,21 @@ from .model import (
     Requires, Step,
 )
 
+def _versions() -> dict:
+    """versions.yaml, for the few steps whose TEXT needs a version number.
+
+    Hard-coding one here is how `5.1` outlived the wrapper it described. Read
+    once, at import; PyYAML is already required by scripts/version/.
+    """
+    import yaml
+    with open(REPO_ROOT / "versions.yaml") as f:
+        return yaml.safe_load(f)
+
+
+_V = _versions()
+_ZED_SERIES = _V["zed"]["sdk_series"]
+_ZED_SDK = _V["zed"]["sdk_version"]
+
 _S = lambda name: str(SCRIPTS_DIR / name)          # noqa: E731
 _BASH = lambda body: ["bash", "-euc", body]        # noqa: E731
 
@@ -481,13 +496,47 @@ STEPS: list[Step] = [
     ),
     Step(
         id="zed-sdk",
-        label="ZED SDK",
-        why="The ZED X Mini, which every default sensor suite includes. Large "
-            "download.",
+        label="ZED SDK (checked, not installed -- no apt package exists)",
+        why="Checks for the ZED SDK the ROS 2 wrapper is built against and, if "
+            "it is missing or the wrong version, prints the exact download for "
+            "this machine -- again at the end of the run, highlighted. It "
+            "installs nothing: Stereolabs publishes no apt repository, only an "
+            "interactive .run installer that asks about a proprietary licence, "
+            "which is not something to answer on someone's behalf during "
+            "`--yes`. Seconds, and safe to leave selected: a machine with no "
+            "ZED loses nothing -- zed_components skips itself and the rest of "
+            "the workspace builds.",
         group="Libraries",
         run=[_S("install-zed-sdk.sh")],
-        requires=Requires(sudo=True),
-        profiles=_on(),                 # opt-in: large, and skippable for LiDAR-only work
+        # No sudo: this reads /usr/local/zed and prints. The installer it points
+        # at needs root, but the user runs that themselves.
+        requires=Requires(sudo=False, network=False),
+        profiles=_on(*DEV),
+        # The script itself answers, so the version comparison has ONE home --
+        # `--check` is the same code path that prints the guidance, minus the
+        # printing.
+        verify=[_S("install-zed-sdk.sh"), "--check"],
+        advice=(
+            f"ZED SDK {_ZED_SDK}, which the ROS 2 wrapper in this workspace is\n"
+            "built against, is missing or a different version. Cameras will not\n"
+            "start; everything else works.\n"
+            "\n"
+            "Download the installer for THIS machine. These are redirects\n"
+            "Stereolabs keeps stable -- the file behind them carries the patch\n"
+            "version, so do not bookmark the CDN filename:\n"
+            "\n"
+            "  amd64, Ubuntu 22.04, CUDA 12\n"
+            f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/cu12/ubuntu22\n"
+            "  Jetson, L4T 36.4 (JetPack 6.0/6.1)\n"
+            f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/l4t36.4/jetsons\n"
+            "  Jetson, L4T 36.5\n"
+            f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/l4t36.5/jetsons\n"
+            "\n"
+            "  curl -fsSL -o zed_sdk.run <url> && chmod +x zed_sdk.run && ./zed_sdk.run\n"
+            "\n"
+            "Then:  ./setup.sh --rerun zed-sdk     (confirms the version)\n"
+            "       just build                     (builds zed_components)"
+        ),
     ),
 
     # ---- System configuration -------------------------------------------

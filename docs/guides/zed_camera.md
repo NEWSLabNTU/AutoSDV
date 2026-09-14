@@ -6,12 +6,56 @@ This guide covers ZED camera setup, configuration, and troubleshooting.
 
 | Component | Version |
 |-----------|---------|
-| ZED SDK | 5.1.2 |
+| ZED SDK | 5.4.1 |
 | ZED Link Duo Driver | 1.3.2 for L4T 36.3.0 |
-| ZED ROS2 Wrapper | 5.1.0 (humble-v5.1.0) |
-| Supported models | ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini |
+| ZED ROS2 Wrapper | 5.4.1 (our `ntust-workshop` branch, rebased onto `v5.4.1`) |
+| Supported models | ZED, ZED M, ZED 2, ZED 2i, ZED X, ZED X Mini, ZED X Nano |
 
-Source: `src/sensor_component/external/zed-ros2-wrapper/`
+Source: `src/sensor_component/external/zed-ros2-wrapper/`, versions in
+`versions.yaml` under `zed:`.
+
+**The SDK and the wrapper are one version, not two.** `zed_components` compiles
+against the installed SDK's headers, so a wrapper built for 5.1 against an SDK
+at 5.4 is a build or a runtime failure, not a degraded mode. Bump both or
+neither.
+
+**The SDK is installed by hand.** Stereolabs publishes no apt repository, so
+`setup.sh`'s `zed-sdk` step checks the installed version and prints the download
+for this machine -- again, highlighted, at the end of the run -- rather than
+pretending to install it:
+
+```bash
+./setup.sh --run --only zed-sdk --yes    # what is installed, and what to fetch
+```
+
+| machine | installer |
+|---|---|
+| amd64, Ubuntu 22.04, CUDA 12 | <https://download.stereolabs.com/zedsdk/5.4/cu12/ubuntu22> |
+| Jetson, L4T 36.4 (JetPack 6.0/6.1) | <https://download.stereolabs.com/zedsdk/5.4/l4t36.4/jetsons> |
+| Jetson, L4T 36.5 | <https://download.stereolabs.com/zedsdk/5.4/l4t36.5/jetsons> |
+
+Those are redirects Stereolabs keeps stable; each resolves to a CDN file whose
+name carries the patch version, so bookmark the redirect and not the file.
+
+**On amd64 the installer brings TensorRT 10.9**
+(`ZED_SDK_Ubuntu22_cuda12.8_tensorrt10.9_v5.4.1`), while Autoware's perception
+engines require 10.8 exactly. Both can be installed: the `tensorrt-runtime`
+setup step puts Autoware's TensorRT in a private prefix that
+`scripts/trt-runtime-env.sh` places ahead of the system one for AutoSDV
+processes only. This is why that step exists rather than downgrading the system
+libraries -- doing that would break the ZED SDK. See
+`versions.yaml` (`nvidia_amd64.tensorrt_engine_abi`) and
+`docs/roadmap/11-engine-file-delivery.md`.
+
+**`zed_msgs` comes from apt** (`ros-humble-zed-msgs`), which currently publishes
+5.3.0 while the wrapper is 5.4.1. The workspace builds against it; if a future
+wrapper needs a message this package does not have, that is the first place to
+look.
+
+**Without the SDK, nothing else breaks.** `zed_components` reports
+`Skipping zed_components: missing the ZED SDK` and returns, `zed_wrapper` still
+builds (it carries the URDF the simulation TF path xacros), and the rest of the
+workspace is unaffected.
 
 ## Launch File Namespace Handling
 

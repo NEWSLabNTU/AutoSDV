@@ -114,6 +114,40 @@ nvidia_arm64:
   tensorrt: ""
 
 # =============================================================================
+# ZED camera
+#
+# The SDK and the ROS 2 wrapper are ONE version, not two. `zed_components`
+# compiles against the installed SDK's headers, so a wrapper built for 5.1 and
+# an SDK at 5.4 is a build or a runtime failure rather than a degraded mode.
+# Bump both together, or neither.
+#
+# NOT INSTALLED BY setup.sh, and not for the usual reason: Stereolabs publishes
+# no apt repository at all. The only official artifact is a self-extracting
+# `.run` installer that prompts, so the `zed-sdk` step checks for the SDK and
+# prints the exact download for this machine instead of pretending to install
+# it. See setup/scripts/install-zed-sdk.sh.
+#
+# `url_base` + the platform path is the STABLE redirect Stereolabs maintains
+# (e.g. .../5.4/cu12/ubuntu22), which resolves to a CDN file whose name carries
+# the patch version. Prefer the redirect: the CDN filename changes with every
+# patch release, the redirect does not.
+#
+# Worth knowing, because it caused a day's confusion here: the amd64 installer
+# is ZED_SDK_Ubuntu22_cuda12.8_tensorrt10.9_v5.4.1 -- it brings TensorRT 10.9,
+# while Autoware's engines require 10.8 exactly
+# (nvidia_amd64.tensorrt_engine_abi above). The two coexist because
+# scripts/trt-runtime-env.sh puts Autoware's TensorRT in front for AutoSDV
+# processes only, which is also why the `tensorrt-runtime` step installs into a
+# private prefix rather than downgrading the system libraries the ZED SDK needs.
+# =============================================================================
+zed:
+  sdk_version: "5.4.1"
+  sdk_series: "5.4"          # the URL path component; patch lives in the CDN filename
+  url_base: "https://download.stereolabs.com/zedsdk"
+  wrapper_branch: "ntust-workshop"   # our fork's patch series, rebased onto:
+  wrapper_upstream_tag: "v5.4.1"
+
+# =============================================================================
 # Container images
 # =============================================================================
 # The desktop (workshop) image builds FROM an NVIDIA CUDA image rather than

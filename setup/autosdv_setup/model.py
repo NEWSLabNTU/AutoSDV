@@ -122,6 +122,14 @@ class Step:
     # this empty and are reported from the state file alone.
     verify: list[str] = field(default_factory=list)
 
+    # Printed, highlighted, AFTER the whole run -- but only when `verify` says
+    # the effect is still missing. It exists for the one thing a setup script
+    # cannot do for you: the ZED SDK has no apt package, only an interactive
+    # installer, so that step checks and advises instead of installing. Advice
+    # printed in step order scrolls off the top of a twenty-step run, which is
+    # the same as not printing it.
+    advice: str = ""
+
     @property
     def display(self) -> str:
         """The label plus its decision, for lists read outside the menu.
