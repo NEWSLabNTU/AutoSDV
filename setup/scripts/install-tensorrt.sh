@@ -262,8 +262,65 @@ if [ "$ARCH" = "aarch64" ]; then
     echo "deb [signed-by=/usr/share/keyrings/jetson.gpg] https://repo.download.nvidia.com/jetson/common ${JETSON_REPO:-r${_l4t}} main" \
         | sudo tee /etc/apt/sources.list.d/nvidia-jetson.list >/dev/null
     sudo apt-get update
-    sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}"
+    # cuda-cudart alongside TensorRT. libnvinfer links the CUDA runtime, and so
+    # does every Autoware node that loads it, so without this the container
+    # installs a TensorRT that cannot be dlopen'd:
+    #
+    #   Could not load library dlopen error: libcudart.so.12: cannot open
+    #   shared object file
+    #
+    # It is 780 KB and pulls three config packages -- the runtime only, no
+    # toolkit, no driver. The version follows the CUDA that JetPack 6.2 ships,
+    # which is the CUDA the jetpack62 Autoware packages were built against.
+    _cuda="$("${REPO_DIR}/scripts/version/get-version.sh" nvidia_arm64.cuda 2>/dev/null || true)"
+    : "${_cuda:=12.6}"
+    sudo apt-get install -y --no-install-recommends \
+        "cuda-cudart-${_cuda/./-}" "${PACKAGES[@]}"
     sudo ldconfig
+
+    # The Jetson build of libnvinfer links two Tegra DLA libraries:
+    #
+    #   libnvdla_compiler.so => not found
+    #   libcudla.so.1        => not found
+    #
+    # They live in the L4T board-support package, which exists only on a Jetson
+    # -- `nvidia-l4t-cuda` has no candidate in the jetson/common pocket, and the
+    # real libraries talk to the Tegra driver, so even obtaining them would buy
+    # nothing on Apple Silicon. The loader does not care that DLA is unusable
+    # here; it refuses to load libnvinfer at all, and every Autoware node that
+    # links TensorRT dies on dlopen. In the planning simulation that is
+    # shape_estimation, which is why the arm64 container reached 33/34 nodes
+    # where amd64 reaches 34/34.
+    #
+    # Empty stubs satisfy the loader. Nothing calls into them: DLA is requested
+    # explicitly, with setDeviceType(kDLA), and Autoware never does -- it builds
+    # GPU engines. If something ever did, it would abort on an undefined symbol
+    # rather than silently compute the wrong thing.
+    #
+    # Only on a machine that is not a Jetson and does not already have them: a
+    # real board has the genuine libraries and must keep them.
+    if [ ! -f /etc/nv_tegra_release ]; then
+        for _dla in libnvdla_compiler.so libcudla.so.1; do
+            if ! grep -q "$_dla" <<<"$(ldconfig -p 2>/dev/null || true)"; then
+                say "stubbing ${_dla} (Tegra-only; absent on this arm64 host)"
+                _stub_src="$(mktemp --suffix=.c)"
+                : > "$_stub_src"
+                if ! gcc -shared -fPIC -Wl,-soname,"$_dla" \
+                        -o "/tmp/${_dla}" "$_stub_src" 2>/dev/null; then
+                    echo "error: could not build the ${_dla} stub (no gcc?)." >&2
+                    echo "       Without it libnvinfer cannot be loaded and any" >&2
+                    echo "       Autoware node linking TensorRT dies on dlopen." >&2
+                    rm -f "$_stub_src"
+                    exit 1
+                fi
+                rm -f "$_stub_src"
+                sudo install -m 0644 "/tmp/${_dla}" "/usr/lib/${ARCH}-linux-gnu/${_dla}"
+                rm -f "/tmp/${_dla}"
+            fi
+        done
+        sudo ldconfig
+    fi
+
     ldcache="$(ldconfig -p 2>/dev/null || true)"
     for so in "${SONAMES[@]}"; do
         grep -qF "$so" <<<"$ldcache" || {

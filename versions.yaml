@@ -131,7 +131,12 @@ nvidia_amd64:
 nvidia_arm64:
   jetpack: "6.2.2"        # MINIMUM, not an exact pin; newer 6.2.x is fine
   l4t: "36.5"             # the minor that 6.2.2 and up ship; check with /etc/nv_tegra_release
-  cuda: ""
+  # The CUDA JetPack 6.2 ships, and therefore the one the jetpack62 Autoware
+  # packages were built against. Unlike the empty keys below this is INSTALLED
+  # on one path: the Apple Silicon container has no JetPack to supply a CUDA
+  # runtime, so install-tensorrt.sh pulls cuda-cudart of this version from the
+  # Jetson repository. A Jetson still gets its own from the board image.
+  cuda: "12.6"
   cudnn: ""
   tensorrt: ""
 
