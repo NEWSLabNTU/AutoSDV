@@ -27,7 +27,7 @@ from typing import Union
 from .model import (
     OS_ERROR, OS_WARN, PROFILE_HELP, PROFILES, STATE_WORDS, Machine, Step,
 )
-from .registry import STEPS, ordered
+from .registry import CHOICE_LABELS, STEPS, choice_siblings, collapse_choices, ordered
 from .state import State
 
 locale.setlocale(locale.LC_ALL, "")
@@ -41,6 +41,10 @@ _UTF8 = "utf" in (locale.getpreferredencoding(False) or "").lower()
 STATE = STATE_WORDS
 STATE_WIDTH = max(len(word) for word in STATE.values())
 TICK, UNTICK = ("[x]", "[ ]")
+# A choice group is one decision with several answers, and `[x]` invites ticking
+# two of them. `(o)` is the shape everything else in the world uses for "one of
+# these".
+PICK, UNPICK = ("(o)", "( )")
 
 C_DIM, C_OK, C_WARN, C_BAD, C_HEAD = 1, 2, 3, 4, 5
 
@@ -59,6 +63,12 @@ class Selection:
         self.ticked: dict[str, bool] = {}
         self.apply(preset)
 
+    def _collapse(self) -> None:
+        """At most one alternative per choice group stays ticked."""
+        kept, dropped = collapse_choices({s.id for s in STEPS if self.ticked[s.id]})
+        for step_id in dropped:
+            self.ticked[step_id] = False
+
     def apply(self, preset: str) -> None:
         """Seed from a preset.
 
@@ -73,13 +83,24 @@ class Selection:
             if want and preset != "all" and self.status[step.id] == "ok":
                 want = False
             self.ticked[step.id] = want
+        # `all` in particular would otherwise tick every alternative of every
+        # choice, which is the one combination the group exists to rule out.
+        self._collapse()
 
     def toggle(self, step: Step) -> None:
-        self.ticked[step.id] = not self.ticked[step.id]
+        want = not self.ticked[step.id]
+        self.ticked[step.id] = want
+        if want:
+            # Picking one answer is unpicking the others. Turning one OFF leaves
+            # the group empty on purpose: "neither" is a legitimate answer.
+            for sibling in choice_siblings(step):
+                self.ticked[sibling.id] = False
 
     def set_all(self, value: bool) -> None:
         for step in STEPS:
             self.ticked[step.id] = value
+        if value:
+            self._collapse()
 
     def chosen(self) -> list[Step]:
         return ordered({s.id for s in STEPS if self.ticked[s.id]})
@@ -178,15 +199,31 @@ def choose_preset(stdscr, machine: Machine, suggested: str,
 # --------------------------------------------------------------------------
 # screen 2: the steps
 # --------------------------------------------------------------------------
-def choose_steps(stdscr, machine: Machine, sel: Selection) -> list[Step] | None:
-    """Tick steps. Returns the chosen list, or None if the user quit."""
+def _rows() -> list[Row]:
+    """Group headings, choice headings, and steps, in registry order.
+
+    Its own function because `curses` needs a terminal and this does not: the
+    row shapes and the navigation over them are then testable without one.
+    """
     rows: list[Row] = []
     group = None
+    choice = None
     for step in STEPS:
         if step.group != group:
             group = step.group
+            choice = None
             rows.append(("group", group))
+        if step.choice != choice:
+            choice = step.choice
+            if choice:
+                rows.append(("choice", choice))
         rows.append(("step", step))
+    return rows
+
+
+def choose_steps(stdscr, machine: Machine, sel: Selection) -> list[Step] | None:
+    """Tick steps. Returns the chosen list, or None if the user quit."""
+    rows = _rows()
     first = next(i for i, (kind, _) in enumerate(rows) if kind == "step")
 
     cursor, top = first, 0
@@ -215,17 +252,26 @@ def choose_steps(stdscr, machine: Machine, sel: Selection) -> list[Step] | None:
             if kind == "group":
                 _put(stdscr, y, 1, str(value), _colour(C_HEAD, bold=True))
                 continue
+            if kind == "choice":
+                name = str(value)
+                _put(stdscr, y, 9, CHOICE_LABELS.get(name, name), _colour(C_DIM))
+                continue
             assert isinstance(value, Step)
             step = value
             here = index == cursor
+            # Alternatives sit one level in, under their heading, so the shape of
+            # the decision is visible without reading a word of it.
+            indent = 2 if step.choice else 0
             _put(stdscr, y, 1, ">" if here else " ", _colour(C_HEAD, bold=True))
-            _put(stdscr, y, 3, TICK if sel.ticked[step.id] else UNTICK,
+            on, off = (PICK, UNPICK) if step.choice else (TICK, UNTICK)
+            _put(stdscr, y, 3 + indent, on if sel.ticked[step.id] else off,
                  curses.A_BOLD if sel.ticked[step.id] else _colour(C_DIM))
-            _put(stdscr, y, 9, step.label,
+            _put(stdscr, y, 9 + indent, step.label,
                  curses.A_REVERSE if here else curses.A_NORMAL)
             fits, reason = machine.applicable(step)
             if not fits:
-                _put(stdscr, y, 9 + len(step.label) + 2, f"({reason})", _colour(C_WARN))
+                _put(stdscr, y, 9 + indent + len(step.label) + 2, f"({reason})",
+                     _colour(C_WARN))
             status = sel.status[step.id]
             word = STATE[status]
             if word:
@@ -285,7 +331,7 @@ def choose_steps(stdscr, machine: Machine, sel: Selection) -> list[Step] | None:
 
 
 def _step_row(rows: list[Row], index: int, delta: int) -> int:
-    """Move to the next selectable row, skipping group headings."""
+    """Move to the next selectable row, skipping group and choice headings."""
     index = max(0, min(index + delta, len(rows) - 1))
     while rows[index][0] != "step":
         index += delta or 1
@@ -322,7 +368,7 @@ def review(stdscr, machine: Machine, steps: list[Step]) -> bool:
         _put(stdscr, 1, 1, "-" * (width - 2), _colour(C_DIM))
         for line, step in enumerate(steps[top:top + body]):
             fits, reason = machine.applicable(step)
-            text = f"  {step.label}" + ("" if fits else f"   ({reason}, selected anyway)")
+            text = f"  {step.display}" + ("" if fits else f"   ({reason}, selected anyway)")
             _put(stdscr, 2 + line, 1, text,
                  curses.A_NORMAL if fits else _colour(C_WARN))
         if top + body < len(steps):
@@ -400,18 +446,28 @@ def plain_flow(machine: Machine, sel: Selection) -> list[Step] | None:
     while True:
         print()
         group = None
+        choice = None
         for i, step in enumerate(STEPS, 1):
             if step.group != group:
                 group = step.group
+                choice = None
                 print(f"  {group}")
-            mark = TICK if sel.ticked[step.id] else UNTICK
+            if step.choice != choice:
+                choice = step.choice
+                if choice:
+                    print(f"      {CHOICE_LABELS.get(choice, choice)}")
+            on, off = (PICK, UNPICK) if step.choice else (TICK, UNTICK)
+            mark = on if sel.ticked[step.id] else off
+            indent = "  " if step.choice else ""
             fits, reason = machine.applicable(step)
             note = "" if fits else f"   ({reason})"
             state = STATE[sel.status[step.id]]
             state = f"   [{state}]" if state else ""
-            print(f"   {i:2d} {mark} {step.label}{note}{state}")
+            print(f"   {i:2d} {indent}{mark} {step.label}{note}{state}")
         print("\n[x] runs now; the bracket at the right is what the machine "
               "already has.")
+        print("(o) is one of a set of alternatives: picking one drops the "
+              "others, and picking none is allowed.")
         print("Toggle by number or range (3 7-9)   p preset   a all   n none   "
               "i install   q quit")
         line = input("> ").strip().lower()
@@ -432,7 +488,7 @@ def plain_flow(machine: Machine, sel: Selection) -> list[Step] | None:
                 continue
             print(f"\nAbout to install {len(chosen)} step(s):")
             for step in chosen:
-                print(f"  · {step.label}")
+                print(f"  · {step.display}")
             if input("Continue? [y/N] ").strip().lower() in {"y", "yes"}:
                 return chosen
         else:
@@ -486,7 +542,7 @@ def run_menu(args) -> int:
 
     print(f"\nInstalling {len(chosen)} step(s):")
     for step in chosen:
-        print(f"  · {step.label}")
+        print(f"  · {step.display}")
     print()
     failures = Runner(state, machine).run_all(
         chosen, stop_on_error=not args.keep_going)

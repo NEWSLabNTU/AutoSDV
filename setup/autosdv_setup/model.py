@@ -59,6 +59,12 @@ STATE_WORDS = {
     "pending": "",
 }
 
+# The heading each choice group is listed under. A group missing from here is
+# shown under its bare id: legible, but say what the decision is instead.
+CHOICE_LABELS = {
+    "tensorrt-engines": "TensorRT engines (pick one, or neither)",
+}
+
 # ROS 2 Humble's supported platform. Anything else is somebody's afternoon.
 SUPPORTED_OS = ("ubuntu", "22.04")
 OS_OK, OS_WARN, OS_ERROR = "ok", "warn", "error"
@@ -93,6 +99,20 @@ class Step:
     after: tuple[str, ...] = ()          # ordering only, not auto-selection
     note: str = ""                       # printed after a successful run
 
+    # Steps sharing a `choice` name are ALTERNATIVE routes to the same outcome,
+    # and the UIs render them as a radio group under one heading rather than as
+    # independent tick boxes. Ticking one unticks its siblings, and a profile
+    # that would default more than one to on keeps the first.
+    #
+    # This exists because two equally valid answers to "how should this be
+    # done?" cannot be expressed as two checkboxes without also expressing
+    # "both" and "neither" -- and "both" was meaningless for the pair that
+    # prompted it (download the engines, or build them here: doing both just
+    # does the work twice). "Neither" stays meaningful, so a choice group can be
+    # left entirely unticked; it is a choice between routes, not a demand to
+    # travel.
+    choice: str = ""
+
     # An optional command that asks the MACHINE whether this step's effect is
     # present, rather than asking the state file whether it once ran. Exit 0
     # means present. It exists because a recorded run is not evidence: a reboot
@@ -101,6 +121,21 @@ class Step:
     # a version that is gone. Steps whose effect cannot be undone that way leave
     # this empty and are reported from the state file alone.
     verify: list[str] = field(default_factory=list)
+
+    @property
+    def display(self) -> str:
+        """The label plus its decision, for lists read outside the menu.
+
+        "Build here, ignoring the published set" is the right label under a
+        heading and a riddle in a confirmation list, which has no heading.
+        """
+        if not self.choice:
+            return self.label
+        heading = CHOICE_LABELS.get(self.choice, self.choice)
+        # The parenthetical belongs to the menu, where it explains the radio
+        # buttons; a one-line summary has no radio buttons.
+        heading = heading.split(" (")[0]
+        return f"{heading}: {self.label}"
 
     def default_for(self, profile: str) -> bool:
         if profile == "all":

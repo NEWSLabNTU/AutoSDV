@@ -21,7 +21,9 @@ from autosdv_setup.model import (  # noqa: E402
     OS_ERROR, OS_WARN, PROFILE_HELP, PROFILES, RETIRED_PROFILES, STATE_WORDS,
     Machine,
 )
-from autosdv_setup.registry import BY_ID, STEPS, ordered  # noqa: E402
+from autosdv_setup.registry import (  # noqa: E402
+    BY_ID, STEPS, collapse_choices, ordered,
+)
 from autosdv_setup.runner import Runner  # noqa: E402
 from autosdv_setup.state import State  # noqa: E402
 
@@ -84,7 +86,7 @@ def cmd_list(args) -> int:
         ok, reason = machine.applicable(step)
         default = "[x]" if step.default_for(profile) else "[ ]"
         note = "" if ok else f"   ({reason})"
-        left = f"   {default}  {step.id:<20} {step.label}{note}"
+        left = f"   {default}  {step.id:<20} {step.display}{note}"
         word = _state(status[step.id])
         pad = max(1, width - right - 2 - len(left))
         print(left + " " * pad + _paint(status[step.id], word.rjust(right))
@@ -162,7 +164,7 @@ def _select(args, machine: Machine, state: State) -> list:
     """
     skip = _known(args.skip or (), "--skip")
     if args.only:
-        return ordered(_known(args.only, "--only") - skip)
+        return ordered(_one_per_choice(_known(args.only, "--only") - skip))
 
     profile = args.profile or machine.suggested_profile()
     status = _statuses(state)
@@ -173,7 +175,23 @@ def _select(args, machine: Machine, state: State) -> list:
         if not args.force and status[step.id] == "ok":
             continue
         chosen.add(step.id)
-    return ordered(chosen - skip)
+    return ordered(_one_per_choice(chosen - skip))
+
+
+def _one_per_choice(selected: set[str]) -> set[str]:
+    """Keep one step per choice group, and say which one when it matters.
+
+    `--all` names every alternative by construction, and a command line can name
+    two of them by hand. Running both is not harmful for the pair this was built
+    for -- the second just re-does the first's work -- but it is never what was
+    meant, and silently doing it twice on a step measured in minutes is worse
+    than saying which route was taken.
+    """
+    kept, dropped = collapse_choices(selected)
+    for step_id in dropped:
+        winner = next(s.id for s in ordered(kept) if s.choice == BY_ID[step_id].choice)
+        print(f"note: {step_id} and {winner} are alternatives; running {winner}.")
+    return kept
 
 
 def check_os(machine: Machine, args) -> int | None:
@@ -230,7 +248,7 @@ def cmd_run(args) -> int:
     for step in steps:
         ok, reason = machine.applicable(step)
         flag = "" if ok else f"   ({reason} -- selected anyway)"
-        print(f"  · {step.label}{flag}")
+        print(f"  · {step.display}{flag}")
     print()
 
     if args.dry_run:

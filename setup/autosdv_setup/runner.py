@@ -88,7 +88,7 @@ class Runner:
         try:
             failures = 0
             for i, step in enumerate(steps, 1):
-                log(f"[{i}/{len(steps)}] {step.label}")
+                log(f"[{i}/{len(steps)}] {step.display}")
                 if self.run_one(step, log=log):
                     if not self.dry_run:
                         log(f"  ok  {step.id}")

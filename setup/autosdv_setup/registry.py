@@ -30,7 +30,8 @@ the rest of the repo does.
 from __future__ import annotations
 
 from .model import (
-    DECLARED, FILES_DIR, HARDWARE_DIR, REPO_ROOT, SCRIPTS_DIR, Requires, Step,
+    CHOICE_LABELS, DECLARED, FILES_DIR, HARDWARE_DIR, REPO_ROOT, SCRIPTS_DIR,
+    Requires, Step,
 )
 
 _S = lambda name: str(SCRIPTS_DIR / name)          # noqa: E731
@@ -333,7 +334,8 @@ STEPS: list[Step] = [
     # loads what it finds in seconds -- but it buys nothing either.
     Step(
         id="tensorrt-engines",
-        label="TensorRT engines: download the published set (else build)",
+        label="Download the published set (build only if none matches)",
+        choice="tensorrt-engines",
         why="About 30 s when this board's set is published; builds locally "
             "(~1 hr on an Orin, ~9 min on a desktop GPU) when it is not. The "
             "key is the exact board -- GPU or Orin SKU, TensorRT version, "
@@ -361,7 +363,8 @@ STEPS: list[Step] = [
     ),
     Step(
         id="tensorrt-engines-build",
-        label="TensorRT engines: build here, ignore the published set",
+        label="Build here, ignoring the published set",
+        choice="tensorrt-engines",
         why="~1 hr on an Orin, ~9 min on a desktop GPU: builds all five "
             "engines here and never asks the release. Must run on the target "
             "board -- an engine is tied to that GPU and that TensorRT. Use it "
@@ -543,6 +546,38 @@ STEPS: list[Step] = [
 ]
 
 BY_ID = {s.id: s for s in STEPS}
+
+# Re-exported: callers look up registry data here, not in model.
+__all__ = ["STEPS", "BY_ID", "CHOICE_LABELS", "choice_siblings", "collapse_choices", "ordered"]
+
+def choice_siblings(step: Step) -> list[Step]:
+    """The alternatives to `step`, itself excluded. Empty for a plain step."""
+    if not step.choice:
+        return []
+    return [s for s in STEPS if s.choice == step.choice and s.id != step.id]
+
+
+def collapse_choices(selected: set[str]) -> tuple[set[str], list[str]]:
+    """Keep at most one step per choice group; return what was dropped.
+
+    Registry order decides the winner, which is the same order the UIs list the
+    alternatives in, so the kept one is the one a reader would call first. The
+    dropped ids are returned rather than silently discarded: a command line that
+    named two alternatives deserves to be told which one is running.
+    """
+    kept: set[str] = set()
+    seen: set[str] = set()
+    dropped: list[str] = []
+    for step in STEPS:
+        if step.id not in selected:
+            continue
+        if step.choice:
+            if step.choice in seen:
+                dropped.append(step.id)
+                continue
+            seen.add(step.choice)
+        kept.add(step.id)
+    return kept, dropped
 
 
 def ordered(selected: set[str]) -> list[Step]:
