@@ -20,9 +20,11 @@
 #
 # The arm64 image is JETSON-FLAVOURED but not Jetson-BUILT: everything
 # architecture-specific about it (the jetpack62 Autoware localrepo, the Jetson
-# apt repository for CUDA and TensorRT) is installed INSIDE a plain ubuntu:22.04
-# container, so any arm64 Linux machine produces an identical image. An Orin
-# works; so does an arm64 server, usually faster.
+# apt repository for CUDA and TensorRT) is fetched from the network INSIDE a
+# plain ubuntu:22.04 container. The host contributes its instruction set and
+# nothing else, so it is built on a standard Ubuntu 22.04 arm64 (SBSA) server.
+# Being on SBSA does not make it an SBSA image -- the rule against nvidia/cuda's
+# arm64 tag is about the base image, not the build machine.
 #
 # --- what the single tag resolves to -----------------------------------------
 #

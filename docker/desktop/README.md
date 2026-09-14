@@ -38,7 +38,7 @@ This is the thing to understand before changing anything here.
 | | amd64 | arm64 |
 |---|---|---|
 | Runs on | Windows, Intel Mac, Linux | **Apple Silicon** |
-| Built on | any x86 machine | **any arm64 Linux machine** |
+| Built on | any x86 machine | **a standard Ubuntu 22.04 arm64 server** |
 | Base image | `nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04` | `ubuntu:22.04` |
 | Autoware | `1.5.0-2ubuntu2204` | **`1.5.0-2jetpack62`** |
 | CUDA / TensorRT | NVIDIA's x86 CUDA repository | **the Jetson repository** |
@@ -51,39 +51,57 @@ underneath and Apple Silicon is arm64.
 
 Two consequences that are easy to get wrong:
 
-- **Do not use `nvidia/cuda`'s arm64 tag as the base.** It exists, and it will
-  build. But it is the SBSA (server-ARM) platform, and pairing SBSA CUDA with
-  JetPack Autoware packages mixes two platforms in one image. Plain Ubuntu plus
-  the Jetson repository keeps it on one.
+- **Do not use `nvidia/cuda`'s arm64 tag as the BASE IMAGE.** It exists, and it
+  will build. But it is the SBSA (server-ARM) platform, and pairing SBSA CUDA
+  with JetPack Autoware packages mixes two platforms in one image. Plain Ubuntu
+  plus the Jetson repository keeps it on one.
+
+  **This is a rule about the base image, not about the build machine.** The
+  arm64 image is built on a standard Ubuntu 22.04 SBSA server, and that is
+  fine: SBSA is the host's platform, not the image's. Nothing from the host
+  enters the image -- the base is `ubuntu:22.04` from Docker Hub and every
+  Jetson-flavoured package is fetched from the Jetson repository inside the
+  container. What is forbidden is putting SBSA *CUDA packages* in the image,
+  and no step does that.
 - **"Supported arm64 host" and "arm64 build machine" are different questions.**
   The only arm64 platform this project supports *running* AutoSDV on is the
-  Orin; this image is not an invitation to run the stack on arm64 servers. But
-  *building* it needs nothing from the host except its instruction set, because
-  everything Jetson-flavoured is installed inside a plain `ubuntu:22.04`
-  container. Any arm64 Linux machine produces a byte-identical image, and a
-  server usually does it faster than an Orin.
+  Orin. Building the image is unrelated: it takes nothing from the host except
+  its instruction set, so an SBSA server produces the same image an Orin would,
+  usually faster.
+
+  A Jetson is arguably the *worse* builder. JetPack installations commonly set
+  `nvidia` as Docker's default runtime, which injects the host's Tegra
+  libraries into every container -- including the ones `docker build` runs. An
+  image built that way can pick up JetPack libraries that are not in any of its
+  layers, and it then fails on Apple Silicon, where they do not exist. A plain
+  Ubuntu server has no such runtime and cannot leak anything. If you do build
+  on a Jetson, check `docker info | grep -i runtime` first.
 
 ## Building the arm64 image
 
-Build it on an arm64 machine. Not because the image needs one, but because
-arm64 under qemu on an x86 host compiles the whole workspace through emulation
-and takes hours; `build.sh` warns when it detects that.
+Built on **a standard Ubuntu 22.04 arm64 (SBSA) server** -- not on a Jetson,
+and not on the x86 workstation. The reason is only speed: arm64 under qemu on
+an x86 host compiles the entire ROS 2 workspace through emulation and takes
+hours. `build.sh` warns when it detects that.
 
-**Any arm64 Linux machine will do -- it does not have to be a Jetson.**
-Everything Jetson-flavoured about this image (the `jetpack62` Autoware
-localrepo, the Jetson apt repository for CUDA and TensorRT) is installed INSIDE
-a plain `ubuntu:22.04` container, so nothing is taken from the build host but
-its instruction set. An Orin works; an arm64 server works and is usually
-faster. The image it produces targets Apple Silicon either way, and is never
-run on the Jetson itself.
+**The build host does not have to be, and here is not, a Jetson.** Everything
+Jetson-flavoured about this image -- the `jetpack62` Autoware localrepo, the
+Jetson apt repository for CUDA and TensorRT -- is fetched from the network
+INSIDE a plain `ubuntu:22.04` container. The host contributes its instruction
+set and nothing else, so an SBSA server and an Orin produce the same image.
+Either way it targets Apple Silicon and is never run on a Jetson.
 
 ```bash
-# on any arm64 Linux machine
+# on the arm64 server
 cd ~/AutoSDV
 git pull
 PLATFORM=linux/arm64 ./docker/desktop/build.sh
 ./docker/desktop/publish.sh push
 ```
+
+Being on SBSA does not make it an SBSA image: `container.desktop_base_arm64` is
+`ubuntu:22.04`, and the rule against `nvidia/cuda`'s arm64 tag is about that
+base-image choice, not about the machine doing the building.
 
 ## Publishing: one tag, every platform
 
