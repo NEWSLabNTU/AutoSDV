@@ -80,8 +80,14 @@ limits per address. Export once, serve locally.
 ```bash
 OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh          # both
 OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh amd64    # one
-cd /srv/autosdv && python3 -m http.server 8000
+./docker/desktop/serve-images.sh /srv/autosdv                   # serve them
 ```
+
+`serve-images.sh` lists what it is about to serve, with sizes, so an export that
+did not finish is visible before fifty people start downloading, and prints the
+URL for every usable interface -- a machine handing out files usually has
+several addresses and only one of them is the one students can reach. Docker
+and virtual bridges are filtered out. `PORT=8080` overrides the port.
 
 gzip rather than zstd or xz, though both compress better: `docker load`
 decompresses gzip itself, so a student needs no decompression tool -- which
