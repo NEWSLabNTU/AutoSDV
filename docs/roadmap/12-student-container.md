@@ -96,7 +96,7 @@ of memory while linking never has to.
 | 3 | Graphics layer: TurboVNC + noVNC + renderer detection | in progress |
 | 4 | Accelerated profiles (`nvidia`, `dri`, `wsl`) | pending |
 | 5 | arm64, built natively on the Orin | in progress -- 4 of 5 unknowns settled, 3 defects fixed; no image produced yet, see below |
-| 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | pending |
+| 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | `docker/desktop/publish.sh` written, nothing pushed yet |
 | 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | **done — NDT holds 9.89 Hz on 4 cores; RViz is the limit, 1 fps** |
 | 8 | Book page, EN + zh-TW | pending |
 | 9 | Rewrite roadmap 9's timetable | pending |
@@ -210,13 +210,16 @@ attempts cost 35 minutes at best. Moving the COPY after the system-dependency
 install, or splitting the system install from the workspace build, would make
 every future iteration dramatically cheaper.
 
-Finally, publish one manifest over both tags so students never pick a variant:
+Finally, publish so students never pick a variant -- the same command on each
+build machine, then one to join them:
 
 ```bash
-docker manifest create jerry73204/autosdv:desktop \
-    jerry73204/autosdv:desktop-amd64 jerry73204/autosdv:desktop-arm64
-docker manifest push jerry73204/autosdv:desktop
+./docker/desktop/publish.sh push     # on each build machine; arch is detected
+./docker/desktop/publish.sh link     # once, on either
 ```
+
+amd64 can be linked on its own and the arm64 entry added later; the tag updates
+in place. Details and the platform table: `docker/desktop/README.md`.
 
 ## Known gaps
 

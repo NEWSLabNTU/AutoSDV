@@ -191,6 +191,14 @@ container:
   desktop_base_amd64: "nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04"
   desktop_base_arm64: "ubuntu:22.04"
 
+  # Where the desktop image is published, and under what name. One tag serves
+  # every student: docker/desktop/publish.sh pushes a per-architecture tag from
+  # each build machine, then joins them into a manifest list under desktop_tag,
+  # so `docker pull <repo>:<tag>` resolves to the right architecture on Windows,
+  # Linux, Intel Macs and Apple Silicon without anyone choosing a variant.
+  desktop_repo: "jerry73204/autosdv"
+  desktop_tag: "desktop"
+
 # =============================================================================
 # Tool versions
 # =============================================================================

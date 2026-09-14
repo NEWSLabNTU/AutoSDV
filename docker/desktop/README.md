@@ -38,7 +38,7 @@ This is the thing to understand before changing anything here.
 | | amd64 | arm64 |
 |---|---|---|
 | Runs on | Windows, Intel Mac, Linux | **Apple Silicon** |
-| Built on | any x86 machine | **the Orin** |
+| Built on | any x86 machine | **any arm64 Linux machine** |
 | Base image | `nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04` | `ubuntu:22.04` |
 | Autoware | `1.5.0-2ubuntu2204` | **`1.5.0-2jetpack62`** |
 | CUDA / TensorRT | NVIDIA's x86 CUDA repository | **the Jetson repository** |
@@ -55,37 +55,85 @@ Two consequences that are easy to get wrong:
   build. But it is the SBSA (server-ARM) platform, and pairing SBSA CUDA with
   JetPack Autoware packages mixes two platforms in one image. Plain Ubuntu plus
   the Jetson repository keeps it on one.
-- **arm64 hosts other than the Orin are not a supported platform.** This image
-  exists so an Apple Silicon laptop can run the Jetson container natively
-  instead of through emulation, not to support arm64 servers.
+- **"Supported arm64 host" and "arm64 build machine" are different questions.**
+  The only arm64 platform this project supports *running* AutoSDV on is the
+  Orin; this image is not an invitation to run the stack on arm64 servers. But
+  *building* it needs nothing from the host except its instruction set, because
+  everything Jetson-flavoured is installed inside a plain `ubuntu:22.04`
+  container. Any arm64 Linux machine produces a byte-identical image, and a
+  server usually does it faster than an Orin.
 
-## Building the arm64 image on the Orin
+## Building the arm64 image
 
-The Orin is only the **builder**. The image it produces targets Apple Silicon
-and is never run on the Jetson itself.
+Build it on an arm64 machine. Not because the image needs one, but because
+arm64 under qemu on an x86 host compiles the whole workspace through emulation
+and takes hours; `build.sh` warns when it detects that.
 
-Build it there because arm64 under qemu on an x86 host compiles the whole
-workspace through emulation and takes hours. `build.sh` warns when it detects
-that situation.
+**Any arm64 Linux machine will do -- it does not have to be a Jetson.**
+Everything Jetson-flavoured about this image (the `jetpack62` Autoware
+localrepo, the Jetson apt repository for CUDA and TensorRT) is installed INSIDE
+a plain `ubuntu:22.04` container, so nothing is taken from the build host but
+its instruction set. An Orin works; an arm64 server works and is usually
+faster. The image it produces targets Apple Silicon either way, and is never
+run on the Jetson itself.
 
 ```bash
-# on the Orin
+# on any arm64 Linux machine
 cd ~/AutoSDV
 git pull
-PLATFORM=linux/arm64 TAG=jerry73204/autosdv:desktop-arm64 ./docker/desktop/build.sh
+PLATFORM=linux/arm64 ./docker/desktop/build.sh
+./docker/desktop/publish.sh push
 ```
 
-Then publish both architectures under one tag, so a student never chooses a
-variant:
+## Publishing: one tag, every platform
+
+A student types the same line on every machine they own:
 
 ```bash
-docker push jerry73204/autosdv:desktop-amd64      # from the x86 machine
-docker push jerry73204/autosdv:desktop-arm64      # from the Orin
-docker manifest create jerry73204/autosdv:desktop \
-    jerry73204/autosdv:desktop-amd64 \
-    jerry73204/autosdv:desktop-arm64
-docker manifest push jerry73204/autosdv:desktop
+docker pull jerry73204/autosdv:desktop
 ```
+
+That tag is a **manifest list**, and the client resolves it by its own platform:
+
+| Host | Docker asks for | Gets |
+|---|---|---|
+| Windows (Docker Desktop / WSL2) | `linux/amd64` | the amd64 image |
+| Linux x86 | `linux/amd64` | the amd64 image |
+| macOS on **Intel** | `linux/amd64` | the amd64 image |
+| macOS on **Apple Silicon** | `linux/arm64` | the arm64 image |
+
+Apple Intel needs nothing special -- it is an amd64 machine.
+
+Each architecture is built and pushed natively on a machine of that
+architecture, then the two are joined registry-side:
+
+```bash
+./docker/desktop/publish.sh push     # on the amd64 workstation
+./docker/desktop/publish.sh push     # on the arm64 machine -- same command
+./docker/desktop/publish.sh link     # on either, once both are pushed
+./docker/desktop/publish.sh check    # what is published right now
+```
+
+`push` reads the architecture off the image itself and picks
+`:desktop-amd64` or `:desktop-arm64` accordingly, so the operator types the
+same thing in both places. Neither machine has to reach the other, or even be
+up at the same time.
+
+**Publish amd64 first and link it alone.** `link` writes a valid single-entry
+index, so amd64 students can start straight away; re-running it when the arm64
+build lands updates the same tag in place, and nobody changes what they type.
+
+`publish.sh` refuses a flattened image. A single layer cannot download in
+parallel or resume, so a pull that dies at 90% on shared wifi starts over --
+see the flatten note in `build.sh`.
+
+It uses `docker buildx imagetools create` rather than `docker manifest create`:
+the former is GA where `docker manifest` is still experimental, works purely
+registry-side by digest without pulling either image, and writes an OCI index
+correctly.
+
+The repository and tag live in `versions.yaml` (`container.desktop_repo`,
+`container.desktop_tag`), not in the script.
 
 ## What is established, and how
 
