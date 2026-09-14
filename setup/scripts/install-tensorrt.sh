@@ -44,28 +44,82 @@ REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
 # installable, which is this step's actual job, and setup step
 # `tensorrt-runtime` fixes the engine side afterwards on a host that cannot be
 # moved.
-ENGINE_ABI="$(
+say() { printf '  %s\n' "$*"; }
+
+# Reading that version needs PyYAML, and THAT is a trap worth spelling out,
+# because it already cost 4.4 GB once. get-version.sh parses versions.yaml with
+# PyYAML (deliberately -- see the comment in it). A clean machine does not have
+# PyYAML: in the desktop image, python3-yaml did not arrive until 21:43, while
+# this step ran at 18:02. get-version.sh therefore failed, `|| true` swallowed
+# it, ENGINE_ABI was empty, the pin silently degraded to bare package names, and
+# apt installed the newest TensorRT (10.16.1.11) instead of the 10.8.0 the
+# Autoware debs were built against. The `tensorrt-runtime` step then installed a
+# SECOND, 4.4 GB TensorRT to repair the mismatch this step had just created.
+#
+# So: install PyYAML rather than degrade past it, and if it still cannot be read,
+# say loudly what the fallback costs instead of printing nothing.
+#
+# It is read lazily, inside pinned_packages, so a machine that already has
+# TensorRT exits at tier 1 without paying for an apt-get update.
+ensure_pyyaml() {
+    python3 -c 'import yaml' 2>/dev/null && return 0
+    # stderr, not stdout: engine_abi() is captured with $(...), so anything this
+    # prints on stdout lands INSIDE the version string.
+    say "installing python3-yaml (needed to read the pinned TensorRT version)" >&2
+    sudo apt-get update -qq >/dev/null 2>&1 || true
+    sudo apt-get install -y --no-install-recommends python3-yaml >/dev/null 2>&1 || true
+    python3 -c 'import yaml' 2>/dev/null
+}
+
+engine_abi() {
+    ensure_pyyaml || return 0
     "${REPO_DIR}/scripts/version/get-version.sh" nvidia_amd64.tensorrt_engine_abi 2>/dev/null || true
-)"
+}
+
+warn_unpinned() {
+    cat >&2 <<EOF
+
+  WARNING: installing the NEWEST TensorRT 10.x rather than the pinned patch.
+
+      reason: $1
+
+  Autoware's autoware_tensorrt_common discards any cached .engine whose recorded
+  TensorRT version differs from the one its own libraries were built against. On
+  a mismatch every perception engine is rebuilt on EVERY launch -- minutes each
+  time, with perception down -- and setup step \`tensorrt-runtime\` will later
+  install a second, multi-gigabyte TensorRT to repair it.
+
+  Any 10.x still makes the Autoware packages installable, which is this step's
+  actual job, so this is a degradation and not a failure.
+
+EOF
+}
 
 # Print `pkg=version` for each package when the exact ABI version is offered by
 # a configured source, and bare package names otherwise.
 pinned_packages() {
-    local pkg listing want spec
+    local pkg listing want spec abi
     local -a specs=()
-    [ -n "$ENGINE_ABI" ] || { printf '%s\n' "${PACKAGES[@]}"; return; }
+    abi="$(engine_abi)"
+    if [ -z "$abi" ]; then
+        warn_unpinned "could not read nvidia_amd64.tensorrt_engine_abi from versions.yaml"
+        printf '%s\n' "${PACKAGES[@]}"
+        return
+    fi
     for pkg in "${PACKAGES[@]}"; do
         listing="$(apt-cache madison "$pkg" 2>/dev/null || true)"
         # No `{exit}` in the awk: closing the pipe early costs apt-cache a
         # SIGPIPE and `set -o pipefail` turns that into a fatal 141.
-        want="$(awk -v v="${ENGINE_ABI}." '$3 ~ ("^" v) && !seen { print $3; seen = 1 }' <<<"$listing")"
-        [ -n "$want" ] || { printf '%s\n' "${PACKAGES[@]}"; return; }
+        want="$(awk -v v="${abi}." '$3 ~ ("^" v) && !seen { print $3; seen = 1 }' <<<"$listing")"
+        if [ -z "$want" ]; then
+            warn_unpinned "no configured apt source offers ${pkg} ${abi}.*"
+            printf '%s\n' "${PACKAGES[@]}"
+            return
+        fi
         specs+=("${pkg}=${want}")
     done
     printf '%s\n' "${specs[@]}"
 }
-
-say() { printf '  %s\n' "$*"; }
 
 ARCH="$(uname -m)"
 

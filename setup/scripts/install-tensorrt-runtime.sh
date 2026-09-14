@@ -56,6 +56,25 @@ if [[ -f "${LIB_DIR}/libnvinfer.so.${VERSION}" ]]; then
     exit 0
 fi
 
+# Nothing to repair if the SYSTEM TensorRT is already the pinned version. This
+# step exists only to shadow a mismatched one, so on a machine where the
+# `tensorrt` step pinned correctly it would otherwise extract a second, ~4 GB
+# copy of libraries already present -- which is exactly what the first desktop
+# image did, and 4.4 GB of what made it 34.8 GB.
+#
+# Checked two ways because TensorRT does not always arrive through apt: the dpkg
+# version, and what the soname actually resolves to on disk (a tar or runfile
+# install has no dpkg entry).
+system_ver="$(dpkg-query -W -f='${Version}' libnvinfer10 2>/dev/null || true)"
+resolved="$(readlink -f /usr/lib/x86_64-linux-gnu/libnvinfer.so.10 2>/dev/null || true)"
+
+if [[ "${system_ver}" == "${VERSION}."* || "${resolved}" == *"libnvinfer.so.${VERSION}"* ]]; then
+    echo "The system TensorRT is already ${system_ver:-${resolved##*/}}, which matches"
+    echo "the version Autoware's engines record. Nothing to shadow; not installing"
+    echo "a second copy under ${PREFIX}."
+    exit 0
+fi
+
 declare -a specs=()
 for pkg in "${PKGS[@]}"; do
     ver="$(candidate "${pkg}")"

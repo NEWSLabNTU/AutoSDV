@@ -187,19 +187,53 @@ installed, `ros2 pkg list` unchanged).
 `--symlink-install`, so the 25 MB `install/` tree is 1071 symlinks pointing back
 into them. Deleting either empties the workspace with no error at all.
 
-### TensorRT is installed twice, and that is still true
+### TensorRT was installed twice, and PyYAML is why
 
 6.9 GB of the original image was two TensorRTs:
 
-- **apt `libnvinfer10` 10.16.1.11+cuda13.2**, 2.5 GB, pulled by
-  `install-tensorrt.sh` tier 3. Its attempt to pin `10.8.0` found no candidate,
-  because NVIDIA's `ubuntu2204` repo no longer carries that patch, so it fell
-  back to newest as designed.
-- **`/opt/tensorrt/10.8.0`**, 4.4 GB, installed by the `tensorrt-runtime` step
-  to repair the engine-ABI mismatch the first install had just created.
+- **apt `libnvinfer10` 10.16.1.11+cuda13.2**, 2.5 GB, from `install-tensorrt.sh`.
+- **`/opt/tensorrt/10.8.0`**, 4.4 GB, from the `tensorrt-runtime` step, to
+  repair the engine-ABI mismatch the first install had just created.
 
-Removing the Windows blob takes the second down to 2.4 GB. The duplication
-itself is unresolved and is the largest remaining avoidable item.
+The image's own apt history names the cause exactly:
+
+```
+Commandline: apt-get install -y --no-install-recommends \
+             libnvinfer10 libnvinfer-plugin10 libnvonnxparsers10
+```
+
+**Bare package names.** `pinned_packages()` should have asked for
+`libnvinfer10=10.8.0.43-1+cuda12.8`, and that version *is* in NVIDIA's
+`ubuntu2204` repo -- all three packages offer it. The pin did not fail for want
+of a candidate; it never ran.
+
+`ENGINE_ABI` is read with `get-version.sh`, which parses `versions.yaml` using
+**PyYAML**, and a clean machine has no PyYAML. In this image `python3-yaml`
+arrived at **21:43**; the TensorRT step ran at **18:02**. So `get-version.sh`
+failed, `2>/dev/null || true` swallowed it, `ENGINE_ABI` was empty, the pin
+degraded silently to bare names, and apt took the newest.
+
+The degradation was invisible: no warning, and an image that works, because the
+second TensorRT that `tensorrt-runtime` installed shadows the wrong one through
+`LD_LIBRARY_PATH`. The cost was 4.4 GB and a step whose only job was repairing
+the previous step.
+
+Both halves are now fixed:
+
+- `install-tensorrt.sh` installs `python3-yaml` when it is missing rather than
+  degrading past it, reads the version lazily so a machine that already has
+  TensorRT still exits at tier 1 without an `apt-get update`, and prints a loud
+  warning naming the consequence if it ends up unpinned anyway.
+- `install-tensorrt-runtime.sh` skips when the **system** TensorRT is already the
+  pinned version. It previously checked only whether `/opt/tensorrt/<version>`
+  existed, so it would extract a second copy of libraries already installed.
+
+Verified on the exact base image that failed: from a clean
+`nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04` with no PyYAML, the pin now resolves
+`10.8.0.43-1+cuda12.8` for all three packages.
+
+Together these should remove the whole 6.9 GB duplication on the next build --
+**a projection, since no image has been built with the fix yet.**
 
 ## Known gaps
 
