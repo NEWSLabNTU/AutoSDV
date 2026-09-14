@@ -29,7 +29,7 @@ fi
 # Download if not exists
 if [[ ! -f "${DEB_FILE}" ]]; then
     echo "Downloading ZED SDK..."
-    curl -fSL -o "${DEB_FILE}" "${DEB_URL}"
+    curl --progress-bar -fSL -o "${DEB_FILE}" "${DEB_URL}"
 fi
 
 # Install the package

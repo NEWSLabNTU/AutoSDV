@@ -63,7 +63,7 @@ echo "Installing Blickfeld Scanner Library..."
 mkdir -p "$DATA_DIR/blickfeld-scanner-lib"
 if [[ ! -f "$DEB" ]]; then
     echo "Downloading from GitHub..."
-    curl -fSL -o "$DEB" "$URL"
+    curl --progress-bar -fSL -o "$DEB" "$URL"
 fi
 
 # Install

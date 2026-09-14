@@ -57,7 +57,7 @@ download_deb() {
         wget -O "$dest" "$url" || { echo "  wget failed."; rm -f "$dest"; return 1; }
     elif command -v curl &> /dev/null; then
         echo "  Downloading with curl..."
-        curl -fL -o "$dest" "$url" || { echo "  curl failed."; rm -f "$dest"; return 1; }
+        curl --progress-bar -fL -o "$dest" "$url" || { echo "  curl failed."; rm -f "$dest"; return 1; }
     else
         echo "Error: need aria2c, wget, or curl to download ${out}, none found."
         return 1
