@@ -5,7 +5,9 @@ running AutoSDV simulation in minutes — with no ROS 2, no Autoware and no
 AutoSDV build on their own machine.
 
 **Status**: in progress. Phase 1 (the gate) is done and passed; the amd64 image
-is being built.
+is being built. The arm64 build has cleared four of its five unknowns and fixed
+three real defects along the way, but has not yet produced an image — see
+*Phase 5* for where it stopped and how to resume.
 
 **Feeds**: [roadmap 9](9-workshop-laptop-onboarding.md), whose two-hour timetable
 this changes — see *Consequences* below.
@@ -93,7 +95,7 @@ of memory while linking never has to.
 | 2 | amd64 image, headless | in progress |
 | 3 | Graphics layer: TurboVNC + noVNC + renderer detection | in progress |
 | 4 | Accelerated profiles (`nvidia`, `dri`, `wsl`) | pending |
-| 5 | arm64, built natively on the Orin | **next -- see below** |
+| 5 | arm64, built natively on the Orin | in progress -- 4 of 5 unknowns settled, 3 defects fixed; no image produced yet, see below |
 | 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | pending |
 | 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | **done — NDT holds 9.89 Hz on 4 cores; RViz is the limit, 1 fps** |
 | 8 | Book page, EN + zh-TW | pending |
@@ -132,22 +134,81 @@ Everything the build needs is already wired:
 - `blickfeld_driver` and `zed_components` now skip themselves when their SDKs
   are absent, so the build does not need `COLCON_IGNORE`
 
-**What has not been proven**, and what the Orin run is actually testing:
+### Status as of 2026-09-14: four of the five unknowns settled
 
-1. that the Jetson repository serves TensorRT into a **plain** `ubuntu:22.04`
-   arm64 container -- the apt resolution was probed and works, but no image has
-   been built on it
-2. that the `jetpack62` Autoware localrepo installs there, outside a Jetson
-   root filesystem
-3. that the workspace compiles, particularly `cuda_ndt_matcher`, whose
-   `cuda_ffi/build.rs` needs `nvcc` and the CUB headers -- on arm64 those come
-   from the Jetson CUDA packages rather than an NVIDIA CUDA base image
-4. that TurboVNC and noVNC start
+The prediction below was right -- (1)-(3) each surfaced a defect of exactly the
+kind the amd64 build surfaced, and each was fixed in the step rather than
+worked around in the Dockerfile. Six build attempts, each one getting further
+than the last. The image has **not** been produced yet: the last attempt was
+stopped partway through `setup.sh` because the Orin was being shut down, not
+because anything failed.
 
-Expect (1)-(3) to surface defects of the same kind the amd64 build surfaced:
-packages assuming something the host image happened to provide. When one does,
-**fix the setup step, not the Dockerfile** -- see the note on workarounds in
-`docker/desktop/README.md`.
+| # | What the Orin run was testing | Outcome |
+|---|---|---|
+| 1 | Jetson repo serves TensorRT into plain `ubuntu:22.04` arm64 | **Proven.** `setup.sh`'s own `tensorrt` step does it; tier 3's aarch64 branch adds the Jetson repo and installs cleanly |
+| 2 | `jetpack62` localrepo installs outside a Jetson rootfs | **Proven.** All 16 steps of `./setup.sh --run --profile dev --yes` reached "Setup complete." in 1872s |
+| 3 | The workspace compiles, particularly `cuda_ndt_matcher` | **Fixed, then proven at the package level.** It did not compile; see below. `colcon build --packages-select cuda_ndt_matcher` now passes on this Orin in both CUDA and no-CUDA modes |
+| 4 | TurboVNC and noVNC start | **Still unproven** -- no attempt has reached that layer |
+
+**The three defects, and where each was fixed:**
+
+- **The Dockerfile's own early TensorRT install was arch-broken.** It
+  `apt-get install`ed `libnvinfer10` directly, which works only because the
+  amd64 `nvidia/cuda` base image pre-configures NVIDIA's repo. On arm64's plain
+  `ubuntu:22.04` there is no such repo yet, so the build died on
+  `E: Unable to locate package libnvinfer10`. Removed entirely: `setup.sh`'s
+  `tensorrt` step already installs the same three packages correctly on both
+  architectures, later in the same image.
+- **A stale `zed-ros2-wrapper` submodule checkout.** `zed_components` was still
+  hard-failing on `find_package(ZED REQUIRED)` despite the fix being pinned,
+  because the working tree sat at `458c725` while the superproject pinned
+  `24e978f` ("Make the skip actually work: find ament_cmake before calling
+  ament_package"). `git submodule update` was the whole fix. Worth knowing: the
+  symptom looks identical to the bug being unfixed.
+- **`cuda_ffi` hard-panicked with no CUDA toolkit** -- "CUDA installation not
+  found" -- and `cuda_ndt_matcher` took eleven other packages down with it.
+  This was the last package in the workspace that had not learned to skip
+  itself, and Cargo has no equivalent of the CMake early-return the other three
+  use, so the fix was to make the crate **compile and link** with no CUDA
+  present: `build.rs` emits a `cuda_ffi_stub` cfg instead of panicking, and
+  every public item that reaches a compiled `.cu` kernel has a stub twin
+  returning `CudaError::NoToolkit`. `NEWSLabNTU/cuda_ndt_matcher` `326c303`,
+  verified both ways on this Orin (real mode unchanged, stub mode clean).
+
+**A fourth fix, not a defect in the container but in how it downloads.** The
+Autoware deb is ~2 GB and the release host throttles per connection, so the
+single-stream `wget` fallback in `install-autoware-debian.sh` is an order of
+magnitude slower than the `aria2c` path the script prefers -- measured here,
+383 KB/s against 2905 KB/s. A clean machine has no `aria2c`, so that fast path
+was one nobody ever took: one attempt crawled at 182 KB/s for an hour. `aria2`
+is now in the image's base tools, the step installs it when missing, and every
+fallback warns loudly instead of degrading in silence.
+
+**Watch the submodule pin.** It was rewound once mid-session by an unrelated
+commit made from a working tree still checked out at the older submodule
+commit, which silently removed the `cuda_ffi` fix from `develop` and would have
+reproduced defect (3) on the next build. `git submodule status --recursive |
+grep '^+'` before committing is what catches this.
+
+### To resume
+
+```bash
+cd ~/AutoSDV && git pull                     # 4cce295 or later
+PLATFORM=linux/arm64 TAG=jerry73204/autosdv:desktop-arm64 ./docker/desktop/build.sh
+```
+
+Expect `setup.sh` (step 6 of 12) to dominate, but with `aria2c` engaged the deb
+should take minutes rather than hours -- confirm by grepping the log for
+`Downloading with aria2c (parallel, 10 connections)` and NOT the
+`WARNING: aria2c is not installed` path. Past that, the remaining unknown is
+(4), the graphics layer.
+
+One structural note for whoever iterates next: `COPY . ${AUTOSDV_HOME}` sits
+**before** `RUN ./setup.sh`, so any source change invalidates the entire ROS 2 +
+Autoware install layer and re-downloads the deb. That is why each of these six
+attempts cost 35 minutes at best. Moving the COPY after the system-dependency
+install, or splitting the system install from the workspace build, would make
+every future iteration dramatically cheaper.
 
 Finally, publish one manifest over both tags so students never pick a variant:
 
