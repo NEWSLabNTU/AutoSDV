@@ -74,15 +74,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
-# --- TensorRT ---------------------------------------------------------------
-# Not shipped in the CUDA image, but the CUDA apt repo it already configures
-# carries it, so this is three packages rather than a repository dance. Runtime
-# libraries only: the Autoware debs link them; nothing here compiles against
-# TensorRT.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libnvinfer10 libnvinfer-plugin10 libnvonnxparsers10 \
-    && rm -rf /var/lib/apt/lists/*
-
 # --- the workspace ----------------------------------------------------------
 # Copied rather than cloned so the image can be built from an unpushed working
 # tree while this is being developed. Dockerfile.dockerignore keeps the context
