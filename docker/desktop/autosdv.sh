@@ -193,6 +193,37 @@ else
 EOF
             exit 1
         fi
+        # The runtime in the image is CUDA 12.8, which needs a driver at least
+        # as new as the forward-compat library it ships
+        # (/usr/local/cuda/compat/libcuda.so.570.124.06). An older host driver
+        # does not fail at startup -- the container comes up, the stack reaches
+        # "Startup complete", and then individual CUDA nodes throw
+        #
+        #   cudaErrorInsufficientDriver (35): CUDA driver version is
+        #   insufficient for CUDA runtime version
+        #
+        # from inside a composable-node constructor, which reads as an Autoware
+        # problem rather than a driver one. Say it here instead.
+        need="570.124.06"
+        have="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 | tr -d ' ')"
+        if [ -n "$have" ] && [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -1)" != "$need" ]; then
+            cat >&2 <<EOF
+
+  warning: this host's NVIDIA driver is ${have}, and the image's CUDA 12.8
+  runtime needs ${need} or newer.
+
+  The container will start and the stack will report "Startup complete", but
+  CUDA nodes will fail one by one with
+
+      cudaErrorInsufficientDriver (35)
+
+  Either update the driver, or simply leave --gpu off: the CPU path
+  (pose_source:=ndt launch_perception:=false) is what the lab uses and it
+  needs no GPU at all.
+
+EOF
+        fi
+
         # NVIDIA_DRIVER_CAPABILITIES must include `graphics`, not just the
         # default `compute,utility`: without it the driver exposes CUDA but no
         # GL, and the entrypoint's VirtualGL path finds a GPU it cannot draw
