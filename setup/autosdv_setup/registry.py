@@ -428,6 +428,17 @@ STEPS: list[Step] = [
             "raw.githubusercontent.com' >&2\n"
             "  exit 1\n"
             "fi\n"
+            # rosdep resolves keys to apt package NAMES and then shells out to
+            # apt-get install; it never refreshes the package lists itself. A
+            # machine whose lists are empty or stale therefore fails here with
+            #
+            #   E: Unable to locate package python3-serial
+            #
+            # which reads as a missing package rather than a missing index. The
+            # container hits this every time, because the layer that installed
+            # ROS 2 ends by deleting /var/lib/apt/lists to keep its own size
+            # down. range-libc already updates for the same reason.
+            "sudo apt-get update\n"
             "rosdep install -y --from-paths src --ignore-src -r"
         ),
         requires=Requires(sudo=True),
