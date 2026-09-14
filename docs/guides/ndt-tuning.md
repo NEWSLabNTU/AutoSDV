@@ -257,6 +257,40 @@ And validate before believing:
 | `converged_param_nearest_voxel_transformation_likelihood` | after re-measuring the score distribution at a new resolution | silence a symptom of a bad prior |
 | crop box `min/max_x/y` | the map's far field is known good, and yaw is under-constrained | compensate for a mis-scaled twist |
 | `max_iterations` | `exe_time_ms` fits the scan period with headroom | fix non-convergence caused by a stale prior |
+
+### Incident: a `max_iterations` cap that published nothing
+
+Worth keeping because the failure looks like success. AutoSDV once shipped
+`max_iterations: 15` against Autoware's 30, and `pose_source:=ndt` published no
+pose at all on the COSS recording.
+
+Autoware's matcher treats a frame that reaches the cap as **not converged** and
+discards the result, so nothing reaches
+`/localization/pose_estimator/pose_with_covariance`:
+
+```
+The number of iterations has reached its upper limit.
+The number of iterations: 15, Limit: 15.
+```
+
+Meanwhile the stack still looks localized, because the EKF keeps publishing
+`/localization/kinematic_state` from wheel odometry and IMU. The telling pair is
+that topic having thousands of messages while the pose estimator's has zero.
+
+Restoring 30 was both correct and *faster* -- the matcher converges in about four
+iterations and needs more only on the first frames, so the low cap kept it
+grinding through all 15 forever instead of accepting the one frame that would
+have made the rest easy:
+
+| on this recording | cap 15 | cap 30 |
+|---|---|---|
+| NDT poses published | 0 | 1402 |
+| iterations, p50 / max | 15 / 15 | 4 / 17 |
+| `exe_ms`, mean | 12.4 | 4.6 |
+| NVTL, mean (gate 2.2) | 4.59 | 4.60 |
+
+The current value is in
+`src/launcher/autosdv_launch/config/localization/ndt_scan_matcher/ndt_scan_matcher.param.yaml`.
 | `initial_pose_estimation.particles_num` | Monte Carlo init is unreliable | improve tracking |
 
 Values that are measurements, not tuning knobs -- get them right rather than
