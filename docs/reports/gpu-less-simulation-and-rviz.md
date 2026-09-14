@@ -85,6 +85,16 @@ machine with no GPU in play.
 
 ### Consequence for the workshop
 
+**Not adopted.** This section's recommendation was overruled on 2026-09-14: the
+simulations use the stock `autoware.rviz`, and `workshop.rviz` is selected by
+nothing. The reasoning is in `docker/desktop/README.md`, and it is the same
+argument this report makes for the logging simulation two sections down --
+watching the live scan settle onto the map is the lesson, and a layout with the
+map hidden shows a scan floating in nothing. The measurements below stand; only
+the recommendation drawn from them does not.
+
+The original recommendation, kept because the numbers behind it are still true:
+
 Ship a workshop RViz config with the map point cloud disabled rather than
 shipping the stock Autoware one. This is a file, not an architectural change.
 
@@ -202,3 +212,31 @@ waiting, not computing -- so that figure measures contention, not the matcher.
 - `play_launch` supervises and **restarts** a killed `rviz2`, so an A/B needs the
   stack launched with `rviz:=false` and RViz run separately.
 - `vglrun` alone produced nothing on this host; `vglrun -d egl` reached the GPU.
+
+## The size trim does not break the simulation -- verified 2026-09-14
+
+The desktop image was cut from 34.8 GB by removing an unpacked Autoware apt
+pool, the .deb it came from, TensorRT's Windows builder resource, CUDA's static
+archives, Nsight Compute and the cargo caches. Verified rather than assumed:
+with every cut applied inside a running container (33.1 -> 21.3 GB of disk), the
+planning simulation reached
+
+    Startup complete: all nodes ready (nodes 34/34, containers 15/15,
+                                       composable 70/70)
+
+and a screenshot of the container's VNC desktop showed the lanelet2 road network
+drawn, the map point cloud textured, AutowareStatePanel live, and TF axes
+rendering. DDS, map loading and rendering all survive the trim.
+
+Two things worth recording from that run:
+
+- **A `docker run` without `-v data` fails in a misleading way.** `.dockerignore`
+  excludes `data/`, so the map is not in the image. `pointcloud_map_loader`
+  reports `PCD load failed`, but `lanelet2_map_loader` **segfaults** -- the first
+  line read is a crash, not the cause. The README's run command now carries the
+  mount.
+- **A new DDS participant cannot join once the stack is up.** With 116 node
+  processes running, `ros2 topic list` from a fresh shell in the same container
+  sees 2 topics; the same container idle passes a pub/echo test 3/3. The stack
+  itself is unaffected -- RViz renders -- but second-shell diagnostics do not
+  work inside the container, which matters before anyone debugs there.

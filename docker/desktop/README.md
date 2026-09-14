@@ -11,9 +11,25 @@ PLATFORM=linux/arm64 ./docker/desktop/build.sh   # arm64, ON THE ORIN
 
 ```bash
 docker run -it --rm -p 6080:6080 \
+  -v "$PWD/data:/opt/AutoSDV/data" \
+  --shm-size=2gb --cap-add=NET_ADMIN \
   jerry73204/autosdv:desktop
 # then open http://localhost:6080
 ```
+
+**The `-v data` mount is not optional.** Maps and rosbags are deliberately kept
+out of the image (`.dockerignore` excludes `data/`), so without it the planning
+simulation comes up 33/34 with the map container half empty:
+
+```
+PCD load failed: /opt/AutoSDV/data/COSS-map-planning/pointcloud_map.pcd
+Composable node '/map/lanelet2_map_loader' crashed: killed by signal 11
+```
+
+`lanelet2_map_loader` **segfaults** on a missing map rather than reporting one,
+so the first line a student reads is a crash, not the cause. `compose.yaml`
+carries the mount already; this plain `docker run` form is the one that needs it
+spelled out.
 
 ## The two architectures are two platforms, not one image twice
 
@@ -82,7 +98,7 @@ Every row here was measured, not assumed. The design rests on them.
 | JetPack's arm64 CUDA installs on plain Ubuntu arm64 | probe against `repo.download.nvidia.com/jetson r36.4`: `cuda-cudart-12-6` pulls three config packages, `libnvinfer10` pulls **nothing** |
 | TensorRT 10.3 matches what Autoware links | Autoware needs `libnvinfer.so.10`; the Jetson repo serves 10.3 |
 | Only `zed_components` needs the ZED SDK | `zed_wrapper`, which the TF path xacros, builds without it |
-| Software rendering is fast enough | 2 fps stock, **31 fps** with `rviz/workshop.rviz`; see [the report](../../docs/reports/gpu-less-simulation-and-rviz.md) |
+| Software rendering is fast enough | 2 fps stock, **31 fps** with the map point cloud hidden; see [the report](../../docs/reports/gpu-less-simulation-and-rviz.md) |
 
 ## Design decisions worth not re-litigating
 
@@ -234,6 +250,27 @@ Verified on the exact base image that failed: from a clean
 
 Together these should remove the whole 6.9 GB duplication on the next build --
 **a projection, since no image has been built with the fix yet.**
+
+## The simulations use the stock `autoware.rviz`
+
+Decided deliberately, against this repository's own measurements, so do not
+"fix" it by pointing `just sim planning` at `workshop.rviz`.
+
+`workshop.rviz` is the stock layout with the map point cloud display turned off.
+It renders at 31 fps where the stock layout manages 2, and the gap is entirely
+that one display -- it holds even an RTX 5090 to 10 fps. But hiding the map is
+the wrong trade for teaching: watching the live scan settle onto the map is the
+thing the logging simulation exists to show, and a layout with the map hidden
+shows a scan floating in nothing.
+
+The cost is real and lands on the student: on a laptop with no graphics path --
+which on macOS is every laptop, since Hypervisor.framework exposes no vGPU --
+the viewer runs at 2 fps. The pipeline itself is unaffected; NDT holds its full
+10 Hz on four cores.
+
+`workshop.rviz` stays in the tree for anyone who wants it, and the entrypoint
+still mentions it when it falls back to software rendering. Nothing selects it
+automatically.
 
 ## Known gaps
 
