@@ -260,6 +260,10 @@ created them -- **a deletion in a later layer reclaims nothing**, it only writes
 a whiteout while the bytes stay in the image. The last three arrived in the base
 image, whose layers this build does not own, so they need `FLATTEN=1`.
 
+**Measured on the first build that carried all of it: 34.8 GB -> 26.7 GB**, with
+20.7 GB actually in use inside the container. The ~6 GB difference is the
+whiteouted base-image content, which is what `FLATTEN=1` would reclaim.
+
 The Autoware localrepo is `apt-get purge`d rather than `rm`ed, so dpkg and apt
 stay consistent; it takes its `sources.list` and preferences pin with it, and
 nothing cascades (verified: 0 packages removed, 333 Autoware debs still
@@ -314,8 +318,16 @@ Verified on the exact base image that failed: from a clean
 `nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04` with no PyYAML, the pin now resolves
 `10.8.0.43-1+cuda12.8` for all three packages.
 
-Together these should remove the whole 6.9 GB duplication on the next build --
-**a projection, since no image has been built with the fix yet.**
+**Both verified on the next build.** The image now carries
+`libnvinfer10 10.8.0.43-1+cuda12.8` -- the pinned engine ABI, not 10.16 -- and
+`/opt/tensorrt` does not exist at all, because `tensorrt-runtime` found the
+system TensorRT already correct and skipped. The 6.9 GB duplication is gone.
+
+That build also exposed a third instance of the same assumption, and this one
+was fatal rather than silent: `registry.py` reads `versions.yaml` at import
+time, so `setup.sh` died 0.25 s in with `ModuleNotFoundError: No module named
+'yaml'`. Ubuntu 22.04 ships python3 without PyYAML and nothing here installed
+it. `setup/setup.sh` now installs it before handing over to `main.py`.
 
 ## The simulations use the stock `autoware.rviz`
 
@@ -349,6 +361,10 @@ automatically.
   workstation, four to eight times a student laptop.
 - **`libnvinfer10` is a 1.8 GB download** on a native install, 2.6 GB
   installed. An argument for the container over a native setup.
-- **The post-cleanup size is a projection, not a measurement.** The cuts were
-  measured by applying them inside the built image (33.1 GB -> 21.3 GB of disk),
-  but no image has yet been built with the Dockerfile that performs them.
+- **The amd64 image is built and verified**, at 26.7 GB. The planning
+  simulation reaches 34/34 nodes, 15/15 containers and 70/70 composables in it,
+  and a screenshot of its desktop shows the lanelet network, the map point
+  cloud, a live AutowareStatePanel and TF axes.
+- **RViz draws nothing for about 90 seconds after `Startup complete`.** The
+  first screenshot of a fresh run is a black viewport; this is load time, not a
+  failure. Worth knowing before anyone debugs it.
