@@ -19,8 +19,8 @@ if [[ "${ARCH}" == "x86_64" ]]; then
     DEB_URL="https://github.com/jerry73204/zed-sdk-debian-package/releases/download/4.2-1/zed-sdk_4.2-1_amd64.deb"
     DEB_FILE="${DATA_DIR}/zed-sdk/zed-sdk_4.2-1_amd64.deb"
 elif [[ "${ARCH}" == "aarch64" ]]; then
-    DEB_URL="https://github.com/jerry73204/zed-sdk-debian-package/releases/download/4.2-1/zed-sdk_4.2-1_arm64.deb"
-    DEB_FILE="${DATA_DIR}/zed-sdk/zed-sdk_4.2-1_arm64.deb"
+    DEB_URL="https://github.com/jerry73204/zed-sdk-debian-package/releases/download/4.2-1/zed-sdk_4.2-1_jetpack6.0.deb"
+    DEB_FILE="${DATA_DIR}/zed-sdk/zed-sdk_4.2-1_jetpack6.0.deb"
 else
     echo "Error: Unsupported architecture: ${ARCH}"
     exit 1
