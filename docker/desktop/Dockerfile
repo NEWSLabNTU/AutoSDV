@@ -115,11 +115,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
-# --- the workspace ----------------------------------------------------------
+# --- the installer, ahead of the workspace it installs for --------------------
 # Copied rather than cloned so the image can be built from an unpushed working
 # tree while this is being developed. Dockerfile.dockerignore keeps the context
 # to source only (~690 MB of a ~30 GB tree). A published image builds from a tag.
-COPY . ${AUTOSDV_HOME}
+#
+# setup/ arrives WITHOUT src/, deliberately. Installing ROS 2 and Autoware takes
+# about seventy minutes, and if that layer is keyed on the whole tree then every
+# edit to a single CMakeLists -- which is what the failures at this stage
+# actually are -- re-downloads and re-installs all of it before it can reach the
+# line that changed. Six arm64 attempts paid that toll. Only two setup steps
+# read src/ at all (ros-deps and range-libc), so they move below the full COPY
+# and everything else keys on the installer alone.
+COPY setup/ ${AUTOSDV_HOME}/setup/
+COPY scripts/ ${AUTOSDV_HOME}/scripts/
+COPY just/ ${AUTOSDV_HOME}/just/
+COPY demo/ ${AUTOSDV_HOME}/demo/
+COPY versions.yaml justfile ${AUTOSDV_HOME}/
 WORKDIR ${AUTOSDV_HOME}
 
 # Belt and braces against the worst build bug available here: setup.sh imports
@@ -152,8 +164,6 @@ RUN rm -rf setup/.markers setup/.state.json
 #                      Purged rather than rm'd so dpkg and apt stay consistent:
 #                      it also takes the sources.list and preferences pin, and
 #                      nothing depends on it (verified: 0 packages cascade).
-#   the download       data/autoware-debian holds the .deb it was unpacked
-#                      from -- a THIRD copy of the same bytes.
 #   the Windows blob   TensorRT ships libnvinfer_builder_resource_win.so, the
 #                      resource for building engines that target Windows. 1.9 GB,
 #                      dlopen'd only by a builder cross-compiling to Windows,
@@ -161,13 +171,53 @@ RUN rm -rf setup/.markers setup/.state.json
 #   the build caches   ~/.cargo/registry is downloaded crate source and rustdoc
 #                      is documentation. The toolchain itself stays, so a
 #                      student can still rebuild a Rust package.
-RUN ./setup.sh --run --profile dev --yes \
-        --skip cyclonedds-sysctl multicast-lo \
+#
+# The Autoware .deb lands in a CACHE MOUNT rather than in the image. Two things
+# follow, both wanted:
+#
+#   * it is not a third copy of those 1.9 GB in the layer, so there is nothing
+#     to delete afterwards -- a cache mount is never committed.
+#   * a rebuild reuses the download. `COPY . ${AUTOSDV_HOME}` sits above this
+#     step, so ANY source change invalidates it; without the cache each such
+#     change re-downloads 2 GB before it can fail on the line that changed,
+#     which is what made every arm64 attempt cost 35 minutes at best.
+#
+# install-autoware-debian.sh verifies the checksum of a file it finds already
+# present and exits if it does not match, so a truncated cache cannot be
+# installed silently.
+#
+# ros-deps and range-libc are skipped here and run below, after src/ arrives:
+# they are the only two steps that read the workspace. `--only` runs them there
+# by name, so this remains one list of steps rather than two.
+#
+# `./setup/setup.sh`, not `./setup.sh`: the repo root carries a SYMLINK to it,
+# and the launcher derives the location of main.py with `readlink -f "$0"`.
+# `COPY .` preserves that symlink, but naming it as an explicit COPY source
+# dereferences it into a plain file, whose readlink then resolves to the repo
+# root and looks for main.py there:
+#
+#   python3: can't open file '/opt/AutoSDV/main.py'
+#
+# The link arrives intact with the full COPY below; this layer calls the real
+# file directly.
+RUN --mount=type=cache,target=/opt/AutoSDV/data/autoware-debian,sharing=locked \
+    ./setup/setup.sh --run --profile dev --yes \
+        --skip cyclonedds-sysctl multicast-lo ros-deps range-libc \
     && apt-get purge -y autoware-localrepo-1-5-0 \
-    && rm -f data/autoware-debian/*.deb \
     && rm -f /opt/tensorrt/*/lib/libnvinfer_builder_resource_win.so.* \
     && rm -rf /root/.cargo/registry /root/.cargo/git \
     && rm -rf /root/.rustup/toolchains/*/share/doc \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- the workspace ----------------------------------------------------------
+# Everything below this line is re-run by a source change; everything above it
+# is not.
+COPY . ${AUTOSDV_HOME}
+
+# The two setup steps that read src/: rosdep over the workspace's package.xml
+# files, and the range_libc Cython extension built out of a submodule. Same
+# registry, same order, named rather than re-described.
+RUN ./setup.sh --run --only ros-deps range-libc --yes \
     && rm -rf /var/lib/apt/lists/*
 
 # --- build the workspace ----------------------------------------------------
