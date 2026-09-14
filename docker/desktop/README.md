@@ -92,30 +92,65 @@ name, not `:desktop-amd64`. What a student loads has to carry the tag the
 scripts and slides already use, or `docker run` reports "image not found" on a
 machine that demonstrably has the image.
 
-**Student instructions**, where `SERVER` is the teaching laptop's address on
-the classroom network -- its real address, not `localhost`:
+### Student instructions
+
+Students bring whatever they own, and which image a machine needs is its
+**processor**, not its operating system: an Apple Silicon Mac takes arm64, an
+Intel Mac takes amd64 like Windows and like Linux on a PC. Nobody should have
+to know that about themselves, so the launcher asks Docker and fetches the
+right file.
+
+Clone the repository -- needed anyway for `data/`, which is not in the image --
+then point the launcher at the classroom server:
 
 ```bash
-# Linux, macOS, and Windows PowerShell all have curl
-curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz          # Intel/AMD, and Windows
-curl -O http://SERVER:8000/autosdv-desktop-arm64.tar.gz          # Apple Silicon
-curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz.sha256
-
-shasum -a 256 -c autosdv-desktop-amd64.tar.gz.sha256             # macOS
-sha256sum -c autosdv-desktop-amd64.tar.gz.sha256                 # Linux
-
-docker load -i autosdv-desktop-amd64.tar.gz
-docker images jerry73204/autosdv                                 # confirm it is there
+git clone https://github.com/NEWSLabNTU/AutoSDV.git
+cd AutoSDV
+AUTOSDV_SERVER=http://SERVER:8000 ./docker/desktop/autosdv.sh        # Linux, macOS
+```
+```powershell
+git clone https://github.com/NEWSLabNTU/AutoSDV.git
+cd AutoSDV
+$env:AUTOSDV_SERVER='http://SERVER:8000'
+.\docker\desktop\autosdv.ps1                                        # Windows
 ```
 
-On Windows, `Get-FileHash autosdv-desktop-amd64.tar.gz -Algorithm SHA256`
-prints the hash to compare by eye; there is no `-c` equivalent.
+`SERVER` is the teaching laptop's address on the classroom network -- its real
+address, not `localhost`. Find it with `ip addr` on Linux or
+`ipconfig getifaddr en0` on macOS.
 
-**Check the hash.** A truncated download loads for twenty minutes and then
-fails with a tar error that says nothing about the network.
+That one command downloads the correct architecture, verifies its checksum,
+loads it into Docker, starts the container and opens a shell. Afterwards the
+same command without `AUTOSDV_SERVER` is what they use for the rest of the
+course, and running it again opens a second terminal.
 
-Which file a student needs is their processor, not their operating system:
-Apple Silicon takes arm64, and an Intel Mac takes amd64 like everyone else.
+Three things it does that matter at this scale:
+
+- **Architecture is detected from the Docker daemon**, not from `uname`. Under
+  Rosetta a shell reports `x86_64` on an Apple Silicon machine whose Docker is
+  arm64; a student following a "check your processor" instruction would load
+  an emulated image that runs at a fraction of the speed, for no visible
+  reason.
+- **Downloads resume.** `curl -C -` picks up where it stopped, so a dropped
+  transfer costs the remainder rather than the whole 14 GB. Running the script
+  again continues it.
+- **The checksum is verified before loading.** A truncated archive otherwise
+  loads for several minutes and then fails with a tar error that says nothing
+  about the network. Tested by truncating a file: the mismatch is caught.
+
+If Docker cannot be reached for the architecture, `AUTOSDV_ARCH=amd64` or
+`arm64` overrides it.
+
+### Doing it by hand
+
+```bash
+curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz
+sha256sum -c autosdv-desktop-amd64.tar.gz.sha256    # shasum -a 256 -c on macOS
+docker load -i autosdv-desktop-amd64.tar.gz
+```
+
+On Windows, `Get-FileHash <file> -Algorithm SHA256` prints the hash to compare
+by eye; there is no `-c` equivalent.
 
 ## The two architectures are two platforms, not one image twice
 

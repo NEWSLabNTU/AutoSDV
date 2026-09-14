@@ -8,6 +8,11 @@
 #   ./docker/desktop/autosdv.sh --pull   check for a newer image first
 #   ./docker/desktop/autosdv.sh --stop   stop and remove the container
 #
+#   AUTOSDV_SERVER=http://10.0.0.5:8000 ./docker/desktop/autosdv.sh
+#                                        take the image from the classroom
+#                                        server rather than Docker Hub. The
+#                                        right architecture is chosen for you.
+#
 # The logging simulation needs two terminals -- one for the stack and one for
 # the rosbag replay -- so running this twice is the normal case, not an error.
 #
@@ -61,6 +66,79 @@ port_help() {
       AUTOSDV_PORT=6081 $0
 
 EOF
+}
+
+
+# Which image a machine needs is its PROCESSOR, not its operating system: an
+# Apple Silicon Mac takes arm64 and an Intel Mac takes amd64, like Windows and
+# like Linux on a PC. Nobody should have to know that about themselves, so ask
+# Docker rather than the student.
+#
+# `docker version` and not `uname -m`: under Rosetta a shell reports x86_64 on
+# an Apple Silicon machine whose Docker is arm64, and the student would load
+# an emulated image that runs at a fraction of the speed for no visible reason.
+detect_arch() {
+    local a
+    a="$(docker version --format '{{.Server.Arch}}' 2>/dev/null || true)"
+    case "$a" in
+        amd64|x86_64)  echo amd64 ;;
+        arm64|aarch64) echo arm64 ;;
+        *)
+            echo "error: could not determine the Docker daemon's architecture (got '${a:-nothing}')." >&2
+            echo "       Set AUTOSDV_ARCH=amd64 or AUTOSDV_ARCH=arm64 and run again." >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Fetch the image from a machine on the local network instead of Docker Hub.
+# Fifty laptops pulling 14 GB each from the internet does not finish inside a
+# class; one laptop serving a directory does.
+load_from_server() {
+    local arch file url tmp sum
+    arch="${AUTOSDV_ARCH:-$(detect_arch)}"
+    file="autosdv-desktop-${arch}.tar.gz"
+    url="${AUTOSDV_SERVER%/}/${file}"
+    tmp="${TMPDIR:-/tmp}/${file}"
+
+    say "this machine needs the ${arch} image"
+    say "fetching ${url}"
+    say "(several gigabytes; it resumes if interrupted, so run this again)"
+    echo
+
+    # -C - resumes a partial file. On a shared classroom network a dropped
+    # download is normal, and starting a 14 GB transfer again from zero is how
+    # a session runs out of time.
+    curl -fL -C - -o "$tmp" "$url" || {
+        echo "error: download failed. Check AUTOSDV_SERVER=${AUTOSDV_SERVER}" >&2
+        echo "       and that the server is reachable: curl -I ${url}" >&2
+        exit 1
+    }
+
+    # Verify before loading. A truncated archive loads for many minutes and
+    # then fails with a tar error that says nothing about the network.
+    if curl -fsL -o "${tmp}.sha256" "${url}.sha256" 2>/dev/null; then
+        say "verifying"
+        if command -v sha256sum >/dev/null 2>&1; then
+            sum="$(sha256sum "$tmp" | awk '{print $1}')"
+        else
+            sum="$(shasum -a 256 "$tmp" | awk '{print $1}')"    # macOS has no sha256sum
+        fi
+        if [ "$sum" != "$(awk '{print $1}' "${tmp}.sha256")" ]; then
+            echo "error: checksum mismatch -- the download is incomplete or corrupt." >&2
+            echo "       Delete ${tmp} and run this again." >&2
+            exit 1
+        fi
+        say "checksum ok"
+    else
+        say "no checksum published alongside the image; skipping verification"
+    fi
+
+    say "loading into Docker (a few minutes, no progress output)"
+    docker load -i "$tmp"
+    rm -f "${tmp}.sha256"
+    say "loaded. ${tmp} can be deleted, or kept to share with someone else."
+    echo
 }
 
 case "${1:-}" in
@@ -126,8 +204,12 @@ if docker inspect "$NAME" >/dev/null 2>&1; then
     docker start "$NAME" >/dev/null || { port_help; exit 1; }
 else
     if [ "${1:-}" = "--pull" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-        say "pulling ${IMAGE} -- this is several gigabytes, and only happens once"
-        docker pull "$IMAGE"
+        if [ -n "${AUTOSDV_SERVER:-}" ]; then
+            load_from_server
+        else
+            say "pulling ${IMAGE} -- this is several gigabytes, and only happens once"
+            docker pull "$IMAGE"
+        fi
     fi
 
     [ -d "${REPO}/data" ] || {
