@@ -3,6 +3,9 @@
 #
 #   .\docker\desktop\autosdv.ps1          first run: pull, start, open a shell
 #   .\docker\desktop\autosdv.ps1          again: a SECOND shell in the SAME container
+#   .\docker\desktop\autosdv.ps1 -Gpu     pass an NVIDIA GPU through. Docker
+#         Desktop does this through WSL2 and needs GPU support enabled there;
+#         it cannot work on macOS at all.
 #   .\docker\desktop\autosdv.ps1 -Pull    check for a newer image first
 #   .\docker\desktop\autosdv.ps1 -Stop    stop and remove the container
 #
@@ -20,7 +23,8 @@
 [CmdletBinding()]
 param(
     [switch]$Pull,
-    [switch]$Stop
+    [switch]$Stop,
+    [switch]$Gpu
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,6 +100,15 @@ if ($running -eq 'true') {
     # this invocation happens to carry.
     $actual = (docker inspect -f '{{with index .NetworkSettings.Ports "6080/tcp"}}{{(index . 0).HostPort}}{{end}}' $Name 2>$null)
     if ($actual) { $Port = $actual }
+    if ($Gpu) {
+        Write-Host ""
+        Write-Host "  note: -Gpu only takes effect when the container is created, and '$Name'"
+        Write-Host "  is already running. To switch it on, stop it first:"
+        Write-Host ""
+        Write-Host "      .\docker\desktop\autosdv.ps1 -Stop"
+        Write-Host "      .\docker\desktop\autosdv.ps1 -Gpu"
+        Write-Host ""
+    }
     Say "attaching another shell to '$Name'"
     Say "desktop: http://localhost:$Port/vnc.html?autoconnect=1&resize=remote"
     Write-Host ""
@@ -124,6 +137,14 @@ if ($LASTEXITCODE -eq 0) {
         exit 1
     }
 
+    $gpuArgs = @()
+    if ($Gpu) {
+        # NVIDIA_DRIVER_CAPABILITIES must include graphics, not just the default
+        # compute,utility: without it the driver exposes CUDA but no GL, and the
+        # entrypoint's VirtualGL path finds a GPU it cannot draw with.
+        $gpuArgs = @('--gpus','all','-e','NVIDIA_DRIVER_CAPABILITIES=all','-e','NVIDIA_VISIBLE_DEVICES=all')
+        Say "passing through an NVIDIA GPU (requires GPU support in Docker Desktop/WSL2)"
+    }
     Say "starting '$Name'"
     # -dit rather than -d: the image's command is bash, which exits immediately
     # without a terminal attached, and the container would stop with it.
@@ -141,6 +162,7 @@ if ($LASTEXITCODE -eq 0) {
         --shm-size=2gb `
         --cap-add=NET_ADMIN `
         -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp `
+        @gpuArgs `
         $Image | Out-Null
     if ($LASTEXITCODE -ne 0) {
         # A failed `docker run` still leaves the named container behind, and the

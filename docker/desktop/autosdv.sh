@@ -5,6 +5,10 @@
 #   ./docker/desktop/autosdv.sh          first run: pull, start, open a shell
 #   ./docker/desktop/autosdv.sh          again, anywhere: a SECOND shell in the
 #                                        SAME container
+#   ./docker/desktop/autosdv.sh --gpu    pass an NVIDIA GPU through to the
+#                                        container (Linux with the NVIDIA
+#                                        Container Toolkit; not macOS, and not
+#                                        Docker Desktop on Windows)
 #   ./docker/desktop/autosdv.sh --pull   check for a newer image first
 #   ./docker/desktop/autosdv.sh --stop   stop and remove the container
 #
@@ -23,6 +27,19 @@ set -euo pipefail
 NAME="${AUTOSDV_CONTAINER:-autosdv}"
 IMAGE="${AUTOSDV_IMAGE:-jerry73204/autosdv:desktop}"
 PORT="${AUTOSDV_PORT:-6080}"
+
+# --gpu is consumed here rather than passed through: it changes how the
+# container is CREATED, so it is meaningless on the runs that merely attach a
+# second shell to one that already exists.
+GPU=0
+args=()
+for a in "$@"; do
+    case "$a" in
+        --gpu) GPU=1 ;;
+        *) args+=("$a") ;;
+    esac
+done
+set -- "${args[@]+"${args[@]}"}"
 
 # The repository, found from this script rather than from the caller's working
 # directory, so the data mount is right no matter where it is invoked from.
@@ -103,6 +120,17 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null || echo false
         -f '{{with index .NetworkSettings.Ports "6080/tcp"}}{{(index . 0).HostPort}}{{end}}' \
         "$NAME" 2>/dev/null || true)"
     PORT="${running_port:-$PORT}"
+    if [ "$GPU" = "1" ]; then
+        cat >&2 <<EOF
+
+  note: --gpu only takes effect when the container is created, and '$NAME' is
+  already running. To switch it on, stop it first:
+
+      $0 --stop
+      $0 --gpu
+
+EOF
+    fi
     say "attaching another shell to '$NAME'"
     say "desktop: http://localhost:${PORT}/vnc.html?autoconnect=1&resize=remote"
     echo
@@ -142,6 +170,37 @@ else
         exit 1
     }
 
+    gpu_args=()
+    if [ "$GPU" = "1" ]; then
+        # Fail here with an explanation rather than letting `docker run` emit
+        # "could not select device driver with capabilities: [[gpu]]", which
+        # names neither the missing piece nor where to get it.
+        if ! docker info 2>/dev/null | grep -qi 'Runtimes:.*nvidia' \
+           && ! command -v nvidia-ctk >/dev/null 2>&1; then
+            cat >&2 <<EOF
+
+  --gpu needs the NVIDIA Container Toolkit, which is not installed.
+
+  It is Linux only: macOS cannot pass a GPU to a container at all, and
+  Docker Desktop on Windows does it through WSL2 rather than this flag.
+
+      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+  Without it the container still works -- RViz renders in software, and the
+  CPU paths (pose_source:=ndt, launch_perception:=false) are what the lab
+  uses anyway.
+
+EOF
+            exit 1
+        fi
+        # NVIDIA_DRIVER_CAPABILITIES must include `graphics`, not just the
+        # default `compute,utility`: without it the driver exposes CUDA but no
+        # GL, and the entrypoint's VirtualGL path finds a GPU it cannot draw
+        # with.
+        gpu_args=(--gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e NVIDIA_VISIBLE_DEVICES=all)
+        say "passing through an NVIDIA GPU"
+    fi
+
     say "starting '$NAME'"
     # -dit rather than -d: the image's command is bash, which exits immediately
     # without a terminal attached, and the container would stop with it.
@@ -161,6 +220,7 @@ else
         --shm-size=2gb \
         --cap-add=NET_ADMIN \
         -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+        ${gpu_args[@]+"${gpu_args[@]}"} \
         "$IMAGE" >/dev/null || {
             # A failed `docker run` still leaves the named container behind, and
             # the next invocation would take the "exists but stopped" path and
