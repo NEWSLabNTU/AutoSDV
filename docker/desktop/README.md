@@ -159,6 +159,48 @@ something. A local `cmake` run took the normal path and reported success,
 proving nothing. Verify a skip in a container that genuinely lacks the thing,
 or in an isolated CMake snippet.
 
+## Size
+
+The first working image was **34.8 GB**, which is not a number a student pulls.
+Measured from inside it, most of that was not the workspace:
+
+| What | Size | Why it was there |
+|---|---|---|
+| Autoware localrepo pool | 1.9 GB | the 333 debs, still unpacked after being installed |
+| the localrepo `.deb` | 1.9 GB | the download it was unpacked from -- a third copy |
+| `libnvinfer_builder_resource_win.so` | 1.9 GB | TensorRT's **Windows** engine-builder resource |
+| CUDA static archives (`*.a`) | 3.6 GB | from the `devel` base; nothing loads them at run time |
+| Nsight Compute | 1.1 GB | a profiler, from the same base |
+| `~/.cargo/registry` + rustdoc | 1.3 GB | crate sources and documentation |
+
+All are now deleted by the Dockerfile, and the first three in the same `RUN` that
+created them -- **a deletion in a later layer reclaims nothing**, it only writes
+a whiteout while the bytes stay in the image. The last three arrived in the base
+image, whose layers this build does not own, so they need `FLATTEN=1`.
+
+The Autoware localrepo is `apt-get purge`d rather than `rm`ed, so dpkg and apt
+stay consistent; it takes its `sources.list` and preferences pin with it, and
+nothing cascades (verified: 0 packages removed, 333 Autoware debs still
+installed, `ros2 pkg list` unchanged).
+
+**`build/` and `src/` stay**, however tempting 1.5 GB is: `just build` passes
+`--symlink-install`, so the 25 MB `install/` tree is 1071 symlinks pointing back
+into them. Deleting either empties the workspace with no error at all.
+
+### TensorRT is installed twice, and that is still true
+
+6.9 GB of the original image was two TensorRTs:
+
+- **apt `libnvinfer10` 10.16.1.11+cuda13.2**, 2.5 GB, pulled by
+  `install-tensorrt.sh` tier 3. Its attempt to pin `10.8.0` found no candidate,
+  because NVIDIA's `ubuntu2204` repo no longer carries that patch, so it fell
+  back to newest as designed.
+- **`/opt/tensorrt/10.8.0`**, 4.4 GB, installed by the `tensorrt-runtime` step
+  to repair the engine-ABI mismatch the first install had just created.
+
+Removing the Windows blob takes the second down to 2.4 GB. The duplication
+itself is unresolved and is the largest remaining avoidable item.
+
 ## Known gaps
 
 - **The arm64 image has never been built.** The arm64 branch of
@@ -170,3 +212,6 @@ or in an isolated CMake snippet.
   workstation, four to eight times a student laptop.
 - **`libnvinfer10` is a 1.8 GB download** on a native install, 2.6 GB
   installed. An argument for the container over a native setup.
+- **The post-cleanup size is a projection, not a measurement.** The cuts were
+  measured by applying them inside the built image (33.1 GB -> 21.3 GB of disk),
+  but no image has yet been built with the Dockerfile that performs them.

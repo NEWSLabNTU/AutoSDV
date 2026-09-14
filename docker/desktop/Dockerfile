@@ -100,8 +100,33 @@ RUN rm -rf setup/.markers setup/.state.json
 #                      Docker Desktop's VM.
 #   multicast-lo       installs a systemd unit; there is no systemd here. The
 #                      entrypoint sets the loopback MULTICAST flag instead.
+#
+# The cleanup is part of THIS command rather than a RUN of its own, which is the
+# only way a deletion reclaims anything: a `rm` in a later layer writes a
+# whiteout and the bytes stay in the image regardless.
+#
+#   the localrepo      Autoware arrives as one 1.9 GB .deb that unpacks an apt
+#                      pool to /opt/autoware/1.5.0/repo. After the 333 packages
+#                      are installed, that pool is a second copy of them.
+#                      Purged rather than rm'd so dpkg and apt stay consistent:
+#                      it also takes the sources.list and preferences pin, and
+#                      nothing depends on it (verified: 0 packages cascade).
+#   the download       data/autoware-debian holds the .deb it was unpacked
+#                      from -- a THIRD copy of the same bytes.
+#   the Windows blob   TensorRT ships libnvinfer_builder_resource_win.so, the
+#                      resource for building engines that target Windows. 1.9 GB,
+#                      dlopen'd only by a builder cross-compiling to Windows,
+#                      which cannot happen here.
+#   the build caches   ~/.cargo/registry is downloaded crate source and rustdoc
+#                      is documentation. The toolchain itself stays, so a
+#                      student can still rebuild a Rust package.
 RUN ./setup.sh --run --profile dev --yes \
         --skip cyclonedds-sysctl multicast-lo \
+    && apt-get purge -y autoware-localrepo-1-5-0 \
+    && rm -f data/autoware-debian/*.deb \
+    && rm -f /opt/tensorrt/*/lib/libnvinfer_builder_resource_win.so.* \
+    && rm -rf /root/.cargo/registry /root/.cargo/git \
+    && rm -rf /root/.rustup/toolchains/*/share/doc \
     && rm -rf /var/lib/apt/lists/*
 
 # --- build the workspace ----------------------------------------------------
@@ -110,7 +135,24 @@ RUN ./setup.sh --run --profile dev --yes \
 # of memory while linking never has to.
 RUN bash -c 'set -eo pipefail; \
       set +u; source /opt/autoware/1.5.0/setup.bash; set -u; \
-      just build'
+      just build' \
+    && rm -rf /root/.cargo/registry /root/.cargo/git
+
+# `build/` and `src/` cannot be deleted, however tempting 1.5 GB is: `just build`
+# passes --symlink-install, so the 25 MB install/ tree is 1071 symlinks pointing
+# back into them. Removing either empties the workspace without any error.
+
+# --- build-only weight inherited from the base image -------------------------
+# CUDA's static archives (3.6 GB) and Nsight Compute (1.1 GB) come from the
+# `devel` base and nothing loads them at run time. They are deleted here rather
+# than left alone because build.sh FLATTENS the finished image; without that
+# flatten this RUN reclaims nothing, since the bytes belong to a base layer.
+# The glob is inside find rather than in the shell: the arm64 base is plain
+# ubuntu:22.04 with no /usr/local/cuda-* at all, and an unmatched shell glob
+# would hand find a literal path it then fails on, breaking the arm64 build.
+RUN find /usr/local -maxdepth 1 -type d -name 'cuda-*' \
+        -exec find {} -name '*.a' -delete \; \
+    && rm -rf /opt/nvidia/nsight-compute
 
 # --- graphics ---------------------------------------------------------------
 # TurboVNC supplies the X server and the VNC transport; VirtualGL is used only

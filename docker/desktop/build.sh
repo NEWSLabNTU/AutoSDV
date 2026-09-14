@@ -4,6 +4,7 @@
 #   ./docker/desktop/build.sh                  amd64, tagged autosdv:desktop-dev
 #   PLATFORM=linux/arm64 ./docker/desktop/build.sh
 #   TAG=autosdv:desktop-0.2 ./docker/desktop/build.sh
+#   FLATTEN=1 ./docker/desktop/build.sh         collapse to one layer (see below)
 #
 # The CUDA base image is read from versions.yaml rather than written here, so
 # there is exactly one place that says which CUDA the project builds against.
@@ -53,7 +54,7 @@ echo
 # the workspace. Dockerfile.dockerignore trims ~30 GB to ~690 MB, and excludes
 # setup/.markers -- without which setup.sh would import this host's state and
 # silently skip installing ROS 2 and Autoware.
-exec docker build \
+docker build \
     --progress=plain \
     --platform "$PLATFORM" \
     --build-arg "CUDA_IMAGE=$CUDA_IMAGE" \
@@ -61,3 +62,49 @@ exec docker build \
     -t "$TAG" \
     "$@" \
     .
+
+[ "${FLATTEN:-0}" = "1" ] || exit 0
+
+# --- flatten -----------------------------------------------------------------
+# The Dockerfile deletes ~4.7 GB of build-only weight that arrived in the BASE
+# image: CUDA's static archives and Nsight Compute. A deletion cannot reclaim
+# those, because the bytes belong to a layer this build does not own -- the `rm`
+# only writes a whiteout on top. Exporting the container filesystem and
+# re-importing it collapses every layer into one, and the deleted bytes are
+# genuinely gone.
+#
+# THIS IS NOT FREE, which is why it is opt-in:
+#
+#   * one layer means no parallel download and no per-layer resume. A pull that
+#     dies at 90% on classroom wifi restarts from zero. With 50 students on one
+#     access point that is the difference between a slow morning and a lost one.
+#   * every later rebuild re-pushes the whole image; nothing is shared with the
+#     previous tag.
+#
+# So: flatten for a `docker save` tarball handed out on USB sticks, where size is
+# everything and there is no resume to lose. Leave it off for a Docker Hub tag
+# students pull over a network.
+echo
+echo "  flattening $TAG (one layer) ..."
+
+cid="$(docker create --platform "$PLATFORM" "$TAG")"
+trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+
+# Rebuild the image metadata from the image itself rather than restating it
+# here, so this cannot drift from the Dockerfile.
+opts=()
+while IFS= read -r e; do
+    if [ -n "$e" ]; then opts+=(-c "ENV $e"); fi
+done < <(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$TAG")
+while IFS= read -r port; do
+    if [ -n "$port" ]; then opts+=(-c "EXPOSE ${port%%/*}"); fi
+done < <(docker inspect -f '{{range $p, $v := .Config.ExposedPorts}}{{println $p}}{{end}}' "$TAG")
+workdir="$(docker inspect -f '{{.Config.WorkingDir}}' "$TAG")"
+if [ -n "$workdir" ]; then opts+=(-c "WORKDIR $workdir"); fi
+opts+=(-c "ENTRYPOINT $(docker inspect -f '{{json .Config.Entrypoint}}' "$TAG")")
+opts+=(-c "CMD $(docker inspect -f '{{json .Config.Cmd}}' "$TAG")")
+
+docker export "$cid" | docker import "${opts[@]}" - "$TAG"
+
+echo
+docker images --format '  {{.Repository}}:{{.Tag}}  {{.Size}}' "${TAG%%:*}" | head -5
