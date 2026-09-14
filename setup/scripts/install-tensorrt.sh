@@ -255,7 +255,11 @@ if [ "$ARCH" = "aarch64" ]; then
         curl -fsSL https://repo.download.nvidia.com/jetson/jetson-ota-public.asc \
             | sudo gpg --dearmor --yes -o /usr/share/keyrings/jetson.gpg
     fi
-    echo "deb [signed-by=/usr/share/keyrings/jetson.gpg] https://repo.download.nvidia.com/jetson/common ${JETSON_REPO:-r36.4} main" \
+    # The pocket follows the L4T minor this project pins (JetPack 6.2.2+ -> 36.5);
+    # override with JETSON_REPO for a board deliberately left behind it.
+    _l4t="$("${REPO_DIR}/scripts/version/get-version.sh" nvidia_arm64.l4t 2>/dev/null || true)"
+    : "${_l4t:=36.5}"
+    echo "deb [signed-by=/usr/share/keyrings/jetson.gpg] https://repo.download.nvidia.com/jetson/common ${JETSON_REPO:-r${_l4t}} main" \
         | sudo tee /etc/apt/sources.list.d/nvidia-jetson.list >/dev/null
     sudo apt-get update
     sudo apt-get install -y --no-install-recommends "${PACKAGES[@]}"

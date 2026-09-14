@@ -48,8 +48,30 @@ ros:
 # These values record what the Autoware Debian packages REQUIRE, not something
 # this repository installs.
 #
-# The arm64 target is JetPack 6.2 -- the Debian package's own suffix is
-# `jetpack62`. Documentation that still says "JetPack 6.0 exactly" predates it.
+# The arm64 target is JetPack 6.2.2 OR NEWER. The Debian package's suffix stays
+# `jetpack62` -- it names the 6.2 series it was built for, not a patch, so do not
+# rename it when the board moves forward inside that series.
+#
+# `jetpack` below is a MINIMUM, and the L4T beside it is the thing to check on a
+# board, because the patch is where the two stop tracking each other. NVIDIA's
+# own mapping (developer.nvidia.com/embedded/jetpack-archive):
+#
+#     JetPack 6.2    L4T 36.4.3
+#     JetPack 6.2.1  L4T 36.4.4
+#     JetPack 6.2.2  L4T 36.5.0     <- the floor
+#     JetPack 6.2.3  L4T 36.5.2
+#
+# So the pin crosses an L4T MINOR, 36.4 -> 36.5, and that is not cosmetic:
+#
+#   * the ZED SDK is published per L4T minor, so a board at the floor or above
+#     takes the l4t36.5 installer, not l4t36.4 (setup/scripts/install-zed-sdk.sh
+#     reads /etc/nv_tegra_release and picks for you)
+#   * NVIDIA's Jetson apt pocket is r36.5 rather than r36.4
+#   * a cached TensorRT engine set is keyed by L4T, so the published AGX Orin
+#     asset (R36.4.4, i.e. JetPack 6.2.1) will MISS on a board at 6.2.2 and the
+#     engines will be built locally until someone publishes a 36.5 set. That is
+#     a slow first provision, not a failure -- see
+#     docs/roadmap/11-engine-file-delivery.md
 #
 # The amd64 values are MAJOR versions, because that is what is actually
 # required: they are the sonames Autoware's own shipped libraries link against,
@@ -107,8 +129,8 @@ nvidia_amd64:
   tensorrt_engine_abi: "10.8.0"
 
 nvidia_arm64:
-  jetpack: "6.2"
-  l4t: ""
+  jetpack: "6.2.2"        # MINIMUM, not an exact pin; newer 6.2.x is fine
+  l4t: "36.5"             # the minor that 6.2.2 and up ship; check with /etc/nv_tegra_release
   cuda: ""
   cudnn: ""
   tensorrt: ""

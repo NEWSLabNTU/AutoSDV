@@ -24,6 +24,10 @@ GET_VERSION="${REPO_DIR}/scripts/version/get-version.sh"
 WANT="$("${GET_VERSION}" zed.sdk_version)"
 SERIES="$("${GET_VERSION}" zed.sdk_series)"
 URL_BASE="$("${GET_VERSION}" zed.url_base)"
+# The L4T minor this project pins (JetPack 6.2.2 and up ship 36.5), used only
+# when a Jetson's own release file cannot be read.
+L4T_DEFAULT="$("${GET_VERSION}" nvidia_arm64.l4t)"
+: "${L4T_DEFAULT:=36.5}"
 
 # Only when stdout is a terminal that wants colour: this output is also read
 # through `tee`, in CI logs, and by the curses menu's plain fallback.
@@ -55,7 +59,8 @@ platform_path() {
             echo "l4t${major}.${minor}/jetsons"
             return
         fi
-        echo "l4t36.4/jetsons"   # a Tegra we could not read: the JetPack 6.2 default
+        # A Tegra whose release file we could not parse: assume the pin.
+        echo "l4t${L4T_DEFAULT}/jetsons"
         return
     fi
     # amd64: CUDA 12, because that is what Autoware pins (nvidia_amd64.cuda).
@@ -98,9 +103,9 @@ echo "  ${BOLD}chmod +x zed_sdk.run && ./zed_sdk.run${OFF}"
 echo
 echo "That URL is a redirect Stereolabs keeps stable; it resolves to the file"
 echo "for this machine:"
-echo "    amd64, Ubuntu 22.04, CUDA 12   ${SERIES}/cu12/ubuntu22"
-echo "    Jetson, L4T 36.4 (JetPack 6.0/6.1)   ${SERIES}/l4t36.4/jetsons"
-echo "    Jetson, L4T 36.5                     ${SERIES}/l4t36.5/jetsons"
+echo "    amd64, Ubuntu 22.04, CUDA 12          ${SERIES}/cu12/ubuntu22"
+echo "    Jetson, L4T 36.5 (JetPack 6.2.2+)     ${SERIES}/l4t36.5/jetsons"
+echo "    Jetson, L4T 36.4 (JetPack 6.2/6.2.1)  ${SERIES}/l4t36.4/jetsons"
 echo
 echo "Then re-run this step to confirm:  ./setup.sh --rerun zed-sdk"
 

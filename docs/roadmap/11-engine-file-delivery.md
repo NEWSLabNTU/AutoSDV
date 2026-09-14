@@ -432,10 +432,21 @@ engines` in front of it as a cache-checking wrapper, not a rewrite.
    `AMPERE`/`HardwareCompat`/`VERSION_COMPAT` string in any shipped `.so`.
    Cross-generation desktop sharing is Phase 2f, blocked on an upstream patch;
    today's desktop path keys by exact GPU instead (Phase 2, done).
-2. **Is JetPack 6.2 ↔ 6.2.1 cross-compatibility (same TensorRT/CUDA/cuDNN,
-   different L4T patch) safe to fold into one cache key, or does it need its
-   own verify-tested exception list?** Treat as two separate keys until
-   Phase 1's verify step has actually been run across that pair once. The
+2. ~~**Is JetPack 6.2 ↔ 6.2.1 cross-compatibility safe to fold into one cache
+   key?**~~ **Moot, and the reason is worth keeping.** The project now pins
+   JetPack **6.2.2 or newer**, and NVIDIA's patch numbering crosses an L4T minor
+   inside the 6.2 series: 6.2 is L4T 36.4.3, 6.2.1 is 36.4.4, but 6.2.2 is
+   **36.5.0** and 6.2.3 is 36.5.2. So the question is no longer about two patches
+   of one minor.
+
+   What it leaves behind is a real gap: **the published AGX Orin asset
+   (`orin-agx-orin-R36.4.4-...`) was built on JetPack 6.2.1 and will miss on any
+   board at the new floor.** The miss is clean — the key simply does not appear in
+   the manifest, and `just engines` falls through to a local build — but it is an
+   hour, on exactly the boards a fresh install is most likely to be flashed to.
+   Someone should run `just build-engines` and `just export-engines` on a 6.2.2
+   AGX Orin and publish the result; that also settles whether L4T 36.5 changes the
+   TensorRT patch, which the fingerprint reads off the board rather than assuming. The
    amd64 finding in Phase 2.1 argues for keeping them separate: the check that
    rejects an engine is a patch-level comparison, and it is cheap to be wrong
    in the safe direction.

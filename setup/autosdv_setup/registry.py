@@ -48,6 +48,7 @@ def _versions() -> dict:
 _V = _versions()
 _ZED_SERIES = _V["zed"]["sdk_series"]
 _ZED_SDK = _V["zed"]["sdk_version"]
+_JETPACK = _V["nvidia_arm64"]["jetpack"]
 
 _S = lambda name: str(SCRIPTS_DIR / name)          # noqa: E731
 _BASH = lambda body: ["bash", "-euc", body]        # noqa: E731
@@ -527,10 +528,10 @@ STEPS: list[Step] = [
             "\n"
             "  amd64, Ubuntu 22.04, CUDA 12\n"
             f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/cu12/ubuntu22\n"
-            "  Jetson, L4T 36.4 (JetPack 6.0/6.1)\n"
-            f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/l4t36.4/jetsons\n"
-            "  Jetson, L4T 36.5\n"
+            f"  Jetson, L4T 36.5 (JetPack {_JETPACK} and up -- what this project pins)\n"
             f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/l4t36.5/jetsons\n"
+            "  Jetson, L4T 36.4 (JetPack 6.2 / 6.2.1, below the pin)\n"
+            f"      https://download.stereolabs.com/zedsdk/{_ZED_SERIES}/l4t36.4/jetsons\n"
             "\n"
             "  curl -fsSL -o zed_sdk.run <url> && chmod +x zed_sdk.run && ./zed_sdk.run\n"
             "\n"

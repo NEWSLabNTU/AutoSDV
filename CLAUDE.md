@@ -33,10 +33,26 @@ TensorRT come from the host image — JetPack on a Jetson, distribution packages
 on an amd64 workstation — so these keys record what the Autoware build targets,
 not something this repository provisions. The amd64 triple is empty on purpose:
 the values previously documented here (CUDA 12.3, TensorRT 8.6) match no machine
-this has been built on, and nothing in the repo pins them. The arm64 target is
-**JetPack 6.2**, which is what `install-autoware-debian.sh` downloads
-(`...-1jetpack62_all.deb`); documentation still saying "JetPack 6.0 exactly"
-predates that.
+this has been built on, and nothing in the repo pins them. The amd64 TensorRT is
+the exception, and it is exact: see `nvidia_amd64.tensorrt_engine_abi` and the
+engine-reuse note above.
+
+The arm64 floor is **JetPack 6.2.2 or newer**, which is **L4T 36.5** — NVIDIA's
+patch numbering crosses an L4T minor inside the 6.2 series (6.2 → 36.4.3,
+6.2.1 → 36.4.4, 6.2.2 → 36.5.0, 6.2.3 → 36.5.2). `nvidia_arm64.jetpack` is a
+minimum, not an exact pin, and `nvidia_arm64.l4t` is the thing to compare against
+a board's `/etc/nv_tegra_release`.
+
+The Debian suffix stays `jetpack62` — it names the 6.2 *series*
+`install-autoware-debian.sh` downloads, not a patch, so do not rename it when a
+board moves forward within that series.
+
+Three things follow from the 36.4 → 36.5 crossing, and all three are already
+wired to `versions.yaml` rather than hard-coded: the ZED SDK installer is
+published per L4T minor (`l4t36.5`), NVIDIA's Jetson apt pocket is `r36.5`, and a
+published TensorRT engine set is keyed by L4T — so the AGX Orin asset built on
+JetPack 6.2.1 (`orin-agx-orin-R36.4.4-...`) **misses** on a 6.2.2 board and the
+engines build locally until a 36.5 set is published.
 
 ### Version Helper Scripts
 
