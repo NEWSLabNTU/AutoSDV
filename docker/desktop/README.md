@@ -31,6 +31,92 @@ so the first line a student reads is a crash, not the cause. `compose.yaml`
 carries the mount already; this plain `docker run` form is the one that needs it
 spelled out.
 
+## Running it: one script, three platforms
+
+The `docker run` line has grown past what anyone should type, and getting it
+wrong fails in ways that do not name themselves. Use the launcher:
+
+```bash
+./docker/desktop/autosdv.sh          # Linux, macOS
+```
+```powershell
+.\docker\desktop\autosdv.ps1        # Windows
+```
+
+**Run it again for a second terminal.** It starts the container the first time
+and opens another shell in the same container every time after, which is what
+the logging simulation needs: one terminal for the stack, one for the rosbag
+replay. `--stop` / `-Stop` removes it.
+
+Each shell it opens has ROS 2, Autoware and the workspace already sourced. A
+shell without them has no `ros2` command at all, and the error says only
+`command not found`.
+
+It also sets `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, without which a second
+terminal cannot see the running stack at all -- see below.
+
+### `--container-mode observable`
+
+Pass it to every `play_launch` invocation inside the container. Measured on the
+logging simulation, same image, same host:
+
+| `--container-mode` | processes | memory |
+|---|---|---|
+| `isolated` (the default) | 126 | **4.56 GiB** |
+| `observable` | **49** | **2.05 GiB** |
+
+The default forks one process per composable node. On a Docker Desktop VM with
+its default memory allocation that is enough to get nodes OOM-killed, which is
+how it was first reported -- from an Apple Silicon machine, where the VM is the
+only memory there is. It is not a flag the launcher can set for you: it belongs
+to `play_launch`, not to `docker run`.
+
+## Handing the image out offline
+
+Fifty laptops pulling from Docker Hub at once does not work: the amd64 image is
+**14.34 GB compressed** and the arm64 image **5.37 GB**, and Docker Hub rate
+limits per address. Export once, serve locally.
+
+```bash
+OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh          # both
+OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh amd64    # one
+cd /srv/autosdv && python3 -m http.server 8000
+```
+
+gzip rather than zstd or xz, though both compress better: `docker load`
+decompresses gzip itself, so a student needs no decompression tool -- which
+matters most on Windows, which ships none.
+
+The saved image is tagged `jerry73204/autosdv:desktop`, the multi-architecture
+name, not `:desktop-amd64`. What a student loads has to carry the tag the
+scripts and slides already use, or `docker run` reports "image not found" on a
+machine that demonstrably has the image.
+
+**Student instructions**, where `SERVER` is the teaching laptop's address on
+the classroom network -- its real address, not `localhost`:
+
+```bash
+# Linux, macOS, and Windows PowerShell all have curl
+curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz          # Intel/AMD, and Windows
+curl -O http://SERVER:8000/autosdv-desktop-arm64.tar.gz          # Apple Silicon
+curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz.sha256
+
+shasum -a 256 -c autosdv-desktop-amd64.tar.gz.sha256             # macOS
+sha256sum -c autosdv-desktop-amd64.tar.gz.sha256                 # Linux
+
+docker load -i autosdv-desktop-amd64.tar.gz
+docker images jerry73204/autosdv                                 # confirm it is there
+```
+
+On Windows, `Get-FileHash autosdv-desktop-amd64.tar.gz -Algorithm SHA256`
+prints the hash to compare by eye; there is no `-c` equivalent.
+
+**Check the hash.** A truncated download loads for twenty minutes and then
+fails with a tar error that says nothing about the network.
+
+Which file a student needs is their processor, not their operating system:
+Apple Silicon takes arm64, and an Intel Mac takes amd64 like everyone else.
+
 ## The two architectures are two platforms, not one image twice
 
 This is the thing to understand before changing anything here.
