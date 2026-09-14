@@ -8,20 +8,21 @@ set working-directory := '..'
 default:
     @just --list sim
 
-# Launch the Autoware planning simulator with the AutoSDV vehicle (no sensors)
+# These two named the kind of simulation but not the scenario, and both are
+# COSS: the map is COSS, and the recording the logging one replays is the COSS
+# drive. They now point at the scenario module, which says so.
+# just --list shows only the LAST comment line, so the description goes here.
+# Deprecated: use `just coss planning-sim`
 planning:
-    #!/usr/bin/env bash
-    source scripts/env.sh && \
-    play_launch launch \
-        --web-addr 0.0.0.0:8081 \
-        autoware_launch planning_simulator.launch.xml \
-        map_path:="$PWD/data/COSS-map-planning" \
-        vehicle_model:=autosdv_vehicle \
-        sensor_model:=autosdv_sensor_kit
+    @echo 'just sim planning -> just coss planning-sim (the map is COSS Park).'
+    @just coss planning-sim
 
-# Launch the logging simulation, for rosbag replay testing
+# ARGS is still honoured, because scripts and roadmaps pass it.
+# just --list shows only the LAST comment line, so the description goes here.
+# Deprecated: use `just coss logging-sim`
 logging ARGS="":
     #!/usr/bin/env bash
+    echo 'just sim logging -> just coss logging-sim (it replays the COSS drive).'
     # `just launch ARGS="x:=y"` is a spelling this project documented for years
     # and which silently does nothing: in just, ARGS="..." AFTER a recipe name
     # is a positional value, not a variable assignment, so this parameter
@@ -42,25 +43,22 @@ logging ARGS="":
             exit 2
             ;;
     esac
-    source scripts/env.sh && \
-    if [ -n "$DISPLAY" ]; then \
-        play_launch launch \
-            --web-addr 0.0.0.0:8081 \
-            autosdv_launch logging_simulation.launch.yaml {{ARGS}}; \
-    else \
-        play_launch launch \
-            --web-addr 0.0.0.0:8081 \
-            autosdv_launch logging_simulation.launch.yaml \
-            rviz:=false {{ARGS}}; \
+    if [ -z '{{ARGS}}' ]; then
+        exec just coss logging-sim
     fi
+    source scripts/env.sh
+    args=({{ARGS}})
+    [ -n "${DISPLAY:-}" ] || args+=(rviz:=false)
+    exec play_launch launch --web-addr 0.0.0.0:8081 \
+        autosdv_launch logging_simulation.launch.yaml "${args[@]}"
 
-# Requires the test rosbag; get it with `just bag download`.
+# Requires the COSS recording; get it with `just coss download-rosbag`.
 # just --list shows only the LAST comment line, so the description goes here.
 # Run the COSS Park scenario: logging sim + rosbag feed + localization recording
 coss-park:
     #!/usr/bin/env bash
     source scripts/env.sh && \
     parallel --line-buffer ::: \
-        "just sim logging" \
+        "just coss logging-sim" \
         "sleep 40 && ros2 bag play data/rosbags/outdoor_20251226_153115/ --clock -l -r 1.0" \
         "sleep 45 && ./scripts/rosbag/record_localization.sh"

@@ -18,6 +18,9 @@ mod demo
 mod bag 'just/bag.just'
 # Control system testing: trajectories and the basic control launch
 mod control 'just/control.just'
+
+# The COSS Park scenario: its map, its recording, and the two simulations.
+mod coss 'just/coss.just'
 # Map validation and occupancy-grid construction
 mod map 'just/map.just'
 # Simulation: planning simulator, rosbag replay, full scenarios

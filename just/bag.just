@@ -24,8 +24,11 @@ play:
     echo "Playing: $LATEST"; \
     ros2 bag play "$LATEST" --clock
 
-# Installs synology-dl via cargo if it is not found.
+# Moved, because the name promised a generic downloader and delivered one
+# specific drive. Kept as a pointer for a release; the recipes that name their
+# scenario live in just/coss.just.
 # just --list shows only the LAST comment line, so the description goes here.
-# Download the test rosbag from Synology Drive (~2.8 GB)
+# Deprecated: use `just coss download-rosbag`
 download:
-    ./scripts/rosbag/download-test-rosbag.sh
+    @echo 'just bag download -> just coss download-rosbag (it fetches the COSS drive).'
+    @just coss download-rosbag
