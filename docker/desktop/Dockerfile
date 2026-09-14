@@ -26,10 +26,15 @@
 #
 # `devel` rather than `runtime`, because the workspace is BUILT here:
 # cuda_ffi/build.rs panics without nvcc and the CUB headers. That costs roughly
-# 3 GB in the shipped image. Splitting builder from runtime would reclaim it but
-# is awkward: ROS 2 and Autoware pull hundreds of system libraries through apt,
-# so a runtime stage would have to install them again rather than copy two
-# directories. Left as a size optimisation, not a correctness one.
+# 3 GB in the shipped image.
+#
+# It stays `devel` even though the image could now be made smaller without it --
+# cuda_ffi learned to build as a stub when no toolkit is present, so a `runtime`
+# base would compile. That is a DELIBERATE decision, not an oversight: the image
+# is meant to be usable for development later, and a student who wants to change
+# CUDA code should find a toolchain rather than a stub. `pose_source:=cuda_ndt`
+# is also the default, and shipping it stubbed would make the default silently
+# not what it says. Do not swap this for `runtime` to save space.
 #
 # CUDA 12.8 matches what upstream Autoware selects for humble. The tag is
 # published for linux/amd64 AND linux/arm64, which is what lets one Dockerfile
