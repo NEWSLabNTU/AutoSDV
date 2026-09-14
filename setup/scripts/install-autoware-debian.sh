@@ -34,29 +34,43 @@ mkdir -p "${DEB_DOWNLOAD_DIR}"
 DOWNLOAD_URL="${REPO_URL_BASE}/${DEB_FILE}"
 TEMP_DEB="${DEB_DOWNLOAD_DIR}/${DEB_FILE}"
 
-# Download helper: prefer aria2c (parallel download + inline checksum), then
-# fall back to wget, then curl. aria2c is only a speed optimisation, so its
-# absence — or failure — is not fatal as long as one fetcher is available.
+# Download helper: aria2c is the intended path, with wget then curl as
+# fallbacks that still work but are MUCH slower.
+#
+# This is not a marginal optimisation. The release host throttles PER
+# CONNECTION, so aria2c's ten connections beat a single stream by roughly an
+# order of magnitude on a ~2 GB file. Measured on an AGX Orin against this
+# exact URL: wget 383 KB/s, aria2c 2905 KB/s -- 7.6x, which is four hours
+# against ten minutes. Every fallback therefore warns rather than proceeding
+# quietly; the desktop container spent an hour crawling at 182 KB/s before
+# anyone noticed it had silently taken the slow path.
 download_deb() {
     local url="$1" dir="$2" out="$3" sha="$4"
     local dest="${dir}/${out}"
 
     if command -v aria2c &> /dev/null; then
-        echo "  Downloading with aria2c (parallel)..."
+        echo "  Downloading with aria2c (parallel, 10 connections)..."
         local args=(--dir="$dir" --out="$out" -x 10 -s 10 -k 1M)
         [[ -n "$sha" ]] && args+=(--checksum=sha-256="$sha")
         if aria2c "$url" "${args[@]}"; then
             return 0  # aria2c verified the checksum inline
         fi
-        echo "  aria2c download failed; falling back to wget/curl..."
+        echo "  WARNING: aria2c failed; falling back to a SINGLE-STREAM download." >&2
+        echo "           Expect roughly 8x longer -- hours rather than minutes." >&2
         rm -f "$dest"
+    else
+        echo "  WARNING: aria2c is not installed; falling back to a SINGLE-STREAM" >&2
+        echo "           download. This host throttles per connection, so expect" >&2
+        echo "           roughly 8x longer -- hours rather than minutes for ~2 GB." >&2
+        echo "           Install it and re-run to take the fast path:" >&2
+        echo "               sudo apt-get install -y aria2" >&2
     fi
 
     if command -v wget &> /dev/null; then
-        echo "  Downloading with wget..."
+        echo "  Downloading with wget (single stream)..."
         wget -O "$dest" "$url" || { echo "  wget failed."; rm -f "$dest"; return 1; }
     elif command -v curl &> /dev/null; then
-        echo "  Downloading with curl..."
+        echo "  Downloading with curl (single stream)..."
         curl --progress-bar -fL -o "$dest" "$url" || { echo "  curl failed."; rm -f "$dest"; return 1; }
     else
         echo "Error: need aria2c, wget, or curl to download ${out}, none found."
@@ -109,6 +123,19 @@ else
 fi
 
 if [[ "$DOWNLOAD_REQUIRED" == "true" ]]; then
+    # Get aria2c before downloading anything. A clean machine has none, and
+    # without it download_deb's preferred path is one nobody ever takes -- see
+    # the measurements on that function. The desktop container image installs
+    # aria2 itself, so this is for bare machines: a student laptop, a fresh
+    # workstation, CI.
+    #
+    # Best-effort on purpose. An apt failure here must not fail the step; the
+    # fallback still works, and now says loudly that it is the slow path.
+    if ! command -v aria2c &> /dev/null; then
+        echo "  aria2c not found; installing it for a parallel download..."
+        sudo apt-get update -qq || true
+        sudo apt-get install -y --no-install-recommends aria2 || true
+    fi
     download_deb "${DOWNLOAD_URL}" "${DEB_DOWNLOAD_DIR}" "${DEB_FILE}" "${SHA256SUM}"
 else
     echo "  Using existing file: ${TEMP_DEB}"

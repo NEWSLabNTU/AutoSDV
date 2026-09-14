@@ -71,8 +71,17 @@ ENV PATH=/usr/local/cuda/bin:/root/.local/bin:/root/.cargo/bin:$PATH
 # a student's clean laptop, which is the machine this image exists to stand in
 # for. Cython and python3-dev used to be here for exactly that reason; they now
 # live in the range-libc step, where they are actually required.
+#
+# aria2 is the exception that earns its place, because the gap it hides is one
+# the image itself creates. The Autoware deb is ~2 GB and the release host
+# throttles per connection: measured on an AGX Orin, wget 383 KB/s against
+# aria2c 2905 KB/s, so a build that falls back to a single stream spends hours
+# where it should spend ten minutes -- one arm64 attempt crawled at 182 KB/s
+# for an hour before this was noticed. install-autoware-debian.sh also installs
+# aria2 when it is missing, which covers a bare laptop; having it here means the
+# image never pays that apt round trip mid-build.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates curl wget gnupg lsb-release software-properties-common \
+        ca-certificates curl wget aria2 gnupg lsb-release software-properties-common \
         git sudo locales tzdata build-essential \
         python3 python3-pip python3-venv \
     && locale-gen en_US.UTF-8 \
