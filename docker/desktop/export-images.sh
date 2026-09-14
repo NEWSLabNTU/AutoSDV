@@ -8,8 +8,11 @@
 #
 # Produces, per architecture:
 #
-#   autosdv-desktop-<arch>.tar.gz        what the student loads
+#   autosdv-desktop-<arch>.tar.gz        the image
 #   autosdv-desktop-<arch>.tar.gz.sha256 what proves the download finished
+#
+# plus a second, hard-linked name for each that says which laptop it is for --
+# "Apple Silicon Mac" rather than "arm64" -- and a READ-ME-FIRST.txt.
 #
 # gzip rather than zstd or xz, though both compress better: `docker load`
 # decompresses gzip itself, so a student needs no decompression tool at all.
@@ -59,9 +62,65 @@ for arch in "${ARCHES[@]}"; do
 
     ( cd "$OUT_DIR" && sha256sum "$(basename "$out")" > "$(basename "$out").sha256" )
 
+    # A second name for the same bytes, saying what a student actually knows
+    # about their laptop. "arm64" is not something to ask a room of fifty to
+    # determine about themselves, and the cost of getting it wrong is silent:
+    # the amd64 image runs on Apple Silicon, emulated, at a fraction of the
+    # speed, with nothing to indicate why.
+    #
+    # A hard link rather than a copy or a symlink: no second 14 GB, and no
+    # dependence on the web server following links.
+    case "$arch" in
+        amd64) friendly="AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz" ;;
+        arm64) friendly="AutoSDV-for-Apple-Silicon-Mac.tar.gz" ;;
+        *)     friendly="" ;;
+    esac
+    if [ -n "$friendly" ]; then
+        ln -f "$out" "${OUT_DIR}/${friendly}" 2>/dev/null \
+            || cp "$out" "${OUT_DIR}/${friendly}"
+        ( cd "$OUT_DIR" && sha256sum "$friendly" > "${friendly}.sha256" )
+        echo "  also as: ${friendly}"
+    fi
+
     echo "  $(du -h "$out" | cut -f1)  ${out}"
     echo
 done
+
+# A note beside the files, so a student who lands on the directory listing with
+# no other context can still finish.
+cat > "${OUT_DIR}/READ-ME-FIRST.txt" <<'NOTE'
+AutoSDV desktop image
+=====================
+
+1. Download ONE file -- whichever describes your laptop:
+
+     AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
+     AutoSDV-for-Apple-Silicon-Mac.tar.gz
+
+   Not sure which Mac you have?  Apple menu > About This Mac.
+   "Apple M1/M2/M3/M4" is Apple Silicon.  "Intel" is the other file.
+
+2. Load it into Docker.  Open a terminal (macOS/Linux) or PowerShell
+   (Windows), change to wherever the file downloaded, and run:
+
+     docker load -i AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
+
+   ...using the name of the file you actually downloaded.  This takes a few
+   minutes and prints nothing until it finishes.
+
+3. Check it arrived:
+
+     docker images jerry73204/autosdv
+
+   You should see a line with the tag "desktop".
+
+Then follow the lab instructions to start it.
+
+If step 2 fails with a tar or gzip error, the download was incomplete.
+Download it again rather than retrying the load.
+NOTE
+echo "  wrote ${OUT_DIR}/READ-ME-FIRST.txt"
+echo
 
 cat <<EOF
   Done. To serve them on the classroom network, from ${OUT_DIR}:

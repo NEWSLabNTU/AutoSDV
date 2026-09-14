@@ -94,63 +94,59 @@ machine that demonstrably has the image.
 
 ### Student instructions
 
-Students bring whatever they own, and which image a machine needs is its
-**processor**, not its operating system: an Apple Silicon Mac takes arm64, an
-Intel Mac takes amd64 like Windows and like Linux on a PC. Nobody should have
-to know that about themselves, so the launcher asks Docker and fetches the
-right file.
+Two files are published, named for the laptop rather than for the instruction
+set, because "arm64" is not something to ask a room of fifty to determine about
+themselves:
 
-Clone the repository -- needed anyway for `data/`, which is not in the image --
-then point the launcher at the classroom server:
+| Their laptop | File |
+|---|---|
+| Windows, Linux, **Intel** Mac | `AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz` |
+| **Apple Silicon** Mac (M1-M4) | `AutoSDV-for-Apple-Silicon-Mac.tar.gz` |
+
+Apple menu > About This Mac settles which Mac they have.
+
+Three steps, identical on every platform -- terminal on macOS and Linux,
+PowerShell on Windows:
 
 ```bash
-git clone https://github.com/NEWSLabNTU/AutoSDV.git
-cd AutoSDV
-AUTOSDV_SERVER=http://SERVER:8000 ./docker/desktop/autosdv.sh        # Linux, macOS
-```
-```powershell
-git clone https://github.com/NEWSLabNTU/AutoSDV.git
-cd AutoSDV
-$env:AUTOSDV_SERVER='http://SERVER:8000'
-.\docker\desktop\autosdv.ps1                                        # Windows
+curl -O http://SERVER:8000/AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
+docker load -i AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
+docker images jerry73204/autosdv
 ```
 
 `SERVER` is the teaching laptop's address on the classroom network -- its real
-address, not `localhost`. Find it with `ip addr` on Linux or
-`ipconfig getifaddr en0` on macOS.
+address, not `localhost`. `ip addr` on Linux, `ipconfig getifaddr en0` on
+macOS. They can equally click the link in a browser and load the file from
+their Downloads folder.
 
-That one command downloads the correct architecture, verifies its checksum,
-loads it into Docker, starts the container and opens a shell. Afterwards the
-same command without `AUTOSDV_SERVER` is what they use for the rest of the
-course, and running it again opens a second terminal.
+The third command should show a line tagged `desktop`. After that,
+`autosdv.sh` / `autosdv.ps1` finds the image locally and pulls nothing.
 
-Three things it does that matter at this scale:
+`READ-ME-FIRST.txt` is written into the same directory and repeats all of the
+above, for a student who reaches the file listing with no other context.
 
-- **Architecture is detected from the Docker daemon**, not from `uname`. Under
-  Rosetta a shell reports `x86_64` on an Apple Silicon machine whose Docker is
-  arm64; a student following a "check your processor" instruction would load
-  an emulated image that runs at a fraction of the speed, for no visible
-  reason.
-- **Downloads resume.** `curl -C -` picks up where it stopped, so a dropped
-  transfer costs the remainder rather than the whole 14 GB. Running the script
-  again continues it.
-- **The checksum is verified before loading.** A truncated archive otherwise
-  loads for several minutes and then fails with a tar error that says nothing
-  about the network. Tested by truncating a file: the mismatch is caught.
-
-If Docker cannot be reached for the architecture, `AUTOSDV_ARCH=amd64` or
-`arm64` overrides it.
-
-### Doing it by hand
+**If `docker load` fails with a tar or gzip error, the download was
+incomplete** -- download it again rather than retrying the load. A checksum is
+published beside each file for anyone who wants to confirm first:
 
 ```bash
-curl -O http://SERVER:8000/autosdv-desktop-amd64.tar.gz
-sha256sum -c autosdv-desktop-amd64.tar.gz.sha256    # shasum -a 256 -c on macOS
-docker load -i autosdv-desktop-amd64.tar.gz
+sha256sum -c AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz.sha256   # Linux
+shasum -a 256 -c AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz.sha256   # macOS
+Get-FileHash AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz -Algorithm SHA256   # Windows
 ```
 
-On Windows, `Get-FileHash <file> -Algorithm SHA256` prints the hash to compare
-by eye; there is no `-c` equivalent.
+### One thing to watch when handing these out
+
+The file a student needs follows their **processor**, and a Mac shell can
+disagree with Docker about that: under Rosetta a terminal reports `x86_64` on
+an Apple Silicon machine. A student who checks with `uname -m` and picks the
+Intel file gets a working but emulated image that runs at a fraction of the
+speed, with nothing on screen to say why. "About This Mac" does not have that
+failure mode, which is why the table above asks for that instead.
+
+If someone ends up with the wrong one, `docker images jerry73204/autosdv` and
+`docker image inspect jerry73204/autosdv:desktop --format '{{.Architecture}}'`
+show which was loaded.
 
 ## The two architectures are two platforms, not one image twice
 
