@@ -327,33 +327,55 @@ STEPS: list[Step] = [
                 + '" nvidia_amd64.tensorrt_engine_abi) '
                   '&& test -f "/opt/tensorrt/${v}/lib/libnvinfer.so.${v}"'],
     ),
+    # Two ways to get the same five engines, presented as the choice they are:
+    # take the published set for this exact board, or build it here. Pick one.
+    # Both ticked is not an error -- the download runs first and the build then
+    # loads what it finds in seconds -- but it buys nothing either.
     Step(
         id="tensorrt-engines",
-        label="Pre-compile TensorRT engines",
-        why="Downloads a prebuilt engine set matching this board's "
-            "fingerprint from a NEWSLabNTU/AutoSDV release when one exists; "
-            "builds locally (minutes per model on an Orin) otherwise, which "
-            "is what would otherwise be paid inside each node's constructor "
-            "on the first launch. Select 'tensorrt-engines-build' instead to "
-            "always build locally and skip the cache lookup.",
+        label="TensorRT engines: download the published set (else build)",
+        why="About 30 s when this board's set is published; builds locally "
+            "(~1 hr on an Orin, ~9 min on a desktop GPU) when it is not. The "
+            "key is the exact board -- GPU or Orin SKU, TensorRT version, "
+            "Autoware version -- and a miss is normal for hardware nobody has "
+            "published yet or right after an Autoware upgrade. A download is "
+            "verified by loading every engine, so a bad one costs the build it "
+            "would have replaced and nothing else. Choose "
+            "'tensorrt-engines-build' instead to skip the release entirely.",
         group="Autoware",
         run=_BASH(_LOCAL_BIN_ON_PATH + f'cd "{REPO_ROOT}" && just engines'),
-        after=("autoware-data", "just"),
-        profiles=_on(),                 # opt-in: slow (on a cache miss), and board-specific
+        after=("autoware-data", "just", "tensorrt-runtime"),
+        # On by default: without it the same work happens inside the first
+        # launch's node constructors instead, where it looks like a hang and
+        # leaves perception unavailable until it finishes.
+        profiles=_on(*DEV),
+        # `.engine-cache-key` records the fingerprint the cache was synced for,
+        # and `just engines` re-checks that every file it named is still there,
+        # so a deleted engine or an Autoware upgrade shows up as not-installed
+        # rather than as a stale tick.
+        verify=["bash", "-c",
+                f'cd "{REPO_ROOT}" && '
+                'k=$(scripts/version/engine-fingerprint.sh 2>/dev/null) && '
+                'test "$(cat "${AUTOSDV_DATA_PATH:-./data/autoware_data}/.engine-cache-key" '
+                '2>/dev/null)" = "$k"'],
     ),
     Step(
         id="tensorrt-engines-build",
-        label="Build TensorRT engines from scratch (skip the cache)",
-        why="Forces a local build even when a cached engine set exists for "
-            "this board's fingerprint -- e.g. when developing something that "
-            "changes a model, or when the cache shouldn't be trusted. "
-            "Engines are tied to the TensorRT version AND the GPU, so this "
-            "must run on the target board. Selecting this alongside "
-            "'tensorrt-engines' just runs the build twice, harmlessly.",
+        label="TensorRT engines: build here, ignore the published set",
+        why="~1 hr on an Orin, ~9 min on a desktop GPU: builds all five "
+            "engines here and never asks the release. Must run on the target "
+            "board -- an engine is tied to that GPU and that TensorRT. Use it "
+            "when a model changed under you, when the published set should not "
+            "be trusted, or to produce an asset to publish "
+            "(`just export-engines`). Otherwise prefer 'tensorrt-engines', "
+            "which lands the same files in about 30 s when someone has "
+            "published them for this exact board.",
         group="Autoware",
         run=_BASH(_LOCAL_BIN_ON_PATH + f'cd "{REPO_ROOT}" && just build-engines'),
-        after=("autoware-data", "just"),
-        profiles=_on(),                 # opt-in: slow, and board-specific
+        after=("autoware-data", "just", "tensorrt-runtime"),
+        # Off by default: it is the same outcome as the step above by the
+        # expensive route, so it is a deliberate choice, never a default.
+        profiles=_on(),
     ),
     Step(
         id="ros-deps",
