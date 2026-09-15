@@ -19,6 +19,11 @@
 # local scripts for your own account, once:
 #
 #   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+#
+# Works on Windows PowerShell 5.1 (what Windows ships) and on PowerShell 7.x.
+# See the $ErrorActionPreference note below before changing it back: the two
+# disagree about what a native command's stderr means, and 5.1 is the one
+# students have.
 
 [CmdletBinding()]
 param(
@@ -27,7 +32,21 @@ param(
     [switch]$Gpu
 )
 
-$ErrorActionPreference = 'Stop'
+# NOT 'Stop', and this is the difference between working on the PowerShell
+# Windows ships and working only on the one a developer installed.
+#
+# Windows PowerShell 5.1 turns a native command's stderr into a TERMINATING
+# NativeCommandError when $ErrorActionPreference is 'Stop'. Every `docker ... 
+# 2>$null` below writes to stderr as a matter of course -- `docker inspect` on a
+# container that does not exist yet is the FIRST run, every time -- so the
+# script died there instead of reading the non-zero exit code it was asking
+# for. PowerShell 7 dropped that behaviour, so the script tested clean on 7.x
+# and failed for every student on a stock Windows box.
+#
+# Nothing is lost: every native call here checks $LASTEXITCODE itself, which is
+# what actually reports docker's failures. Cmdlet failures that must stop are
+# checked explicitly instead.
+$ErrorActionPreference = 'Continue'
 
 $Name  = if ($env:AUTOSDV_CONTAINER) { $env:AUTOSDV_CONTAINER } else { 'autosdv' }
 $Image = if ($env:AUTOSDV_IMAGE)     { $env:AUTOSDV_IMAGE }     else { 'jerry73204/autosdv:desktop' }
@@ -35,7 +54,16 @@ $Port  = if ($env:AUTOSDV_PORT)      { $env:AUTOSDV_PORT }      else { '6080' }
 
 # The repository, found from this script rather than from the caller's current
 # directory, so the data mount is right wherever it is invoked from.
-$Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+#
+# Checked rather than left to $ErrorActionPreference, which is no longer 'Stop'
+# -- see above. A $null here would otherwise reach `docker run -v` as a mount
+# path beginning with a bare backslash.
+$Repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..') -ErrorAction SilentlyContinue).Path
+if (-not $Repo) {
+    Write-Host "error: cannot locate the repository root from $PSScriptRoot."
+    Write-Host "       Run this script from a clone of the AutoSDV repository."
+    exit 1
+}
 
 function Say($m) { Write-Host "  $m" }
 
