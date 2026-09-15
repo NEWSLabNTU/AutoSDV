@@ -475,13 +475,40 @@ automatically.
 
 ## Known gaps
 
-- **The arm64 image has never been built.** The arm64 branch of
-  `install-tensorrt.sh` is written from a verified apt probe but has not run
-  end to end. The Orin is the first real test.
+- **The arm64 image is built and verified**, at 11.2 GB -- less than half the
+  amd64 image, which carries a CUDA `devel` base this one does not. The planning
+  simulation reaches 34/34 nodes, 15/15 containers and 70/70 composables in it,
+  a second shell sees 138 nodes and 564 topics, and RViz draws the lanelet
+  network and the map point cloud. Built on an arm64 server, not a Jetson.
+- **Autoware's TensorRT nodes need two stub libraries on arm64.** The Jetson
+  build of `libnvinfer` links `libnvdla_compiler.so` and `libcudla.so.1`, which
+  ship only in the L4T board-support package, so the loader refuses `libnvinfer`
+  outright on Apple Silicon and every node linking TensorRT dies on dlopen.
+  `install-tensorrt.sh` installs empty stubs where there is no
+  `/etc/nv_tegra_release`. Nothing calls into them -- DLA is requested
+  explicitly and Autoware builds GPU engines -- but this is the one place the
+  arm64 image is not plain Autoware, so read the comment there before removing
+  it.
 - **The WSL `/dev/dxg` profile in `compose.yaml` is unverified** — written from
   Microsoft's documented requirements, never run on a Windows host.
-- **No 4-core measurement.** Every performance number is from a 32-thread
-  workstation, four to eight times a student laptop.
+- **`autosdv.ps1` failed on the PowerShell Windows actually ships.** It was
+  written and tested on PowerShell 7.x, where it works; on Windows PowerShell
+  5.1 -- the default, the one a student has -- `$ErrorActionPreference = 'Stop'`
+  turns a native command's stderr into a terminating `NativeCommandError`, and
+  every `docker ... 2>$null` here writes to stderr as a matter of course. The
+  preference is now `Continue` and the exit codes are checked explicitly, which
+  they already were. **Not verified on 5.1 from this side** -- there is no
+  Windows machine here -- so the next Windows tester is the confirmation.
+- **No 4-core measurement.** Most performance numbers are from a 32-thread
+  workstation, four to eight times a student laptop. The one laptop-shaped
+  measurement is 8 cores and 8 GB, below -- still not four.
+- **`--container-mode observable` is what a laptop needs**, measured in an
+  arm64 container pinned to 8 cores and 8 GB: all nodes ready in **7 s against
+  ~90 s**, **3.09 GiB against 5.71 GiB**, 49 processes against 119. The default
+  (`isolated`) forks one process per composable node; on a memory-capped Docker
+  Desktop VM that gets nodes killed, which reads as scattered `signal 6
+  (Aborted)` across unrelated nodes rather than as memory pressure. The
+  launchers say so in their banner.
 - **`libnvinfer10` is a 1.8 GB download** on a native install, 2.6 GB
   installed. An argument for the container over a native setup.
 - **The amd64 image is built and verified**, at 26.7 GB. The planning

@@ -4,10 +4,10 @@
 running AutoSDV simulation in minutes — with no ROS 2, no Autoware and no
 AutoSDV build on their own machine.
 
-**Status**: in progress. Phase 1 (the gate) is done and passed; the amd64 image
-is being built. The arm64 build has cleared four of its five unknowns and fixed
-three real defects along the way, but has not yet produced an image — see
-*Phase 5* for where it stopped and how to resume.
+**Status**: the image ships. Both architectures are built, verified and
+published as one `:desktop` tag, and a student on any of the three platforms
+reaches a running planning simulation from one `docker pull`. What is left is
+documentation and teaching material — phases 4, 8 and 9.
 
 **Feeds**: [roadmap 9](9-workshop-laptop-onboarding.md), whose two-hour timetable
 this changes — see *Consequences* below.
@@ -60,16 +60,18 @@ Apple Silicon is arm64.
 | | amd64 | arm64 |
 |---|---|---|
 | Target | Windows, Intel Mac, Linux | Apple Silicon |
-| Built on | any x86 machine | **the Orin** |
+| Built on | any x86 machine | **any arm64 Linux machine** |
 | Base | `nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04` | `ubuntu:22.04` |
 | Autoware | `1.5.0-2ubuntu2204` | `1.5.0-2jetpack62` |
-| CUDA / TensorRT | NVIDIA x86 CUDA repo | Jetson repo (`r36.4`) |
+| CUDA / TensorRT | NVIDIA x86 CUDA repo | Jetson repo (`r36.5`) |
 
 Not `nvidia/cuda`'s arm64 tag: that is SBSA, the server-ARM platform, and
 pairing SBSA CUDA with JetPack Autoware packages mixes two platforms in one
-image. **arm64 hosts other than the Orin are not a supported platform** -- this
-exists so an Apple Silicon laptop can run the Jetson container natively instead
-of through emulation.
+image. **Running AutoSDV on an arm64 host other than the Orin is not
+supported** -- this exists so an Apple Silicon laptop can run the Jetson
+container natively instead of through emulation. *Building* it is a separate
+question, and the answer is any arm64 Linux machine: nothing Jetson-flavoured
+touches the host.
 
 Graphics are decided by the entrypoint, not by the instructions: the container
 always runs its own X server (TurboVNC) reached over noVNC in a browser, and
@@ -92,11 +94,11 @@ of memory while linking never has to.
 |---|---|---|
 | 0 | Repo prep: split `docker/` into `jetson/` and `desktop/`; Autoware `1.5.0-2`; `workshop.rviz` | done |
 | 1 | **Gate:** GPU-less verification and RViz measurement | **done — passed** |
-| 2 | amd64 image, headless | in progress |
-| 3 | Graphics layer: TurboVNC + noVNC + renderer detection | in progress |
+| 2 | amd64 image, headless | **done -- built, verified, published** |
+| 3 | Graphics layer: TurboVNC + noVNC + renderer detection | **done -- verified on both architectures** |
 | 4 | Accelerated profiles (`nvidia`, `dri`, `wsl`) | pending |
-| 5 | arm64, built natively on the Orin | in progress -- 4 of 5 unknowns settled, 3 defects fixed; no image produced yet, see below |
-| 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | `docker/desktop/publish.sh` written, nothing pushed yet |
+| 5 | arm64, built natively on an arm64 host | **done -- built, verified, published; 5 of 5 unknowns settled** |
+| 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | **done -- `:desktop` resolves both platforms** |
 | 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | **done — NDT holds 9.89 Hz on 4 cores; RViz is the limit, 1 fps** |
 | 8 | Book page, EN + zh-TW | pending |
 | 9 | Rewrite roadmap 9's timetable | pending |
@@ -111,15 +113,19 @@ This is a gain — the install was the session's biggest risk — but the two ho
 have to be re-planned rather than trimmed. The ROS 2 material is still worth
 teaching; it just needs to stand on its own rather than fill dead time.
 
-## Phase 5: building the arm64 image on the Orin
+## Phase 5: building the arm64 image
 
-The Orin is the **builder**, not the target. The image it produces runs on
-Apple Silicon and is never run on the Jetson itself. Build it there because
+The build host is the **builder**, not the target. The image it produces runs on
+Apple Silicon and is never run on a Jetson. Build it on an arm64 machine because
 arm64 under qemu on an x86 host compiles the whole workspace through emulation
 and takes hours; `build.sh` warns when it detects that.
 
+**It does not have to be a Jetson**, and an ordinary arm64 server is much
+faster. This was first attempted on an Orin over six runs and finished on an
+80-core server in one.
+
 ```bash
-# on the Orin
+# on any arm64 Linux machine
 cd ~/AutoSDV && git pull
 PLATFORM=linux/arm64 TAG=jerry73204/autosdv:desktop-arm64 ./docker/desktop/build.sh
 ```
@@ -130,25 +136,41 @@ Everything the build needs is already wired:
   selects it from `PLATFORM`
 - `install-autoware-debian.sh` already picks the `jetpack62` deb on `aarch64`
 - `install-tensorrt.sh` has an arm64 branch that installs from the Jetson
-  repository (`JETSON_REPO` overrides the `r36.4` default)
+  repository (`JETSON_REPO` overrides the `r36.5` default)
 - `blickfeld_driver` and `zed_components` now skip themselves when their SDKs
   are absent, so the build does not need `COLCON_IGNORE`
 
-### Status as of 2026-09-14: four of the five unknowns settled
+### Result: the image is built, verified and published
+
+`jetpack62` Autoware in a plain `ubuntu:22.04` arm64 image, **11.2 GB** against
+amd64's 26.7 GB -- the difference is the CUDA `devel` base, which this side does
+not have.
+
+Built on an 80-core arm64 server rather than the Orin. Nothing about the image
+needs a Jetson: everything Jetson-flavoured is installed INSIDE the container,
+so the build host supplies only its instruction set, and a server does in
+around 70 minutes what the Orin was taking most of a day to attempt.
+
+Verified in the published image, on the `:desktop` tag a student actually pulls:
+
+| check | result |
+|---|---|
+| planning simulation | **34/34** nodes, 15/15 containers, 70/70 composables |
+| a second shell sees the stack | **138 nodes, 564 topics** |
+| noVNC | serves; RViz draws the lanelet network and the map point cloud |
+| middleware | `rmw_cyclonedds_cpp` |
 
 The prediction below was right -- (1)-(3) each surfaced a defect of exactly the
 kind the amd64 build surfaced, and each was fixed in the step rather than
-worked around in the Dockerfile. Six build attempts, each one getting further
-than the last. The image has **not** been produced yet: the last attempt was
-stopped partway through `setup.sh` because the Orin was being shut down, not
-because anything failed.
+worked around in the Dockerfile.
 
-| # | What the Orin run was testing | Outcome |
+| # | What the arm64 run was testing | Outcome |
 |---|---|---|
 | 1 | Jetson repo serves TensorRT into plain `ubuntu:22.04` arm64 | **Proven.** `setup.sh`'s own `tensorrt` step does it; tier 3's aarch64 branch adds the Jetson repo and installs cleanly |
-| 2 | `jetpack62` localrepo installs outside a Jetson rootfs | **Proven.** All 16 steps of `./setup.sh --run --profile dev --yes` reached "Setup complete." in 1872s |
+| 2 | `jetpack62` localrepo installs outside a Jetson rootfs | **Proven.** Every step of `./setup.sh --run --profile dev --yes` reaches "Setup complete." -- 1872s on the Orin, 2669s in the image on the server |
 | 3 | The workspace compiles, particularly `cuda_ndt_matcher` | **Fixed, then proven at the package level.** It did not compile; see below. `colcon build --packages-select cuda_ndt_matcher` now passes on this Orin in both CUDA and no-CUDA modes |
-| 4 | TurboVNC and noVNC start | **Still unproven** -- no attempt has reached that layer |
+| 4 | TurboVNC and noVNC start | **Proven.** Xvnc and websockify come up, noVNC answers 200, and RViz renders through llvmpipe |
+| 5 | Autoware's TensorRT nodes load at all | **Fixed.** They could not -- see the two defects below, neither of which any earlier attempt lived long enough to reach |
 
 **The three defects, and where each was fixed:**
 
@@ -190,25 +212,82 @@ commit, which silently removed the `cuda_ffi` fix from `develop` and would have
 reproduced defect (3) on the next build. `git submodule status --recursive |
 grep '^+'` before committing is what catches this.
 
-### To resume
+### Three more defects, found by getting further than any earlier attempt
 
-```bash
-cd ~/AutoSDV && git pull                     # 4cce295 or later
-PLATFORM=linux/arm64 TAG=jerry73204/autosdv:desktop-arm64 ./docker/desktop/build.sh
+Each was fixed in the step rather than the Dockerfile, and each was invisible
+until the build reached it.
+
+- **`zed_debug` hard-required the ZED SDK.** `zed_components` had been taught to
+  skip itself; `zed_debug`, two packages on in the same repository, had not, so
+  the identical `Could not find a package configuration file provided by "ZED"`
+  came back one package later -- 1 failed and colcon aborted **19 more** queued
+  behind it, the whole localization chain included. The rest of `src/` was
+  grepped for the same shape while fixing it: `range_libc`'s CUDA find sits
+  inside a `WITH_CUDA` branch and `cuda_pointcloud_filters` guards its own with
+  `check_language(CUDA)`, so this was the last unguarded one.
+- **`rosdep install` never refreshes the apt lists.** It resolves its keys to
+  package names and shells out to `apt-get install`, so on a machine whose lists
+  are empty it fails as `E: Unable to locate package python3-serial` -- which
+  reads as a missing package and is a missing index. The image hits it every
+  time, because the layer above deletes `/var/lib/apt/lists` to keep its own
+  size down.
+- **Autoware's TensorRT nodes could not load at all.** Two gaps, one behind the
+  other, and the second is the interesting one -- see below.
+
+### The DLA problem, which is structural rather than a bug
+
+The arm64 image installed TensorRT from the Jetson repository and then could not
+dlopen it. Found by running the planning simulation *in the built image*, where
+it reached 33/34 nodes against amd64's 34/34.
+
+First, nothing installed a **CUDA runtime** on this path: amd64 inherits one
+from the `nvidia/cuda` base and a Jetson gets one from JetPack, so the plain
+`ubuntu:22.04` image had neither and `shape_estimation` died on
+`libcudart.so.12`. `cuda-cudart` is 780 KB from the same Jetson repo, now pinned
+as `nvidia_arm64.cuda`.
+
+That moved the error one library along, to the real one:
+
+```
+libnvdla_compiler.so => not found
+libcudla.so.1        => not found
 ```
 
-Expect `setup.sh` (step 6 of 12) to dominate, but with `aria2c` engaged the deb
-should take minutes rather than hours -- confirm by grepping the log for
-`Downloading with aria2c (parallel, 10 connections)` and NOT the
-`WARNING: aria2c is not installed` path. Past that, the remaining unknown is
-(4), the graphics layer.
+The Jetson build of `libnvinfer` links two **Tegra DLA** libraries that live in
+the L4T board-support package. They exist only on a Jetson -- `nvidia-l4t-cuda`
+has no candidate in the `jetson/common` pocket -- and they talk to the Tegra
+driver, so obtaining them would buy nothing on Apple Silicon. The loader does
+not care that DLA is unusable here: it refuses `libnvinfer` outright, and every
+Autoware node linking TensorRT dies on dlopen.
 
-One structural note for whoever iterates next: `COPY . ${AUTOSDV_HOME}` sits
-**before** `RUN ./setup.sh`, so any source change invalidates the entire ROS 2 +
-Autoware install layer and re-downloads the deb. That is why each of these six
-attempts cost 35 minutes at best. Moving the COPY after the system-dependency
-install, or splitting the system install from the workspace build, would make
-every future iteration dramatically cheaper.
+**Empty stubs satisfy the loader**, and the node then loads and runs: 34/34,
+verified. Nothing calls into them, because DLA is requested explicitly with
+`setDeviceType(kDLA)` and Autoware builds GPU engines; if something ever did it
+would abort on an undefined symbol rather than quietly compute the wrong thing.
+Installed only where there is no `/etc/nv_tegra_release` and the real libraries
+are absent, so a board keeps its own.
+
+This is the one place the arm64 image is not simply "Autoware on another
+architecture", and it is worth knowing before anyone tries to remove it.
+
+### Iterating on this image used to cost 35 minutes a try
+
+`COPY . ${AUTOSDV_HOME}` sat **above** `RUN ./setup.sh`, so editing one
+CMakeLists invalidated ROS 2, Autoware and every apt package with it -- the
+build then spent seventy minutes reinstalling all of it before reaching the line
+that had changed. Six arm64 attempts paid that toll.
+
+Only two setup steps read `src/` at all, so `ros-deps` and `range-libc` now run
+after the full `COPY` via `--only`, and everything else keys on the installer
+alone. The Autoware `.deb` moved into a **cache mount**: 1.9 GB the layer no
+longer carries, and a rebuild reuses the download instead of spending 26 minutes
+on it again.
+
+Two details cost a build cycle each, both about the repo-root `setup.sh` being a
+**symlink** into `setup/`. Naming it as an explicit `COPY` source dereferences
+it, and the launcher's `readlink -f "$0"` then resolves to the repo root and
+looks for `main.py` there. `COPY .` preserves it, so the installer layer calls
+`./setup/setup.sh` directly and the image still ships the link.
 
 Finally, publish so students never pick a variant -- the same command on each
 build machine, then one to join them:
