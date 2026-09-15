@@ -100,8 +100,8 @@ of memory while linking never has to.
 | 5 | arm64, built natively on an arm64 host | **done -- built, verified, published; 5 of 5 unknowns settled** |
 | 6 | Multi-arch manifest to Docker Hub; `docker save` tarball fallback | **done -- `:desktop` resolves both platforms** |
 | 7 | Logging simulation + a 4-core laptop proxy, folded into the Phase 1 report | **done — NDT holds 9.89 Hz on 4 cores; RViz is the limit, 1 fps** |
-| 8 | Book page, EN + zh-TW | pending |
-| 9 | Rewrite roadmap 9's timetable | pending |
+| 8 | Book page, EN + zh-TW | **done -- `getting-started/installation/container.md` + zh-TW** |
+| 9 | Rewrite roadmap 9's timetable | **done -- replanned around no install; see [roadmap 9](9-workshop-laptop-onboarding.md)** |
 
 ## Consequences for roadmap 9
 
