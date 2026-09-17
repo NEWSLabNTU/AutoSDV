@@ -160,7 +160,7 @@ says, and link to it.
 | `--container-mode observable`, with the measurements | same page, and `docker/desktop/README.md` |
 | Launch syntax, `arg:=value` | roadmap 8 phase 2 → book launch chapter |
 | Planning / logging simulation walkthroughs | book: *Tutorial* 1–3 |
-| Handing the image out offline | `docker/desktop/export-images.sh`, `serve-images.sh` |
+| Handing the image and the recording out offline | `docker/desktop/export-images.sh`, `serve-images.sh` |
 
 ---
 
@@ -178,7 +178,7 @@ says, and link to it.
    |---|---|---|
    | the image (Autoware, ROS 2, the built workspace) | 5.4 / 14.3 GB | Docker Hub, **or handed out offline** |
    | the COSS map, 78 MB PCD included | ~80 MB | the git clone; no separate download |
-   | the rosbag, for the logging simulation only | **2.8 GB** | `just bag download` — **still per student, still unsolved** |
+   | the rosbag, for the logging simulation only | **1.7 GB** zipped, 2.8 GB unpacked | `just bag download`, **or handed out offline** |
 
    The image is the one that used to be impossible and now is not:
    `export-images.sh` writes both architectures to files — named *"Apple Silicon
@@ -186,11 +186,18 @@ says, and link to it.
    local network with an address to put on the board. A USB stick works equally
    well. The map rides along with the repository, so it costs nothing.
 
-   **The rosbag is the remaining network problem**, and block 5 is built on it.
-   Thirty copies of 2.8 GB over classroom wifi will not happen inside two hours.
-   Options, to be decided: require it before class alongside the image, serve it
-   from the same local host as the image files, or put it on the sticks. Do not
-   let this one look settled because the image is.
+   **The rosbag is settled the same way**, which was the second of the three
+   options here: `export-images.sh` now also lays down
+   `outdoor_20251226_153115.zip` beside the images, so one command produces
+   everything the file server hands out and `serve-images.sh` serves the lot.
+   The transfer is 1.7 GB rather than the 2.8 GB written above — that figure was
+   the unpacked size, and what crosses the network is the archive.
+
+   `READ-ME-FIRST.txt` splits accordingly, because the two handouts have
+   different audiences: the image is for Windows and macOS, the recording is for
+   everyone. A student installing natively on Ubuntu 22.04 reaches the same
+   directory listing, and until now it offered them nothing while still owing
+   them the bag.
 3. ~~**Install profile.**~~ **Moot.** Nobody runs `setup.sh` in class, so a
    narrower `workshop` profile buys the workshop nothing. (It may still be worth
    having for CI; that is a `registry.py` question, not this one.)

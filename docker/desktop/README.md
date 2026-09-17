@@ -71,17 +71,34 @@ how it was first reported -- from an Apple Silicon machine, where the VM is the
 only memory there is. It is not a flag the launcher can set for you: it belongs
 to `play_launch`, not to `docker run`.
 
-## Handing the image out offline
+## Handing the files out offline
 
 Fifty laptops pulling from Docker Hub at once does not work: the amd64 image is
 **14.34 GB compressed** and the arm64 image **5.37 GB**, and Docker Hub rate
 limits per address. Export once, serve locally.
 
 ```bash
-OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh          # both
-OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh amd64    # one
+OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh          # both, + the recording
+OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh amd64    # one arch
+OUT_DIR=/srv/autosdv ROSBAG=0 ./docker/desktop/export-images.sh # images only
 ./docker/desktop/serve-images.sh /srv/autosdv                   # serve them
 ```
+
+**The recording comes out with them**, because the image alone does not finish
+the lab: half the workshop is `ros2 bag play`, and a student who has loaded the
+image but has no recording is stuck exactly as badly as one who never got the
+image -- except that it looks like their own mistake.
+`outdoor_20251226_153115.zip` is 1.7 GB, so fifty copies is another 85 GB that
+would otherwise cross the campus uplink one student at a time.
+
+The script looks for the archive in four places before it will download
+anything: `ROSBAG_ZIP=`, the output directory, `data/rosbags/`, and an unpacked
+`data/rosbags/outdoor_20251226_153115/`, which it re-zips. That last one is the
+normal state of a machine that has run the simulation -- `just bag download`
+deletes the archive after extracting it -- so a workstation that already holds
+the bytes never fetches them twice. Failing all four it calls `synology-dl`,
+reading the share URL out of `scripts/rosbag/download-test-rosbag.sh` rather
+than repeating it.
 
 `serve-images.sh` lists what it is about to serve, with sizes, so an export that
 did not finish is visible before fifty people start downloading, and prints the
@@ -110,6 +127,12 @@ themselves:
 | **Apple Silicon** Mac (M1-M4) | `AutoSDV-for-Apple-Silicon-Mac.tar.gz` |
 
 Apple menu > About This Mac settles which Mac they have.
+
+Plus `outdoor_20251226_153115.zip`, which everyone needs -- including students
+installing natively on Ubuntu 22.04, who take no image at all. It unzips into
+`AutoSDV/data/rosbags/`, the same destination on both installation paths,
+because `autosdv.sh` mounts the repository's `data` directory into the
+container. It is unzipped on the laptop, not inside the container.
 
 Three steps, identical on every platform -- terminal on macOS and Linux,
 PowerShell on Windows:
