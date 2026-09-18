@@ -155,12 +155,15 @@ This workspace is mostly submodules, and two rules keep them from drifting.
 
 ### Getting them checked out
 
-`./setup.sh` does it, as its first step (`submodules`), and refuses to touch a
-submodule that is checked out at something other than the pin or that holds
-uncommitted tracked changes — it lists those and stops rather than moving work
-nobody has pushed. `./setup.sh --run --skip submodules` is the way past it when
-a submodule is parked off the pin on purpose. `just checkout` is the same
-operation with no questions asked.
+`./setup.sh` does it, as its first step (`submodules`), which is there because
+forgetting to init the submodules is the first thing anyone new to this
+repository does. It fills in the empty ones and **only** the empty ones: a
+submodule that is already checked out is left exactly as it is, dirty or parked
+at another commit, and is listed at the end rather than moved or complained
+about. Nothing about this step blocks a run.
+
+`just checkout` is the blunt version — `git submodule update --init --recursive
+--checkout`, which does move a submodule that is sitting off the pin.
 
 ### Lockstep: push the submodule first, then the pin
 

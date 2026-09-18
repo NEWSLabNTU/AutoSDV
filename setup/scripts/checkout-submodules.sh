@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Check out every submodule at the commit this repository pins.
+# Check out the submodules that are missing, and only those.
 #
 # The workspace is mostly submodules, and a fresh clone has none of them: the
 # directories under src/ exist and are empty. Nothing says so until a later step
@@ -10,15 +10,21 @@
 #   No such file or directory
 #   FAILED  range-libc
 #
-# which names neither the submodule nor `git submodule update`. So this runs
-# first and fills them in.
+# which names neither the submodule nor `git submodule update`. Forgetting to
+# init the submodules is the first thing a newcomer to this repository does, so
+# this step runs before everything else and fills them in.
 #
-# It only ever CREATES. A submodule that is checked out at something other than
-# the pin, or that has uncommitted work in it, stops the run instead of being
-# fixed: `git submodule update` would move it without a word, and what it moved
-# away from is somebody's unpushed afternoon. That is also the case this cannot
-# guess at -- a moved pin is how a submodule change is made, so the checkout may
-# be the newer truth and the superproject the thing that is behind.
+# It only ever CREATES. A submodule that is already checked out is left exactly
+# as it is -- including one with uncommitted work in it, and one sitting at a
+# commit other than the pin. Both are ordinary states to be working in, and
+# neither has anything to do with the empty directories this is here to fill.
+# They are reported at the end, because a build that then behaves oddly should
+# have somewhere to look, but they do not stop anything.
+#
+# That is also why the missing paths are updated one owner at a time rather than
+# with a blanket `git submodule update --init --recursive`: the blanket form
+# would move a submodule that is deliberately parked at another commit, and the
+# work it moved away from may be the only copy.
 
 set -euo pipefail
 
@@ -29,28 +35,27 @@ if [[ ! -f .gitmodules ]]; then
     exit 0
 fi
 
-# The repository that OWNS a submodule path, and the path relative to it.
-# Nested submodules (seyond_sdk inside seyond_ros_driver) are pinned by their
-# parent, not by the superproject, so `git rev-parse HEAD:<full path>` would
-# fail on exactly the ones worth reporting precisely.
-pinned_sha() {
-    local path="$1" owner rel
-    owner="$(dirname "$path")"
+# The repository that OWNS a submodule path. Nested submodules (seyond_sdk
+# inside seyond_ros_driver) are pinned and updated by their parent, not by the
+# superproject: `git submodule update -- <full path>` from here matches nothing.
+owner_of() {
+    local owner
+    owner="$(dirname "$1")"
     while [[ "$owner" != "." && ! -e "$owner/.git" ]]; do
         owner="$(dirname "$owner")"
     done
-    if [[ "$owner" == "." ]]; then
-        rel="$path"
-    else
-        rel="${path#"$owner"/}"
-    fi
+    printf '%s' "$owner"
+}
+
+pinned_sha() {
+    local path="$1" owner rel
+    owner="$(owner_of "$path")"
+    if [[ "$owner" == "." ]]; then rel="$path"; else rel="${path#"$owner"/}"; fi
     git -C "$owner" rev-parse --short "HEAD:$rel" 2>/dev/null || echo "unknown"
 }
 
 missing=()      # never initialised: what this script is here to fix
-moved=()        # initialised, but at a different commit
-conflicted=()   # a merge left the gitlink unresolved
-dirty=()        # at the pin, with uncommitted tracked changes
+left=()         # initialised, and not ours to touch -- reported at the end
 total=0
 
 # `git submodule status --recursive` prints "<flag><sha> <path> (<describe>)",
@@ -69,77 +74,36 @@ while IFS= read -r line; do
 
     case "$flag" in
         -) missing+=("$path") ;;
-        U) conflicted+=("$path") ;;
-        +) moved+=("$path ${sha:0:7} $(pinned_sha "$path")") ;;
+        U) left+=("$path|unresolved merge conflict on the pin") ;;
+        +) left+=("$path|at ${sha:0:7}, pinned $(pinned_sha "$path")") ;;
         *)
-            # Untracked files do not count. A built Cython extension, a
-            # colcon artefact or an editor swap file lives in these trees
-            # routinely, and `git submodule update` does not touch them --
-            # refusing over one would make this step unpassable on any machine
-            # that has ever built the workspace.
-            #
-            # Neither does a moved gitlink: --recursive already reports the
-            # nested submodule itself, and without --ignore-submodules the
-            # parent is reported a second time, as " M <name>", for the same
-            # fact in less useful words.
+            # Untracked files are not a local change worth mentioning: a built
+            # Cython extension or a colcon artefact lives in these trees
+            # routinely. Gitlink changes are not either -- --recursive already
+            # reports the nested submodule in its own right, and reporting the
+            # parent again as " M <name>" says the same thing less usefully.
             if [[ -n "$(git -C "$path" status --porcelain --untracked-files=no --ignore-submodules=all 2>/dev/null)" ]]; then
-                dirty+=("$path")
+                left+=("$path|uncommitted changes")
             fi
             ;;
     esac
 done < <(git submodule status --recursive)
 
-if ((${#moved[@]} || ${#dirty[@]} || ${#conflicted[@]})); then
-    echo >&2
-    echo "Refusing to check out submodules: some do not match the pinned commits." >&2
-    echo >&2
-
-    for entry in "${moved[@]}"; do
-        read -r path have want <<<"$entry"
-        echo "  at a different commit: $path" >&2
-        echo "      pinned:       $want" >&2
-        echo "      checked out:  $have" >&2
+report_left() {
+    ((${#left[@]})) || return 0
+    echo
+    echo "Left as they are (already checked out; this step only fills in empty ones):"
+    for entry in "${left[@]}"; do
+        echo "  ${entry%%|*}  --  ${entry#*|}"
     done
-    for path in "${dirty[@]}"; do
-        echo "  uncommitted changes: $path" >&2
-        git -C "$path" status --short --untracked-files=no --ignore-submodules=all 2>/dev/null \
-            | sed 's/^/      /' >&2
-    done
-    for path in "${conflicted[@]}"; do
-        echo "  unresolved merge conflict: $path" >&2
-    done
-
-    cat >&2 <<'HINT'
-
-Nothing was checked out. Resolve each one, then re-run setup:
-
-  * uncommitted changes you want to keep -- commit them on the submodule's
-    tracking branch and push, then record the new pin in the superproject:
-
-        cd <submodule> && git checkout <its branch> && git commit -a && git push
-        cd - && git add <submodule> && git commit -m "Bump <submodule>"
-
-    The submodule push comes FIRST: a pin nobody else can resolve fails every
-    other checkout of this repository, and CI with it.
-
-  * uncommitted changes you do not want -- discard them:
-
-        git -C <submodule> checkout -- .
-
-  * a submodule sitting at a different commit on purpose -- leave it there and
-    let setup skip this step:
-
-        ./setup.sh --run --skip submodules
-
-  * a submodule sitting at a different commit by accident -- put it back:
-
-        git submodule update --checkout -- <submodule>
-HINT
-    exit 1
-fi
+    echo
+    echo "That is normal while you are working on one. It does mean the build"
+    echo "uses what is in that directory, not what this repository pins."
+}
 
 if ((${#missing[@]} == 0)); then
-    echo "All $total submodule(s) are checked out at their pinned commits."
+    echo "All $total submodule(s) are checked out."
+    report_left
     exit 0
 fi
 
@@ -147,18 +111,29 @@ echo "Checking out ${#missing[@]} of $total submodule(s):"
 printf '  %s\n' "${missing[@]}"
 echo
 
-# A blanket update rather than a pathspec per missing entry. Everything already
-# initialised has just been verified clean and at its pin, so this is a no-op
-# for those -- and a pathspec cannot name a submodule nested inside another one
-# from here anyway.
-git submodule update --init --recursive
+# Grouped by owning repository so the common case -- a fresh clone, where every
+# missing submodule belongs to the superproject -- is one git invocation and can
+# still use whatever submodule.fetchJobs is configured.
+declare -A by_owner=()
+for path in "${missing[@]}"; do
+    owner="$(owner_of "$path")"
+    if [[ "$owner" == "." ]]; then rel="$path"; else rel="${path#"$owner"/}"; fi
+    by_owner["$owner"]+="$rel"$'\n'
+done
 
-if git submodule status --recursive | grep -q '^-'; then
+for owner in "${!by_owner[@]}"; do
+    mapfile -t rels < <(printf '%s' "${by_owner[$owner]}")
+    git -C "$owner" submodule update --init --recursive -- "${rels[@]}"
+done
+
+still_missing="$(git submodule status --recursive | grep '^-' || true)"
+if [[ -n "$still_missing" ]]; then
     echo >&2
     echo "Some submodules are still not checked out:" >&2
-    git submodule status --recursive | grep '^-' | sed 's/^/  /' >&2
+    echo "$still_missing" | sed 's/^/  /' >&2
     exit 1
 fi
 
 echo
-echo "All submodules are checked out at their pinned commits."
+echo "Done."
+report_left

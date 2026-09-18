@@ -110,24 +110,30 @@ bash: line 1: cd: .../src/localization/external/range_libc/pywrapper: No such fi
   FAILED  range-libc
 ```
 
-So `submodules` runs before everything else and checks each one out at the
-commit this repository pins. It only ever creates. A submodule that is already
-checked out at a different commit, or that holds uncommitted tracked changes,
-stops the run and is listed with what to do about it — `git submodule update`
-would move it without a word, and what it moved away from may be the only copy.
+Forgetting to init the submodules is the first thing anyone new to this
+repository does, so `submodules` runs before everything else and fills them in.
 
-Untracked files are not a reason to stop: built extensions and colcon artefacts
-live in these trees routinely and nothing here touches them.
+It fills in the empty ones and **only** the empty ones. A submodule that is
+already checked out is left exactly as it is — uncommitted changes and all, and
+including one deliberately parked at a commit other than the pin. Those are
+ordinary states to be working in, and they have nothing to do with the empty
+directories this is here to fill, so they are listed at the end and nothing
+stops:
 
-Working on a submodule at a commit other than the pin is a legitimate thing to
-be doing, so that case has an exit rather than only a fix:
-
-```bash
-./setup.sh --run --skip submodules
+```
+Left as they are (already checked out; this step only fills in empty ones):
+  src/sensor_kit/autosdv_sensor_kit_launch  --  uncommitted changes
+  src/localization/external/particle_filter  --  at 4f21ac9, pinned 373af5a
 ```
 
-`just checkout` is the blunt version of the same operation — it checks out the
-pins with no questions asked.
+That listing is the only reason the step looks at them at all: when a build then
+behaves unlike the pins say it should, this is where to look first.
+
+Mechanically, that means the missing paths are updated one owning repository at
+a time rather than with a blanket `git submodule update --init --recursive` —
+the blanket form would move a submodule parked off the pin, and what it moved
+away from may be the only copy. `just checkout` is the blunt version, for when
+moving them is what you want.
 
 ## Profiles
 

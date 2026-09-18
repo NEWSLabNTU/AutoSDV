@@ -178,9 +178,11 @@ STEPS: list[Step] = [
             "Later steps then fail on a missing path rather than on a missing "
             "submodule.",
         group="Workspace",
-        # Only ever creates. A submodule that is already checked out somewhere
-        # other than the pin, or that holds uncommitted work, stops the run
-        # with what to do about it -- see the script.
+        # Only ever creates. Submodules that are already checked out are left
+        # exactly as they are -- including dirty ones and ones parked at another
+        # commit, which are ordinary states to be working in and have nothing to
+        # do with the empty directories this fills. They are reported, not
+        # fixed, and never block the run.
         run=[_S("checkout-submodules.sh")],
         requires=Requires(sudo=False),
         profiles=_on(*EVERY),
