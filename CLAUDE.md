@@ -153,6 +153,15 @@ for review; merge them with squash or rebase for the same reason.
 
 This workspace is mostly submodules, and two rules keep them from drifting.
 
+### Getting them checked out
+
+`./setup.sh` does it, as its first step (`submodules`), and refuses to touch a
+submodule that is checked out at something other than the pin or that holds
+uncommitted tracked changes — it lists those and stops rather than moving work
+nobody has pushed. `./setup.sh --run --skip submodules` is the way past it when
+a submodule is parked off the pin on purpose. `just checkout` is the same
+operation with no questions asked.
+
 ### Lockstep: push the submodule first, then the pin
 
 A superproject pin is a commit hash. A hash that exists only in a local

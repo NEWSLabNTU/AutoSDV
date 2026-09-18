@@ -97,6 +97,34 @@ fi
 """
 
 
+# Most of src/ is submodules, and a clone that has never run `git submodule
+# update` has empty directories there. A step that cds into one then fails on a
+# path -- naming neither the submodule nor the step that checks it out.
+def _require_submodule(path: str) -> str:
+    return f"""
+if [[ ! -e "{REPO_ROOT}/{path}" || ! -e "{REPO_ROOT}/{path}/.git" ]]; then
+    echo "The submodule {path} is not checked out." >&2
+    echo "Run the submodules step first, or let a full setup run reach it:" >&2
+    echo "    ./setup.sh --run --only submodules" >&2
+    exit 1
+fi
+"""
+
+
+# rosdep resolves what it FINDS. With submodules missing it reads the handful of
+# package.xml files that are in this repository directly, installs their keys,
+# and exits 0 -- so the run looks clean and the build fails much later on a
+# dependency nobody skipped.
+_REQUIRE_SUBMODULES = """
+if git submodule status --recursive 2>/dev/null | grep -q '^-'; then
+    echo "Some submodules are not checked out, so rosdep would resolve only" >&2
+    echo "part of the workspace and still exit 0. Check them out first:" >&2
+    echo "    ./setup.sh --run --only submodules" >&2
+    exit 1
+fi
+"""
+
+
 def _ros_bash(body: str) -> list[str]:
     """Run `body` with ROS 2 Humble sourced.
 
@@ -142,6 +170,27 @@ def _on(*profiles: str) -> dict[str, bool]:
 
 
 STEPS: list[Step] = [
+    # ---- Workspace -------------------------------------------------------
+    Step(
+        id="submodules",
+        label="Submodule checkout (the source tree itself)",
+        why="A fresh clone has empty directories where most of src/ should be. "
+            "Later steps then fail on a missing path rather than on a missing "
+            "submodule.",
+        group="Workspace",
+        # Only ever creates. A submodule that is already checked out somewhere
+        # other than the pin, or that holds uncommitted work, stops the run
+        # with what to do about it -- see the script.
+        run=[_S("checkout-submodules.sh")],
+        requires=Requires(sudo=False),
+        profiles=_on(*EVERY),
+        # The state file cannot answer this: `git clean -xfd`, a deleted
+        # directory or a fresh clone over the same state all leave a recorded
+        # run standing over an empty tree.
+        verify=["bash", "-c",
+                "! git submodule status --recursive 2>/dev/null | grep -q '^-'"],
+    ),
+
     # ---- Toolchain -------------------------------------------------------
     Step(
         id="just",
@@ -414,6 +463,7 @@ STEPS: list[Step] = [
         # twenty minutes downloading Autoware. Three attempts, then fail for
         # real.
         run=_ros_bash(
+            _REQUIRE_SUBMODULES +
             "if [[ -f /opt/autoware/1.5.0/setup.sh ]]; then set +u; "
             "source /opt/autoware/1.5.0/setup.sh; set -u; fi\n"
             f'cd "{REPO_ROOT}"\n'
@@ -442,7 +492,7 @@ STEPS: list[Step] = [
             "rosdep install -y --from-paths src --ignore-src -r"
         ),
         requires=Requires(sudo=True),
-        after=("ros2-dev-tools", "autoware-debian"),
+        after=("submodules", "ros2-dev-tools", "autoware-debian"),
         profiles=_on(*EVERY),
     ),
 
@@ -481,6 +531,7 @@ STEPS: list[Step] = [
         # class of failure one step later: without Python.h the extension
         # cannot compile.
         run=_BASH(
+            _require_submodule("src/localization/external/range_libc") +
             "sudo apt-get update && "
             "sudo apt-get install -y --no-install-recommends cython3 python3-dev && "
             f'cd "{REPO_ROOT}/src/localization/external/range_libc/pywrapper" && '
@@ -494,6 +545,7 @@ STEPS: list[Step] = [
         verify=["bash", "-c",
                 "source /opt/ros/humble/setup.bash >/dev/null 2>&1 && "
                 "python3 -c 'import range_libc'"],
+        after=("submodules",),
         note="Rebuild this after changing the range_libc submodule pin.",
     ),
     Step(

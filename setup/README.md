@@ -99,6 +99,36 @@ wrapper per option. Steps nobody wrote a wrapper for ran unconditionally and
 appeared in no menu. The justfile is gone with it; `registry.py` holds the order
 that chain used to encode.
 
+## The first step: submodules
+
+Most of `src/` is submodules, and a fresh clone has empty directories where they
+should be. Nothing announces that; the first step to reach inside one fails on a
+path instead:
+
+```
+bash: line 1: cd: .../src/localization/external/range_libc/pywrapper: No such file or directory
+  FAILED  range-libc
+```
+
+So `submodules` runs before everything else and checks each one out at the
+commit this repository pins. It only ever creates. A submodule that is already
+checked out at a different commit, or that holds uncommitted tracked changes,
+stops the run and is listed with what to do about it — `git submodule update`
+would move it without a word, and what it moved away from may be the only copy.
+
+Untracked files are not a reason to stop: built extensions and colcon artefacts
+live in these trees routinely and nothing here touches them.
+
+Working on a submodule at a commit other than the pin is a legitimate thing to
+be doing, so that case has an exit rather than only a fix:
+
+```bash
+./setup.sh --run --skip submodules
+```
+
+`just checkout` is the blunt version of the same operation — it checks out the
+pins with no questions asked.
+
 ## Profiles
 
 A profile is a set of defaults over the same step list, not a separate path.
