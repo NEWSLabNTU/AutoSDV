@@ -240,3 +240,37 @@ Two things worth recording from that run:
   sees 2 topics; the same container idle passes a pub/echo test 3/3. The stack
   itself is unaffected -- RViz renders -- but second-shell diagnostics do not
   work inside the container, which matters before anyone debugs there.
+
+## turtlesim and rqt_graph under llvmpipe (2026-09-20)
+
+Measured for Lab 0, which teaches ROS 2 fundamentals on the same image and
+whose only GUI tools are these two. The question was whether the software
+renderer -- the floor on every Mac, since Hypervisor.framework exposes no vGPU
+-- is good enough for them, since the lab is unusable if it is not.
+
+Forced with `LIBGL_ALWAYS_SOFTWARE=1` on the amd64 image, display `:9`:
+
+```
+OpenGL renderer string: llvmpipe (LLVM 15.0.7, 256 bits)
+OpenGL version string:  4.5 (Compatibility Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4
+glxgears:               22872 frames in 5.0 seconds = 4574 FPS
+```
+
+`turtlesim_node` starts, publishes `/turtle1/pose`, and responds to
+`/turtle1/cmd_vel`: driving it at `linear.x 1.5, angular.z 0.8` for four seconds
+moved it from (5.544, 5.544, 0.000) to (5.033, 9.227, -2.878). A frame grabbed
+off the X display with `ffmpeg -f x11grab` shows the window drawn, the turtle
+sprite at its new pose, and the pen trace of the arc it drove.
+
+`rqt_graph` also renders, with `/turtlesim` in the node graph.
+
+Neither is a GL-heavy application -- turtlesim is Qt drawing 2D sprites -- so
+the headline 4574 FPS says more about glxgears than about the lab. What the run
+establishes is narrower and sufficient: both tools start, draw and stay
+responsive with no GPU at all.
+
+**Not established: arm64.** This was measured on amd64. Testing the arm64 image
+here would mean qemu emulation, whose performance says nothing about an Apple
+Silicon laptop running it natively -- and natively is strictly the faster of the
+two. The remaining risk is therefore small, but it is untested rather than
+verified.
