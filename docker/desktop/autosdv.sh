@@ -16,6 +16,14 @@
 #                                        repository this script lives in
 #                                        (AUTOSDV_WORKSPACE does the same)
 #
+#   AUTOSDV_IMAGE=jerry73204/autosdv:base ./docker/desktop/autosdv.sh
+#                                        run a different image. `:desktop` (the
+#                                        default) carries the workspace
+#                                        prebuilt; `:base` carries the same ROS
+#                                        2 and tools without it, and is what
+#                                        the labs use -- your code lives in
+#                                        /workspace either way.
+#
 # If the image was handed out as a file, `docker load` it first; this script
 # then finds it locally and pulls nothing.
 #
@@ -240,7 +248,11 @@ case "${1:-}" in
         exit 0
         ;;
     -h|--help)
-        sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
+        # Every comment line from the shebang to the first line that is not
+        # one. A line range cannot be used here: it was '2,20p', then '2,31p',
+        # and it silently truncated the help both times the header grew. The
+        # header's own end is the only honest boundary.
+        awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"
         exit 0
         ;;
 esac
