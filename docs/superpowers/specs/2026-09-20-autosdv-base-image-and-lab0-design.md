@@ -298,10 +298,27 @@ the pattern this course already uses.
 One more full handout, and then none.
 
 `:base` carries no prebuilt workspace, and the tarball is **flattened** —
-correct for `docker save`, wrong for a Hub tag, and the thing that finally
-reclaims the 3.6 GB of CUDA static archives and 1.1 GB of Nsight Compute
-currently shipped as whiteouts. Expect roughly half of the current 14.34 GB;
-**measure, do not promise**.
+correct for `docker save`, wrong for a Hub tag, and the thing that reclaims the
+3.6 GB of CUDA static archives and 1.1 GB of Nsight Compute currently shipped
+as whiteouts.
+
+**Measured 2026-09-20**, and the estimate in the first draft of this section
+("roughly half of the current 14.34 GB") was wrong:
+
+| artifact | on disk | compressed |
+|---|---|---|
+| `:desktop`, as handed out | 26.7 GB | 14.19 GB |
+| `:base`, unflattened | 24.9 GB | 13 GB |
+| `:base`, flattened | 19.9 GB | **11 GB** |
+
+A 22% cut, not 50%. Flattening does reclaim the expected 5 GB on disk — that
+part held — but static archives compress extremely well, so they were worth
+only about 2 GB of the tarball. This is why the section said measure rather
+than promise.
+
+11 GB × 50 students is 550 GB over the classroom switch, against 710 GB for the
+desktop image. Worth having, and not the order-of-magnitude saving that a
+`ros:humble-ros-base` image would have been had it been able to build AutoSDV.
 
 `export-images.sh` generalizes past its two hardcoded `autosdv-desktop-<arch>`
 names. The file server, DHCP configuration and `serve-images.sh` already ran end
@@ -311,17 +328,30 @@ to end and need nothing.
 
 ## 9. Verification — required before anything claims to work
 
-1. `setup.sh --run --profile container --yes` completes **as root with no
-   `sudo` installed**.
-2. The flattened `:base` tarball is measured, not estimated.
-3. turtlesim and `rqt_graph` render acceptably through noVNC under llvmpipe on
-   the **arm64** image. This is the one claim in this design that has never been
-   tested; if it fails, stage 3 gains a headless mode and the turtle becomes
-   optional.
-4. `grade.py` scores the reference solution 100 and a deliberately broken
-   submission less.
-5. A UID-mismatched Linux run produces host-owned build artifacts — the symptom
-   §3 exists to prevent — and does not after the fix.
+1. **Done.** `setup.sh --run --profile container --yes` completed unattended as
+   root inside `docker build`, 19 steps in 1316 s, ending `ok turbovnc-virtualgl`
+   — which also confirms the step moved into the profile rather than being
+   called as a script. (`sudo` is installed; see the correction in §2.1.)
+2. **Done, and it corrected this document** — see the table in §8. 11 GB
+   flattened, not the ~7 GB the estimate implied.
+3. **Done on amd64, NOT on arm64.** Under `LIBGL_ALWAYS_SOFTWARE=1`: renderer
+   `llvmpipe (LLVM 15.0.7)`, turtlesim drives from (5.544, 5.544, 0.000) to
+   (5.033, 9.227, -2.878) under `cmd_vel`, and grabbed frames show both the
+   turtle with its pen trace and `rqt_graph` with `/turtlesim` in it. arm64 is
+   untested because testing it here would measure qemu rather than an Apple
+   Silicon laptop, which is strictly faster. Full numbers:
+   `docs/reports/gpu-less-simulation-and-rviz.md`.
+4. Pending — `grade.py` scores the reference solution 100 and a deliberately
+   broken submission less.
+5. **Done.** Same image, same mount, two runs: `HOST_UID=0` leaves
+   `made-as-root` owned `0:0`, and `HOST_UID=$(id -u)` leaves
+   `made-with-hostuid` owned `1000005:1000001`. The container reports
+   `user: autosdv (uid 1000005, gid 1000001)` and `id` inside agrees.
+6. **Done, added during implementation** — the whole Lab 0 workflow in `:base`:
+   `ros2 pkg create --build-type ament_python`, then `colcon build` from
+   `/workspace/labs` (1 package, 0.70 s), then the node running with a
+   command-line parameter override measured at 9.996 Hz for `rate_hz:=10.0`.
+   `build/`, `install/`, `log/` and `src/` all land host-owned.
 
 ## 10. Open risk
 
