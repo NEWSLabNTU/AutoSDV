@@ -341,8 +341,14 @@ to end and need nothing.
    untested because testing it here would measure qemu rather than an Apple
    Silicon laptop, which is strictly faster. Full numbers:
    `docs/reports/gpu-less-simulation-and-rviz.md`.
-4. Pending — `grade.py` scores the reference solution 100 and a deliberately
-   broken submission less.
+4. **Done.** `grade.py ta/solution` → **100.0/100** in 70 s. A copy of that
+   solution with one line sabotaged — `self._cmd_pub.publish(Twist())`, so the
+   command is built and never filled — scores **55/100**: `0.0/40` on the
+   controller and `5.0/10` on launch, because a stationary turtle cannot
+   demonstrate a `k_linear:=` override. Partial credit is visible rather than
+   all-or-nothing. (It keeps the bag and report marks because those artifacts
+   were unchanged; the recorded evidence is graded separately from the code,
+   which is correct.)
 5. **Done.** Same image, same mount, two runs: `HOST_UID=0` leaves
    `made-as-root` owned `0:0`, and `HOST_UID=$(id -u)` leaves
    `made-with-hostuid` owned `1000005:1000001`. The container reports
