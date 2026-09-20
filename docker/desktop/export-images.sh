@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Export the desktop images as files, for handing out on a local network or a
+# Export the AutoSDV images as files, for handing out on a local network or a
 # USB stick instead of having fifty laptops pull from Docker Hub at once.
 #
 #   ./docker/desktop/export-images.sh              both architectures
@@ -7,14 +7,22 @@
 #   OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh
 #   ROSBAG=0 ./docker/desktop/export-images.sh     images only
 #   ROSBAG_ZIP=/path/to/it.zip ./docker/desktop/export-images.sh
+#   AUTOSDV_VARIANT=base ./docker/desktop/export-images.sh   the base image
 #
 # Produces, per architecture:
 #
-#   autosdv-desktop-<arch>.tar.gz        the image
-#   autosdv-desktop-<arch>.tar.gz.sha256 what proves the download finished
+#   autosdv-<variant>-<arch>.tar.gz        the image
+#   autosdv-<variant>-<arch>.tar.gz.sha256 what proves the download finished
 #
 # plus a second, hard-linked name for each that says which laptop it is for --
 # "Apple Silicon Mac" rather than "arm64" -- and a READ-ME-FIRST.txt.
+#
+# The variant is the image TAG, and it is what every output name is built from.
+# It defaults to `desktop`, so the commands in README.md and on the slides
+# produce exactly the files they always did; `AUTOSDV_VARIANT=base` exports
+# jerry73204/autosdv:base beside them without either handout overwriting the
+# other. AUTOSDV_IMAGE still names an image outright, and its tag then decides
+# the names.
 #
 # AND the recording the workshop replays:
 #
@@ -41,10 +49,31 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-REPO_IMAGE="${AUTOSDV_IMAGE:-jerry73204/autosdv:desktop}"
+REPO_IMAGE="${AUTOSDV_IMAGE:-jerry73204/autosdv:${AUTOSDV_VARIANT:-desktop}}"
 OUT_DIR="${OUT_DIR:-$PWD}"
 ARCHES=("${@:-amd64 arm64}")
 read -ra ARCHES <<< "${ARCHES[*]}"
+
+# The variant is read back OUT of the image rather than trusted from the
+# environment, so AUTOSDV_IMAGE and AUTOSDV_VARIANT cannot disagree: setting
+# only AUTOSDV_IMAGE would otherwise write `desktop` names around `base` bytes,
+# and a mislabelled 7 GB file is discovered by a student, not by whoever
+# exported it.
+#
+# `basename` covers an image given with no tag at all, where ${x##*:} is the
+# whole name.
+VARIANT="$(basename "${REPO_IMAGE##*:}")"
+
+# The friendly names are what a student picks from, so `desktop` keeps the
+# exact names README.md and the slides already print. Anything else is
+# qualified, because two handouts in one directory both called
+# "AutoSDV-for-Apple-Silicon-Mac.tar.gz" is one handout.
+case "$VARIANT" in
+    desktop) FRIENDLY_BASE="AutoSDV" ;;
+    *)       FRIENDLY_BASE="AutoSDV-${VARIANT}" ;;
+esac
+FRIENDLY_AMD64="${FRIENDLY_BASE}-for-Windows-Linux-and-Intel-Mac.tar.gz"
+FRIENDLY_ARM64="${FRIENDLY_BASE}-for-Apple-Silicon-Mac.tar.gz"
 
 command -v docker >/dev/null || { echo "error: docker not found" >&2; exit 1; }
 mkdir -p "$OUT_DIR"
@@ -60,8 +89,8 @@ fi
 echo
 
 for arch in "${ARCHES[@]}"; do
-    tag="${REPO_IMAGE%:*}:$(basename "${REPO_IMAGE##*:}")-${arch}"
-    out="${OUT_DIR}/autosdv-desktop-${arch}.tar.gz"
+    tag="${REPO_IMAGE%:*}:${VARIANT}-${arch}"
+    out="${OUT_DIR}/autosdv-${VARIANT}-${arch}.tar.gz"
 
     echo "  === ${arch} ==="
     echo "  pulling ${tag}"
@@ -91,8 +120,8 @@ for arch in "${ARCHES[@]}"; do
     # A hard link rather than a copy or a symlink: no second 14 GB, and no
     # dependence on the web server following links.
     case "$arch" in
-        amd64) friendly="AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz" ;;
-        arm64) friendly="AutoSDV-for-Apple-Silicon-Mac.tar.gz" ;;
+        amd64) friendly="$FRIENDLY_AMD64" ;;
+        arm64) friendly="$FRIENDLY_ARM64" ;;
         *)     friendly="" ;;
     esac
     if [ -n "$friendly" ]; then
@@ -125,7 +154,17 @@ place_rosbag() {
     ln -f "$src" "$ROSBAG_OUT" 2>/dev/null || cp "$src" "$ROSBAG_OUT"
 }
 
-if [ "${ROSBAG:-1}" = "0" ]; then
+# The recording belongs to the workshop, which is the :desktop handout. :base
+# is the Lab 0 handout -- turtlesim, no replay -- and spending 1.7 GB of
+# transfer plus a slot in the directory listing on a file nobody unzips is a
+# slow mistake rather than a safe default. ROSBAG=1 still forces it, and
+# ROSBAG=0 still suppresses it.
+case "$VARIANT" in
+    desktop) ROSBAG="${ROSBAG:-1}" ;;
+    *)       ROSBAG="${ROSBAG:-0}" ;;
+esac
+
+if [ "$ROSBAG" = "0" ]; then
     echo "  === recording: skipped (ROSBAG=0) ==="
     echo
 else
@@ -199,10 +238,39 @@ fi
 
 # A note beside the files, so a student who lands on the directory listing with
 # no other context can still finish.
-cat > "${OUT_DIR}/READ-ME-FIRST.txt" <<'NOTE'
-AutoSDV workshop files
-======================
+#
+# Written from the variables above rather than as one fixed block: a
+# READ-ME-FIRST.txt that names files which are not in the directory beside it
+# is worse than none, and that is exactly what a `base` export would produce
+# from `desktop` prose. The recording section appears only when a recording was
+# actually placed, for the same reason.
+case "$VARIANT" in
+    desktop)
+        README_TITLE="AutoSDV workshop files"
+        # No extra line: the desktop image is what the workshop has always
+        # handed out and the slides describe it.
+        IMAGE_NOTE=""
+        ;;
+    base)
+        README_TITLE="AutoSDV base image"
+        IMAGE_NOTE="
+This image carries the prerequisites -- ROS 2, Autoware and the tools --
+and no built workspace.  Your own checkout is mounted at /workspace inside
+the container, and you build there.
+"
+        ;;
+    *)
+        README_TITLE="AutoSDV ${VARIANT} image"
+        IMAGE_NOTE=""
+        ;;
+esac
 
+{
+    printf '%s\n' "$README_TITLE"
+    printf '%*s\n\n' "${#README_TITLE}" '' | tr ' ' '='
+
+    if [ -f "$ROSBAG_OUT" ]; then
+        cat <<'NOTE'
 Two things are here.  Which of them you need depends on your laptop.
 
   A. The container image -- Windows, macOS, or any Linux you would rather
@@ -214,11 +282,25 @@ Two things are here.  Which of them you need depends on your laptop.
 
 A. The container image
 ----------------------
+NOTE
+    else
+        cat <<'NOTE'
+The container image is for Windows, macOS, or any Linux you would rather not
+install onto.  Skip all of this if you are installing AutoSDV natively on
+Ubuntu 22.04.
 
+
+The container image
+-------------------
+NOTE
+    fi
+
+    cat <<NOTE
+${IMAGE_NOTE}
 1. Download ONE file -- whichever describes your laptop:
 
-     AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
-     AutoSDV-for-Apple-Silicon-Mac.tar.gz
+     ${FRIENDLY_AMD64}
+     ${FRIENDLY_ARM64}
 
    Not sure which Mac you have?  Apple menu > About This Mac.
    "Apple M1/M2/M3/M4" is Apple Silicon.  "Intel" is the other file.
@@ -226,30 +308,39 @@ A. The container image
 2. Load it into Docker.  Open a terminal (macOS/Linux) or PowerShell
    (Windows), change to wherever the file downloaded, and run:
 
-     docker load -i AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz
+     docker load -i ${FRIENDLY_AMD64}
 
    ...using the name of the file you actually downloaded.  This takes a few
    minutes and prints nothing until it finishes.
 
 3. Check it arrived:
 
-     docker images jerry73204/autosdv
+     docker images ${REPO_IMAGE%:*}
 
-   You should see a line with the tag "desktop".
+   You should see a line with the tag "${VARIANT}".
 
 If step 2 fails with a tar or gzip error, the download was incomplete.
 Download it again rather than retrying the load.
+NOTE
+
+    if [ -f "$ROSBAG_OUT" ]; then
+        # An UNQUOTED heredoc, so the archive's name comes from the variable
+        # that the four-source lookup above actually placed -- at the cost of
+        # having to escape the backticks below. Unescaped, "ros2 bag play"
+        # would be run as a command substitution and the sentence would reach
+        # the student with a hole in it.
+        cat <<NOTE
 
 
 B. The recording
 ----------------
 
 The second half of the workshop replays a drive that was recorded on the
-vehicle.  Without it, `ros2 bag play` has nothing to play.
+vehicle.  Without it, \`ros2 bag play\` has nothing to play.
 
 1. Download:
 
-     outdoor_20251226_153115.zip        (1.7 GB, 2.8 GB unpacked)
+     ${ROSBAG_ZIP_NAME}        (1.7 GB, 2.8 GB unpacked)
 
 2. Unzip it into the repository you cloned, under data/rosbags/, so that
    you end up with:
@@ -257,9 +348,9 @@ vehicle.  Without it, `ros2 bag play` has nothing to play.
      AutoSDV/
      └── data/
          └── rosbags/
-             └── outdoor_20251226_153115/
+             └── ${ROSBAG_DIR_NAME}/
                  ├── metadata.yaml
-                 └── outdoor_20251226_153115_0.db3
+                 └── ${ROSBAG_DIR_NAME}_0.db3
 
    Container users: this is the same place.  The start script mounts your
    AutoSDV/data directory into the container, so a recording unzipped on
@@ -268,19 +359,32 @@ vehicle.  Without it, `ros2 bag play` has nothing to play.
 
 3. Check the path, because a wrong one fails only later, at replay time:
 
-     ls AutoSDV/data/rosbags/outdoor_20251226_153115/metadata.yaml
+     ls AutoSDV/data/rosbags/${ROSBAG_DIR_NAME}/metadata.yaml
 NOTE
+    fi
+} > "${OUT_DIR}/READ-ME-FIRST.txt"
 echo "  wrote ${OUT_DIR}/READ-ME-FIRST.txt"
 echo
+
+# What the students are told to fetch depends on what is actually there: an
+# export without a recording that still tells the TA to hand one out is how a
+# room ends up looking for a file nobody produced.
+if [ -f "$ROSBAG_OUT" ]; then
+    WHAT_TO_FETCH='  Students then fetch the image for their machine, and the recording
+  regardless of machine. Find this laptop'"'"'s address with `ip addr` (Linux)
+  or `ipconfig getifaddr en0` (macOS) and give them that, not "localhost".'
+else
+    WHAT_TO_FETCH='  Students then fetch the image for their machine. Find this laptop'"'"'s
+  address with `ip addr` (Linux) or `ipconfig getifaddr en0` (macOS) and give
+  them that, not "localhost".'
+fi
 
 cat <<EOF
   Done. To serve them on the classroom network, from ${OUT_DIR}:
 
       python3 -m http.server 8000
 
-  Students then fetch the image for their machine, and the recording
-  regardless of machine. Find this laptop's address with \`ip addr\` (Linux)
-  or \`ipconfig getifaddr en0\` (macOS) and give them that, not "localhost".
+${WHAT_TO_FETCH}
 
   serve-images.sh does both of those -- it serves ${OUT_DIR} and prints the
   address for every interface a student could reach it on.

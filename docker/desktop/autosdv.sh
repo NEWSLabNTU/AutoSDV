@@ -11,6 +11,10 @@
 #                                        Docker Desktop on Windows)
 #   ./docker/desktop/autosdv.sh --pull   check for a newer image first
 #   ./docker/desktop/autosdv.sh --stop   stop and remove the container
+#   ./docker/desktop/autosdv.sh --workspace DIR
+#                                        mount DIR at /workspace instead of the
+#                                        repository this script lives in
+#                                        (AUTOSDV_WORKSPACE does the same)
 #
 # If the image was handed out as a file, `docker load` it first; this script
 # then finds it locally and pulls nothing.
@@ -21,6 +25,10 @@
 # Every shell it opens has ROS 2, Autoware and the workspace already sourced,
 # because a shell without them has no `ros2` command at all and the error says
 # only "command not found".
+#
+# Your checkout is mounted at /workspace, and lab work belongs there: it is the
+# one directory whose contents survive `--stop`, and your own editor is already
+# looking at it.
 
 set -euo pipefail
 
@@ -28,16 +36,27 @@ NAME="${AUTOSDV_CONTAINER:-autosdv}"
 IMAGE="${AUTOSDV_IMAGE:-jerry73204/autosdv:desktop}"
 PORT="${AUTOSDV_PORT:-6080}"
 
-# --gpu is consumed here rather than passed through: it changes how the
-# container is CREATED, so it is meaningless on the runs that merely attach a
-# second shell to one that already exists.
+# --gpu and --workspace are consumed here rather than passed through: both
+# change how the container is CREATED, so they are meaningless on the runs that
+# merely attach a second shell to one that already exists.
+#
+# A while loop rather than `for a in "$@"`, because --workspace takes a value
+# and a for loop cannot shift past one.
 GPU=0
+WORKSPACE="${AUTOSDV_WORKSPACE:-}"
 args=()
-for a in "$@"; do
-    case "$a" in
+while [ $# -gt 0 ]; do
+    case "$1" in
         --gpu) GPU=1 ;;
-        *) args+=("$a") ;;
+        --workspace)
+            shift
+            [ $# -gt 0 ] || { echo "error: --workspace needs a directory" >&2; exit 1; }
+            WORKSPACE="$1"
+            ;;
+        --workspace=*) WORKSPACE="${1#--workspace=}" ;;
+        *) args+=("$1") ;;
     esac
+    shift
 done
 set -- "${args[@]+"${args[@]}"}"
 
@@ -55,6 +74,19 @@ while [ -L "$_src" ]; do
     case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
 done
 REPO="$(cd -P "$(dirname "$_src")/../.." && pwd)"
+
+# What gets mounted at /workspace. The repository by default, because that is
+# what a student cloned and what their editor has open.
+#
+# Resolved to an absolute path here: `docker run -v` takes a relative path as a
+# VOLUME NAME rather than a directory, so `--workspace ../labs` would silently
+# create an empty named volume called "..labs" instead of failing.
+WORKSPACE="${WORKSPACE:-$REPO}"
+if [ ! -d "$WORKSPACE" ]; then
+    echo "error: --workspace ${WORKSPACE} is not a directory." >&2
+    exit 1
+fi
+WORKSPACE="$(cd -P "$WORKSPACE" && pwd)"
 
 say() { printf '  %s\n' "$*"; }
 
@@ -83,6 +115,123 @@ port_help() {
 EOF
 }
 
+# The shell every terminal gets: ROS 2, Autoware and the workspace already
+# sourced. ONE copy, used by both the attach path and the create path -- they
+# are the same shell, and keeping two literals in step by hand is how the
+# banner ends up telling half the terminals something the other half does not
+# know.
+#
+# `cd /opt/AutoSDV` is conditional because :base carries no prebuilt workspace
+# (only :desktop does). Sourcing an install/setup.bash that is not there prints
+# "No such file or directory" on every shell the student opens, which reads as
+# a broken image rather than as a different image.
+#
+# And on that path NOTHING under /workspace is sourced, deliberately. A
+# checkout that was ever built on the host has an install/setup.bash whose
+# paths are the HOST's, so sourcing it greets every shell with
+#   not found: "/opt/ros/humble/local_setup.bash"
+# from inside a container where ROS is installed and fine. The student builds
+# and sources their own workspace; the launcher does not guess at one.
+ENTER='
+if [ -f /opt/AutoSDV/install/setup.bash ]; then
+    cd /opt/AutoSDV
+    [ -f /opt/autoware/1.5.0/setup.bash ] && source /opt/autoware/1.5.0/setup.bash
+    source install/setup.bash
+    _sourced="ROS 2, Autoware and the workspace are sourced."
+else
+    cd /workspace 2>/dev/null || cd
+    [ -f /opt/autoware/1.5.0/setup.bash ] && source /opt/autoware/1.5.0/setup.bash
+    _sourced="ROS 2 and Autoware are sourced; build your own workspace here."
+fi
+cat <<BANNER
+  AutoSDV -- $_sourced
+
+  /workspace is your own checkout, mounted from the host: what you write there
+  is on your laptop, and is the only thing that survives --stop.
+
+  Two terminals: run this script again for the second one.
+  Add --container-mode observable to play_launch: the default forks one
+  process per composable node (126 processes, 4.6 GB) where observable keeps
+  them in their containers (49 processes, 2.1 GB). On a memory-capped Docker
+  Desktop VM the default gets nodes killed.
+
+BANNER
+exec bash'
+
+# A MOUNT CANNOT BE ADDED TO A CONTAINER THAT ALREADY EXISTS -- not to a
+# running one, and not to a stopped one either, because the mount list is fixed
+# when the container is CREATED. A student who started theirs before
+# /workspace existed -- yesterday, or with an older copy of this script --
+# reaches it every day afterwards and finds no /workspace, with nothing to say
+# why: `cd /workspace` reports only "No such file or directory", which reads as
+# a mistake in the handout rather than as a stale container.
+#
+# Reported, not repaired. Recreating the container silently is the one thing
+# not to do here: anything installed or left in $HOME inside it goes with it,
+# and this script cannot know whether that matters.
+warn_workspace_mount() {
+    local mounted_ws
+    mounted_ws="$(docker inspect \
+        -f '{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}' \
+        "$NAME" 2>/dev/null || true)"
+    if [ -z "$mounted_ws" ]; then
+        cat >&2 <<EOF
+
+  note: '$NAME' has no /workspace. It was created before this script mounted
+  one, and a mount cannot be added to a container that already exists.
+
+  Recreate it to get one:
+
+      $0 --stop
+      $0
+
+  Your checkout on the host is untouched by that -- but anything saved INSIDE
+  the container is removed with it, so copy that out first if it matters:
+
+      docker cp $NAME:/root/something .
+
+EOF
+    elif [ "$mounted_ws" != "$WORKSPACE" ]; then
+        cat >&2 <<EOF
+
+  note: '$NAME' already has /workspace mounted from
+
+      ${mounted_ws}
+
+  and you asked for
+
+      ${WORKSPACE}
+
+  A mount cannot be changed on a container that already exists, so
+  --workspace has no effect here. To switch:
+
+      $0 --stop
+      $0 --workspace ${WORKSPACE}
+
+EOF
+    fi
+}
+
+# `docker exec` does NOT go through the entrypoint, so the shell it opens runs
+# as whatever user the image declares -- root -- however carefully the
+# entrypoint reconciled HOST_UID and dropped to `autosdv` on startup. And every
+# shell this script opens is a `docker exec`, including the second terminal the
+# workshop's own two-terminal workflow needs. Left alone, a colcon build or a
+# recorded bag from one of them is root-owned inside the student's own
+# checkout, which is the exact symptom the UID matching exists to prevent:
+# `git status` on the host then refuses with "detected dubious ownership".
+#
+# Asked, not assumed. An older image has no `autosdv` account reconciled to
+# this host's UID, and `docker exec -u` against one gives a shell that greets
+# the student with "I have no name!", cannot write $HOME, and fails at ~/.ros
+# logging. Where the passwd entry exists we use it; where it does not, this is
+# byte-identical to before.
+EXEC_USER=()
+set_exec_user() {
+    if docker exec "$NAME" getent passwd "$(id -u)" >/dev/null 2>&1; then
+        EXEC_USER=(-u "$(id -u):$(id -g)")
+    fi
+}
 
 case "${1:-}" in
     --stop)
@@ -91,7 +240,7 @@ case "${1:-}" in
         exit 0
         ;;
     -h|--help)
-        sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,31p' "$0" | sed 's/^# \{0,1\}//'
         exit 0
         ;;
 esac
@@ -131,24 +280,14 @@ if [ "$(docker inspect -f '{{.State.Running}}' "$NAME" 2>/dev/null || echo false
 
 EOF
     fi
+
+    warn_workspace_mount
+
     say "attaching another shell to '$NAME'"
     say "desktop: http://localhost:${PORT}/vnc.html?autoconnect=1&resize=remote"
     echo
-    exec docker exec -it "$NAME" bash -c \
-        'cd /opt/AutoSDV
-         source /opt/autoware/1.5.0/setup.bash
-         source install/setup.bash
-         cat <<BANNER
-  AutoSDV -- ROS 2, Autoware and the workspace are sourced.
-
-  Two terminals: run this script again for the second one.
-  Add --container-mode observable to play_launch: the default forks one
-  process per composable node (126 processes, 4.6 GB) where observable keeps
-  them in their containers (49 processes, 2.1 GB). On a memory-capped Docker
-  Desktop VM the default gets nodes killed.
-
-BANNER
-         exec bash'
+    set_exec_user
+    exec docker exec -it ${EXEC_USER[@]+"${EXEC_USER[@]}"} "$NAME" bash -c "$ENTER"
 fi
 
 # A container of that name exists but is stopped -- reuse rather than surprise
@@ -156,6 +295,7 @@ fi
 if docker inspect "$NAME" >/dev/null 2>&1; then
     say "starting the existing container '$NAME'"
     docker start "$NAME" >/dev/null || { port_help; exit 1; }
+    warn_workspace_mount
 else
     if [ "${1:-}" = "--pull" ] || ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
         say "pulling ${IMAGE} -- this is several gigabytes, and only happens once"
@@ -244,10 +384,28 @@ EOF
     # shows two topics beside 150 running nodes, with no error anywhere.
     # Images built after this was found already set it; this keeps older ones
     # working and costs nothing.
+    #
+    # TWO mounts, and the data one is not redundant. /workspace is the
+    # student's checkout, where their own work lives; the data mount stays
+    # because :desktop's prebuilt workspace IS /opt/AutoSDV, and mounting the
+    # checkout over it would shadow the prebuilt install/ and break the
+    # `source install/setup.bash` every shell here does. So the map and the
+    # rosbags are mounted into it by themselves, and the rest of /opt/AutoSDV
+    # stays the image's.
+    #
+    # HOST_UID/HOST_GID are read by the entrypoint, which usermods the built-in
+    # user to match before dropping privileges. Without them a Linux student's
+    # build/, install/, log/ and recorded bags land root-owned inside their own
+    # checkout and `git status` refuses with "detected dubious ownership".
+    # macOS (VirtioFS) and Windows (drvfs) map ownership anyway, so there this
+    # is harmlessly ignored.
     docker run -dit \
         --name "$NAME" \
         -p "${PORT}:6080" \
         -v "${REPO}/data:/opt/AutoSDV/data" \
+        -v "${WORKSPACE}:/workspace" \
+        -e HOST_UID="$(id -u)" \
+        -e HOST_GID="$(id -g)" \
         --shm-size=2gb \
         --cap-add=NET_ADMIN \
         -e RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
@@ -263,22 +421,10 @@ EOF
 fi
 
 say "desktop: http://localhost:${PORT}/vnc.html?autoconnect=1&resize=remote"
+say "workspace: ${WORKSPACE} -> /workspace"
 say "another terminal: run this script again"
 say "stop: $0 --stop"
 echo
 
-exec docker exec -it "$NAME" bash -c \
-    'cd /opt/AutoSDV
-     source /opt/autoware/1.5.0/setup.bash
-     source install/setup.bash
-     cat <<BANNER
-  AutoSDV -- ROS 2, Autoware and the workspace are sourced.
-
-  Two terminals: run this script again for the second one.
-  Add --container-mode observable to play_launch: the default forks one
-  process per composable node (126 processes, 4.6 GB) where observable keeps
-  them in their containers (49 processes, 2.1 GB). On a memory-capped Docker
-  Desktop VM the default gets nodes killed.
-
-BANNER
-     exec bash'
+set_exec_user
+exec docker exec -it ${EXEC_USER[@]+"${EXEC_USER[@]}"} "$NAME" bash -c "$ENTER"
