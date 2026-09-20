@@ -8,12 +8,97 @@
 set -euo pipefail
 
 AUTOSDV_HOME="${AUTOSDV_HOME:-/opt/AutoSDV}"
+WORKSPACE="${WORKSPACE:-/workspace}"
 DISPLAY_NUM="${DISPLAY_NUM:-1}"
 export DISPLAY=":${DISPLAY_NUM}"
 GEOMETRY="${GEOMETRY:-1920x1080}"
 NOVNC_PORT="${NOVNC_PORT:-6080}"
 
+# The account everything ends up running as. Created at build time with UID
+# 1000, which is what the overwhelming majority of single-user Linux laptops
+# hand out first, so the common case needs no adjustment at all.
+CONTAINER_USER="${CONTAINER_USER:-autosdv}"
+HOST_UID="${HOST_UID:-1000}"
+HOST_GID="${HOST_GID:-1000}"
+
 say() { printf '  %s\n' "$*"; }
+
+# --- who the container runs as ----------------------------------------------
+# Everything the student creates through this container -- colcon's build/,
+# install/ and log/, a recorded rosbag, a file their editor did not make -- is
+# written into a bind mount that belongs to their own account on the host. A
+# container that writes as root leaves those root-owned inside the student's own
+# git checkout: their editor cannot save, `rm -rf build` needs sudo, and git
+# refuses outright with
+#
+#   fatal: detected dubious ownership in repository at '/workspace'
+#
+# So the container user is bent to fit the host's UID/GID, not the other way
+# round. This matters on Linux and is a harmless no-op on macOS (VirtioFS maps
+# ownership to the calling user) and Windows (drvfs masks it), where PowerShell
+# cannot report an id anyway and the launcher sends 1000.
+#
+# NOT `docker run --user`: a UID with no /etc/passwd entry gets `I have no
+# name!` at the prompt, an unwritable $HOME, and no ~/.ros to log into.
+#
+# The MOUNT is never chowned. Matching the UID is precisely what makes a chown
+# unnecessary, and rewriting the ownership of somebody's checkout from inside a
+# container is not a thing this should ever do.
+reconcile_user() {
+    if [ "$(id -u)" -ne 0 ]; then
+        say "user: $(id -un) (not root; leaving ids alone)"
+        return
+    fi
+    if [ "$HOST_UID" = "0" ]; then
+        # A root host, or a caller that asked for root outright.
+        CONTAINER_USER=root
+        say "user: root (HOST_UID=0)"
+        return
+    fi
+
+    local cur_uid cur_gid
+    cur_uid="$(id -u "$CONTAINER_USER" 2>/dev/null || echo "")"
+    cur_gid="$(id -g "$CONTAINER_USER" 2>/dev/null || echo "")"
+    if [ -z "$cur_uid" ]; then
+        say "user: ${CONTAINER_USER} is missing from this image; staying root"
+        CONTAINER_USER=root
+        return
+    fi
+
+    if [ "$cur_gid" != "$HOST_GID" ]; then
+        groupmod -o -g "$HOST_GID" "$CONTAINER_USER" 2>/dev/null || true
+    fi
+    if [ "$cur_uid" != "$HOST_UID" ]; then
+        usermod -o -u "$HOST_UID" "$CONTAINER_USER" 2>/dev/null || true
+    fi
+
+    # Only $HOME, which is small and ours. usermod does not follow the account
+    # when the uid moves underneath it.
+    local home
+    home="$(getent passwd "$CONTAINER_USER" | cut -d: -f6)"
+    if [ -n "$home" ] && [ -d "$home" ]; then
+        chown -R "$HOST_UID:$HOST_GID" "$home" 2>/dev/null || true
+    fi
+
+    say "user: ${CONTAINER_USER} (uid ${HOST_UID}, gid ${HOST_GID})"
+}
+
+# TurboVNC writes into $HOME/.vnc, so the session belongs to whoever will be
+# using it rather than to root. The xstartup that the image ships lives in
+# root's home because that is where the build could put it.
+install_vnc_session() {
+    local home
+    home="$(getent passwd "$CONTAINER_USER" | cut -d: -f6)"
+    [ -n "$home" ] || return 0
+    if [ "$home" = "/root" ]; then
+        return 0
+    fi
+    mkdir -p "$home/.vnc"
+    cp /root/.vnc/xstartup.turbovnc "$home/.vnc/xstartup.turbovnc"
+    chmod +x "$home/.vnc/xstartup.turbovnc"
+    chown -R "$HOST_UID:$HOST_GID" "$home/.vnc"
+    VNC_HOME="$home"
+}
 
 # --- the check that catches the failure nobody can diagnose -----------------
 # net.core.rmem_max is not per-namespace, so it comes from the host. Below about
@@ -101,7 +186,16 @@ select_renderer() {
 }
 
 start_desktop() {
-    /opt/TurboVNC/bin/vncserver -kill "$DISPLAY" >/dev/null 2>&1 || true
+    # `as_user` is empty when we are already the right account, so a root-only
+    # container (HOST_UID=0, or an image with no autosdv user) behaves exactly
+    # as it did before any of this existed.
+    local as_user=()
+    if [ "$(id -u)" -eq 0 ] && [ "$CONTAINER_USER" != "root" ]; then
+        as_user=(gosu "$CONTAINER_USER")
+    fi
+    local xstartup="${VNC_HOME:-/root}/.vnc/xstartup.turbovnc"
+
+    "${as_user[@]}" /opt/TurboVNC/bin/vncserver -kill "$DISPLAY" >/dev/null 2>&1 || true
     rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}" 2>/dev/null || true
 
     # No -localhost argument: TurboVNC's is a boolean, so `-localhost no`
@@ -113,10 +207,10 @@ start_desktop() {
     # -xstartup is explicit because TurboVNC runs its OWN
     # /opt/TurboVNC/bin/xstartup.turbovnc otherwise, and that one kills Xvnc
     # when it cannot find a session file for a window manager it knows.
-    /opt/TurboVNC/bin/vncserver "$DISPLAY" \
+    "${as_user[@]}" /opt/TurboVNC/bin/vncserver "$DISPLAY" \
         -geometry "$GEOMETRY" -depth 24 \
         -SecurityTypes None \
-        -xstartup /root/.vnc/xstartup.turbovnc \
+        -xstartup "$xstartup" \
         >/var/log/vncserver.log 2>&1
 
     websockify -D --web=/usr/share/novnc "${NOVNC_PORT}" "localhost:590${DISPLAY_NUM}" \
@@ -129,6 +223,8 @@ start_desktop() {
 echo
 echo "  AutoSDV desktop"
 echo "  ---------------"
+reconcile_user
+install_vnc_session
 check_dds_buffers
 enable_loopback_multicast
 select_renderer
@@ -136,10 +232,31 @@ start_desktop
 echo
 
 # The environment the book teaches: Autoware first, then the workspace overlay.
+#
+# The overlay is conditional because the `base` target ships no built
+# workspace -- that is the whole point of it. Sourcing a file that is not there
+# under `set -e` would kill the container at startup with a message about a
+# path, which tells a student nothing about which image they are running.
 set +u
 source /opt/autoware/1.5.0/setup.bash
-source "${AUTOSDV_HOME}/install/setup.bash"
+if [ -f "${AUTOSDV_HOME}/install/setup.bash" ]; then
+    source "${AUTOSDV_HOME}/install/setup.bash"
+else
+    say "workspace: none built into this image (base); yours is under ${WORKSPACE}"
+fi
 set -u
-cd "${AUTOSDV_HOME}"
 
+# Start where the work is. A bind-mounted checkout is the reason this container
+# exists for anything but the workshop, so it wins when it is there.
+if [ -d "${WORKSPACE}" ]; then
+    cd "${WORKSPACE}"
+else
+    cd "${AUTOSDV_HOME}"
+fi
+
+# Sourcing happened as root, which costs nothing: what it produced is exported
+# environment, and gosu carries the environment across.
+if [ "$(id -u)" -eq 0 ] && [ "$CONTAINER_USER" != "root" ]; then
+    exec gosu "$CONTAINER_USER" "$@"
+fi
 exec "$@"

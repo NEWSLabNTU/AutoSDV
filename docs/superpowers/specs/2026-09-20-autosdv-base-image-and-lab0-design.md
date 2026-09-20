@@ -58,21 +58,31 @@ directly means `--status` cannot see it.
 `python3-venv`. `aria2` earns its place for the reason the Dockerfile already
 records — 383 KB/s against 2905 KB/s on the 2 GB Autoware deb.
 
-`sudo` leaves that list, because of §2.1.
+`sudo` **stays** in that list — see §2.1. `gosu` joins it, for §3.
 
 ---
 
 ## 2. setup.sh changes
 
-### 2.1 Drop the `sudo` prefix when already root
+### 2.1 The runner stops asking for root when it already is root
 
-Steps shell out to `sudo`. A root container need not have it installed, and
-installing it only to run as root is noise. The runner elides the prefix when
-`euid == 0`.
+**Corrected during implementation.** The original plan — "elide the `sudo`
+prefix and drop the package from the image" — was written against an assumption
+that did not survive contact with the code: `sudo` is called about **seventy
+times inside the install scripts themselves**, across ten of them, not as a
+prefix the runner controls. Removing the package would mean rewriting every one
+of those call sites on the tested install path, days before a class, for a
+cosmetic gain. `sudo` stays installed.
 
-This is the change most likely to break something quietly, so: it alters how
-`run` argv is assembled, not what any step does, and a non-root run is
-byte-identical to today.
+What was actually wrong is smaller and real: `Runner.ensure_sudo` runs
+`sudo -n true` whenever any selected step declares `requires.sudo`, **even when
+already root**. On a machine without the binary that is an uncaught
+`FileNotFoundError` — a traceback before a single step runs. So:
+
+- `needs_sudo` returns `False` when `os.geteuid() == 0`: no prompt, no
+  keepalive thread, no `sudo` call.
+- `ensure_sudo` catches `OSError` and says which of the two things to fix
+  ("install sudo, or run as root") instead of failing once per step.
 
 ### 2.2 `--yes` implies a non-interactive frontend
 

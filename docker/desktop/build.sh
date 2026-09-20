@@ -2,9 +2,16 @@
 # Build the desktop (workshop) image.
 #
 #   ./docker/desktop/build.sh                  amd64, tagged autosdv:desktop-dev
+#   TARGET=base ./docker/desktop/build.sh      prereqs only, no workspace
 #   PLATFORM=linux/arm64 ./docker/desktop/build.sh
 #   TAG=autosdv:desktop-0.2 ./docker/desktop/build.sh
 #   FLATTEN=1 ./docker/desktop/build.sh         collapse to one layer (see below)
+#
+# Two targets live in the one Dockerfile. `base` is the course development
+# container: prerequisites, no workspace, the student's own checkout bind-mounted
+# and built inside. `desktop` is base plus the workspace built in, which is what
+# the workshop handed out. The default stays `desktop` so every command already
+# written down keeps meaning what it meant.
 #
 # The CUDA base image is read from versions.yaml rather than written here, so
 # there is exactly one place that says which CUDA the project builds against.
@@ -15,7 +22,17 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO"
 
 PLATFORM="${PLATFORM:-linux/amd64}"
-TAG="${TAG:-autosdv:desktop-dev}"
+TARGET="${TARGET:-desktop}"
+
+case "$TARGET" in
+    base|desktop) ;;
+    *) echo "error: TARGET must be 'base' or 'desktop', not '$TARGET'" >&2
+       exit 1 ;;
+esac
+
+# The tag follows the target unless told otherwise, so building base without
+# setting TAG cannot quietly overwrite the desktop image.
+TAG="${TAG:-autosdv:${TARGET}-dev}"
 
 # The base differs by architecture, and not cosmetically: amd64 builds on an
 # NVIDIA CUDA image, while arm64 is a JETSON-flavoured image (JetPack Autoware
@@ -47,6 +64,7 @@ fi
 
 echo "  base:     $CUDA_IMAGE"
 echo "  platform: $PLATFORM"
+echo "  target:   $TARGET"
 echo "  tag:      $TAG"
 echo
 
@@ -57,6 +75,7 @@ echo
 docker build \
     --progress=plain \
     --platform "$PLATFORM" \
+    --target "$TARGET" \
     --build-arg "CUDA_IMAGE=$CUDA_IMAGE" \
     -f docker/desktop/Dockerfile \
     -t "$TAG" \

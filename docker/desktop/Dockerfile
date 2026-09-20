@@ -47,8 +47,24 @@
 # Measurements: docs/reports/gpu-less-simulation-and-rviz.md
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Two targets, one file
+#
+#   --target base      prerequisites, no workspace. The course development
+#                      container: the student's own checkout is bind-mounted at
+#                      /workspace and built there, so their code survives
+#                      `docker rm` and their own editor works on it.
+#   --target desktop   base + the workspace built in. What the workshop handed
+#                      out, and what the simulation tutorials assume.
+#
+# The split is where it already was. The comment below `COPY .` has always said
+# "everything below this line is re-run by a source change"; that line is now
+# also the stage boundary, so `base` is exactly the part no source edit can
+# invalidate.
+# ---------------------------------------------------------------------------
+
 ARG CUDA_IMAGE=nvidia/cuda:12.8.1-cudnn-devel-ubuntu22.04
-FROM ${CUDA_IMAGE}
+FROM ${CUDA_IMAGE} AS base
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
@@ -90,8 +106,19 @@ ENV PATH=/usr/local/cuda/bin:/root/.local/bin:/root/.cargo/bin:$PATH
 ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
 # --- base tools -------------------------------------------------------------
-# sudo is here because the setup scripts call it; we are already root, so it
-# resolves to a no-op wrapper rather than a privilege change.
+# sudo is here because the setup SCRIPTS call it -- about seventy times across
+# ten of them, inside the scripts rather than as a prefix the runner controls.
+# The runner no longer asks for it when already root (setup/autosdv_setup/
+# runner.py), but that does not make the package removable: dropping it would
+# mean rewriting every one of those call sites, on the tested install path,
+# days before a class. We are root here, so it resolves to a no-op wrapper
+# rather than a privilege change.
+#
+# gosu is the other half of that story, at the other end: the entrypoint starts
+# as root to reconcile the container user with the host's UID/GID, then drops
+# to that user before running anything. `--user` cannot be used instead,
+# because a UID with no /etc/passwd entry gets `I have no name!`, an unwritable
+# $HOME and no ~/.ros to log into.
 #
 # Deliberately minimal. Anything a setup step needs belongs in that step, not
 # here: a package added here to get the build moving would hide the same gap on
@@ -109,7 +136,7 @@ ENV RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 # image never pays that apt round trip mid-build.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl wget aria2 gnupg lsb-release software-properties-common \
-        git sudo locales tzdata build-essential \
+        git sudo gosu locales tzdata build-essential \
         python3 python3-pip python3-venv \
     && locale-gen en_US.UTF-8 \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
@@ -145,14 +172,13 @@ RUN rm -rf setup/.markers setup/.state.json
 # setup.sh is the tested path and the one the book teaches, so the image uses it
 # rather than a parallel list that would drift.
 #
-# Two steps are skipped because they cannot work inside a container:
-#   cyclonedds-sysctl  net.core.rmem_max is not namespaced, so it can be set
-#                      neither here nor with `docker run --sysctl` -- Docker
-#                      refuses to start a container that asks for it. The value
-#                      comes from the kernel underneath: the Linux host, or
-#                      Docker Desktop's VM.
-#   multicast-lo       installs a systemd unit; there is no systemd here. The
-#                      entrypoint sets the loopback MULTICAST flag instead.
+# WHICH steps is no longer stated here. It used to be
+# `--profile dev --skip cyclonedds-sysctl multicast-lo ros-deps range-libc`,
+# which put the image's step list in a build recipe where `--list` and
+# `--status` could not see it. That list is now the `container` profile in
+# setup/autosdv_setup/registry.py, derived from `dev` so a new dev step joins
+# the image without being named anywhere, with only the four differences
+# written down and each one carrying its reason.
 #
 # The cleanup is part of THIS command rather than a RUN of its own, which is the
 # only way a deletion reclaims anything: a `rm` in a later layer writes a
@@ -186,9 +212,11 @@ RUN rm -rf setup/.markers setup/.state.json
 # present and exits if it does not match, so a truncated cache cannot be
 # installed silently.
 #
-# ros-deps and range-libc are skipped here and run below, after src/ arrives:
-# they are the only two steps that read the workspace. `--only` runs them there
-# by name, so this remains one list of steps rather than two.
+# ros-deps and range-libc are outside the profile and run in the `desktop`
+# stage, after src/ arrives: they are the only two steps that read the
+# workspace. `--only` runs them there by name, so this remains one list of
+# steps rather than two. A `base` user who wants to build the mounted checkout
+# runs that same command themselves; it is documented, not discovered.
 #
 # `./setup/setup.sh`, not `./setup.sh`: the repo root carries a SYMLINK to it,
 # and the launcher derives the location of main.py with `readlink -f "$0"`.
@@ -201,13 +229,82 @@ RUN rm -rf setup/.markers setup/.state.json
 # The link arrives intact with the full COPY below; this layer calls the real
 # file directly.
 RUN --mount=type=cache,target=/opt/AutoSDV/data/autoware-debian,sharing=locked \
-    ./setup/setup.sh --run --profile dev --yes \
-        --skip cyclonedds-sysctl multicast-lo ros-deps range-libc \
+    ./setup/setup.sh --run --profile container --yes \
     && apt-get purge -y autoware-localrepo-1-5-0 \
     && rm -f /opt/tensorrt/*/lib/libnvinfer_builder_resource_win.so.* \
     && rm -rf /root/.cargo/registry /root/.cargo/git \
     && rm -rf /root/.rustup/toolchains/*/share/doc \
     && rm -rf /var/lib/apt/lists/*
+
+# --- build-only weight inherited from the base image -------------------------
+# CUDA's static archives (3.6 GB) and Nsight Compute (1.1 GB) come from the
+# `devel` base and nothing loads them at run time. They are deleted here rather
+# than left alone because build.sh FLATTENS the finished image; without that
+# flatten this RUN reclaims nothing, since the bytes belong to a base layer.
+# The glob is inside find rather than in the shell: the arm64 base is plain
+# ubuntu:22.04 with no /usr/local/cuda-* at all, and an unmatched shell glob
+# would hand find a literal path it then fails on, breaking the arm64 build.
+RUN find /usr/local -maxdepth 1 -type d -name 'cuda-*' \
+        -exec find {} -name '*.a' -delete \; \
+    && rm -rf /opt/nvidia/nsight-compute
+
+# --- graphics ---------------------------------------------------------------
+# TurboVNC supplies the X server and the VNC transport; VirtualGL is used only
+# when the host actually exposes a GPU. noVNC turns that into a browser tab, so
+# the student installs no VNC client.
+# TurboVNC and VirtualGL themselves are installed by the `turbovnc-virtualgl`
+# setup step, which the `container` profile selects -- this file no longer
+# calls that script directly, so `--status` can see the result. What is left
+# here is the browser half and a window manager, which are not setup steps
+# because nothing outside a container wants them.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        novnc websockify python3-numpy \
+        openbox xterm dbus-x11 x11-xserver-utils mesa-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# TurboVNC kills Xvnc when it cannot find a session desktop file for a window
+# manager it recognises, and openbox ships none. This supplies the session.
+COPY docker/desktop/rootfs/root/.vnc/xstartup.turbovnc /root/.vnc/xstartup.turbovnc
+
+# --- the account the entrypoint hands over to -------------------------------
+# UID 1000 because that is the first id a single-user Linux install hands out,
+# so the overwhelming majority of students need no adjustment at all and the
+# entrypoint's usermod is a no-op. The rest are bent to fit at start-up.
+#
+# `getent` first: creating a group that already exists is a build failure, and
+# a future base image that ships its own 1000 (Ubuntu 24.04 does) would
+# otherwise break this line rather than reuse it.
+#
+# NOPASSWD sudo because the documented way to build the mounted checkout is
+# `./setup.sh --run --only ros-deps range-libc --yes`, and those steps install
+# apt packages. This is a disposable container with no secrets in it; the
+# alternative is a student stuck at a password prompt for an account that has
+# no password.
+RUN getent group 1000 >/dev/null || groupadd -g 1000 autosdv \
+    && getent passwd 1000 >/dev/null || useradd -u 1000 -g 1000 -m -s /bin/bash autosdv \
+    && echo 'autosdv ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/autosdv \
+    && chmod 0440 /etc/sudoers.d/autosdv
+
+COPY docker/desktop/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh /root/.vnc/xstartup.turbovnc
+
+EXPOSE 6080 8081
+ENV DISPLAY=:1
+# Where the launcher bind-mounts the host's checkout. The entrypoint starts
+# here when it exists, and says so when it does not.
+ENV WORKSPACE=/workspace
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bash"]
+
+# ===========================================================================
+# desktop: base + the workspace, built in
+#
+# Everything below is re-run by a source change; everything above it is not.
+# Keeping that boundary is why the arm64 build is survivable -- installing ROS 2
+# and Autoware takes about seventy minutes, and six arm64 attempts paid that
+# toll before the stage was split here.
+# ===========================================================================
+FROM base AS desktop
 
 # --- the workspace ----------------------------------------------------------
 # Everything below this line is re-run by a source change; everything above it
@@ -232,37 +329,3 @@ RUN bash -c 'set -eo pipefail; \
 # `build/` and `src/` cannot be deleted, however tempting 1.5 GB is: `just build`
 # passes --symlink-install, so the 25 MB install/ tree is 1071 symlinks pointing
 # back into them. Removing either empties the workspace without any error.
-
-# --- build-only weight inherited from the base image -------------------------
-# CUDA's static archives (3.6 GB) and Nsight Compute (1.1 GB) come from the
-# `devel` base and nothing loads them at run time. They are deleted here rather
-# than left alone because build.sh FLATTENS the finished image; without that
-# flatten this RUN reclaims nothing, since the bytes belong to a base layer.
-# The glob is inside find rather than in the shell: the arm64 base is plain
-# ubuntu:22.04 with no /usr/local/cuda-* at all, and an unmatched shell glob
-# would hand find a literal path it then fails on, breaking the arm64 build.
-RUN find /usr/local -maxdepth 1 -type d -name 'cuda-*' \
-        -exec find {} -name '*.a' -delete \; \
-    && rm -rf /opt/nvidia/nsight-compute
-
-# --- graphics ---------------------------------------------------------------
-# TurboVNC supplies the X server and the VNC transport; VirtualGL is used only
-# when the host actually exposes a GPU. noVNC turns that into a browser tab, so
-# the student installs no VNC client.
-RUN ./setup/scripts/install-turbovnc-virtualgl.sh \
-    && apt-get update && apt-get install -y --no-install-recommends \
-        novnc websockify python3-numpy \
-        openbox xterm dbus-x11 x11-xserver-utils mesa-utils \
-    && rm -rf /var/lib/apt/lists/*
-
-# TurboVNC kills Xvnc when it cannot find a session desktop file for a window
-# manager it recognises, and openbox ships none. This supplies the session.
-COPY docker/desktop/rootfs/root/.vnc/xstartup.turbovnc /root/.vnc/xstartup.turbovnc
-
-COPY docker/desktop/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh /root/.vnc/xstartup.turbovnc
-
-EXPOSE 6080 8081
-ENV DISPLAY=:1
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["bash"]
