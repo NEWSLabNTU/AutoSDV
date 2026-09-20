@@ -1,21 +1,77 @@
-# The desktop image
+# The container images
 
-The workshop and tutorial environment: a student opens a browser and gets a
-desktop with RViz and a terminal, with no ROS 2, no Autoware and no AutoSDV
-build on their own laptop.
+One Dockerfile, two targets.
+
+| target | what it is | who uses it |
+|---|---|---|
+| `base` | prerequisites, **no workspace**. The student's own checkout is bind-mounted at `/workspace` and built there. | the course development container, from Lab 0 onward |
+| `desktop` | `base` plus the workspace built in | the workshop, and the simulation tutorials |
+
+Both open a browser onto a desktop with RViz and a terminal, with no ROS 2, no
+Autoware and no AutoSDV build on the student's own laptop.
+
+**Which to reach for.** `desktop` if you want a simulation running in minutes and
+do not intend to change the code — it is what the workshop handed out. `base` if
+you are going to write code, because in `base` the code is yours: it lives in
+your checkout, your own editor is already looking at it, and it survives
+`docker rm`. Everything a student writes in a lab belongs in `base`.
 
 ```bash
-./docker/desktop/build.sh                        # amd64, on this machine
+./docker/desktop/build.sh                        # amd64 desktop, on this machine
+TARGET=base ./docker/desktop/build.sh            # amd64 base
 PLATFORM=linux/arm64 ./docker/desktop/build.sh   # arm64, ON THE ORIN
 ```
+
+The tag follows the target (`autosdv:base-dev`, `autosdv:desktop-dev`) unless
+`TAG=` says otherwise, so building one cannot quietly overwrite the other.
+
+## Who the container runs as
+
+Everything created through these images — colcon's `build/`, `install/` and
+`log/`, a recorded bag, a file your editor did not make — is written into a
+bind mount that belongs to your account on the host. So the container user is
+bent to fit the host's UID/GID rather than the other way round: the launchers
+pass `HOST_UID`/`HOST_GID`, and the entrypoint reconciles the built-in
+`autosdv` account to them before dropping to it with `gosu`.
+
+Without that, on Linux, those files land root-owned inside your own git
+checkout: your editor cannot save, `rm -rf build` needs sudo, and git refuses
+with `fatal: detected dubious ownership in repository at '/workspace'`. On
+macOS (VirtioFS) and Windows (drvfs) ownership is mapped or masked and this is
+a harmless no-op.
+
+The **mount is never chowned**. Matching the uid is exactly what makes that
+unnecessary, and rewriting the ownership of somebody's checkout from inside a
+container is not a thing this does.
+
+## Building the mounted workspace
+
+`base` omits the two setup steps that read `src/`, because it has no `src/`.
+Before the first `colcon build` of a full AutoSDV checkout:
+
+```bash
+./setup.sh --run --only ros-deps range-libc --yes
+```
+
+A lab workspace needs neither — `colcon build` from `/workspace/labs` sees the
+lab's own packages and nothing else, which is also what keeps a stray
+`colcon build` from starting an 852-package Autoware build on a laptop.
 
 ```bash
 docker run -it --rm -p 6080:6080 \
   -v "$PWD/data:/opt/AutoSDV/data" \
+  -v "$PWD:/workspace" \
+  -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
   --shm-size=2gb --cap-add=NET_ADMIN \
   jerry73204/autosdv:desktop
 # then open http://localhost:6080
 ```
+
+Note that `/workspace` and `/opt/AutoSDV/data` are two different mounts and
+both earn their place. `/workspace` is the checkout you work in; the data mount
+stays because `:desktop`'s prebuilt workspace **is** `/opt/AutoSDV`, so mounting
+the checkout over it would shadow the prebuilt `install/` and break the
+`source install/setup.bash` that every shell in this image runs.
 
 **The `-v data` mount is not optional.** Maps and rosbags are deliberately kept
 out of the image (`.dockerignore` excludes `data/`), so without it the planning
@@ -115,6 +171,24 @@ name, not `:desktop-amd64`. What a student loads has to carry the tag the
 scripts and slides already use, or `docker run` reports "image not found" on a
 machine that demonstrably has the image.
 
+### Handing out a different image
+
+`AUTOSDV_VARIANT` selects which one, `desktop` by default:
+
+```bash
+OUT_DIR=/srv/autosdv AUTOSDV_VARIANT=base ./docker/desktop/export-images.sh
+```
+
+The files are then `autosdv-base-<arch>.tar.gz` and
+`AutoSDV-base-for-…​.tar.gz`, so two handouts can share one directory without
+either being mistaken for the other. Setting `AUTOSDV_IMAGE` instead works too;
+the variant is read back out of it, so the name on the file and the bytes in it
+cannot disagree.
+
+The recording is fetched only for `desktop`. `base` is the Lab 0 handout and
+turtlesim replays nothing, so it would be 1.7 GB of a file nobody in that lab
+opens. `ROSBAG=1` forces it if a later lab needs both.
+
 ### Student instructions
 
 Two files are published, named for the laptop rather than for the instruction
@@ -126,7 +200,8 @@ themselves:
 | Windows, Linux, **Intel** Mac | `AutoSDV-for-Windows-Linux-and-Intel-Mac.tar.gz` |
 | **Apple Silicon** Mac (M1-M4) | `AutoSDV-for-Apple-Silicon-Mac.tar.gz` |
 
-Apple menu > About This Mac settles which Mac they have.
+Apple menu > About This Mac settles which Mac they have. For a `base` handout
+the same two rows read `AutoSDV-base-for-…` instead.
 
 Plus `outdoor_20251226_153115.zip`, which everyone needs -- including students
 installing natively on Ubuntu 22.04, who take no image at all. It unzips into
