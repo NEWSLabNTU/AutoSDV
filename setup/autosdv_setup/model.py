@@ -28,8 +28,8 @@ HARDWARE_DIR = REPO_ROOT / "scripts" / "hardware"
 
 # `all` and `none` are computed rather than declared per step, so a new step
 # joins them without being listed anywhere -- see Step.default_for.
-PROFILES = ("dev", "vehicle", "all", "none", "ci")
-DECLARED = ("dev", "vehicle", "ci")
+PROFILES = ("dev", "vehicle", "all", "none", "ci", "container")
+DECLARED = ("dev", "vehicle", "ci", "container")
 
 PROFILE_HELP = {
     "dev": "Laptop, workstation, PC. Dev tools, libraries, kernel socket "
@@ -39,6 +39,10 @@ PROFILE_HELP = {
     "all": "Every step, including the slow and opt-in ones.",
     "none": "Nothing preselected. Tick what you want.",
     "ci": "Headless and minimal. Build dependencies only, no prompts.",
+    "container": "Building the AutoSDV image. `dev` minus the steps that "
+                 "configure a host kernel the container does not own, and "
+                 "minus the two that read src/, which the base image has "
+                 "none of.",
 }
 
 # There was no `orin` profile in the end: a Jetson with no sensors attached is a

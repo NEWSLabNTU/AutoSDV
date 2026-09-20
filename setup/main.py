@@ -10,6 +10,7 @@ those are what you need when the venv is the thing that is broken.
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -261,6 +262,15 @@ def cmd_run(args) -> int:
             print("Cancelled.")
             return 0
         print()
+
+    if args.yes:
+        # `--yes` is a promise that nothing will stop and wait, and apt does not
+        # know about it: tzdata and locales prompt for a timezone on a machine
+        # that has none configured, and an "unattended" run then blocks forever
+        # on a question nobody is watching for. The Dockerfile has always set
+        # this, so the image was safe and a TA typing the same command into a
+        # terminal was not. Set it here, where the promise is made.
+        os.environ.setdefault("DEBIAN_FRONTEND", "noninteractive")
 
     failures = Runner(state, machine).run_all(
         steps, stop_on_error=not args.keep_going)

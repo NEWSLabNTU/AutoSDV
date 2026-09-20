@@ -660,10 +660,59 @@ STEPS: list[Step] = [
     ),
 ]
 
+# ---- the `container` profile, derived rather than restated -----------------
+# The image used to state its step list in the Dockerfile, as
+# `--profile dev --yes --skip cyclonedds-sysctl multicast-lo ros-deps
+# range-libc`. That put the list in the wrong file: registry.py is where a step
+# is declared, and a `--skip` in a build recipe is invisible to `--list`,
+# `--status` and anyone reading this module.
+#
+# Derived from `dev` membership so a new dev step joins the image without being
+# named here -- the same reason `all` and `none` are computed. Only the
+# DIFFERENCES are written down, each with the reason it is a difference.
+CONTAINER_EXCLUDED = {
+    "cyclonedds-sysctl":
+        "net.core.rmem_max is not namespaced, so it belongs to whatever kernel "
+        "is underneath -- the container cannot set it and `docker run "
+        "--sysctl net.core.rmem_max=...` refuses to start at all.",
+    "multicast-lo":
+        "same: the lo MULTICAST flag is the host's. The entrypoint sets it at "
+        "run time when it has NET_ADMIN, and says so when it does not.",
+    "ros-deps":
+        "reads src/, and the base image deliberately has none. Recoverable on "
+        "demand: ./setup.sh --run --only ros-deps range-libc --yes",
+    "range-libc":
+        "same -- a Cython extension built out of a submodule under src/.",
+}
+
+CONTAINER_EXTRA = {
+    "turbovnc-virtualgl":
+        "the image is driven entirely over noVNC, which is the whole reason a "
+        "student on Windows or macOS can see RViz at all. It is opt-in for a "
+        "workstation because a workstation has a screen.",
+}
+
+# A typo here would silently drop a step from the image, which is the failure
+# this file exists to prevent. Fail at import instead.
+_declared_ids = {s.id for s in STEPS}
+_unknown = (set(CONTAINER_EXCLUDED) | set(CONTAINER_EXTRA)) - _declared_ids
+if _unknown:
+    raise AssertionError(
+        f"container profile names steps that do not exist: {sorted(_unknown)}"
+    )
+
+for _step in STEPS:
+    _step.profiles["container"] = (
+        _step.id in CONTAINER_EXTRA
+        or (_step.profiles.get("dev", False) and _step.id not in CONTAINER_EXCLUDED)
+    )
+
+
 BY_ID = {s.id: s for s in STEPS}
 
 # Re-exported: callers look up registry data here, not in model.
-__all__ = ["STEPS", "BY_ID", "CHOICE_LABELS", "choice_siblings", "collapse_choices", "ordered"]
+__all__ = ["STEPS", "BY_ID", "CHOICE_LABELS", "CONTAINER_EXCLUDED", "CONTAINER_EXTRA",
+           "choice_siblings", "collapse_choices", "ordered"]
 
 def choice_siblings(step: Step) -> list[Step]:
     """The alternatives to `step`, itself excluded. Empty for a plain step."""

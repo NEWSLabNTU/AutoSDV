@@ -36,15 +36,35 @@ class Runner:
 
     @staticmethod
     def needs_sudo(steps: list[Step]) -> bool:
+        # Already root -- which is the normal case inside `docker build` -- so
+        # there is nothing to ask for and nothing to keep alive.
+        #
+        # This does NOT mean the steps stop calling sudo: about seventy calls
+        # live inside the install scripts themselves, not as a prefix this
+        # runner controls, so the image still installs the sudo package. What
+        # it means is that the runner no longer prompts, no longer spawns a
+        # keepalive thread, and no longer dies on a machine where sudo is
+        # absent -- `subprocess.run(["sudo", ...])` raises FileNotFoundError,
+        # which used to surface as a traceback before a single step had run.
+        if os.geteuid() == 0:
+            return False
         return any(s.requires.sudo for s in steps)
 
     def ensure_sudo(self, steps: list[Step]) -> bool:
         if self.dry_run or not self.needs_sudo(steps):
             return True
-        if subprocess.run(["sudo", "-n", "true"], capture_output=True).returncode == 0:
-            return True
-        print("Some steps need root. Asking once now, up front.")
-        return subprocess.run(["sudo", "-v"]).returncode == 0
+        try:
+            if subprocess.run(["sudo", "-n", "true"],
+                              capture_output=True).returncode == 0:
+                return True
+            print("Some steps need root. Asking once now, up front.")
+            return subprocess.run(["sudo", "-v"]).returncode == 0
+        except OSError:
+            # Not root, and no sudo either. Say which of the two to fix rather
+            # than letting each step fail separately with its own message.
+            print("Some steps need root, but sudo is not installed and this is "
+                  "not a root shell. Install sudo, or run as root.")
+            return False
 
     @staticmethod
     def _start_sudo_keepalive() -> tuple[threading.Thread, threading.Event]:
