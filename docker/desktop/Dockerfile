@@ -252,6 +252,16 @@ RUN find /usr/local -maxdepth 1 -type d -name 'cuda-*' \
 # TurboVNC supplies the X server and the VNC transport; VirtualGL is used only
 # when the host actually exposes a GPU. noVNC turns that into a browser tab, so
 # the student installs no VNC client.
+# scrot is here for a deliverable, not for convenience: Lab 0 asks every student
+# to submit an rqt_graph screenshot, and nothing in this image could take one.
+# It is also what verifies the display from outside the container. It costs
+# ~50 KB and pulls NOTHING -- imlib2 is already present -- which is why it wins
+# over imagemagick or ffmpeg, either of which would add ~100 MB to an image 50
+# people pull.
+#
+#   scrot -o /workspace/rqt.png          whole screen
+#   scrot -o -u /workspace/rqt.png       just the focused window
+#
 # TurboVNC and VirtualGL themselves are installed by the `turbovnc-virtualgl`
 # setup step, which the `container` profile selects -- this file no longer
 # calls that script directly, so `--status` can see the result. What is left
@@ -260,6 +270,7 @@ RUN find /usr/local -maxdepth 1 -type d -name 'cuda-*' \
 RUN apt-get update && apt-get install -y --no-install-recommends \
         novnc websockify python3-numpy \
         openbox xterm dbus-x11 x11-xserver-utils mesa-utils \
+        scrot \
     && rm -rf /var/lib/apt/lists/*
 
 # TurboVNC kills Xvnc when it cannot find a session desktop file for a window

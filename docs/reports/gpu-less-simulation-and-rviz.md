@@ -269,8 +269,42 @@ the headline 4574 FPS says more about glxgears than about the lab. What the run
 establishes is narrower and sufficient: both tools start, draw and stay
 responsive with no GPU at all.
 
-**Not established: arm64.** This was measured on amd64. Testing the arm64 image
-here would mean qemu emulation, whose performance says nothing about an Apple
-Silicon laptop running it natively -- and natively is strictly the faster of the
-two. The remaining risk is therefore small, but it is untested rather than
-verified.
+### arm64, natively (2026-09-21)
+
+Since established, on an 80-core arm64 server rather than under qemu -- which
+is why it waited for one. Same image target (`:base`), same forced software
+path:
+
+```
+OpenGL renderer string: llvmpipe (LLVM 15.0.7, 128 bits)
+OpenGL version string:  4.5 (Compatibility Profile) Mesa 23.2.1-1ubuntu3.1~22.04.4
+glxgears:               5500 frames in 5.0 seconds = 1100 FPS
+```
+
+`turtlesim_node` drove from (5.544, 5.544, 0.000) to (4.009, 8.513, -2.200)
+under the same `linear.x 1.5, angular.z 0.8`, and the grabbed frame shows the
+window, the sprite at that pose and the pen trace of the arc. `rqt_graph`
+renders with `/turtlesim` in the graph.
+
+**Both Lab 0 GUI tools therefore work on Apple Silicon natively, and the
+headless fallback is not needed.**
+
+Do not read across from either FPS figure. 1100 here and 4574 on the amd64
+workstation are both measured on many-core machines; a student laptop has
+eight. The claim these runs support is the narrow one -- both tools start,
+draw, and stay responsive with no GPU -- and it now holds on both
+architectures.
+
+**Two things that make this hard to check from outside the container**, both
+since fixed in the image:
+
+- `docker exec <c> bash -lc 'DISPLAY=:9 glxinfo'` failed with `No protocol
+  specified` / `Error: unable to open display :9`. That is not graphics: a
+  `docker exec` lands as **root** while Xvnc's authority file lives in the
+  container user's home. The entrypoint now writes `DISPLAY` and `XAUTHORITY`
+  into `/etc/profile.d/autosdv-display.sh`, which any login shell reads.
+- nothing in the image could grab a frame -- `ffmpeg` and ImageMagick are both
+  absent, and either would add ~100 MB to an image fifty people pull. `scrot`
+  is installed instead: ~50 KB and no new dependencies, since imlib2 was
+  already there. It also covers Lab 0's own `rqt_graph` screenshot
+  deliverable, which had no tool behind it.

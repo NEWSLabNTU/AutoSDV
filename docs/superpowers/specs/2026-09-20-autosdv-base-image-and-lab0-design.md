@@ -334,13 +334,36 @@ to end and need nothing.
    called as a script. (`sudo` is installed; see the correction in §2.1.)
 2. **Done, and it corrected this document** — see the table in §8. 11 GB
    flattened, not the ~7 GB the estimate implied.
-3. **Done on amd64, NOT on arm64.** Under `LIBGL_ALWAYS_SOFTWARE=1`: renderer
+3. **Done on BOTH architectures.** Under `LIBGL_ALWAYS_SOFTWARE=1`: renderer
    `llvmpipe (LLVM 15.0.7)`, turtlesim drives from (5.544, 5.544, 0.000) to
    (5.033, 9.227, -2.878) under `cmd_vel`, and grabbed frames show both the
-   turtle with its pen trace and `rqt_graph` with `/turtlesim` in it. arm64 is
-   untested because testing it here would measure qemu rather than an Apple
-   Silicon laptop, which is strictly faster. Full numbers:
-   `docs/reports/gpu-less-simulation-and-rviz.md`.
+   turtle with its pen trace and `rqt_graph` with `/turtlesim` in it.
+
+   arm64 was then measured **natively on an arm64 server**, not under qemu:
+   same renderer, `OpenGL 4.5 (Mesa 23.2.1)`, turtlesim reaching
+   (4.009, 8.513, -2.200) under the same command, and screenshots showing the
+   drawn window with its pen trace and `rqt_graph` having discovered
+   `/turtlesim`. **Both Lab 0 GUI tools work on Apple Silicon.** The headless
+   fallback is not needed.
+
+   One caveat on the FPS figures: glxgears reports ~1050 FPS on that 80-core
+   server and 4574 on the amd64 workstation, and neither number transfers to an
+   8-core laptop. What transfers is that these are 2D Qt applications, not GL
+   ones. Full numbers: `docs/reports/gpu-less-simulation-and-rviz.md`.
+
+   **Verifying this from outside the container needs two things the obvious
+   commands get wrong**, both now fixed in the image rather than in the
+   instructions:
+
+   - `docker exec <c> bash -lc 'DISPLAY=:9 glxinfo'` used to fail with
+     `Error: unable to open display :9`. `docker exec` lands as **root**, and
+     Xvnc's authority file lives in the container user's home -- so it reads as
+     broken graphics and is an authority lookup that never happened. The
+     entrypoint now writes `DISPLAY` and `XAUTHORITY` into
+     `/etc/profile.d/autosdv-display.sh`, so any login shell inherits them.
+   - the image had **no way to take a screenshot**, while Lab 0 asks every
+     student to submit an `rqt_graph` one. `scrot` is now installed: ~50 KB,
+     no new dependencies.
 4. **Done.** `grade.py ta/solution` → **100.0/100** in 70 s. A copy of that
    solution with one line sabotaged — `self._cmd_pub.publish(Twist())`, so the
    command is built and never filled — scores **55/100**: `0.0/40` on the

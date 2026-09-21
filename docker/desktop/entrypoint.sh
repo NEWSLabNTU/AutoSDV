@@ -185,6 +185,34 @@ select_renderer() {
     chmod +x /usr/local/bin/gl
 }
 
+# `docker exec` starts a NEW process that inherits nothing from here: not
+# DISPLAY, and not the location of the Xauthority file Xvnc was given. It also
+# lands as ROOT, whose $HOME is not where that file lives -- so the obvious
+# command reports
+#
+#   No protocol specified
+#   Error: unable to open display :9
+#
+# which reads as broken graphics and is an authority lookup that never happened.
+# The container's own shells are fine; only a second window into it is affected,
+# and that is exactly how anyone verifies the display from outside.
+#
+# So the values are written where any login shell picks them up. `docker exec
+# <c> bash -lc '<anything X>'` then works as-is, for root and for the user
+# alike, with the paths this run actually resolved rather than paths baked in
+# at build time -- CONTAINER_USER and its home are both run-time answers.
+publish_display() {
+    local home auth
+    home="$(getent passwd "$CONTAINER_USER" | cut -d: -f6)"
+    auth="${home:-/root}/.Xauthority"
+    cat > /etc/profile.d/autosdv-display.sh <<EOF
+# Written by the AutoSDV entrypoint. The display this container is running.
+export DISPLAY="${DISPLAY}"
+export XAUTHORITY="${auth}"
+EOF
+    chmod 0644 /etc/profile.d/autosdv-display.sh
+}
+
 start_desktop() {
     # `as_user` is empty when we are already the right account, so a root-only
     # container (HOST_UID=0, or an image with no autosdv user) behaves exactly
@@ -215,6 +243,8 @@ start_desktop() {
 
     websockify -D --web=/usr/share/novnc "${NOVNC_PORT}" "localhost:590${DISPLAY_NUM}" \
         >/var/log/websockify.log 2>&1
+
+    publish_display
 
     say "middleware: ${RMW_IMPLEMENTATION:-rmw_fastrtps_cpp (DEFAULT -- a second terminal will not see the stack)}"
     say "desktop: http://localhost:${NOVNC_PORT}/vnc.html?autoconnect=1&resize=remote"
