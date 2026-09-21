@@ -4,7 +4,7 @@
 set of verification checks, with pictures, and reorganize the book around the
 path a newcomer walks rather than around the components the project has.
 
-**Status**: Phases C, D and F done. Rebased onto `origin/main` 2026-09-12. Remaining: A4 (needs a GPU-less machine), B (needs a person at RViz), E (the moves decision). Roadmap 8 phases 0-4 are done (English and zh-TW);
+**Status**: Phases C, D and F done. Rebased onto `origin/main` 2026-09-12. Remaining: A4 (needs a GPU-less machine), B (needs a person at RViz). E is decided and now belongs to [roadmap 13](13-book-chapter-architecture.md). Roadmap 8 phases 0-4 are done (English and zh-TW);
 no release tag is cut, so this work lands before the
 release.
 
@@ -655,13 +655,13 @@ a running demo.
 Seven pages, `tutorial/00` through `tutorial/06`, written against the recorded
 timings from A and the screenshots from B.
 
-### Phase E — Restructure and navigation (needs a decision)
+### Phase E — Restructure and navigation (**decided; moved to roadmap 13**)
 
-| | Task |
-|---|------|
-| E1 | **Decide the moves.** Parts 4-6 relocate pages and change published URLs |
-| E2 | Move the pages; fix every relative link whose depth changed |
-| E3 | Rewrite `nav` and `nav_translations` |
+| | Task | |
+|---|------|---|
+| E1 | **Decide the moves.** Parts 4-6 relocate pages and change published URLs | **done** — the architecture is recorded in [roadmap 13](13-book-chapter-architecture.md), which supersedes the Part 1-6 sketch above: that sketch predates the reorg already on `main` |
+| E2 | Move the pages; fix every relative link whose depth changed | roadmap 13, phase 0 |
+| E3 | Rewrite `nav` and `nav_translations` | roadmap 13, phase 0 |
 
 ### Phase F — Translate, verify, release
 
@@ -675,7 +675,8 @@ timings from A and the screenshots from B.
 
 ## Open decisions
 
-1. **The Part 4-6 moves.** They change published URLs. The site is
+1. ~~**The Part 4-6 moves.**~~ **Settled** in
+   [roadmap 13](13-book-chapter-architecture.md). They change published URLs. The site is
    **mike-versioned**, so `0.1/` is frozen and keeps working whatever we do, and
    new work lands under a new version — the moves therefore cost less than an
    unversioned site would imply. `/dev/` already tracks `main` on every push.
