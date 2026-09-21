@@ -101,8 +101,19 @@ fi
 # update` has empty directories there. A step that cds into one then fails on a
 # path -- naming neither the submodule nor the step that checks it out.
 def _require_submodule(path: str) -> str:
+    # Tests for CONTENT, not for `.git`. An uninitialised submodule is an empty
+    # directory, which is exactly what this guards against, and emptiness is
+    # true wherever the tree came from.
+    #
+    # `.git` is not: the image build copies the working tree through a context
+    # that excludes `**/.git` -- it has to, or the context is gigabytes of
+    # history -- so a perfectly good checkout arrives with its files and
+    # without its metadata. Testing `.git` failed the range-libc step inside
+    # `docker build --target desktop` while the identical tree built fine by
+    # hand, which is a miserable thing to debug: the message says "not checked
+    # out" about a directory full of source.
     return f"""
-if [[ ! -e "{REPO_ROOT}/{path}" || ! -e "{REPO_ROOT}/{path}/.git" ]]; then
+if [[ ! -d "{REPO_ROOT}/{path}" ]] || [[ -z "$(ls -A "{REPO_ROOT}/{path}" 2>/dev/null)" ]]; then
     echo "The submodule {path} is not checked out." >&2
     echo "Run the submodules step first, or let a full setup run reach it:" >&2
     echo "    ./setup.sh --run --only submodules" >&2

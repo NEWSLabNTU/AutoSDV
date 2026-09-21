@@ -80,7 +80,50 @@ reconcile_user() {
         chown -R "$HOST_UID:$HOST_GID" "$home" 2>/dev/null || true
     fi
 
-    say "user: ${CONTAINER_USER} (uid ${HOST_UID}, gid ${HOST_GID})"
+    # Blank the password rather than leaving the account locked. sudo already
+    # needs none (/etc/sudoers.d/autosdv is NOPASSWD), but a LOCKED password
+    # also blocks `su - autosdv`, and anything that prompts gets a password
+    # that cannot be satisfied -- in a container whose whole point is that the
+    # student is root-capable on demand.
+    #
+    # This is a disposable single-user development container: it exposes only
+    # the noVNC port, whose VNC server already runs with SecurityTypes None,
+    # and it holds nothing that a password protects. Do not copy this pattern
+    # into anything that is reachable from a network you do not own.
+    passwd -d "$CONTAINER_USER" >/dev/null 2>&1 || true
+
+    say "user: ${CONTAINER_USER} (uid ${HOST_UID}, gid ${HOST_GID}, sudo without a password)"
+}
+
+# ROS 2 for every shell, not just the one the launcher opens.
+#
+# The entrypoint sources Autoware and the workspace into ITS OWN shell and then
+# execs, so only that process tree has `ros2`. Everything else a student can
+# plausibly open has nothing: a terminal started from the noVNC desktop -- which
+# the handout tells them to open -- a plain `docker exec`, or anything launched
+# by the window manager. `ros2: command not found` in a container whose entire
+# purpose is ROS 2 reads as a broken image, and the obvious guess (`source
+# install/setup.bash`) is about the workspace overlay, not about ROS being
+# absent entirely.
+#
+# Written at run time rather than baked in, because which files exist is a
+# run-time answer: :base has no workspace overlay to source.
+publish_ros_env() {
+    {
+        echo "# Written by the AutoSDV entrypoint."
+        echo "[ -f /opt/autoware/1.5.0/setup.bash ] && . /opt/autoware/1.5.0/setup.bash"
+        if [ -f "${AUTOSDV_HOME}/install/setup.bash" ]; then
+            echo ". ${AUTOSDV_HOME}/install/setup.bash"
+        fi
+    } > /etc/profile.d/autosdv-ros.sh
+    chmod 0644 /etc/profile.d/autosdv-ros.sh
+
+    # Same reason as the display file: the shell a student actually gets is
+    # interactive and NOT a login shell, so /etc/profile.d alone would miss it.
+    if ! grep -q autosdv-ros /etc/bash.bashrc 2>/dev/null; then
+        printf '\n[ -f /etc/profile.d/autosdv-ros.sh ] && . /etc/profile.d/autosdv-ros.sh\n' \
+            >> /etc/bash.bashrc
+    fi
 }
 
 # TurboVNC writes into $HOME/.vnc, so the session belongs to whoever will be
@@ -271,6 +314,7 @@ echo "  AutoSDV desktop"
 echo "  ---------------"
 reconcile_user
 install_vnc_session
+publish_ros_env
 check_dds_buffers
 enable_loopback_multicast
 select_renderer
