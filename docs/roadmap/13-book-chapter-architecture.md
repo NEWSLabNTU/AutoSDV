@@ -5,7 +5,9 @@ how to run, then follow the stack in the order it comes up — and fill the gaps
 that flat list of "Guides" was hiding. Eight features exist in the tree and are
 absent, wrong, or unfindable in the book.
 
-**Status**: architecture decided (below), content not started. This closes
+**Status**: **phase 0 done** — the chapters exist, every page is in its new
+place, the build is clean and no page is orphaned. Phases 1-3 (the new pages,
+reconciliation, audit) are next. This closes
 [roadmap 10](10-book-tutorial-restructure.md)'s **Phase E1**, "decide the
 moves", which has been the open item holding that campaign's E2/E3.
 
@@ -147,6 +149,35 @@ same pass makes a review unable to tell a relocation from a rewrite.
 | 0.2 | Move page files whose directory changes; fix every relative link whose depth changed |
 | 0.3 | `just build` clean: zero broken anchors, no new warnings |
 | 0.4 | Record the URL changes in this document, for the release note |
+
+**Done, 2026-09-21.** Four pages moved; everything else was regrouped in `nav`
+without moving, which spared 26 inbound links for no gain in honesty — a page
+under `guides/` filed in a Developer chapter reads no worse for it, and the
+appendix pages are still installation topics.
+
+| was | is now |
+|---|---|
+| `getting-started/usage.md` | `running/on-the-vehicle.md` |
+| `simulation/coss-park-scenario.md` | `running/coss-park-scenario.md` |
+| `simulation/datasets.md` | `running/datasets.md` |
+| `getting-started/installation/docker.md` | `running/container.md` |
+
+Links were rewritten in two directions, which is the part worth remembering:
+links *to* a moved page (26 files), and the moved pages' own outbound links,
+whose depth changed under them (`getting-started/installation/` to `running/` is
+two levels to one). The two simulation pages also link to each other and moved
+together, so they needed the target mapping applied after the depth fix.
+
+The nav title of `running/container.md` deliberately still says
+**(Unmaintained)**: the page content is unchanged and still describes the
+retired setup, and W1 rewrites both the content and the title. A chapter heading
+that promised a working container over stale content would have been worse than
+the honest old title.
+
+Verified: `just build` reports zero warnings and zero broken anchors,
+`check-translations` reports 46 pages up to date with the three known
+translated-diagram exceptions, and a nav-versus-files comparison finds 49 of
+each with no orphan on either side.
 
 The site is mike-versioned, so `0.1/` is frozen and keeps working whatever the
 moves do. That is what makes this affordable.
