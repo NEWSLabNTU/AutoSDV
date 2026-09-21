@@ -160,7 +160,7 @@ appendix pages are still installation topics.
 | `getting-started/usage.md` | `running/on-the-vehicle.md` |
 | `simulation/coss-park-scenario.md` | `running/coss-park-scenario.md` |
 | `simulation/datasets.md` | `running/datasets.md` |
-| `getting-started/installation/docker.md` | `running/container.md` |
+| `getting-started/installation/container.md` | `running/container.md` |
 
 Links were rewritten in two directions, which is the part worth remembering:
 links *to* a moved page (26 files), and the moved pages' own outbound links,
@@ -168,11 +168,19 @@ whose depth changed under them (`getting-started/installation/` to `running/` is
 two levels to one). The two simulation pages also link to each other and moved
 together, so they needed the target mapping applied after the depth fix.
 
-The nav title of `running/container.md` deliberately still says
-**(Unmaintained)**: the page content is unchanged and still describes the
-retired setup, and W1 rewrites both the content and the title. A chapter heading
-that promised a working container over stale content would have been worse than
-the honest old title.
+**W1 was overtaken while phase 0 ran.** `e42ef15 Document the container, which is
+how most people should start` landed upstream mid-pass, writing the container
+page this roadmap had queued as W1 — 259 lines plus its translation. Phase 0
+therefore moves *that* page into the Running chapter, and the separate retired
+`docker.md` (the Jetson Dockerfile that no longer builds) stays where it is,
+filed under Appendix with its honest "(Unmaintained)" title. **Phase 1 is five
+units, not six.**
+
+The lesson is cheap to record and expensive to relearn: a move pass and a
+content pass on the same page, in different sessions, conflict in a way git
+resolves badly — it matched a renamed retired page against a new page of the
+same name. Rebasing the move onto the new content was wrong; redoing the move
+from the new base took two minutes and left no residue.
 
 Verified: `just build` reports zero warnings and zero broken anchors,
 `check-translations` reports 46 pages up to date with the three known
@@ -194,7 +202,7 @@ author's.
 
 | Unit | Writes | Owns exclusively | Source material |
 |---|---|---|---|
-| W1 | Container page | `src/running/container.md` (+zh) | `docker/desktop/`, roadmap 12, `docs/reports/gpu-less-simulation-and-rviz.md` |
+| ~~W1~~ | ~~Container page~~ | — | **done upstream**, `e42ef15`; moved into the Running chapter by phase 0 |
 | W2 | MRM guide | `src/guides/mrm.md` (+zh) | `docs/guides/mrm_configuration.md`, `mrm_troubleshooting.md` |
 | W3 | NDT tuning + localization diagnostics | `src/guides/ndt-tuning.md`, `src/guides/localization-diagnostics.md` (+zh) | `docs/guides/ndt-tuning.md`, `scripts/testing/localization/README.md` |
 | W4 | Solid-state LiDAR + capability matrix | `src/guides/sensor-integration/lidar.md`, `src/reference/hardware/sensor-capability-matrix.md` (+zh) | `docs/research/robin_w_fov.md`, CLAUDE.md, `pointcloud_preprocessor.launch.py` |
