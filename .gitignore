@@ -35,6 +35,10 @@ data/autoware_data/
 # same reasoning as data/autoware_data above, at release scale.
 /orin-*.tar.gz
 /desktop-*.tar.gz
+# export-images.sh writes here by default, and these are whole images.
+docker/desktop/*.tar.gz
+docker/desktop/*.tar.gz.sha256
+docker/desktop/AutoSDV-*.tar.gz
 
 # Typst build artefacts
 docs/tech/*.pdf

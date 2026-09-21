@@ -18,6 +18,19 @@ tmp/
 data/
 rosbags/
 
+# Exported images. `export-images.sh` writes its tarballs next to itself by
+# default, and they are the image -- 19 GB of it. Without this line the context
+# carries the previous build INTO the next one: measured, a desktop image that
+# should be 26.7 GB came out at 46.1 GB, all of it in `COPY . /opt/AutoSDV`,
+# because two handout tarballs were sitting in docker/desktop/ at the time.
+# `**/` is not decoration: a .dockerignore pattern anchors at the context ROOT,
+# so a bare `*.tar.gz` matches nothing in docker/desktop/, which is exactly
+# where export-images.sh writes. Measured the wrong way round first -- the
+# rebuild came out 46.1 GB again with the bare pattern in place.
+**/*.tar.gz
+**/*.tar.gz.sha256
+**/*.tar
+
 # Version control
 .git
 **/.git
