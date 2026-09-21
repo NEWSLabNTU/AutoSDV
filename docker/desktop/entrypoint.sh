@@ -211,6 +211,22 @@ export DISPLAY="${DISPLAY}"
 export XAUTHORITY="${auth}"
 EOF
     chmod 0644 /etc/profile.d/autosdv-display.sh
+
+    # /etc/profile.d is read by LOGIN shells only, and the shell a student
+    # actually gets is not one: autosdv.sh runs `docker exec ... bash -c`,
+    # whose last act is `exec bash` -- interactive, non-login, which reads
+    # /etc/bash.bashrc instead. Without this line the second terminal has the
+    # image's build-time DISPLAY=:1 and no XAUTHORITY, which is right only
+    # while DISPLAY_NUM is the default and wrong the moment anyone overrides
+    # it.
+    #
+    # Still not covered, and not worth more machinery: `bash -c` without -i or
+    # -l reads neither file. That is a shape only verification commands take,
+    # and they can pass -l.
+    if ! grep -q autosdv-display /etc/bash.bashrc 2>/dev/null; then
+        printf '\n[ -f /etc/profile.d/autosdv-display.sh ] && . /etc/profile.d/autosdv-display.sh\n' \
+            >> /etc/bash.bashrc
+    fi
 }
 
 start_desktop() {
