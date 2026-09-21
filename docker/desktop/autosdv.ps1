@@ -9,6 +9,7 @@
 #   .\docker\desktop\autosdv.ps1 -Pull    check for a newer image first
 #   .\docker\desktop\autosdv.ps1 -Stop    stop and remove the container
 #   .\docker\desktop\autosdv.ps1 -Workspace D:\path
+#   .\docker\desktop\autosdv.ps1 -Image jerry73204/autosdv:base
 #         mount that directory at /workspace instead of the repository this
 #         script lives in ($env:AUTOSDV_WORKSPACE does the same)
 #
@@ -37,7 +38,8 @@ param(
     [switch]$Pull,
     [switch]$Stop,
     [switch]$Gpu,
-    [string]$Workspace
+    [string]$Workspace,
+    [string]$Image
 )
 
 # NOT 'Stop', and this is the difference between working on the PowerShell
@@ -57,7 +59,11 @@ param(
 $ErrorActionPreference = 'Continue'
 
 $Name  = if ($env:AUTOSDV_CONTAINER) { $env:AUTOSDV_CONTAINER } else { 'autosdv' }
-$Image = if ($env:AUTOSDV_IMAGE)     { $env:AUTOSDV_IMAGE }     else { 'jerry73204/autosdv:desktop' }
+# -Image beats the environment variable, which beats the default. :desktop
+# carries the AutoSDV workspace prebuilt, which is what the simulations need;
+# :base carries the same ROS 2 and tools without it.
+if (-not $Image) { $Image = $env:AUTOSDV_IMAGE }
+if (-not $Image) { $Image = 'jerry73204/autosdv:desktop' }
 $Port  = if ($env:AUTOSDV_PORT)      { $env:AUTOSDV_PORT }      else { '6080' }
 
 # The repository, found from this script rather than from the caller's current
@@ -113,9 +119,23 @@ function Format-MountPath($p) {
 # and fails at ~/.ros logging. Where the entry exists we use it; where it does
 # not, this behaves exactly as it did before.
 function Get-ExecUserArgs {
-    docker exec $Name getent passwd 1000 2>$null | Out-Null
-    if ($LASTEXITCODE -eq 0) { return @('-u', '1000:1000') }
-    return @()
+    # Ask the container whether uid 1000 is a real account before handing it to
+    # `docker exec -u`. Docker takes HOME from /etc/passwd when the uid is in
+    # there and leaves HOME=/ when it is not, and / is not writable: the first
+    # ROS 2 command then dies on its logger with
+    #   failed to configure logging: Failed to create log directory: //.ros/log
+    # naming neither HOME nor the user. Passing HOME explicitly as well costs
+    # nothing and makes the dependency visible.
+    $entry = docker exec $Name getent passwd 1000 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $entry) { return @() }
+
+    # NOT $home or $args: both are PowerShell automatic variables. $HOME is
+    # read-only and assigning to it throws, and $args is the function's own
+    # unbound-argument array.
+    $execArgs = @('-u', '1000:1000')
+    $homeDir = ($entry -split ':')[5]
+    if ($homeDir) { $execArgs += @('-e', "HOME=$homeDir") }
+    return $execArgs
 }
 
 # A MOUNT CANNOT BE ADDED TO A CONTAINER THAT ALREADY EXISTS -- not to a

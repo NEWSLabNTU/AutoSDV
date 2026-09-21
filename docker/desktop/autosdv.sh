@@ -15,14 +15,14 @@
 #                                        mount DIR at /workspace instead of the
 #                                        repository this script lives in
 #                                        (AUTOSDV_WORKSPACE does the same)
-#
-#   AUTOSDV_IMAGE=jerry73204/autosdv:base ./docker/desktop/autosdv.sh
+#   ./docker/desktop/autosdv.sh --image IMAGE
 #                                        run a different image. `:desktop` (the
-#                                        default) carries the workspace
-#                                        prebuilt; `:base` carries the same ROS
-#                                        2 and tools without it, and is what
-#                                        the labs use -- your code lives in
+#                                        default) carries the AutoSDV workspace
+#                                        prebuilt, which is what the simulations
+#                                        need; `:base` carries the same ROS 2 and
+#                                        tools without it. Your own code lives in
 #                                        /workspace either way.
+#                                        (AUTOSDV_IMAGE does the same)
 #
 # If the image was handed out as a file, `docker load` it first; this script
 # then finds it locally and pulls nothing.
@@ -62,6 +62,15 @@ while [ $# -gt 0 ]; do
             WORKSPACE="$1"
             ;;
         --workspace=*) WORKSPACE="${1#--workspace=}" ;;
+        --image)
+            shift
+            [ $# -gt 0 ] || { echo "error: --image needs an image name" >&2; exit 1; }
+            IMAGE="$1"
+            ;;
+        --image=*)
+            IMAGE="${1#--image=}"
+            [ -n "$IMAGE" ] || { echo "error: --image= needs an image name" >&2; exit 1; }
+            ;;
         *) args+=("$1") ;;
     esac
     shift
@@ -236,8 +245,34 @@ EOF
 # byte-identical to before.
 EXEC_USER=()
 set_exec_user() {
-    if docker exec "$NAME" getent passwd "$(id -u)" >/dev/null 2>&1; then
-        EXEC_USER=(-u "$(id -u):$(id -g)")
+    local entry home
+    entry="$(docker exec "$NAME" getent passwd "$(id -u)" 2>/dev/null || true)"
+    [ -n "$entry" ] || return 0
+
+    EXEC_USER=(-u "$(id -u):$(id -g)")
+
+    # AND the home directory, explicitly. Docker does resolve HOME from
+    # /etc/passwd when the uid is in there, so the probe above already keeps us
+    # out of the bad case; this is belt and braces, and it documents the failure
+    # for anyone tempted to pass -u without asking first.
+    #
+    # Measured both ways. A uid WITHOUT a passwd entry gets HOME=/, which is not
+    # writable, and the first ROS 2 command dies on its logger before doing
+    # anything:
+    #
+    #   failed to configure logging: Failed to create log directory: //.ros/log
+    #
+    # naming neither HOME nor the user. A uid WITH an entry gets that entry's
+    # home and works. That is the whole reason this function asks before it
+    # passes -u rather than passing it always.
+    #
+    # `-u autosdv` by name would also carry the home, but it fails outright on
+    # any image published before that account existed -- "unable to find user
+    # autosdv: no matching entries in passwd file" -- and those are the images
+    # students already have.
+    home="$(printf '%s' "$entry" | cut -d: -f6)"
+    if [ -n "$home" ]; then
+        EXEC_USER+=(-e "HOME=$home")
     fi
 }
 
