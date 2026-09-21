@@ -110,37 +110,204 @@ The actuator's subscriptions are remapped to the same names in
 `vehicle_cmd_gate`, `operation_mode_transition_manager` and
 `trajectory_follower` all subscribe to `/localization/kinematic_state` and
 `/localization/acceleration` (`control.launch.xml:111-112,141,163-165`). With no
-map and no NDT, those topics have to come from somewhere else. Dead reckoning is
-enough, and every piece but one already exists:
+map and no NDT, those topics have to come from somewhere else.
+
+**The node that produces them already exists.**
+`src/localization/autosdv_mcl_launch/autosdv_mcl_launch/wheel_imu_odom.py`
+(entry point `mcl_wheel_imu_odom`) integrates `VelocityReport` against the IMU
+yaw rate with a unicycle model and publishes `nav_msgs/Odometry`. It was written
+for `pose_source:=mcl`, where the particle filter consumes it as a motion model.
+The lab needs the same node pointed somewhere else.
 
 ```
-  velocity_report
+  /vehicle/status/velocity_status   (VelocityReport, from velocity_report)
+  /sensing/imu/imu_data             (Imu, from autoware_imu_corrector)
        │
        ▼
-  autoware_vehicle_velocity_converter
-       │  /sensing/vehicle_velocity_converter/twist_with_covariance
-       ▼
-  autoware_gyro_odometer              ◄── IMU
-       │  /localization/twist_estimator/twist_with_covariance
-       ├─────────────────────────────────────────┐
-       ▼                                         ▼
-  dead_reckon_odometry   NEW           autoware_twist2accel
-       │  /localization/kinematic_state          │  /localization/acceleration
-       │  + TF map → base_link                   │
-       ▼                                         ▼
-                    vehicle_cmd_gate, operation mode
+  mcl_wheel_imu_odom          EXISTS, needs a frame_id parameter
+       │  /localization/kinematic_state   (frame map → base_link)
+       │  + TF map → base_link            (publish_tf:=true)
+       ├──────────────────────────────────┐
+       ▼                                  ▼
+  vehicle_cmd_gate,              autoware_twist2accel
+  operation_mode                        │  /localization/acceleration
+                                        ▼
+                                 vehicle_cmd_gate
 ```
 
-`dead_reckon_odometry` is the only new node: integrate the fused twist into a
-pose, publish `nav_msgs/Odometry` on `/localization/kinematic_state` with
-`frame_id: map`, `child_frame_id: base_link`, and broadcast the matching TF.
-Roughly eighty lines.
+It fuses wheel speed with IMU yaw rate itself, which is what `gyro_odometer`
+exists to do — so `gyro_odometer` and `vehicle_velocity_converter` are not in
+this chain at all. `twist2accel` accepts `input/odom` directly, so it reads the
+same odometry rather than needing a separate twist. Two existing nodes and one
+parameter, in place of a four-stage chain and a new node.
 
-**The drift does not matter, and that is the point.** The coach board is measured
-in `base_link` on every frame; nothing in the lab is referenced to a global
-frame. So the pose is free to walk away — and students can watch it walk away in
-RViz, which is the bridge to the NDT lecture that follows. The hole they can see
-is the hole NDT fills.
+### What has to change in `wheel_imu_odom`
+
+- `header.frame_id` is hardcoded `"odom"` (`wheel_imu_odom.py:103`, and
+  `:112` for the TF). It needs a parameter so the lab can publish `map`, which
+  is the frame Autoware's control stack assumes.
+- `odom_topic` and `publish_tf` are already parameters; the lab sets
+  `/localization/kinematic_state` and `true`.
+- The node populates no covariance, deliberately — its docstring says the
+  particle filter's motion model uses pose deltas only. Whether the control
+  chain needs it is recorded in §3.4.
+
+### 3.1 What must not be launched
+
+`launch_localization:=false`. Everything under
+`src/localization/tier4_localization_launch/launch/localization.launch.xml` is a
+package deal: `pose_twist_estimator`, `pose_twist_fusion_filter` and
+`localization_error_monitor` are included unconditionally (`:46-63`), and inside
+the fusion filter **none** of `ekf_localizer`, `stop_filter`, `twist2accel` or
+`pose_instability_detector` is gated on anything
+(`pose_twist_fusion_filter.launch.xml:4-43`). `autoware_pose_initializer` is
+likewise ungated (`pose_twist_estimator.launch.xml:172-182`).
+
+Two consequences worth knowing:
+
+- `/localization/kinematic_state` is normally published by **`autoware_stop_filter`**,
+  not by `ekf_localizer` — the EKF publishes
+  `/localization/pose_twist_fusion_filter/kinematic_state` and the stop filter
+  renames it (`pose_twist_fusion_filter.launch.xml:8,24`). So the topic the lab
+  is taking over belongs to the stop filter, and with localization off nothing
+  contends for it.
+- `use_mapless_mode` does **not** turn localization off. It only swaps the
+  perception lidar-model parameter directory
+  (`autosdv_autoware.launch.xml:244,251`). Mapless operation is
+  `launch_localization:=false`, as `autosdv.launch.yaml:175` shows.
+
+The sensing side survives `launch_localization:=false`, which is what the lab
+depends on: `autoware_imu_corrector` publishes `/sensing/imu/imu_data` for both
+IMU sources (`imu.launch.xml:55-59`), and that is the topic the lab should use —
+**not** `wheel_imu_odom`'s default `/sensing/camera/zedxm/imu/data`, and
+certainly not the `/sensing/imu/tamagawa/imu_raw` that
+`mcl_localization.launch.xml:34` passes, which this sensor kit does not publish
+at all.
+
+### 3.2 `imu_yaw_sign` must be measured, not copied
+
+`wheel_imu_odom`'s `imu_yaw_sign` parameter multiplies `angular_velocity.z`
+before integration, and `mcl_localization.launch.xml:36` defaults it to `-1.0`
+for a sample-sensor-kit Tamagawa IMU. That value is a property of that IMU's
+sign convention, not of this vehicle. AutoSDV's two IMU sources do not even
+agree on a frame: the MPU9250 driver hard-codes `header.frame_id = "base_link"`
+(`src/sensor_component/external/ros2_mpu9250_driver/src/mpu9250driver.cpp:48`)
+while the kit URDF defines a separate `imu_link`
+(`sensor_kit.xacro:112-115`), and the ZED publishes in `zedxm_imu_link`.
+
+Determine the sign on a bag by turning the vehicle one way and checking that the
+integrated yaw moves the same way. Getting it backwards produces an odometry
+that steers into its own error, which on a following vehicle is not a subtle
+failure.
+
+### 3.3 The one apparent feedback path is benign
+
+`gyro_bias_estimator` is launched on the sensing side and subscribes to
+`/localization/kinematic_state` (`imu.launch.xml:62-66`). In the lab that topic
+is derived from the IMU, which looks like a loop: a gyro bias estimated from the
+gyro's own integrated output. It is not, for three reasons:
+
+- It uses the odometry as a **straight-motion gate**, not as an attitude
+  reference. `libgyro_bias_estimator.so` exports `callback_odom(Odometry)` and
+  `should_skip_update(double)`, and the governing parameter is
+  `straight_motion_ang_vel_upper_limit: 0.015 # [rad/s]`
+  (`autoware_imu_corrector/config/gyro_bias_estimator.param.yaml`).
+- The part that *does* use a pose is gyro **scale** estimation
+  (`estimate_scale_gyro`, `update_rate_ekf`, `compute_yaw_rate_from_quat`),
+  driven by `~/input/pose_ndt` — a topic the lab never publishes, so that path
+  stays dormant.
+- Its outputs are `~/output/gyro_bias` and `~/output/imu_scaled`, and
+  `imu.launch.xml:62-66` remaps neither into `/sensing/imu/imu_data`. A wrong
+  estimate cannot reach the corrected IMU stream that the odometry consumes.
+
+So the estimator can be left running. Worst case its bias estimate becomes
+self-referential and nothing downstream reads it.
+
+### 3.4 What the control chain actually requires of the odometry
+
+Autoware 1.5.0 ships no source and no debug symbols, so the following comes
+from the installed launch files and param yaml where possible, and from symbol
+and string inspection of the shared objects where not. Items resting on the
+latter are marked.
+
+- **Only `header.stamp` and `twist.twist.linear.x` are needed.**
+  `vehicle_cmd_gate`'s filter API is entirely scalar — `interpolateFromSpeed`,
+  `limitLongitudinalWithVel/WithAcc/WithJerk`, `limitLateralWithLatAcc` — and
+  nothing in `libvehicle_cmd_gate_node.so` references the odometry pose or
+  either covariance block *(binary inspection)*. So `wheel_imu_odom`'s missing
+  covariance is not a problem for the gate, and the pose matters only to
+  consumers the lab does not run.
+- **The topic name is not remappable.** The literal `input/kinematics` does not
+  appear in the gate binary; `/localization/kinematic_state` does, referenced
+  from the gate's constructor *(binary inspection)*. The remap at
+  `control.launch.xml:111` is a no-op. Publish that exact name — which is what
+  the component above does.
+- **The gate withholds all output until each input has arrived once**
+  (`isDataReady`, and the log string `waiting topics...`), at
+  `update_rate: 10.0` (`vehicle_cmd_gate.param.yaml:3`). A missing
+  `/localization/acceleration` is therefore silent: the vehicle simply never
+  moves.
+- **The stamp must advance.** Stop detection runs through
+  `VehicleStopChecker`, which buffers `TwistStamped` over
+  `velocity_buffer_time_sec = 10.0` and answers
+  `isVehicleStopped(stop_check_duration: 1.0)`
+  (`motion_utils/vehicle/vehicle_state_checker.hpp:38-61`,
+  `vehicle_cmd_gate.param.yaml:14`). `wheel_imu_odom` copies the
+  `VelocityReport` stamp, so this holds as long as the vehicle interface's
+  stamps are real.
+- **QoS is depth 1, RELIABLE, VOLATILE** for both topics
+  (`component_interface_specs/localization.hpp:44-59`). The node publishes
+  depth 10 RELIABLE, which is compatible.
+- **`twist2accel` needs nothing else.** `use_odom: true` and
+  `accel_lowpass_gain: 0.9` are its entire configuration
+  (`twist2accel.param.yaml:1-4`), so `/localization/acceleration` is a
+  low-passed derivative of the odometry's own twist. The `in_twist` argument is
+  wired in the component for completeness and is unused at that default.
+- **Neither the gate nor the transition manager looks up TF** — no `tf2`
+  linkage in either shared object *(binary inspection)*. But
+  `component_state_monitor`'s `topics.yaml:183-195` watches `map → base_link`
+  on `/tf` as a `type: autonomous` entry with `error_rate: 1.0` and
+  `timeout: 1.0`, so a missing TF marks autonomous mode unavailable through the
+  diagnostic graph. Hence `publish_tf` defaults to `true` in the component.
+
+### 3.5 The engage path is the open risk
+
+`autoware_operation_mode_transition_manager` is what turns the gate on, and two
+of its conditions need checking before the first field run:
+
+- `enable_engage_on_driving: false`
+  (`operation_mode_transition_manager.param.yaml:8`) means the vehicle must be
+  stationary at engage time, judged from the odometry twist. Fine. The exact
+  epsilon is not in any installed file.
+- Its availability check carries the log string `Engage unavailable:
+  trajectory size must be > 2` *(binary inspection)*, and its stable check
+  compares the odometry pose against `/planning/trajectory`
+  (`stable_check.dist_threshold: 1.5`, `yaw_threshold: 0.262`, `:22-27`).
+  **Tier 1 has no planner and publishes no trajectory.** Whether
+  `check_engage_condition: false` (`:10`, the default) bypasses this could not
+  be determined without source.
+
+If it does not bypass, tier 1 has two ways out, and the choice should be made
+by testing rather than by reading:
+
+1. Publish a stub `/planning/trajectory` of two or three points straight ahead,
+   purely to satisfy the manager. Harmless, because tier 1 does not run
+   `trajectory_follower` — and it is the first step toward tier 2, which
+   publishes a real one.
+2. Skip the transition manager and drive the gate directly: `GateMode` AUTO on
+   `/control/gate_mode_cmd` plus the engage service, with
+   `/system/operation_mode/state` published by the lab. Fewer moving parts,
+   but it fakes a system-level state, which is the kind of shortcut that
+   teaches the wrong thing.
+
+Prefer 1. Settle it on the bench, before anyone stands near the vehicle.
+
+### 3.6 Why the drift is acceptable
+
+The coach board is measured in `base_link` on every frame, and nothing in the
+lab is referenced to a global frame. So the pose is free to walk away — and
+students can watch it walk away in RViz, which is the bridge to the NDT lecture
+that follows. The hole they can see is the hole NDT fills.
 
 ---
 
@@ -306,8 +473,12 @@ against.
    bags. Decide between the LCTK detector plus tracker and the thin locator
    (§4.2). Nothing else in this design depends on the answer, but the scope of
    item 9 does.
-3. **`dead_reckon_odometry`** (§3). Independent of everything above — the
-   cleanest thing to build while the bags are being recorded.
+3. **Point `wheel_imu_odom` at the control stack** (§3). ***Done, untested.***
+   `frame_id` is now a parameter on the node, and
+   `autosdv_launch/launch/components/autosdv_dead_reckoning_component.launch.xml`
+   runs it alongside a standalone `twist2accel`. Not yet run against hardware
+   or a bag — the workspace it was written in is unbuilt. What remains:
+   measure `imu_yaw_sign` (§3.2) and settle the engage path (§3.5).
 4. **Crop-box config and launch file.** A `coach_cruise.launch.yaml` in
    `autosdv_launch` bringing up sensing, the detector, the pseudo-odometry
    chain, `vehicle_cmd_gate`, and the vehicle interface — with no map, no

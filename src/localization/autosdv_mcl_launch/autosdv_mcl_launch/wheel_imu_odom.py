@@ -16,6 +16,16 @@ into a unicycle-model ``nav_msgs/Odometry`` on ``/odom`` (frame
 no covariance tuning (the particle filter's motion model uses pose deltas
 only).
 
+``frame_id`` (string, default ``"odom"``): the odometry's ``header.frame_id``,
+and the parent frame of the optional TF. It is a parameter because a second
+consumer exists: with ``frame_id:=map``, ``odom_topic:=/localization/kinematic_state``
+and ``publish_tf:=true`` this node stands in for the whole localization stack
+on a vehicle running without a map, which is what Autoware's control chain
+needs in order to start (see ``docs/design/coach-cruise-lab.md``). The default
+keeps the ``mcl`` pose source behaving exactly as before, where a dead-reckoned
+pose must NOT claim to be ``map`` -- the particle filter is what produces the
+map-frame pose there.
+
 ``imu_yaw_sign`` (double, default 1.0): multiplies ``angular_velocity.z``
 before integration. The sample_sensor_kit Tamagawa IMU reports z-axis rate
 in a sign convention inverted relative to the map-yaw convention this
@@ -60,8 +70,11 @@ if rclpy is not None:
             self.declare_parameter("velocity_topic", "/vehicle/status/velocity_status")
             self.declare_parameter("imu_topic", "/sensing/camera/zedxm/imu/data")
             self.declare_parameter("odom_topic", "/odom")
+            self.declare_parameter("frame_id", "odom")
             self.declare_parameter("imu_yaw_sign", 1.0)
             self.declare_parameter("publish_tf", False)
+
+            self.frame_id = self.get_parameter("frame_id").value
 
             self.x = 0.0
             self.y = 0.0
@@ -96,7 +109,7 @@ if rclpy is not None:
 
             odom = Odometry()
             odom.header.stamp = msg.header.stamp
-            odom.header.frame_id = "odom"
+            odom.header.frame_id = self.frame_id
             odom.child_frame_id = "base_link"
             odom.pose.pose.position.x = self.x
             odom.pose.pose.position.y = self.y
@@ -109,7 +122,7 @@ if rclpy is not None:
             if self.get_parameter("publish_tf").value:
                 tf_msg = TransformStamped()
                 tf_msg.header.stamp = msg.header.stamp
-                tf_msg.header.frame_id = "odom"
+                tf_msg.header.frame_id = self.frame_id
                 tf_msg.child_frame_id = "base_link"
                 tf_msg.transform.translation.x = self.x
                 tf_msg.transform.translation.y = self.y

@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<!--
+  Dead-reckoned stand-in for the localization stack, for running Autoware's
+  control chain on a vehicle with no map.
+
+  autoware_vehicle_cmd_gate and autoware_operation_mode_transition_manager both
+  require /localization/kinematic_state and /localization/acceleration before
+  they emit anything; the gate withholds output until every input has arrived
+  once. Normally those topics come from ekf_localizer via stop_filter, which
+  needs a pose estimator, which needs a map. This component supplies them by
+  integrating wheel speed against the IMU yaw rate instead.
+
+  Use it with launch_localization:=false. Everything under
+  tier4_localization_launch's localization.launch.xml is included
+  unconditionally, including ekf_localizer, stop_filter and twist2accel, and
+  stop_filter owns /localization/kinematic_state ; running both would put two
+  publishers on that topic.
+
+  The pose drifts, without bound, and that is acceptable for its intended
+  consumers: the gate reads only header.stamp and twist.twist.linear.x, and
+  nothing in the lab this was written for is referenced to a global frame. It
+  is NOT a substitute for localization for anything that navigates a map.
+
+  Design and the measurements behind those claims:
+  docs/design/coach-cruise-lab.md
+-->
+<launch>
+  <arg name="velocity_topic" default="/vehicle/status/velocity_status"
+       description="VelocityReport from the vehicle interface"/>
+  <arg name="imu_topic" default="/sensing/imu/imu_data"
+       description="autoware_imu_corrector's output; correct for both imu_source values, unlike the node's own default"/>
+  <arg name="imu_yaw_sign" default="1.0"
+       description="multiplies angular_velocity.z ; MEASURE it per IMU, do not copy (see the design doc)"/>
+  <arg name="frame_id" default="map"
+       description="frame the dead-reckoned pose claims; map is what the control chain assumes"/>
+  <arg name="publish_tf" default="true"
+       description="component_state_monitor watches map to base_link at 1 Hz and marks autonomous unavailable without it"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <!-- Wheel speed + IMU yaw rate integrated into /localization/kinematic_state. -->
+  <node pkg="autosdv_mcl_launch" exec="mcl_wheel_imu_odom" name="dead_reckon_odometry" output="screen">
+    <param name="velocity_topic" value="$(var velocity_topic)"/>
+    <param name="imu_topic" value="$(var imu_topic)"/>
+    <param name="odom_topic" value="/localization/kinematic_state"/>
+    <param name="frame_id" value="$(var frame_id)"/>
+    <param name="imu_yaw_sign" value="$(var imu_yaw_sign)"/>
+    <param name="publish_tf" value="$(var publish_tf)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <!-- twist2accel defaults to use_odom:=true, so the odometry above is enough;
+       no separate twist source is needed. -->
+  <include file="$(find-pkg-share autoware_twist2accel)/launch/twist2accel.launch.xml">
+    <arg name="in_odom" value="/localization/kinematic_state"/>
+    <arg name="in_twist" value="/localization/twist_estimator/twist_with_covariance"/>
+    <arg name="out_accel" value="/localization/acceleration"/>
+  </include>
+</launch>
