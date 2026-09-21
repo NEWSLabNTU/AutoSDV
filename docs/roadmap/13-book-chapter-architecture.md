@@ -126,7 +126,7 @@ every in-tree feature is a gap.
 | 1 | NDT tuning: process, pitfalls, parameter table, the `max_iterations` incident | no page; zero hits for `max_iterations` | `docs/guides/ndt-tuning.md` (298 lines) | 4.2 NDT Tuning |
 | 2 | Solid-state LiDAR: what a 120 deg FOV does to scan matching; no usable ring for MCL; CUDA deskew refuses `cube1` | scattered, and the FOV number conflicts | `docs/research/robin_w_fov.md`, CLAUDE.md deskew matrix | 4.1 LiDAR + Reference matrix |
 | 3 | MRM (minimum risk manoeuvre) | **zero mentions**, a safety feature with no coverage | `docs/guides/mrm_configuration.md`, `mrm_troubleshooting.md` | 4.5 MRM |
-| 4 | Building a 3-D map | `maps.md` builds occupancy grids only; where the PCD comes from is answered nowhere | `docs/guides/lio_sam_mapping.md`; golf-cart's GLIM tutorials | 4.2 Maps |
+| 4 | Building a 3-D map | `maps.md` builds occupancy grids only; where the PCD comes from is answered nowhere | golf-cart's GLIM tutorials | 4.2 Maps |
 | 5 | Localization diagnostics: 15 scripts | `inspecting.md` teaches generic `ros2` only | `scripts/testing/localization/` + its README | 4.2 + Reference |
 | 6 | `just` recipes and `just tool` | zero hits for the tools; no recipe reference anywhere | `justfile`, `just/*.just` | Reference: Command Reference |
 | 8 | Workshop container | the page says "Unmaintained" -- **actively wrong**; `docker/desktop/` is active and a multi-arch `jerry73204/autosdv:base` is published | `docker/desktop/`, [roadmap 12](12-student-container.md) | 3 In a Container |
@@ -206,7 +206,7 @@ author's.
 | W2 | MRM guide | `src/guides/mrm.md` (+zh) | `docs/guides/mrm_configuration.md`, `mrm_troubleshooting.md` |
 | W3 | NDT tuning + localization diagnostics | `src/guides/ndt-tuning.md`, `src/guides/localization-diagnostics.md` (+zh) | `docs/guides/ndt-tuning.md`, `scripts/testing/localization/README.md` |
 | W4 | Solid-state LiDAR + capability matrix | `src/guides/sensor-integration/lidar.md`, `src/reference/hardware/sensor-capability-matrix.md` (+zh) | `docs/research/robin_w_fov.md`, CLAUDE.md, `pointcloud_preprocessor.launch.py` |
-| W5 | Building a 3-D map | `src/guides/maps.md` (+zh) | `docs/guides/lio_sam_mapping.md`, golf-cart `docs/guides/glim/` |
+| W5 | Building a 3-D map | `src/guides/maps.md` (+zh) | golf-cart `docs/guides/glim/` |
 | W6 | Command reference + vehicle interface | `src/reference/commands.md` (+zh), `src/reference/software/vehicle-interface.md` (+zh) | `justfile`, `just/*.just`, `docs/reports/steering-status-has-no-feedback.md` |
 
 **Shared files nobody may touch in Phase 1**: `mkdocs.yml`, `src/index.md`,
@@ -263,6 +263,25 @@ the work**, not to confirm it.
 | 3.7 | Nothing user-facing carries lab-bench detail | measured tables belong in the repository |
 
 ---
+
+## Decided during phase 1
+
+**GLIM is the mapper; LIO-SAM is out of the book.** W5 first wrote the section
+with LIO-SAM as the documented path and GLIM as the alternative, because
+`docs/guides/lio_sam_mapping.md` is what this repository happens to carry. The
+golf-cart project has since switched to GLIM, so the book documents one mapper
+and not a choice between a path nobody uses and a path that works.
+
+This removes an awkwardness rather than creating one: W5 had found that
+`docs/guides/lio_sam_mapping.md` instructs the reader to
+`ros2 launch autosdv_launch lio_sam_mapping.launch.xml`, and **no such file
+exists anywhere in the tree** — the only `lio_sam` references in the whole
+repository were that guide and this roadmap. A page whose central command has
+never existed is not a path to offer a reader.
+
+The in-tree guide is untouched and now unreferenced by the book. Retiring it, or
+marking it as a historical parameter record, is a repository decision outside
+this roadmap.
 
 ## Open decisions
 
