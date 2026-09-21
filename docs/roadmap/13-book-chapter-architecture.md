@@ -318,6 +318,82 @@ The in-tree guide is untouched and now unreferenced by the book. Retiring it, or
 marking it as a historical parameter record, is a repository decision outside
 this roadmap.
 
+### Phase 3 result — 2026-09-21
+
+Run by an agent that wrote none of the pages, briefed to fail the work. It ran
+every command that did not need a vehicle, checked every parameter table against
+the YAML, and cross-checked the three copies of the deskew matrix. **Four
+confirmed defects, all fixed in `b8db2f4`.**
+
+Two were introduced by the reconciliation pass itself, which is the argument for
+having an auditor who did not do the writing:
+
+- `inspecting.md` said the diagnostics page covers "fifteen scripts"; the page
+  itself says nineteen plus two. The directory has 19 + 2. Both files were
+  edited in the same pass that existed to make pages agree. The count is now
+  gone rather than corrected — a number maintained in two places drifts again.
+- Five glossary terms were added in English with no Chinese siblings, dropping a
+  page out of "up to date" — **and the commit message claimed 52 up to date when
+  the checker said 51 plus 1 outdated.** The number in a commit message has to
+  be the one the tool printed after the last edit.
+
+Two were older and confirmed real:
+
+- The book contradicted itself about the sensors: the corrected LiDAR pages give
+  `robin_w` / `vlp32c` / `cube1`, `/sensing/lidar/iv_points` and `192.168.7.10`,
+  while `troubleshooting.md` and `integration-walkthrough.md` still taught
+  `robin_lidar_link`, `/robin_lidar/points_raw` and `192.168.1.201`, none of
+  which exist in the tree.
+- `vehicle-control/overview.md` published
+  `autoware_auto_control_msgs/AckermannControlCommand`, a package not installed
+  in Autoware 1.5.0. The type is `autoware_control_msgs/msg/Control`.
+
+What the audit checked and found correct is worth recording too, because it is
+the evidence that writing against the tree worked: every NDT and `cuda_ndt`
+parameter, every MRM value including the dead-versus-installed split, the
+diagnostic-graph resolution logic, the `MrmState` enum, every `just` recipe and
+default, all three LiDAR IPs and calibration values, the `DESKEWABLE` tuple, and
+the Robin-W FOV treatment — the SDK enforces ±60° horizontally and carries no
+vertical limit at all, which is exactly what the pages say.
+
+## Phase summary
+
+| Phase | What | Status |
+|---|---|---|
+| 0 | Chapters and moves | done, `c92d1a1` |
+| 1 | Five parallel units, eight pages | done, `889c4a4` |
+| 2 | Reconciliation | done, same commit |
+| 3 | Audit, by an agent that wrote none of it | done, fixes in `b8db2f4` |
+
+Remaining before a release tag: the perception and planning chapters are still
+empty slots, and the repository defects below are unresolved.
+
+## Repository defects this campaign surfaced
+
+Found by agents checking documentation against the tree. **None were fixed** —
+each needs a decision or a measurement, not an edit.
+
+1. **The planner and the actuator model different vehicles.**
+   `vehicle_info.param.yaml` says `wheel_base: 0.319`, `max_steer_angle: 0.349`;
+   `actuator.yaml` says `wheelbase: 0.340`, `max_steering_angle: 0.5`. Autoware
+   plans curvature with the first and the interface clamps with the second.
+2. **The MRM configuration in this repository is not loaded, and a safety check
+   believed disabled is live.** `autosdv_system_component.launch.xml` passes
+   `autoware_launch`'s own paths as fixed values, so three `config/system/mrm_*`
+   directories are dead and disagree with what runs. The localization accuracy
+   check documented as disabled in three places is active on every non-`mcl`
+   pose source.
+3. **The two scan matchers ship different tuning** — `ndt` at resolution 4.0,
+   `cuda_ndt` at 2.0 — and the `ndt` value contradicts the measurement recorded
+   in the tree beside it.
+4. **`docs/guides/lio_sam_mapping.md` documents a launch file that does not
+   exist** anywhere in the repository.
+5. **The Robin-W vertical FOV is unsettled**: 25° in the book's history, 70° in
+   `docs/research/robin_w_fov.md`, and no recording exists to measure. One
+   Robin-W bag plus `scripts/sensor/inspect_rings.py` closes it.
+6. Smaller: a corrupted table in `docs/guides/ndt-tuning.md`, and
+   `scripts/testing/localization/README.md` still saying `make launch`.
+
 ## Open decisions
 
 1. **The Robin-W vertical FOV conflicts**: the book's LiDAR page says
