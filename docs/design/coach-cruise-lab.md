@@ -178,7 +178,7 @@ At 1 m/s that is 0.1–0.4 m of measurement lag. Two things follow:
    the board's in-plane rotation disambiguated against its cutout pattern. That
    is the expensive part and it is being paid for nothing.
 
-So measure first, on a bag, and then pick a path (§7, item 2). If the latency is
+So measure first, on a bag, and then pick a path (§8, item 2). If the latency is
 too high, the escape is a thin locator that keeps the crop box, DBSCAN and the
 planar/size gate and drops ICP entirely — about sixty lines of Python,
 publishing a centroid.
@@ -251,7 +251,7 @@ wants the control loop at a rate Python cannot hold. The provided nodes are a
 mix of Python and one Rust detector, and none of them are student-editable.
 
 Tier 0 exists so nobody's first contact with their own PID is on a moving
-vehicle. It needs only the bags from §7.
+vehicle. It needs only the bags from §8, item 1.
 
 Tier 1 is the deliverable.
 
@@ -263,76 +263,152 @@ sensors it is given.
 
 ---
 
-## 7. Work items to build the lab
+## 7. What ships as a skeleton
+
+Students fill holes; they do not start from an empty file. Each student package
+ships with its node structure, its ROS wiring, its parameter loading and its
+tests present and working, and with the algorithm bodies removed.
+
+| File | Ships | Blanked |
+|---|---|---|
+| `velocity_report.py` | GPIO setup, edge timing, message assembly, publication | the edge-to-edge velocity computation and its filter |
+| `actuator.py` | subscriptions, PCA9685 init, mode state machine, debug publishers, all of `actuator.yaml` | the PID body, the direction mapping, the PWM clamp |
+| `cruise_controller` | node, subscriptions, `Control` assembly, publication timing | the headway law and the bearing law, entirely |
+
+The mode state machine in `actuator.py` is worth shipping rather than blanking:
+emergency brake, full stop, deadband hold and active control are a safety
+structure, and a student reinventing it will reinvent it wrong. The PID inside
+active control is the teaching content.
+
+`actuator.yaml` ships complete, with the calibrated PWM values and the speed
+gains **as a starting point that works**, so that a student whose PID is not yet
+written can still drive the vehicle, and so that a student whose tuning goes
+wrong can get back to a known-good state. The exception is `max_pwm`, capped
+below the calibrated value (§9).
+
+**The reference implementation is what is being withheld, and it already exists
+in git history.** `git log` on
+`src/vehicle/autosdv_vehicle_launch/autosdv_vehicle_interface/` hands a student
+the answer. So the skeletons must be published from a repository with no
+history of the reference — a fresh course repository, not a branch of this one —
+and the grading harness (§8, item 8) keeps the reference on the instructor
+side, where it doubles as the baseline that student scores are compared
+against.
+
+---
+
+## 8. Work items to build the lab
 
 1. **Record bags.** 1000 mm hollow board hung diamond on a pole, static and then
    walked, across 2–8 m, on the course vehicle's LiDAR. Needed for tier 0, for
    the grading harness, and for item 2.
 2. **Measure the detector.** Publication rate and per-frame latency on those
    bags. Decide between the LCTK detector plus tracker and the thin locator
-   (§4.2). Everything else is unaffected by the choice.
-3. **Crop-box config and launch file.** A `coach_cruise.launch.yaml` in
+   (§4.2). Nothing else in this design depends on the answer, but the scope of
+   item 9 does.
+3. **`dead_reckon_odometry`** (§3). Independent of everything above — the
+   cleanest thing to build while the bags are being recorded.
+4. **Crop-box config and launch file.** A `coach_cruise.launch.yaml` in
    `autosdv_launch` bringing up sensing, the detector, the pseudo-odometry
    chain, `vehicle_cmd_gate`, and the vehicle interface — with no map, no
    localization and no perception module.
-4. **`dead_reckon_odometry`** (§3).
-5. **`coach_target_tracker`** (provided) and a `cruise_controller` skeleton with
-   both loops blanked.
+5. **`coach_target_tracker`**, provided (§5).
 6. **The safety clamp**, between student output and the gate input: speed cap,
    minimum standoff, detection-loss timeout. Provided, and not student-editable.
-7. **Grading harness.** Replay a bag against the student's controller; score
+7. **The three skeletons** (§7), in a course repository with no history of the
+   reference implementation.
+8. **Grading harness.** Replay a bag against the student's controller; score
    headway RMS, overshoot, minimum gap, and behaviour on detection loss.
-8. **The handout**, carrying §4 as stated constraints.
+   Compares against the withheld reference as the baseline.
+9. **Extract `board-target-detection`** and submodule it into LCTK and AutoSDV;
+   add the `colcon-cargo-ros2` step to `setup/autosdv_setup/registry.py`. Not on
+   the critical path — see Sequencing below.
+10. **The handout**, carrying §4 as stated constraints and §9 verbatim.
 
-### Workspace integration
+### Code sharing: one repository, two superprojects
 
-Two viable paths. Students write Python and C++ only, so in either case the
-Rust detector is provided infrastructure that they never build, edit or read.
+The detector is shared between LCTK (which uses it to calibrate) and AutoSDV
+(which uses it to find a coach car). Rather than vendor a copy into each, the
+shared part is extracted into its own repository under `NEWSLabNTU` and
+submoduled into both. `colcon-cargo-ros2` is added to `setup/` as a step in
+`setup/autosdv_setup/registry.py`, so AutoSDV can build Rust.
 
-**Path A — overlay a prebuilt LCTK (recommended for the first run of the
-course).** Build LCTK once on the lab machine, then:
+Proposed repository: **`NEWSLabNTU/board-target-detection`**. The name is
+deliberately not "calibration" — AutoSDV's use of it has nothing to do with
+calibration, and a repository named for one consumer's use case ages badly.
 
-```bash
-source /opt/autoware/1.5.0/setup.bash
-source ~/repos/LCTK/install/setup.bash
-source ~/repos/AutoSDV/install/setup.bash
+What moves into it, from reading the dependency graph:
+
+```
+  board-target-detection/
+  ├── rust/
+  │   ├── calibration-target/            target definition loader
+  │   ├── board-cluster-detector/        the detection algorithm
+  │   └── calibration-target-detector/   the glue between the two
+  ├── ros/
+  │   ├── board_target_msgs/             CalibrationTargetIdentity.msg
+  │   └── lidar_board_detector/          the rclrs node
+  └── config/
+      ├── targets/                       hollow_1000_aruco_4_v1.json5, solid_600_…
+      └── board/                         per-sensor detector tuning presets
 ```
 
-Nothing is added to the AutoSDV build, and a student's build time stays bounded
-by their own two packages. The cost is a second workspace to keep in sync and a
-sourcing order that has to be right.
+The crate names stay as they are; renaming them is churn with no payoff.
 
-**Path B — vendor the detector into AutoSDV.** `colcon-cargo-ros2` can be added
-to `setup/` as a step in `setup/autosdv_setup/registry.py`, so this is
-available. It buys a single workspace and a single `just build`, at the cost of
-four known sharp edges inherited from LCTK — all of them documented in that
-repo, none of them hypothetical:
+**What stays in LCTK.** `lctk_interfaces` keeps its thirteen solver `.srv`
+files and loses only `CalibrationTargetIdentity.msg`, which seven LCTK packages
+consume (the two solvers, `filter_box_tuner`, `lctk_quality`, both aruco nodes,
+`interactive_solver_controller`). Those packages then depend on
+`board_target_msgs` as well — the message is genuinely shared, so this is the
+honest split rather than a convenience.
 
-- Binding generation runs once per `build/` tree, guarded by
-  `build/.colcon/bindgen.lock`; deleting parts of `build/` breaks it.
-- A bare `cargo update` re-resolves the wildcard ROS message crates against
-  crates.io and aborts on the yanked `sensor_msgs`. Dependency updates have to
-  run inside the sourced build environment.
-- The workspace-root `.cargo/config.toml` needs synthesising from the
-  per-package configs on older `colcon-cargo-ros2`; LCTK carries
-  `setup/scripts/sync-root-cargo-config.sh` for exactly this.
-- LCTK's own build ignores the `conflux` submodule packages because their git
-  `rclrs` conflicts with the crates.io one. Only `lidar_board_detector` and the
-  `board-cluster-detector` crate are needed here, so that conflict is avoidable
-  — but it constrains what can be vendored.
+**The extraction fixes a real defect, not just the packaging.**
+`rust/board-cluster-detector/Cargo.toml` carries this note today:
 
-Recommendation: run the first iteration of the course on path A, and move to
-path B only if maintaining two workspaces turns out to be the bigger tax. The
-decision does not affect anything else in this design — the detector's interface
-is the same either way.
+> as a root member it now shares the ROS-poisoned root resolve
+> (aruco-detector -> sensor_msgs = "*", yanked), so plain `cargo test` here no
+> longer works — build/test only via colcon
 
-If §4.2's measurement sends the lab to the thin locator instead, this whole
-question disappears: that node is Python in `autosdv_launch`, and LCTK is then
-needed only to produce the board target definition.
+A ROS-free detection crate that cannot be tested without colcon is a testing
+tax paid by everyone. In its own workspace, with no ROS crate in the resolve,
+`cargo test` works again. So the new repository must be an **independent Cargo
+workspace**, listed in LCTK's root `exclude`, with LCTK path-depending across
+the boundary. Both consumers get a crate they can unit-test in seconds.
+
+**System dependencies travel with it.** `lidar_board_detector` pulls
+`petal-decomposition` with the `openblas-system` feature and `pcd-rs`, so
+OpenBLAS is required. That belongs in the new repository's own setup, and in
+the AutoSDV registry step that installs it.
+
+**Pinning.** `.gitmodules` in both superprojects gets a `branch = main` line.
+It is not a fork carrying a patch series, but it is a repository we develop, and
+per the submodule conventions in `CLAUDE.md` the branch line is what tells a
+reader which branch to commit to. Cut a tag per release and let each
+superproject move its pin independently — LCTK and AutoSDV drifting to
+different commits is expected and fine.
+
+The lockstep rule applies with a new innermost level: a change reaching into
+the detector is pushed in the shared repository first, then pinned in LCTK and
+in AutoSDV separately.
+
+**One thing to watch.** The target definition and the detector tuning preset
+are now shared artifacts. If the same physical board is used for calibration
+and for the lab, both superprojects must be pinned to a commit where that
+board's definition agrees. A board redefined for the lab and not re-pinned in
+LCTK silently changes what calibration is solving against.
+
+### Sequencing
+
+The extraction does not block the lab. Bring the lab up first against LCTK's
+`install/` overlaid on AutoSDV's — which costs nothing but a `source` line —
+and extract once the lab's detector path is settled by the §4.2 measurement. If
+that measurement sends the lab to the thin locator, the extraction shrinks to
+the target-definition crates and the configs, and `lidar_board_detector` stays
+in LCTK.
 
 ---
 
-## 8. Field safety
+## 9. Field safety
 
 This section belongs in the student handout verbatim.
 
@@ -352,11 +428,22 @@ This section belongs in the student handout verbatim.
 
 ---
 
-## 9. Open question
+## 10. Decisions taken
 
-Does the graded lab include `actuator.py` and `velocity_report.py` as student
-work — shipping skeletons and withholding the working reference — or only the
-cruise layer on top of the interface as it stands? Both nodes exist and work
-today (`src/vehicle/autosdv_vehicle_launch/autosdv_vehicle_interface/`), so this
-is a decision about what to take away, and it changes work items 5 through 7
-substantially.
+Recorded here because both were open while this document was first written, and
+both shaped it.
+
+**Students fill skeletons, and that includes the vehicle interface.**
+`velocity_report.py` and `actuator.py` are student work, not provided
+infrastructure — so the inner loop is genuinely theirs and the lab's nominal
+subject is real. §7 defines what is removed and what is kept, and notes the
+consequence that the skeletons cannot be published from this repository, whose
+history contains the answers.
+
+**The shared code is extracted into its own repository rather than vendored
+twice.** `colcon-cargo-ros2` goes into `setup/`, so AutoSDV can build the Rust
+detector directly, and the detector, the target-definition crates and the
+`CalibrationTargetIdentity` message move to `NEWSLabNTU/board-target-detection`,
+submoduled into both LCTK and AutoSDV. The alternative — overlaying a prebuilt
+LCTK workspace — remains the right way to bring the lab up before the extraction
+lands.
