@@ -247,6 +247,41 @@ one book.
 
 ---
 
+### Phase 2 result — 2026-09-21
+
+Done. Five new pages in `nav` (NDT Tuning, Localization Diagnostics, Minimum
+Risk Manoeuvre, Command Reference, Sensor Capability Matrix) with their
+`nav_translations`, cross-links applied in both languages, glossary terms added
+(convergence gate, GLIM, loop closure, comfortable stop, diagnostic graph), and
+the corrections the units could not make in files they did not own.
+
+**Two de-duplication decisions.**
+
+*One diagnostics page, not two.* The architecture allocated both a guide and a
+Reference "Diagnostic Scripts" table. W3's guide already answers "which tool for
+which question", and a flat table repeating fifteen script names would drift
+from it within a release. The Reference slot is dropped.
+
+*The deskew matrix lives in two places on purpose.* `cuda-pipeline.md` keeps the
+backend-switch view (what each `*_backend` selects), the sensor pages keep the
+per-sensor view (what this LiDAR can do). They must agree; phase 3 checks that
+they do.
+
+**Corrections applied to shared pages**, each found by a unit reading the tree:
+
+- `running/on-the-vehicle.md` taught `just launch ARGS="…"`. After a recipe
+  name `just` reads that as a positional value, so the recipe received the
+  literal text and launched **defaults** — silently, on any machine where the
+  defaults happen to start. The recipe now refuses it; the page now says why.
+- `reference/overview.md` advertised Vehicle Interface as "coming soon (CAN
+  bus)" on a page that exists, for a vehicle with no CAN bus in this path.
+- `using-sensors.md` called Robin-W a "360° LiDAR (default)". It is 120°
+  horizontal, and the default suite is `vlp32c_zed_imu`, so the default LiDAR is
+  `vlp32c`.
+- `platform-models.md` repeated the unverified `120° × 25°` in four places. All
+  four now carry a footnote naming both candidate values and pointing at the
+  page that owns the question.
+
 ## Phase 3 — Audit
 
 A different agent from the one that wrote or reconciled. Its job is to **fail
