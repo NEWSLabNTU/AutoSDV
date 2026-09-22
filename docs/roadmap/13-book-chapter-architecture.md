@@ -370,29 +370,43 @@ empty slots, and the repository defects below are unresolved.
 
 ## Repository defects this campaign surfaced
 
-Found by agents checking documentation against the tree. **None were fixed** —
-each needs a decision or a measurement, not an edit.
+Found by agents checking documentation against the tree. **Fixed in `08abf10`**,
+except where a measurement is needed — see the two marked below.
 
-1. **The planner and the actuator model different vehicles.**
-   `vehicle_info.param.yaml` says `wheel_base: 0.319`, `max_steer_angle: 0.349`;
-   `actuator.yaml` says `wheelbase: 0.340`, `max_steering_angle: 0.5`. Autoware
-   plans curvature with the first and the interface clamps with the second.
-2. **The MRM configuration in this repository is not loaded, and a safety check
-   believed disabled is live.** `autosdv_system_component.launch.xml` passes
-   `autoware_launch`'s own paths as fixed values, so three `config/system/mrm_*`
-   directories are dead and disagree with what runs. The localization accuracy
-   check documented as disabled in three places is active on every non-`mcl`
-   pose source.
-3. **The two scan matchers ship different tuning** — `ndt` at resolution 4.0,
-   `cuda_ndt` at 2.0 — and the `ndt` value contradicts the measurement recorded
-   in the tree beside it.
-4. **`docs/guides/lio_sam_mapping.md` documents a launch file that does not
-   exist** anywhere in the repository.
-5. **The Robin-W vertical FOV is unsettled**: 25° in the book's history, 70° in
-   `docs/research/robin_w_fov.md`, and no recording exists to measure. One
-   Robin-W bag plus `scripts/sensor/inspect_rings.py` closes it.
-6. Smaller: a corrupted table in `docs/guides/ndt-tuning.md`, and
-   `scripts/testing/localization/README.md` still saying `make launch`.
+1. ~~**The planner and the actuator model different vehicles.**~~ **Fixed**:
+   `actuator.yaml` now carries `vehicle_info.param.yaml`'s values (0.319,
+   0.349), which is the conservative direction — the actuator can no longer
+   out-steer the plan. **Still needs a measurement**: if the vehicle really
+   reaches 0.5 rad, raise *both* files after measuring lock-to-lock. Each value
+   now carries that rule beside it.
+2. ~~**The MRM configuration is not loaded**~~ **Fixed**: the three dead
+   `config/system/mrm_*` directories and ten dead diagnostic-graph copies are
+   deleted. They were not wired in, deliberately — doing that changes how the
+   vehicle brakes in an emergency, which is a tested change rather than a
+   tidy-up. AutoSDV overrides no MRM parameter, and the docs now say so.
+
+   **The accuracy check remains ARMED, and that is now a decision, not an
+   accident.** Three documents claimed it was disabled; the edit lived in a file
+   nothing read. The docs are corrected and name where the change would actually
+   have to be made. Disabling a localization safety check is the owner's call,
+   so nothing here disabled it.
+3. ~~**The two scan matchers ship different tuning**~~ **Fixed**: the CPU path
+   moved to resolution 2.0, the measured value, and its NVTL gate moved with it
+   (2.2 to 2.0) rather than after it — NVTL scales with voxel size, so leaving
+   the gate alone would have tightened it and stopped poses publishing.
+   **Untested on a vehicle**: finer voxels cost CPU on the fallback path.
+4. ~~**`lio_sam_mapping.md` documents a launch file that does not exist**~~
+   **Fixed**: retired with a header saying why, keeping the remaps and IMU noise
+   values as notes. GLIM is the mapper.
+5. **The Robin-W vertical FOV is still unsettled** — the one defect a commit
+   cannot close. Marked UNVERIFIED at its source now, with both candidates and
+   the command that settles it. The horizontal 120° *is* verified: the SDK
+   discards points outside ±60° of azimuth. **Needs one Robin-W recording.**
+6. ~~Smaller items~~ **Fixed**: the orphaned `particles_num` row is back in its
+   table; `make launch` / `make build` replaced with the `just` recipes across
+   five guides; the phantom `autoware/src/universe/...` paths replaced with
+   `/opt/autoware/1.5.0/share`; and CLAUDE.md's steering PWM quick reference,
+   which said 350-450/400 against the file's 439/539/489.
 
 ## Open decisions
 
