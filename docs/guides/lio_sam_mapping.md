@@ -1,4 +1,22 @@
-# LIO-SAM Point Cloud Mapping for AutoSDV
+# LIO-SAM Point Cloud Mapping for AutoSDV (retired)
+
+> **Retired, 2026-09-22. Do not follow this end to end.**
+>
+> Two things are wrong with it as a procedure. The commands it gives are of the
+> form `ros2 launch autosdv_launch lio_sam_mapping.launch.xml …`, and **no such
+> launch file exists** — there is no `lio_sam` reference anywhere under `src/`,
+> and there never was one in this repository's history. And the project now maps
+> with **GLIM**, which keeps an editable dump (factor graph, submaps,
+> trajectories) instead of only a flattened cloud, so a map can be corrected
+> rather than re-recorded.
+>
+> For the current workflow see the book's **Maps** page, which documents GLIM
+> against this vehicle's topics.
+>
+> What is kept below, and why: the topic remaps, the IMU noise values and the
+> loop-closure and GNSS settings are a record of parameters that suited this
+> sensor suite. If you bring LIO-SAM from upstream yourself, they are a
+> reasonable starting point. Read them as notes, not as steps.
 
 This guide explains how to create point cloud maps for AutoSDV using LIO-SAM (Tightly-coupled Lidar Inertial Odometry via Smoothing and Mapping).
 
@@ -383,7 +401,7 @@ cp ~/Downloads/LOAM/GlobalMap.pcd data/my_map/pointcloud_map.pcd
 # Use Vector Map Builder: https://tools.tier4.jp/
 
 # 3. Launch Autoware with your map
-make launch ARGS="map_path:=$(pwd)/data/my_map"
+just launch "map_path:=$(pwd)/data/my_map"
 ```
 
 ## References

@@ -124,7 +124,7 @@ the EKF settled, not the raw click.
 1. ✓ U-Blox GPS connected and recognized (`/dev/ttyACM0` or `/dev/ublox-gps`)
 2. ✓ Vehicle is in the mapped area (COSS campus)
 3. ✓ Clear sky view for GPS signal
-4. ✓ AutoSDV system running (`make launch` or `make play`)
+4. ✓ AutoSDV system running (`just launch`, or `just coss logging-sim` for a replay)
 
 ### Step 1: Check GPS Signal
 ```bash

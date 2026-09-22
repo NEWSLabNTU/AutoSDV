@@ -58,37 +58,14 @@ All configuration files are in the `config/` directory. Below are AutoSDV-specif
 
 ### System Diagnostics & MRM (config/system/)
 
-- **diagnostics/localization.yaml**: Disabled localization accuracy check
-  - **CRITICAL CHANGE**: Commented out `/autoware/localization/accuracy` check to prevent false MRM triggers
-  - **Reason**: Default error ellipse thresholds (1.5m position, 0.3m lateral) too strict for VLP-32C
-  - **Impact**: MRM emergency stops no longer triggered by localization uncertainty alone
-  - Localization quality still monitored via `scan_matching_status` (NDT score threshold)
-  - **Alternative (not implemented)**: Override `localization_error_monitor.param.yaml` with higher thresholds:
-    - `error_ellipse_size: 3.0` (from 1.5m)
-    - `error_ellipse_size_lateral_direction: 0.6` (from 0.3m)
-  - **Recommendation**: Monitor `/localization/localization_error_monitor/debug/ellipse_marker` during testing
-  - Last modified: 2025-12-28
-
-**MRM Background:**
-- MRM triggers emergency stop when autonomous mode becomes unavailable
-- Autonomous mode requires ALL of: localization, perception, planning, control, vehicle, map
-- Default behavior: Emergency stop with -2.5 m/s² braking (aggressive)
-- During outdoor testing, brief localization uncertainty can trigger false emergency stops
-- This change allows controlled operation with acceptable localization uncertainty
-
-**Monitoring MRM Status:**
-```bash
-# Check autonomous mode availability
-ros2 topic echo /system/operation_mode/availability
-
-# Check MRM state
-ros2 topic echo /system/fail_safe/mrm_state
-
-# View all diagnostics
-ros2 run rqt_robot_monitor rqt_robot_monitor
-```
-
-## Configuration Categories (config/ directory)
+- **diagnostics/**: only the `-mcl` graphs here are loaded
+  - `autosdv-mcl-main.yaml`, `localization-mcl.yaml` and `map-mcl.yaml` are used
+    when `pose_source:=mcl`; every other pose source reads autoware_launch's
+    graphs untouched.
+  - The repository once carried edited copies of the stock graphs, including a
+    `localization.yaml` with the accuracy check commented out. **Nothing loaded
+    them**, so the accuracy check was live throughout; they were deleted on
+    2026-09-22. See `docs/guides/mrm_configuration.md`.
 
 - **control/**: Vehicle control parameters (trajectory following, cmd gate, etc.)
 - **localization/**: Localization parameters (NDT, EKF, pose initializer, etc.)

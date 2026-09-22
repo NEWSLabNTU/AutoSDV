@@ -70,25 +70,25 @@ ros2 launch autosdv_launch autosdv.launch.yaml imu_source:=zed camera_model:=zed
 ### LiDAR Models
 
 ```bash
-make launch ARGS="lidar_model:=robin-w"   # Robin-W Solid-State (default)
-make launch ARGS="lidar_model:=vlp32c"    # Velodyne VLP-32C
-make launch ARGS="lidar_model:=cube1"     # Blickfeld Cube1
+just launch "lidar_model:=robin-w"   # Robin-W Solid-State (default)
+just launch "lidar_model:=vlp32c"    # Velodyne VLP-32C
+just launch "lidar_model:=cube1"     # Blickfeld Cube1
 ```
 
 ### Camera Models
 
 ```bash
-make launch ARGS="camera_model:=zedxm"    # ZED stereo camera (default)
-make launch ARGS="camera_model:=usb"      # USB cameras
-make launch ARGS="camera_model:=none"     # No camera
+just launch "camera_model:=zedxm"    # ZED stereo camera (default)
+just launch "camera_model:=usb"      # USB cameras
+just launch "camera_model:=none"     # No camera
 ```
 
 ### GNSS Receivers
 
 ```bash
-make launch ARGS="gnss_receiver:=garmin"      # Garmin (default)
-make launch ARGS="gnss_receiver:=ublox"       # u-blox
-make launch ARGS="gnss_receiver:=septentrio"  # Septentrio
+just launch "gnss_receiver:=garmin"      # Garmin (default)
+just launch "gnss_receiver:=ublox"       # u-blox
+just launch "gnss_receiver:=septentrio"  # Septentrio
 ```
 
 ## NTRIP/RTK Configuration (u-blox only)
@@ -112,10 +112,10 @@ AutoSDV supports RTK positioning for centimeter-level accuracy using NTRIP.
 
 ```bash
 # Basic RTK setup with u-blox + NTRIP
-make launch ARGS="gnss_receiver:=ublox use_ntrip:=true"
+just launch "gnss_receiver:=ublox use_ntrip:=true"
 
 # Full outdoor autonomous setup with RTK
-make launch ARGS="gnss_receiver:=ublox use_ntrip:=true lidar_model:=robin-w camera_model:=zedxm"
+just launch "gnss_receiver:=ublox use_ntrip:=true lidar_model:=robin-w camera_model:=zedxm"
 ```
 
 ### How NTRIP Works
@@ -151,7 +151,7 @@ ros2 topic echo /sensing/gnss/ublox/rxmrtcm         # RTCM reception status
 For indoor testing without GNSS:
 
 ```bash
-make launch ARGS="use_gnss:=false"
+just launch "use_gnss:=false"
 ```
 
 When running indoors:
@@ -165,9 +165,9 @@ When running indoors:
 ### CUDA NDT Scan Matching (Default)
 
 ```bash
-make launch  # cuda_ndt is the default pose_source
-# Or explicitly: make launch ARGS="pose_source:=cuda_ndt"
-# Fallback to Autoware NDT: make launch ARGS="pose_source:=ndt"
+just launch  # cuda_ndt is the default pose_source
+# Or explicitly: just launch "pose_source:=cuda_ndt"
+# Fallback to Autoware NDT: just launch "pose_source:=ndt"
 ```
 
 - CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)

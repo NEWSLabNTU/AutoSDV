@@ -29,10 +29,21 @@
       step_size: 0.1
 
       # The ND voxel grid resolution
-      # AutoSDV: Tuned based on point density and matching quality
-      # Larger voxels improve statistical confidence but reduce geometric precision
-      # Smaller voxels preserve features but require more points per voxel
-      resolution: 4.0
+      #
+      # 2.0, matching the CUDA matcher, because this project measured the
+      # difference rather than reasoning about it. On the COSS map, 4.0 gave 5x
+      # the per-frame position scatter (0.106 m against 0.020 m) and double the
+      # prediction correction: coarser voxels localise less precisely. It looks
+      # better only through NVTL, which scales with voxel size and so buys
+      # margin over the convergence gate without buying accuracy -- which is
+      # why the gate below moved with this value and not after it. The
+      # measurement is recorded beside the same parameter in
+      # cuda_ndt_matcher_launch/config/cuda_scan_matcher.param.yaml.
+      #
+      # This path shipped 4.0 until 2026-09-22, so `pose_source:=ndt` and
+      # `pose_source:=cuda_ndt` silently localised at different resolutions.
+      # Finer voxels cost CPU; this is the fallback path, and correctness wins.
+      resolution: 2.0
 
       # The number of iterations required to calculate alignment
       max_iterations: 30
@@ -85,10 +96,13 @@
 
       # If converged_param_type is 1
       # Threshold for deciding whether to trust the estimation result
-      # AutoSDV: Tuned based on observed score distribution and point density
-      # Higher resolution voxels improve score confidence
-      # Lower threshold accepts more poses but may reduce accuracy
-      converged_param_nearest_voxel_transformation_likelihood: 2.2
+      #
+      # 2.0, matching the CUDA matcher, and it had to move WITH the resolution
+      # above: NVTL scales with voxel size (4.84 at resolution 4.0 against 2.90
+      # at 2.0 on the same recording), so keeping 2.2 while halving the
+      # resolution would have tightened this gate rather than left it alone,
+      # and frames that used to converge would simply stop publishing a pose.
+      converged_param_nearest_voxel_transformation_likelihood: 2.0
 
       # Scan matching score based on no ground LiDAR scan
       no_ground_points:

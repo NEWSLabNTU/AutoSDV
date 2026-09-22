@@ -849,14 +849,19 @@ twist_source:=gyro_odom|eagleye            # Override preset twist source
 
 ### Vehicle Interface (Quick Ref)
 
+Values below are `actuator.yaml`'s, which is the file that drives the servo.
+They drifted from it once; read them there when it matters.
+
 **Motor PWM** (PCA9685 I2C, channel 0):
-- Range: 280-460, Init: 370 (neutral), Brake: 340
-- Forward: 371-460, Reverse: 280-369
+- `min_pwm` 360, `init_pwm` 370 (neutral), `max_pwm` 470, `brake_pwm` 340
 - Multi-mode controller: Emergency Brake, Full Stop, Deadband Hold, Active Control (PID)
 
 **Steering PWM** (PCA9685 I2C, channel 1):
-- Range: 350-450, Init: 400 (center)
-- Max angle: 0.349 rad ≈ 20°
+- `min_steer` 439 (RIGHT, hardware is reversed), `init_steer` 489 (centre), `max_steer` 539 (LEFT)
+- `max_steering_angle` 0.349 rad ≈ 20°, which **must** equal `max_steer_angle`
+  in `vehicle_info.param.yaml` — the planner sizes every trajectory against that
+  file, so a wider clamp here lets the actuator out-steer the plan. Same rule
+  for `wheelbase` (0.319) against `wheel_base`.
 - Dual-mode controller: Fallback (v<0.3m/s), Normal (yaw rate feedback)
 
 **Velocity Sensing**:

@@ -75,40 +75,36 @@ NORMAL → EMERGENCY → RECOVERY → NORMAL
 
 ## AutoSDV Configuration Changes
 
-### Change 1: Disable Localization Accuracy Check (IMPLEMENTED)
+### Change 1: Disable the localization accuracy check — NOT IN EFFECT
 
-**File**: `src/launcher/autosdv_launch/config/system/diagnostics/localization.yaml`
+**This was never active, and the files that describe it are gone.**
 
-**Modification:**
-```yaml
-/autoware/localization:
-  type: short-circuit-and
-  list:
-    - type: link
-      link: /autoware/localization/state
-    - type: and
-      list:
-        - { type: link, link: /autoware/localization/topic_rate_check/transform }
-        - { type: link, link: /autoware/localization/topic_rate_check/pose_twist_fusion }
-        - { type: link, link: /autoware/localization/scan_matching_status }
-        # AutoSDV: DISABLED to prevent false MRM triggers
-        # - { type: link, link: /autoware/localization/accuracy }
-        - { type: link, link: /autoware/localization/sensor_fusion_status }
-```
+The intent was to comment out `/autoware/localization/accuracy` so that a
+degraded pose could not trigger an MRM emergency stop on its own. The edit was
+made in `src/launcher/autosdv_launch/config/system/diagnostics/localization.yaml`
+— a file nothing ever loaded:
 
-**Impact:**
-- ✅ MRM no longer triggered by localization uncertainty alone
-- ✅ Localization quality still monitored via NDT scan_matching_status
-- ⚠️ Operator must monitor localization quality via RViz and topics
+- for every `pose_source` except `mcl`, `diagnostic_graph_aggregator_graph_path`
+  resolves to **autoware_launch's** `autoware-main.yaml`, which includes
+  **autoware_launch's** `localization.yaml`, where the accuracy link is present;
+- for `mcl` it resolves to this repository's `autosdv-mcl-main.yaml`, which
+  includes `localization-mcl.yaml` — and that file keeps the accuracy check too.
 
-**Rationale:**
-- VLP-32C with NDT on COSS map has 5.4% pose rejection rate (acceptable with EKF fusion)
-- Brief uncertainty spikes are normal and handled by EKF sensor fusion
-- NDT score threshold (2.2) already provides localization quality control
+So the check has been **live on every pose source** for as long as this section
+has claimed otherwise. The dead copy was deleted on 2026-09-22 rather than left
+to be believed again.
+
+**If you want it off**, it is a deliberate safety decision and it has to be made
+where the graph is actually read: either point
+`diagnostic_graph_aggregator_graph_path` at a graph in this repository that
+omits the link, or raise the thresholds in
+`localization_error_monitor.param.yaml` (1.5 m position, 0.3 m lateral by
+default) instead of removing the check.
+
 
 ### Change 2: Alternative - Increase Error Thresholds (NOT IMPLEMENTED)
 
-**File**: `autoware/src/universe/autoware.universe/localization/autoware_localization_error_monitor/config/localization_error_monitor.param.yaml`
+**File**: `/opt/autoware/1.5.0/share/autoware_localization_error_monitor/config/localization_error_monitor.param.yaml`
 
 **Proposed Override (if needed in future):**
 ```yaml
@@ -173,36 +169,53 @@ ros2 topic echo /system/operation_mode/availability | grep autonomous
 
 ## Configuration Files Reference
 
-### AutoSDV Configuration (Our Repo)
+### What this repository actually carries
+
 ```
-src/launcher/autosdv_launch/config/system/
-├── diagnostics/
-│   ├── localization.yaml           # MODIFIED: Disabled accuracy check
-│   ├── autoware-main.yaml          # Defines autonomous mode requirements
-│   └── ...
-├── mrm_handler/
-│   └── mrm_handler.param.yaml      # MRM behavior selection
-├── mrm_emergency_stop_operator/
-│   └── mrm_emergency_stop_operator.param.yaml   # Emergency stop params
-└── mrm_comfortable_stop_operator/
-    └── mrm_comfortable_stop_operator.param.yaml # Gentle stop params
+src/launcher/autosdv_launch/config/system/diagnostics/
+├── autosdv-mcl-main.yaml      # loaded only when pose_source:=mcl
+├── localization-mcl.yaml      # included by the above
+└── map-mcl.yaml               # included by the above
 ```
 
-### Autoware Default Configuration (Submodule - DO NOT MODIFY)
+That is all of it. **AutoSDV overrides no MRM parameter.** The MRM handler and
+both stop operators run on autoware_launch's own files, because
+`autosdv_system_component.launch.xml` passes those paths as fixed `value=`
+attributes:
+
+```xml
+<arg name="mrm_handler_param_path"
+     value="$(find-pkg-share autoware_launch)/config/system/mrm_handler/mrm_handler.param.yaml"/>
 ```
-autoware/src/universe/autoware.universe/
-├── localization/autoware_localization_error_monitor/
-│   └── config/localization_error_monitor.param.yaml  # Error thresholds
-├── system/mrm_handler/
-│   ├── config/mrm_handler.param.yaml
-│   └── src/mrm_handler/mrm_handler_core.cpp    # MRM logic
-└── system/mrm_emergency_stop_operator/
-    └── config/mrm_emergency_stop_operator.param.yaml
+
+Until 2026-09-22 this repository also held copies of those three files plus ten
+stock diagnostic graphs. Nothing loaded any of them, and their values had drifted
+from what runs (`use_comfortable_stop` false here against true in effect,
+`target_acceleration` -3.0 against -2.5). They were deleted rather than wired in:
+wiring them would have changed how the vehicle brakes in an emergency, which is a
+tested change, not a tidy-up.
+
+### Autoware's own configuration (installed, not a submodule)
+
+Autoware is a Debian install. The files that are actually read live under
+`/opt/autoware/1.5.0/share/`:
+
 ```
+/opt/autoware/1.5.0/share/autoware_launch/config/system/
+├── mrm_handler/mrm_handler.param.yaml
+├── mrm_emergency_stop_operator/mrm_emergency_stop_operator.param.yaml
+├── mrm_comfortable_stop_operator/mrm_comfortable_stop_operator.param.yaml
+└── diagnostics/{autoware-main,localization,...}.yaml
+/opt/autoware/1.5.0/share/autoware_localization_error_monitor/config/
+└── localization_error_monitor.param.yaml    # the 1.5 m / 0.3 m thresholds
+```
+
+The old `autoware/src/universe/autoware.universe/...` paths this section used to
+give do not exist in this checkout; there is no Autoware source tree here.
 
 ## MRM Handler Parameters
 
-**File**: `autoware/src/universe/autoware.universe/system/mrm_handler/config/mrm_handler.param.yaml`
+**File**: `/opt/autoware/1.5.0/share/autoware_launch/config/system/mrm_handler/mrm_handler.param.yaml`
 
 **Key Parameters:**
 ```yaml
@@ -216,12 +229,12 @@ turning_hazard_on.emergency: true    # Hazard lights during emergency
 
 **To enable gentler emergency stops (if needed):**
 1. Set `use_comfortable_stop: true`
-2. Rebuild with `make build` (config changes only, fast)
+2. Rebuild with `just build` (config changes only, fast)
 3. Test emergency stop behavior
 
 ## Emergency Stop Parameters
 
-**File**: `autoware/src/universe/autoware.universe/system/mrm_emergency_stop_operator/config/mrm_emergency_stop_operator.param.yaml`
+**File**: `/opt/autoware/1.5.0/share/autoware_launch/config/system/mrm_emergency_stop_operator/mrm_emergency_stop_operator.param.yaml`
 
 **Default Values:**
 ```yaml
@@ -329,9 +342,9 @@ target_jerk: -1.0                    # Smoother deceleration
 - [MRM Handler](https://github.com/autowarefoundation/autoware.universe/tree/main/system/mrm_handler)
 
 **Source Code:**
-- MRM Handler: `autoware/src/universe/autoware.universe/system/mrm_handler/`
-- Localization Error Monitor: `autoware/src/universe/autoware.universe/localization/autoware_localization_error_monitor/`
-- Diagnostic Aggregator: `autoware/src/universe/autoware.universe/system/system_diagnostic_monitor/`
+- MRM Handler: `/opt/autoware/1.5.0/share/autoware_launch/config/system/mrm_handler/` (source: autowarefoundation/autoware_universe)
+- Localization Error Monitor: `/opt/autoware/1.5.0/share/autoware_localization_error_monitor/`
+- Diagnostic Aggregator: `/opt/autoware/1.5.0/share/autoware_launch/config/system/diagnostics/`
 
 ---
 

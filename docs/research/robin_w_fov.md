@@ -3,8 +3,21 @@
 ## Robin-W Specifications
 
 ### Field of View (FOV)
-- **Horizontal**: 120° (±60° from center)
-- **Vertical**: 70° (±35° from center)
+- **Horizontal**: 120° (±60° from center) — **verified in the driver**: the
+  Seyond SDK discards points outside ±60° of azimuth in
+  `is_robin_inside_fov_point()`
+  (`seyond_sdk/src/sdk_common/inno_lidar_packet_utils.h`).
+- **Vertical**: 70° (±35° from center) — **UNVERIFIED.** The book's sensor pages
+  have long said 25°, this document says 70°, and nothing settles it: the SDK
+  compiles in no vertical limit for Robin-W at all (only the Hummingbird has
+  one), and the elevation table is fetched from the device at runtime. No
+  Robin-W recording exists in this repository to measure.
+  **To settle it**, record one frame and read the elevation span directly — the
+  driver's `PointXYZIRCAEDT` layout carries a per-point `elevation` field:
+
+  ```bash
+  python3 scripts/sensor/inspect_rings.py <bag> --topic /sensing/lidar/iv_points
+  ```
 - **Total Coverage**: 120° × 70° solid-state scan
 
 ### Key Specifications

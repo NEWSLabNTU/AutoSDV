@@ -22,7 +22,7 @@ The AutoSDV control system consists of:
 
 ## Prerequisites
 
-1. **Built System**: Ensure AutoSDV is built with `make build`
+1. **Built System**: Ensure AutoSDV is built with `just build`
 2. **Hardware**:
    - PWM driver (PCA9685) properly connected
    - Wheel speed sensor connected to GPIO pin
@@ -82,7 +82,7 @@ Start system and controller separately:
 
 ```bash
 # Terminal 1: Launch AutoSDV system
-make launch
+just launch
 
 # Terminal 2: Launch keyboard controller
 make controller
@@ -128,7 +128,7 @@ lateral:
 
 #### Step 1: Launch AutoSDV
 ```bash
-make launch
+just launch
 ```
 
 #### Step 2: Set Remote Mode in RViz
@@ -367,7 +367,7 @@ kd_accel: 0.0    # Derivative gain
 2. Tune outer loop (speed) first, then inner loop (accel)
 3. Monitor oscillations in debug topics
 4. Use Ziegler-Nichols method for initial values
-5. Rebuild after changes: `make build`
+5. Rebuild after changes: `just build`
 
 ### Steering Calibration
 ```yaml

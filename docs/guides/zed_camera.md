@@ -104,7 +104,7 @@ Two operation modes:
 ### Enable Object Detection
 
 ```bash
-make launch ARGS="enable_zed_object_detection:=true"
+just launch "enable_zed_object_detection:=true"
 ```
 
 ### Configuration Files
