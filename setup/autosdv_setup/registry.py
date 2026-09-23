@@ -545,6 +545,10 @@ STEPS: list[Step] = [
         # cannot compile.
         run=_BASH(
             _require_submodule("src/localization/external/range_libc") +
+            # Keep this check beside the build that needs it.  `just build`
+            # performs the same check, but setup can build range_libc directly
+            # before colcon ever runs.
+            f'"{REPO_ROOT}/scripts/build/check-python-env.sh" && '
             "sudo apt-get update && "
             "sudo apt-get install -y --no-install-recommends cython3 python3-dev && "
             f'cd "{REPO_ROOT}/src/localization/external/range_libc/pywrapper" && '
