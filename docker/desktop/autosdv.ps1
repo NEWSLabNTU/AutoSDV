@@ -60,8 +60,9 @@ $ErrorActionPreference = 'Continue'
 
 $Name  = if ($env:AUTOSDV_CONTAINER) { $env:AUTOSDV_CONTAINER } else { 'autosdv' }
 # -Image beats the environment variable, which beats the default. :desktop
-# carries the AutoSDV workspace prebuilt, which is what the simulations need;
-# :base carries the same ROS 2 and tools without it.
+# carries ROS 2, Autoware and every prerequisite and no AutoSDV of its own --
+# yours is mounted at /workspace; :sim is the same with a workspace prebuilt
+# at /opt/AutoSDV, for the simulation.
 if (-not $Image) { $Image = $env:AUTOSDV_IMAGE }
 if (-not $Image) { $Image = 'jerry73204/autosdv:desktop' }
 $Port  = if ($env:AUTOSDV_PORT)      { $env:AUTOSDV_PORT }      else { '6080' }
@@ -209,8 +210,8 @@ function Show-PortHelp {
 # sourced. A shell without them has no `ros2` command at all, and the error
 # says only "command not found".
 #
-# `cd /opt/AutoSDV` is conditional because :base carries no prebuilt workspace
-# (only :desktop does). Sourcing an install/setup.bash that is not there prints
+# `cd /opt/AutoSDV` is conditional because only :sim carries a prebuilt
+# workspace (:desktop and :base do not). Sourcing an install/setup.bash that is not there prints
 # "No such file or directory" on every shell the student opens, which reads as
 # a broken image rather than as a different image.
 #
@@ -331,7 +332,7 @@ if ($LASTEXITCODE -eq 0) {
     #
     # TWO mounts, and the data one is not redundant. /workspace is the
     # student's checkout, where their own work lives; the data mount stays
-    # because :desktop's prebuilt workspace IS /opt/AutoSDV, and mounting the
+    # because :sim's prebuilt workspace IS /opt/AutoSDV, and mounting the
     # checkout over it would shadow the prebuilt install/ and break the
     # `source install/setup.bash` every shell here does.
     #

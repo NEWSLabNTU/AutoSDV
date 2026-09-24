@@ -154,7 +154,8 @@ place_rosbag() {
     ln -f "$src" "$ROSBAG_OUT" 2>/dev/null || cp "$src" "$ROSBAG_OUT"
 }
 
-# The recording belongs to the workshop, which is the :desktop handout. :base
+# The recording belongs to the workshop, which is the :sim handout (the
+# prebuilt workspace; :desktop no longer carries one). :base
 # is the Lab 0 handout -- turtlesim, no replay -- and spending 1.7 GB of
 # transfer plus a slot in the directory listing on a file nobody unzips is a
 # slow mistake rather than a safe default. ROSBAG=1 still forces it, and

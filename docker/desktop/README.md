@@ -5,16 +5,31 @@ One Dockerfile, two targets.
 | target | what it is | who uses it |
 |---|---|---|
 | `base` | prerequisites, **no workspace**. The student's own checkout is bind-mounted at `/workspace` and built there. | the course development container, from Lab 0 onward |
-| `desktop` | `base` plus the workspace built in | the workshop, and the simulation tutorials |
+| `desktop` | `base` plus the two setup steps that read the source tree (`ros-deps`, `range-libc`), after which the tree is deleted again -- **still no workspace** | anyone building a full AutoSDV checkout at `/workspace` |
 
 Both open a browser onto a desktop with RViz and a terminal, with no ROS 2, no
-Autoware and no AutoSDV build on the student's own laptop.
-
-**Which to reach for.** `desktop` if you want a simulation running in minutes and
-do not intend to change the code — it is what the workshop handed out. `base` if
-you are going to write code, because in `base` the code is yours: it lives in
+Autoware and no AutoSDV build on the student's own laptop -- and, since
+2026-09-24, none in the image either. The code is yours in both: it lives in
 your checkout, your own editor is already looking at it, and it survives
-`docker rm`. Everything a student writes in a lab belongs in `base`.
+`docker rm`. Everything a student writes in a lab belongs in that mount.
+
+**Which to reach for.** `desktop` if the mount is an AutoSDV checkout: `just
+build` works in it with no further install step. `base` if the mount is a lab
+workspace that needs neither of the two extra steps (Lab 0). Neither gives you a
+simulation without a build; for that there is a third, frozen image:
+
+```bash
+./docker/desktop/autosdv.sh --image jerry73204/autosdv:sim
+```
+
+`jerry73204/autosdv:sim` is the desktop image as it was before 2026-09-24,
+`/opt/AutoSDV` built in, preserved unchanged for the optional Lab 0 simulation
+appendix and the TA's live demo. It is a re-pointed manifest of the old
+per-architecture images, not a rebuild, and nothing here rebuilds it -- if it
+ever must be, the recipe is the old `desktop` stage in git history. Until that
+date `desktop` **was** `:sim`: two checkouts in one container, `/opt/AutoSDV`
+(nobody's) and `/workspace` (the student's), and the sourced one was the wrong
+one. That is why the workspace came out.
 
 ```bash
 ./docker/desktop/build.sh                        # amd64 desktop, on this machine
@@ -46,8 +61,16 @@ container is not a thing this does.
 
 ## Building the mounted workspace
 
+In `desktop`, a full AutoSDV checkout mounted at `/workspace` builds as it does
+on a workstation:
+
+```bash
+just build
+just sim planning        # or just launch; both source your own install/
+```
+
 `base` omits the two setup steps that read `src/`, because it has no `src/`.
-Before the first `colcon build` of a full AutoSDV checkout:
+Before the first `colcon build` of a full AutoSDV checkout there:
 
 ```bash
 ./setup.sh --run --only ros-deps range-libc --yes
@@ -67,15 +90,19 @@ docker run -it --rm -p 6080:6080 \
 # then open http://localhost:6080
 ```
 
-Note that `/workspace` and `/opt/AutoSDV/data` are two different mounts and
-both earn their place. `/workspace` is the checkout you work in; the data mount
-stays because `:desktop`'s prebuilt workspace **is** `/opt/AutoSDV`, so mounting
-the checkout over it would shadow the prebuilt `install/` and break the
-`source install/setup.bash` that every shell in this image runs.
+Note that `/workspace` and `/opt/AutoSDV/data` are two different mounts.
+`/workspace` is the checkout you work in, and in `:desktop` it is the only one
+that matters: the maps and rosbags a launch reads are the checkout's own
+`data/`, already inside the mount. The data mount is there for `:sim`, whose
+prebuilt workspace **is** `/opt/AutoSDV` -- mounting the checkout over it would
+shadow the prebuilt `install/` and break the `source install/setup.bash` every
+shell in that image runs -- and the launcher passes both so one command serves
+either image.
 
-**The `-v data` mount is not optional.** Maps and rosbags are deliberately kept
-out of the image (`.dockerignore` excludes `data/`), so without it the planning
-simulation comes up 33/34 with the map container half empty:
+**For `:sim`, the `-v data` mount is not optional.** Maps and rosbags are
+deliberately kept out of the image (`.dockerignore` excludes `data/`), so
+without it the planning simulation comes up 33/34 with the map container half
+empty:
 
 ```
 PCD load failed: /opt/AutoSDV/data/COSS-map-planning/pointcloud_map.pcd
@@ -104,9 +131,10 @@ and opens another shell in the same container every time after, which is what
 the logging simulation needs: one terminal for the stack, one for the rosbag
 replay. `--stop` / `-Stop` removes it.
 
-Each shell it opens has ROS 2, Autoware and the workspace already sourced. A
-shell without them has no `ros2` command at all, and the error says only
-`command not found`.
+Each shell it opens has ROS 2 and Autoware already sourced; `just build` and
+`just launch` source your own `install/` themselves, and in `:sim` the prebuilt
+workspace is sourced too. A shell without ROS 2 has no `ros2` command at all,
+and the error says only `command not found`.
 
 It also sets `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp`, without which a second
 terminal cannot see the running stack at all -- see below.
@@ -130,8 +158,10 @@ to `play_launch`, not to `docker run`.
 ## Handing the files out offline
 
 Fifty laptops pulling from Docker Hub at once does not work: the amd64 image is
-**14.34 GB compressed** and the arm64 image **5.37 GB**, and Docker Hub rate
-limits per address. Export once, serve locally.
+**14.34 GB compressed** and the arm64 image **5.37 GB** (measured on the
+prebuilt image, now `:sim`; the current `desktop`, which drops the build, has
+not been re-measured), and Docker Hub rate limits per address. Export once,
+serve locally.
 
 ```bash
 OUT_DIR=/srv/autosdv ./docker/desktop/export-images.sh          # both, + the recording
@@ -403,9 +433,14 @@ removed once the underlying packages learned to skip themselves. A package
 added here to get the build moving hides the same gap on a student's laptop,
 which is the machine this image exists to stand in for.
 
-**The workspace ships prebuilt.** A student reaches a running simulation in
-minutes rather than watching colcon for forty, and a laptop that would run out
-of memory while linking never has to.
+**The workspace is not built in** -- reversed on 2026-09-24. It used to be, so
+that a student reached a running simulation in minutes rather than watching
+colcon for forty; the cost was two checkouts in one container, `/opt/AutoSDV`
+(nobody's) and `/workspace` (the student's), with the sourced one the wrong one,
+and that confusion outweighed the forty minutes. Students, TAs and every later
+lab mount their own checkout and build it. The prebuilt image is frozen as
+`jerry73204/autosdv:sim` for the one audience that wants the simulation without
+a build -- the optional Lab 0 appendix and the TA's live demo.
 
 **Graphics are decided at run time.** The container always runs TurboVNC and
 serves it over noVNC, so the run command is identical everywhere; the
@@ -464,6 +499,10 @@ or in an isolated CMake snippet.
 
 ## Size
 
+Everything in this section was measured on the image that still carried the
+build, now `:sim`. The current `desktop` drops `src/`, `build/` and `install/`
+as well and has not been re-measured.
+
 The first working image was **34.8 GB**, which is not a number a student pulls.
 Measured from inside it, most of that was not the workspace:
 
@@ -490,9 +529,12 @@ stay consistent; it takes its `sources.list` and preferences pin with it, and
 nothing cascades (verified: 0 packages removed, 333 Autoware debs still
 installed, `ros2 pkg list` unchanged).
 
-**`build/` and `src/` stay**, however tempting 1.5 GB is: `just build` passes
-`--symlink-install`, so the 25 MB `install/` tree is 1071 symlinks pointing back
-into them. Deleting either empties the workspace with no error at all.
+**`build/`, `src/` and `install/` are all gone** since 2026-09-24, with the
+build that produced them. While the image shipped a build, `build/` and `src/`
+had to stay however tempting 1.5 GB was: `just build` passes
+`--symlink-install`, so the 25 MB `install/` tree was 1071 symlinks pointing back
+into them, and deleting either emptied the workspace with no error at all. That
+constraint still binds `:sim`.
 
 ### TensorRT was installed twice, and PyYAML is why
 
@@ -572,6 +614,10 @@ still mentions it when it falls back to software rendering. Nothing selects it
 automatically.
 
 ## Known gaps
+
+The verification figures below (34/34 nodes, image sizes, RViz drawing the map)
+were measured on the prebuilt image, now `:sim`. The current `desktop` has been
+built but not re-verified end to end with a mounted checkout.
 
 - **The arm64 image is built and verified**, at 11.2 GB -- less than half the
   amd64 image, which carries a CUDA `devel` base this one does not. The planning

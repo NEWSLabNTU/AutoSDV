@@ -7,7 +7,10 @@ AutoSDV build on their own machine.
 **Status**: the image ships. Both architectures are built, verified and
 published as one `:desktop` tag, and a student on any of the three platforms
 reaches a running planning simulation from one `docker pull`. What is left is
-documentation and teaching material — phases 4, 8 and 9.
+documentation and teaching material — phases 4, 8 and 9. **Since 2026-09-24
+the `:desktop` tag no longer carries that build**; the one-pull simulation is
+`:sim`, and `:desktop` builds a mounted checkout — see the dated entry at the
+end.
 
 **Feeds**: [roadmap 9](9-workshop-laptop-onboarding.md), whose two-hour timetable
 this changes — see *Consequences* below.
@@ -84,9 +87,10 @@ picks the fastest renderer the host actually exposes.
 | Windows (WSL2) | yes | Mesa **d3d12** via `/dev/dxg` |
 | **macOS** | **never** | software (llvmpipe) |
 
-The workspace ships **prebuilt**. A student reaches a running simulation in
-minutes rather than watching colcon for forty, and a laptop that would run out
-of memory while linking never has to.
+The workspace shipped **prebuilt** until 2026-09-24. A student reached a running
+simulation in minutes rather than watching colcon for forty, and a laptop that
+would run out of memory while linking never had to. That is now `:sim` only;
+why it came out of `:desktop` is the last section of this file.
 
 ## Phases
 
@@ -311,3 +315,37 @@ in place. Details and the platform table: `docker/desktop/README.md`.
 - **Every measurement so far is from a 32-thread workstation**, which is four to
   eight times a student laptop. No hardware requirement should be published
   until the 4-core proxy runs.
+
+## 2026-09-24: the workspace comes out of the image
+
+**`:desktop` no longer carries a built AutoSDV.** It is now `base` — every
+`setup.sh` prerequisite, VNC, the `autosdv` account, the entrypoint — plus the
+two setup steps that read the source tree (`ros-deps`, `range-libc`), after
+which the tree is deleted from `/opt/AutoSDV`. Only the tooling `base` already
+had remains there: `setup/`, `scripts/`, `just/`, `demo/`, `versions.yaml`,
+`justfile`. Students, TAs and every later lab bind-mount their own checkout at
+`/workspace` and `just build` it.
+
+**Why.** Two checkouts in one container — `/opt/AutoSDV`, which was nobody's,
+and `/workspace`, which was the student's — was the single most confusing thing
+about the image, and the sourced one was the wrong one. The "running simulation
+in minutes" that justified the build was worth less than the confusion cost, for
+everyone except the one audience below.
+
+**`:sim` is the old image, frozen.** `jerry73204/autosdv:sim` is the previous
+prebuilt `:desktop`, preserved unchanged: the manifest list was re-pointed
+today at the old amd64 and arm64 digests with `docker buildx imagetools
+create`, no rebuild. It exists for the optional Lab 0 simulation appendix and
+the TA's live demo, which want `/opt/AutoSDV` built without building it.
+Nothing rebuilds `:sim`; if it ever must be, the recipe is the old `desktop`
+stage in git history. `publish.sh link` writes `:desktop` only and must never be
+run in a way that moves `:sim` — `container.sim_tag` in `versions.yaml` records
+the name.
+
+**What this changes above.** The *Status* and *Shape* paragraphs described the
+prebuilt `:desktop`; they now hold for `:sim`. The verification tables (34/34
+nodes, the image sizes) were measured on that image. The current `:desktop` has
+been built but not re-verified end to end with a mounted checkout, and its size
+is unmeasured. The image comparison in the base-image spec
+(`docs/superpowers/specs/2026-09-20-autosdv-base-image-and-lab0-design.md`, §8)
+carries the same date-stamped addendum.

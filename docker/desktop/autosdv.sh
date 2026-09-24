@@ -17,11 +17,12 @@
 #                                        (AUTOSDV_WORKSPACE does the same)
 #   ./docker/desktop/autosdv.sh --image IMAGE
 #                                        run a different image. `:desktop` (the
-#                                        default) carries the AutoSDV workspace
-#                                        prebuilt, which is what the simulations
-#                                        need; `:base` carries the same ROS 2 and
-#                                        tools without it. Your own code lives in
-#                                        /workspace either way.
+#                                        default) carries ROS 2, Autoware and
+#                                        every prerequisite, and no AutoSDV of
+#                                        its own: yours is mounted at /workspace
+#                                        and built there. `:sim` is the same
+#                                        with a workspace prebuilt at
+#                                        /opt/AutoSDV, for the simulation.
 #                                        (AUTOSDV_IMAGE does the same)
 #
 # If the image was handed out as a file, `docker load` it first; this script
@@ -138,8 +139,8 @@ EOF
 # banner ends up telling half the terminals something the other half does not
 # know.
 #
-# `cd /opt/AutoSDV` is conditional because :base carries no prebuilt workspace
-# (only :desktop does). Sourcing an install/setup.bash that is not there prints
+# `cd /opt/AutoSDV` is conditional because only :sim carries a prebuilt
+# workspace (:desktop and :base do not). Sourcing an install/setup.bash that is not there prints
 # "No such file or directory" on every shell the student opens, which reads as
 # a broken image rather than as a different image.
 #
@@ -434,7 +435,7 @@ EOF
     #
     # TWO mounts, and the data one is not redundant. /workspace is the
     # student's checkout, where their own work lives; the data mount stays
-    # because :desktop's prebuilt workspace IS /opt/AutoSDV, and mounting the
+    # because :sim's prebuilt workspace IS /opt/AutoSDV, and mounting the
     # checkout over it would shadow the prebuilt install/ and break the
     # `source install/setup.bash` every shell here does. So the map and the
     # rosbags are mounted into it by themselves, and the rest of /opt/AutoSDV

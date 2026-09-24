@@ -388,3 +388,44 @@ The `:dev`-style layer sharing discussed earlier is **abandoned**: tarball
 distribution never shares layers, so the base costs its full size on the wire
 once. Accepted deliberately, because it buys a clean base and zero cost for
 every later lab.
+
+---
+
+## Addendum, 2026-09-24: `:desktop` no longer carries the workspace
+
+The stack in §1 was **reversed** on this date. It read
+
+```
+jerry73204/autosdv:base      prereqs only, installed by setup.sh
+       └── :desktop          base + the prebuilt workspace (workshop, sim labs)
+```
+
+and `:desktop` "keeps its current contract". It does not. `:desktop` is now
+`base` plus the two setup steps that read the source tree (`ros-deps`,
+`range-libc`), after which the tree is deleted from `/opt/AutoSDV` again; only
+the tooling `base` already had (`setup/`, `scripts/`, `just/`, `demo/`,
+`versions.yaml`, `justfile`) stays. Neither target ships a built AutoSDV.
+Students, TAs and every later lab bind-mount their checkout at `/workspace` and
+build it there — which is what §5 already said the student's *own* code does;
+the change is that there is no longer a second checkout beside it.
+
+**Why.** Two checkouts in one container — `/opt/AutoSDV`, nobody's, and
+`/workspace`, the student's — was the single most confusing thing about the
+image, and the one the entrypoint sourced was the wrong one. §5's "mounting
+over `/opt/AutoSDV` would shadow the prebuilt workspace" was a symptom of that,
+not a design constraint worth keeping.
+
+**`:sim` carries the old behaviour.** The prebuilt image is preserved,
+unchanged, as `jerry73204/autosdv:sim`: the manifest list was re-pointed at
+the old amd64 and arm64 digests with `docker buildx imagetools create`, no
+rebuild. It exists for the optional Lab 0 simulation appendix and the TA's
+live demo, which want `/opt/AutoSDV` built without building it. Nothing
+rebuilds it; the recipe, if ever needed, is the old `desktop` stage in git
+history. `versions.yaml` records the name as `container.sim_tag`.
+
+**What above this line still holds.** §1.1's `container` profile, §2, §3, §4,
+§5.1, §6 and §7 are unaffected. §8's `:desktop` row (26.7 GB / 14.19 GB) now
+describes `:sim`; the new `:desktop` has not been measured. §9's verification
+items were run against the images that existed at the time; item 6 — the whole
+Lab 0 workflow in `:base` — is the one that describes what every student now
+does, in either target.

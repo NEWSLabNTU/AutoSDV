@@ -34,6 +34,24 @@
 #   macOS on Apple Silicon            linux/arm64   -> the arm64 image
 #
 # Apple Intel needs nothing special: it is an amd64 machine.
+#
+# --- :sim, the frozen prebuilt image ----------------------------------------
+#
+# jerry73204/autosdv:sim is the desktop image as it was before 2026-09-24: base
+# plus /opt/AutoSDV built in. It exists for the optional Lab 0 simulation
+# appendix and the TA's live demo, which want a running simulation without a
+# build. It was NOT rebuilt: it is the old per-architecture :desktop images
+# re-pointed under a new name, registry-side, by digest --
+#
+#   docker buildx imagetools create -t jerry73204/autosdv:sim \
+#       jerry73204/autosdv:desktop@sha256:<old amd64 digest> \
+#       jerry73204/autosdv:desktop@sha256:<old arm64 digest>
+#
+# `link` writes only ${HUB_REPO}:${TAG_BASE}, which is :desktop. It must never
+# be run in a way that moves :sim: TAG_BASE=sim would overwrite it with whatever
+# :sim-amd64 / :sim-arm64 happen to be, and no build here produces those. If
+# :sim ever has to be rebuilt, the recipe is the old `desktop` stage in git
+# history (before 2026-09-24), not this script.
 
 set -euo pipefail
 

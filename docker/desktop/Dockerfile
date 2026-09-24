@@ -54,8 +54,11 @@
 #                      container: the student's own checkout is bind-mounted at
 #                      /workspace and built there, so their code survives
 #                      `docker rm` and their own editor works on it.
-#   --target desktop   base + the workspace built in. What the workshop handed
-#                      out, and what the simulation tutorials assume.
+#   --target desktop   base + the two setup steps that read the source tree
+#                      (ros-deps, range-libc), the tree deleted afterwards.
+#                      What students pull; it can BUILD a mounted checkout and
+#                      carries none. The old base-plus-built-workspace image
+#                      is frozen as jerry73204/autosdv:sim (see publish.sh).
 #
 # The split is where it already was. The comment below `COPY .` has always said
 # "everything below this line is re-run by a source change"; that line is now
@@ -308,35 +311,34 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["bash"]
 
 # ===========================================================================
-# desktop: base + the workspace, built in
+# desktop: base, able to build a MOUNTED checkout -- and carrying none itself
 #
-# Everything below is re-run by a source change; everything above it is not.
-# Keeping that boundary is why the arm64 build is survivable -- installing ROS 2
-# and Autoware takes about seventy minutes, and six arm64 attempts paid that
-# toll before the stage was split here.
+# Until 2026-09-24 this stage copied the repository in and ran `just build`, so
+# the image shipped a second AutoSDV at /opt/AutoSDV beside the student's own
+# at /workspace. That was the single most confusing thing about the image: two
+# checkouts, one of which was nobody's, and the sourced one was the wrong one.
+# The prebuilt image survives as jerry73204/autosdv:sim for the optional
+# simulation and the TA's live demo; everyone else mounts and builds.
+#
+# What this stage still needs the source for: the two setup steps that read
+# the tree. ros-deps runs rosdep over every package.xml, and range-libc builds
+# a Cython extension out of a submodule -- both install into the system (apt,
+# and the builder's site-packages), so the tree is deleted once they have run.
+# Everything above the COPY is untouched by a source change; everything below
+# it is cheap (about ten minutes), which is the boundary that makes the arm64
+# build survivable.
 # ===========================================================================
 FROM base AS desktop
 
-# --- the workspace ----------------------------------------------------------
-# Everything below this line is re-run by a source change; everything above it
-# is not.
 COPY . ${AUTOSDV_HOME}
 
-# The two setup steps that read src/: rosdep over the workspace's package.xml
-# files, and the range_libc Cython extension built out of a submodule. Same
-# registry, same order, named rather than re-described.
 RUN ./setup.sh --run --only ros-deps range-libc --yes \
-    && rm -rf /var/lib/apt/lists/*
-
-# --- build the workspace ----------------------------------------------------
-# Shipped prebuilt: a student reaches a running simulation in minutes instead of
-# spending the first 40 of them watching colcon, and a laptop that would run out
-# of memory while linking never has to.
-RUN bash -c 'set -eo pipefail; \
-      set +u; source /opt/autoware/1.5.0/setup.bash; set -u; \
-      just build' \
-    && rm -rf /root/.cargo/registry /root/.cargo/git
-
-# `build/` and `src/` cannot be deleted, however tempting 1.5 GB is: `just build`
-# passes --symlink-install, so the 25 MB install/ tree is 1071 symlinks pointing
-# back into them. Removing either empties the workspace without any error.
+    && rm -rf /var/lib/apt/lists/* \
+    # keep exactly what `base` had: the installer and the tooling, so
+    # `./setup.sh --status` still answers inside the image; drop the rest.
+    && find ${AUTOSDV_HOME} -mindepth 1 -maxdepth 1 \
+         ! -name setup ! -name scripts ! -name just ! -name demo \
+         ! -name versions.yaml ! -name justfile \
+         -exec rm -rf {} + \
+    && rm -rf /root/.cargo/registry /root/.cargo/git \
+    && test ! -e ${AUTOSDV_HOME}/src && test ! -e ${AUTOSDV_HOME}/install

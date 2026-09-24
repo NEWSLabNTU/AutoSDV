@@ -10,7 +10,9 @@
 # GPU passed through.
 
 x-common: &common
-  image: autosdv:desktop-dev
+  # A locally built :desktop carries no workspace since 2026-09-24; this
+  # compose file exists for the prebuilt one, so it names the frozen :sim.
+  image: jerry73204/autosdv:sim
   # No `sysctls:` here for net.core.rmem_max. It is NOT a namespaced sysctl,
   # so Docker cannot set it in a container and refuses to start one that asks:
   #

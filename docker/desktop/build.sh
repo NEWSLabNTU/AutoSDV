@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
-# Build the desktop (workshop) image.
+# Build the desktop (course) image.
 #
 #   ./docker/desktop/build.sh                  amd64, tagged autosdv:desktop-dev
-#   TARGET=base ./docker/desktop/build.sh      prereqs only, no workspace
+#   TARGET=base ./docker/desktop/build.sh      prereqs only, nothing read from src/
 #   PLATFORM=linux/arm64 ./docker/desktop/build.sh
 #   TAG=autosdv:desktop-0.2 ./docker/desktop/build.sh
 #   FLATTEN=1 ./docker/desktop/build.sh         collapse to one layer (see below)
 #
-# Two targets live in the one Dockerfile. `base` is the course development
-# container: prerequisites, no workspace, the student's own checkout bind-mounted
-# and built inside. `desktop` is base plus the workspace built in, which is what
-# the workshop handed out. The default stays `desktop` so every command already
-# written down keeps meaning what it meant.
+# Two targets live in the one Dockerfile, and NEITHER carries a built workspace.
+# `base` is every setup.sh prerequisite, VNC, the `autosdv` account and the
+# entrypoint. `desktop` is base plus the two setup steps that read the source
+# tree (ros-deps, range-libc), after which the tree is deleted again -- so a
+# checkout bind-mounted at /workspace builds with no further install step. The
+# default stays `desktop` so every command already written down keeps meaning
+# what it meant. The image that DID ship /opt/AutoSDV prebuilt (until
+# 2026-09-24) is frozen as jerry73204/autosdv:sim -- see publish.sh -- and
+# nothing here rebuilds it.
 #
 # The CUDA base image is read from versions.yaml rather than written here, so
 # there is exactly one place that says which CUDA the project builds against.
@@ -52,8 +56,8 @@ if [ -z "$CUDA_IMAGE" ]; then
     exit 1
 fi
 
-# Building arm64 under qemu on an x86 host works but takes hours: the whole
-# workspace is compiled through emulation. Build it on the Orin instead, which
+# Building arm64 under qemu on an x86 host works but takes hours: installing
+# ROS 2 and Autoware, and building range_libc, all run through emulation. Build it on the Orin instead, which
 # is arm64 natively. The Orin is only the BUILDER -- the image it produces
 # targets Apple Silicon, and is never run on the Jetson itself.
 if [ "$PLATFORM" = "linux/arm64" ] && [ "$(uname -m)" != "aarch64" ]; then
@@ -68,8 +72,8 @@ echo "  target:   $TARGET"
 echo "  tag:      $TAG"
 echo
 
-# The build context is the repository root, not this directory: the image copies
-# the workspace. Dockerfile.dockerignore trims ~30 GB to ~690 MB, and excludes
+# The build context is the repository root, not this directory: the desktop
+# stage copies the tree for rosdep and range_libc, then deletes it. Dockerfile.dockerignore trims ~30 GB to ~690 MB, and excludes
 # setup/.markers -- without which setup.sh would import this host's state and
 # silently skip installing ROS 2 and Autoware.
 docker build \

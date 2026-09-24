@@ -4,7 +4,7 @@ Two images that share a name and nothing else. Read this before editing either.
 
 | Directory | Image | Runs on | Purpose |
 |---|---|---|---|
-| [`desktop/`](desktop/) | `autosdv:desktop` | any laptop — Windows, macOS, Linux | the workshop and tutorial environment: a browser desktop with RViz, AutoSDV prebuilt |
+| [`desktop/`](desktop/) | `autosdv:desktop` | any laptop — Windows, macOS, Linux | the course environment: a browser desktop with RViz and every AutoSDV prerequisite; your checkout is mounted at `/workspace` and built there |
 | [`jetson/`](jetson/) | `autosdv:<commit>` | Jetson / L4T only | a target-device image for the AGX Orin |
 
 They are not variants of one another. `jetson/` builds *the vehicle's* software
@@ -15,10 +15,26 @@ Ubuntu and assumes no GPU at all.
 ## `desktop/` — the one students use
 
 ```bash
-docker run -it --rm -p 6080:6080 \
-  autosdv:desktop
-# then open http://localhost:6080
+./docker/desktop/autosdv.sh        # Linux, macOS; autosdv.ps1 on Windows
+# then open http://localhost:6080, and in the container's terminal:
+just build
 ```
+
+The image carries no AutoSDV build of its own. The launcher mounts your checkout
+at `/workspace`, and that is the one you build and run: it survives `docker rm`,
+and your own editor is already looking at it. (Until 2026-09-24 the image also
+shipped a second, prebuilt AutoSDV at `/opt/AutoSDV`; two checkouts in one
+container, one of them nobody's, was the most confusing thing about it.)
+
+To run the simulation without building anything — the optional Lab 0 appendix,
+the TA's live demo — use the frozen prebuilt image instead:
+
+```bash
+./docker/desktop/autosdv.sh --image jerry73204/autosdv:sim
+```
+
+`jerry73204/autosdv:sim` is the desktop image exactly as it was before that
+date, `/opt/AutoSDV` built in. Nothing rebuilds it; see `desktop/publish.sh`.
 
 Graphics are decided at start-up, not in the instructions: the container always
 runs its own X server, and the entrypoint picks the fastest renderer the host

@@ -225,6 +225,9 @@ container:
   # Linux, Intel Macs and Apple Silicon without anyone choosing a variant.
   desktop_repo: "jerry73204/autosdv"
   desktop_tag: "desktop"
+  # The prebuilt image (/opt/AutoSDV built in) as it was before 2026-09-24,
+  # frozen for the Lab 0 simulation appendix and the TA demo. Never rebuilt; link never moves it.
+  sim_tag: "sim"
 
 # =============================================================================
 # Tool versions
