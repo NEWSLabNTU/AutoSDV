@@ -7,6 +7,13 @@ set -e
 ROSDISTRO="${ROSDISTRO:-humble}"
 ROS2_INSTALLATION_TYPE="${ROS2_INSTALLATION_TYPE:-desktop}"
 
+# Downloads go to the repository's own tmp/, never /tmp: a fixed name under a
+# shared /tmp belongs to whichever user created it first, and every later user
+# gets "Permission denied" from curl with no hint as to why.
+REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
+TMP_DIR="${AUTOSDV_TMP_DIR:-${REPO_DIR}/tmp}"
+mkdir -p "$TMP_DIR"
+
 echo "Installing ROS 2 ${ROSDISTRO} (${ROS2_INSTALLATION_TYPE})..."
 
 # Install locales
@@ -37,13 +44,14 @@ echo "Using ros-apt-source version: ${ROS_APT_VERSION}"
 # Download and install ros-apt-source. Upstream publishes no per-release
 # checksum, so we retry the download and sanity-check that the result is a
 # valid .deb before installing rather than verifying a hash.
-ROS_APT_DEB="/tmp/ros2-apt-source.deb"
+ROS_APT_DEB="${TMP_DIR}/ros2-apt-source.deb"
 curl -fSL --retry 3 -o "${ROS_APT_DEB}" \
     "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_VERSION}/ros2-apt-source_${ROS_APT_VERSION}.${UBUNTU_CODENAME}_all.deb"
 
 dpkg-deb --info "${ROS_APT_DEB}" > /dev/null 2>&1 || { echo "Error: downloaded ros-apt-source is not a valid .deb"; rm -f "${ROS_APT_DEB}"; exit 1; }
 
 sudo apt-get install -y "${ROS_APT_DEB}"
+rm -f "${ROS_APT_DEB}"
 sudo apt-get update
 
 # Check if package is held

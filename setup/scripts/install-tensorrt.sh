@@ -305,8 +305,12 @@ if [ "$ARCH" = "aarch64" ]; then
                 say "stubbing ${_dla} (Tegra-only; absent on this arm64 host)"
                 _stub_src="$(mktemp --suffix=.c)"
                 : > "$_stub_src"
+                # Build into the repository's tmp/, not /tmp: the name is fixed,
+                # so under a shared /tmp it is owned by whoever ran setup first.
+                _stub_dir="${AUTOSDV_TMP_DIR:-${REPO_DIR}/tmp}"
+                mkdir -p "$_stub_dir"
                 if ! gcc -shared -fPIC -Wl,-soname,"$_dla" \
-                        -o "/tmp/${_dla}" "$_stub_src" 2>/dev/null; then
+                        -o "${_stub_dir}/${_dla}" "$_stub_src" 2>/dev/null; then
                     echo "error: could not build the ${_dla} stub (no gcc?)." >&2
                     echo "       Without it libnvinfer cannot be loaded and any" >&2
                     echo "       Autoware node linking TensorRT dies on dlopen." >&2
@@ -314,8 +318,8 @@ if [ "$ARCH" = "aarch64" ]; then
                     exit 1
                 fi
                 rm -f "$_stub_src"
-                sudo install -m 0644 "/tmp/${_dla}" "/usr/lib/${ARCH}-linux-gnu/${_dla}"
-                rm -f "/tmp/${_dla}"
+                sudo install -m 0644 "${_stub_dir}/${_dla}" "/usr/lib/${ARCH}-linux-gnu/${_dla}"
+                rm -f "${_stub_dir}/${_dla}"
             fi
         done
         sudo ldconfig
