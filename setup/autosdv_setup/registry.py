@@ -647,6 +647,24 @@ STEPS: list[Step] = [
         verify=["bash", "-c", "ip link show lo | grep -q MULTICAST"],
     ),
     Step(
+        id="robin-w-ptp",
+        label="Seyond Robin-W PTP grandmaster",
+        why="Synchronizes the Robin-W timestamp to the Jetson system clock "
+            "through the eno1 hardware PTP clock.",
+        group="System config",
+        run=[_S("configure-robin-w-ptp.sh")],
+        requires=Requires(sudo=True, hardware="ptp-nic"),
+        profiles=_on(*VEHICLE),
+        verify=[
+            "bash", "-c",
+            "systemctl is-enabled --quiet ptp4l.service && "
+            "systemctl is-enabled --quiet phc2sys.service && "
+            "systemctl is-active --quiet ptp4l.service && "
+            "systemctl is-active --quiet phc2sys.service",
+        ],
+        note="Robin-W must be enabled for user-defined PTP (ptp_automotive=0).",
+    ),
+    Step(
         id="ublox-udev",
         label="u-blox GNSS udev rules",
         why="Gives the receiver a stable /dev/ublox-gps name and adds you to "

@@ -143,15 +143,15 @@ Every step stays individually selectable in the menu.
 | profile | for |
 |---|---|
 | `dev` | laptop, workstation, PC: dev tools, libraries, kernel socket buffers, loopback multicast |
-| `vehicle` | the vehicle: everything in `dev`, plus the u-blox udev rules |
+| `vehicle` | the vehicle: everything in `dev`, plus sensor udev rules and hardware PTP |
 | `all` | every step, including the slow and opt-in ones |
 | `none` | nothing preselected; tick what you want |
 | `ci` | headless and minimal, build dependencies only |
 
 `vehicle` is `dev` plus one group. The steps that touch devices or device naming
 live under **System config**, and that group is the entire difference between
-the two — so a workstation never writes a udev rule, and the vehicle never
-misses one.
+the two — so a workstation never writes sensor rules or starts hardware PTP,
+and the vehicle never misses them.
 
 `all` and `none` are computed rather than declared, so a new step joins them
 without anyone remembering to.
@@ -163,6 +163,10 @@ machine and a Jetson in the vehicle is the vehicle, and what separates them is
 the hardware, not the SoC. A step whose hardware is absent is shown as such and
 can still be selected, because machines get provisioned before hardware
 arrives.
+
+The Robin-W PTP step is robin-w-ptp. It installs the Jetson-grandmaster
+configuration on eno1; see [the Robin-W PTP guide](../docs/guides/robin_w_ptp.md)
+for the sensor-side mode and verification commands.
 
 ## State
 

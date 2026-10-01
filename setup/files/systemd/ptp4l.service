@@ -1,0 +1,17 @@
+[Unit]
+Description=AutoSDV Robin-W PTP grandmaster
+Documentation=man:ptp4l
+Wants=network-online.target
+After=network-online.target
+After=sys-subsystem-net-devices-eno1.device
+BindsTo=sys-subsystem-net-devices-eno1.device
+ConditionPathExists=/sys/class/net/eno1
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/ptp4l -f /etc/linuxptp/autosdv-robin-w-ptp4l.conf -i eno1 -H -E -m -q
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

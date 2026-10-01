@@ -1,0 +1,18 @@
+[Unit]
+Description=Synchronize Robin-W PHC from the Jetson system clock
+Documentation=man:phc2sys
+Requires=ptp4l.service
+After=ptp4l.service
+After=network-online.target
+Before=time-sync.target
+BindsTo=sys-subsystem-net-devices-eno1.device
+ConditionPathExists=/sys/class/net/eno1
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/phc2sys -f /etc/linuxptp/autosdv-robin-w-phc2sys.conf -s CLOCK_REALTIME -c eno1 -z /var/run/ptp4l -w -m -q
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
