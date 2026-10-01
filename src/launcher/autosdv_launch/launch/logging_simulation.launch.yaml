@@ -101,7 +101,7 @@ launch:
 - arg:
     name: lidar_model
     default: ""
-    description: "LiDAR model (cube1, robin-w, or vlp32c) - empty string uses suite default"
+    description: "LiDAR model (cube1, robin-w, vlp16, or vlp32c) - empty string uses suite default"
 
 - arg:
     name: camera_model
@@ -220,7 +220,7 @@ launch:
 - arg:
     name: pointcloud_backend
     default: "cpu"
-    description: "cpu or cuda: sensing-side point cloud preprocessing (crop-self, deskew, ring outlier). cuda needs a per-point time offset, so it applies to lidar_model:=vlp32c and robin-w, not cube1"
+    description: "cpu or cuda: sensing-side point cloud preprocessing (crop-self, deskew, ring outlier). cuda needs a per-point time offset, so it applies to lidar_model:=vlp16, vlp32c, and robin-w, not cube1"
 - arg:
     name: localization_pointcloud_backend
     default: "cpu"

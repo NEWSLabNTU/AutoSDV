@@ -154,6 +154,10 @@ Visualization Manager:
                   Alpha: 1
                   Show Axes: false
                   Show Trail: false
+                vlp16:
+                  Alpha: 1
+                  Show Axes: false
+                  Show Trail: false
                 zedxm_camera_center:
                   Alpha: 1
                   Show Axes: false
