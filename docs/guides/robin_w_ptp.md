@@ -13,12 +13,9 @@ The vehicle setup profile includes the PTP step:
 ./setup.sh --run --only robin-w-ptp --yes
 ~~~
 
-The step requires linuxptp, ethtool, a carrier on eno1, and a PTP hardware
-clock. If linuxptp is missing, install the distro package first:
-
-~~~bash
-sudo apt install linuxptp ethtool
-~~~
+The step installs the `linuxptp`, `ethtool`, and `netcat-openbsd` packages when
+needed. It then checks for a carrier on eno1 and a PTP hardware clock before
+enabling the services.
 
 The installer writes these repository-managed files to the system:
 
@@ -35,17 +32,28 @@ package-owned files in /lib/systemd/system.
 
 ## Robin-W setting
 
-Configure the Robin-W with its vendor configuration utility or management
-interface before testing:
+Configure the Robin-W after the PTP services are active. AutoSDV includes the
+repo-local `innovusion_lidar_util` helper because the original vendor utility
+is x86_64-only. It sends the configuration command to the lidar's TCP port
+8002; replace the address below with the lidar address on your network.
+
+~~~bash
+LIDAR_IP=172.168.1.10
+
+./setup/files/bin/innovusion_lidar_util "$LIDAR_IP" get_config time ptp_en
+./setup/files/bin/innovusion_lidar_util "$LIDAR_IP" set_config time ptp_en 1
+./setup/files/bin/innovusion_lidar_util "$LIDAR_IP" set_config time ptp_automotive 0
+./setup/files/bin/innovusion_lidar_util "$LIDAR_IP" get_config time ptp_en
+./setup/files/bin/innovusion_lidar_util "$LIDAR_IP" get_config time ptp_automotive
+~~~
+
+The expected settings are:
 
 - PTP enabled: ptp_en=1
 - User-defined PTP mode: ptp_automotive=0
 
 This configuration is intentionally not gPTP. gPTP requires Layer-2 P2P
 support throughout the network path and is a different Robin-W operating mode.
-
-Do not put lidar credentials in this repository. Use the Seyond-provided tool
-or management interface for the sensor-side setting.
 
 ## Check the synchronization
 

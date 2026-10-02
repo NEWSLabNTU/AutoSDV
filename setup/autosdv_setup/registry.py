@@ -662,7 +662,11 @@ STEPS: list[Step] = [
             "systemctl is-active --quiet ptp4l.service && "
             "systemctl is-active --quiet phc2sys.service",
         ],
-        note="Robin-W must be enabled for user-defined PTP (ptp_automotive=0).",
+        note=(
+            "After PTP is active, configure the Robin-W with "
+            "./setup/files/bin/innovusion_lidar_util "
+            "(ptp_en=1, ptp_automotive=0)."
+        ),
     ),
     Step(
         id="ublox-udev",

@@ -11,6 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 CONFIG_SOURCE_DIR="${REPO_ROOT}/setup/files/linuxptp"
 UNIT_SOURCE_DIR="${REPO_ROOT}/setup/files/systemd"
+UTILITY_SOURCE="${REPO_ROOT}/setup/files/bin/innovusion_lidar_util"
 
 PTP4L_CONFIG="${CONFIG_SOURCE_DIR}/autosdv-robin-w-ptp4l.conf"
 PHC2SYS_CONFIG="${CONFIG_SOURCE_DIR}/autosdv-robin-w-phc2sys.conf"
@@ -29,13 +30,31 @@ else
     SUDO=(sudo)
 fi
 
-for required_file in "${PTP4L_CONFIG}" "${PHC2SYS_CONFIG}" "${PTP4L_UNIT}" "${PHC2SYS_UNIT}"; do
+for required_file in "${PTP4L_CONFIG}" "${PHC2SYS_CONFIG}" "${PTP4L_UNIT}" "${PHC2SYS_UNIT}" "${UTILITY_SOURCE}"; do
     [[ -f "${required_file}" ]] || die "repository file is missing: ${required_file}"
 done
+[[ -x "${UTILITY_SOURCE}" ]] || die "repository utility is not executable: ${UTILITY_SOURCE}"
 
-[[ -x /usr/sbin/ptp4l ]] || die "linuxptp is not installed: /usr/sbin/ptp4l is missing"
-[[ -x /usr/sbin/phc2sys ]] || die "linuxptp is not installed: /usr/sbin/phc2sys is missing"
-command -v ethtool >/dev/null 2>&1 || die "ethtool is required to verify hardware timestamping"
+APT_PACKAGES=(linuxptp ethtool netcat-openbsd)
+packages_missing=0
+for package in "${APT_PACKAGES[@]}"; do
+    if ! dpkg-query -W -f='${Status}' "${package}" 2>/dev/null \
+        | grep -q '^install ok installed$'; then
+        packages_missing=1
+        break
+    fi
+done
+
+if (( packages_missing )); then
+    echo "Installing Robin-W PTP dependencies: ${APT_PACKAGES[*]}..."
+    "${SUDO[@]}" apt-get update
+    "${SUDO[@]}" apt-get install -y --no-install-recommends "${APT_PACKAGES[@]}"
+fi
+
+[[ -x /usr/sbin/ptp4l ]] || die "linuxptp installation did not provide /usr/sbin/ptp4l"
+[[ -x /usr/sbin/phc2sys ]] || die "linuxptp installation did not provide /usr/sbin/phc2sys"
+command -v ethtool >/dev/null 2>&1 || die "ethtool installation did not provide ethtool"
+command -v nc >/dev/null 2>&1 || die "netcat-openbsd installation did not provide nc"
 command -v ip >/dev/null 2>&1 || die "iproute2 is required to inspect ${INTERFACE}"
 
 [[ -d "/sys/class/net/${INTERFACE}" ]] || die "network interface ${INTERFACE} does not exist"
@@ -91,4 +110,9 @@ echo "  ptp4l:   sudo systemctl status ptp4l.service"
 echo "  phc2sys: sudo systemctl status phc2sys.service"
 echo "  offset:  sudo pmc -u -b 1 \"GET TIME_STATUS_NP\""
 echo ""
-echo "The Robin-W must have PTP enabled in user-defined mode (ptp_automotive=0)."
+echo "After PTP is active, configure the Robin-W with:"
+echo "  ${UTILITY_SOURCE} <LIDAR_IP> get_config time ptp_en"
+echo "  ${UTILITY_SOURCE} <LIDAR_IP> set_config time ptp_en 1"
+echo "  ${UTILITY_SOURCE} <LIDAR_IP> set_config time ptp_automotive 0"
+echo "  ${UTILITY_SOURCE} <LIDAR_IP> get_config time ptp_en"
+echo "  ${UTILITY_SOURCE} <LIDAR_IP> get_config time ptp_automotive"

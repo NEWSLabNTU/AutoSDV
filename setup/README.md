@@ -164,9 +164,10 @@ the hardware, not the SoC. A step whose hardware is absent is shown as such and
 can still be selected, because machines get provisioned before hardware
 arrives.
 
-The Robin-W PTP step is robin-w-ptp. It installs the Jetson-grandmaster
-configuration on eno1; see [the Robin-W PTP guide](../docs/guides/robin_w_ptp.md)
-for the sensor-side mode and verification commands.
+The Robin-W PTP step is robin-w-ptp. It installs the linuxptp dependencies and
+Jetson-grandmaster configuration on eno1, then prints commands for configuring
+the lidar with the repo-local utility; see [the Robin-W PTP guide](../docs/guides/robin_w_ptp.md)
+for the full sensor-side sequence and verification commands.
 
 ## State
 

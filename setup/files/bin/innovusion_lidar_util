@@ -1,0 +1,29 @@
+#!/bin/bash
+# Lightweight replacement for innovusion_lidar_util (which is x86_64-only).
+# Sends commands to the Seyond lidar over TCP port 8002.
+#
+# Usage:
+#   ./lidar_config.sh <LIDAR_IP> <command> [args...]
+#
+# Examples:
+#   ./lidar_config.sh 172.168.1.10 get_config time ptp_en
+#   ./lidar_config.sh 172.168.1.10 set_config time ptp_en 1
+#   ./lidar_config.sh 172.168.1.10 get_config time ptp_automotive
+
+set -euo pipefail
+
+if [ $# -lt 2 ]; then
+    echo "Usage: $0 <LIDAR_IP> <command> [args...]"
+    echo ""
+    echo "Examples:"
+    echo "  $0 172.168.1.10 get_config time ptp_en"
+    echo "  $0 172.168.1.10 set_config time ptp_en 1"
+    exit 1
+fi
+
+LIDAR_IP="$1"
+LIDAR_PORT=8002
+shift
+COMMAND="$*"
+
+echo "$COMMAND" | nc -w 3 "$LIDAR_IP" "$LIDAR_PORT"
