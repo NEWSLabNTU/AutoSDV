@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Check, and if needed repair, the Robin-W's own ptp4l configuration.
+
+The lidar runs its own ptp4l against /mnt/config_firmware/inno_internal_file_PTP.
+On some units that file carries `domainNumber` under [eth0] instead of [global];
+the bundled ptp4l rejects it ("unknown option domainNumber ... in eth0
+section"), exits, and is restarted every 5 s, so the lidar never answers our
+grandmaster. Not every Robin-W has this -- run `check` first.
+
+The file is mirrored to /backup/config_firmware/ with .md5 and .md5_2
+sidecars, and lidar-app restores one copy from the other, so an edit over SSH
+does not survive a reboot. This tool writes through lidar-app's
+`upload_internal_file PTP` command on TCP 8002 -- the web UI's own path --
+which verifies the md5, writes, reads back from flash and updates /backup.
+
+    check   read-only: report whether the unit's file is affected
+    get     read-only: print the file the lidar holds
+    fix     rewrite the unit's OWN file with global-only keys moved to [global];
+            every other line is kept as the unit has it
+    put     upload FILE verbatim (e.g. to restore a saved copy)
+
+`fix --tune` additionally sets step_threshold 1.0 and tx_timestamp_timeout 10,
+which stopped servo jumps and tx-timestamp timeouts on one unit (measured in
+docs/guides/robin_w_ptp.md); leave it off unless ptp4l is unstable after the fix.
+
+Do not use the web UI's Time Sync "Save" on firmware rwg-release-1563
+(B3.0-2.0): it appends `domainNumber` at the end of the file, under [eth0].
+
+Usage:
+    robin_w_ptp_config 172.168.1.10 check
+    robin_w_ptp_config 172.168.1.10 get > saved_PTP
+    robin_w_ptp_config 172.168.1.10 fix [--tune] [--dry-run]
+    robin_w_ptp_config 172.168.1.10 put saved_PTP
+"""
+import argparse
+import hashlib
+import socket
+import sys
+from pathlib import Path
+
+PORT = 8002
+
+# linuxptp options that are only valid in [global]. domainNumber is the one the
+# web UI misplaces; the others are listed so a fix does not move a key into a
+# section where ptp4l would reject it in turn.
+GLOBAL_ONLY = {"domainNumber", "tx_timestamp_timeout", "step_threshold",
+               "first_step_threshold", "clock_servo", "slaveOnly", "time_stamping",
+               "uds_address", "logging_level"}
+TUNE = {"step_threshold": "1.0", "tx_timestamp_timeout": "10"}
+
+
+def recv_all(sock: socket.socket) -> bytes:
+    chunks = []
+    while True:
+        try:
+            chunk = sock.recv(4096)
+        except socket.timeout:
+            break
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def get(host: str) -> bytes:
+    """Reply layout: 4-byte big-endian length, content, 32-hex md5, NUL."""
+    with socket.create_connection((host, PORT), timeout=5) as sock:
+        sock.sendall(b"download_internal_file PTP\n")
+        reply = recv_all(sock)
+    if len(reply) < 4:
+        sys.exit("no reply from lidar-app")
+    size = int.from_bytes(reply[:4], "big")
+    content = reply[4:4 + size]
+    md5 = reply[4 + size:4 + size + 32].decode(errors="replace")
+    if len(content) != size:
+        sys.exit(f"short reply: expected {size} bytes, got {len(content)}")
+    if md5 and md5 != hashlib.md5(content).hexdigest():
+        sys.exit(f"md5 mismatch: lidar sent {md5}")
+    return content
+
+
+def put(host: str, data: bytes) -> None:
+    """Request layout: command line, 4-byte big-endian length, content, md5 hex, NUL."""
+    if not data.startswith(b"[global]"):
+        sys.exit("content does not start with [global]; refusing to upload")
+    md5 = hashlib.md5(data).hexdigest()
+    with socket.create_connection((host, PORT), timeout=5) as sock:
+        sock.sendall(b"upload_internal_file PTP\n")
+        sock.sendall(len(data).to_bytes(4, "big"))
+        sock.sendall(data)
+        sock.sendall(md5.encode() + b"\0")
+        sock.settimeout(3)
+        reply = recv_all(sock)
+    # lidar-app answers with the stored length followed by "Done".
+    if len(reply) < 4 or int.from_bytes(reply[:4], "big") != len(data) or b"Done" not in reply:
+        sys.exit(f"upload not confirmed: {reply!r}")
+    if get(host) != data:
+        sys.exit("upload confirmed, but the lidar returns different content")
+    print(f"uploaded {len(data)} bytes, md5 {md5}; ptp4l picks it up on its next restart")
+
+
+def misplaced(text: str) -> list:
+    """Global-only keys that sit in a per-port section."""
+    section, found = None, []
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("["):
+            section = s
+        elif s and not s.startswith("#") and section != "[global]":
+            key = s.split()[0]
+            if key in GLOBAL_ONLY:
+                found.append((section, s))
+    return found
+
+
+def fixed(text: str, tune: bool) -> str:
+    """Move global-only keys out of port sections, keeping every other line."""
+    globals_, ports, section = [], [], None
+    moved = {}
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("["):
+            section = s
+            (globals_ if s == "[global]" else ports).append(s)
+            continue
+        key = s.split()[0] if s and not s.startswith("#") else None
+        if section != "[global]" and key in GLOBAL_ONLY:
+            moved[key] = s
+            continue
+        (globals_ if section == "[global]" else ports).append(line)
+    present = {l.split()[0] for l in globals_[1:] if l.strip() and not l.lstrip().startswith(("#", "["))}
+    for key, line in moved.items():
+        if key not in present:
+            parts = line.split(None, 1)
+            globals_.append(f"{parts[0]:<24}{parts[1] if len(parts) > 1 else ''}".rstrip())
+    if tune:
+        for key, value in TUNE.items():
+            entry = f"{key:<24}{value}"
+            idx = [i for i, l in enumerate(globals_) if l.split() and l.split()[0] == key]
+            if idx:
+                globals_[idx[0]] = entry
+            else:
+                globals_.append(entry)
+    return "\n".join(globals_ + ports) + "\n"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("host")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("check")
+    sub.add_parser("get")
+    p_fix = sub.add_parser("fix")
+    p_fix.add_argument("--tune", action="store_true", help="also set " + ", ".join(f"{k} {v}" for k, v in TUNE.items()))
+    p_fix.add_argument("--dry-run", action="store_true", help="print the result, upload nothing")
+    p_put = sub.add_parser("put")
+    p_put.add_argument("file", type=Path)
+    args = parser.parse_args()
+
+    if args.cmd == "get":
+        sys.stdout.write(get(args.host).decode())
+    elif args.cmd == "check":
+        bad = misplaced(get(args.host).decode())
+        if not bad:
+            print("OK: no global-only option in a port section; this unit is not affected")
+            return
+        for section, line in bad:
+            print(f"AFFECTED: '{line}' is in {section}; the lidar's ptp4l cannot parse this file")
+        sys.exit(1)
+    elif args.cmd == "fix":
+        current = get(args.host).decode()
+        if not misplaced(current) and not args.tune:
+            print("nothing to fix; this unit is not affected")
+            return
+        new = fixed(current, args.tune)
+        if new == current:
+            print("already in the requested state")
+            return
+        if args.dry_run:
+            sys.stdout.write(new)
+            return
+        backup = Path(f"robin_w_PTP.{hashlib.md5(current.encode()).hexdigest()[:8]}.orig")
+        backup.write_text(current)
+        print(f"saved the current file to {backup} (restore with: put {backup})")
+        put(args.host, new.encode())
+    else:
+        put(args.host, args.file.read_bytes())
+
+
+if __name__ == "__main__":
+    main()
