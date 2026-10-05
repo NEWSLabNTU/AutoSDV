@@ -240,10 +240,11 @@ anything from it:
   `min_steer: 439`, `init_steer: 489`, `max_steer: 539`.
 - **Motor 280–460**, where `actuator.yaml` says `min_pwm: 360`, `max_pwm: 470`.
 
-Separately, `actuator.yaml` has `wheelbase: 0.340` while
-`vehicle_info.param.yaml` has `wheel_base: 0.319`. The Ackermann conversion in
-the vehicle interface and the planner therefore disagree about the vehicle;
-that is a defect, not drift in prose.
+Separately, `actuator.yaml` had `wheelbase: 0.340` while
+`vehicle_info.param.yaml` has `wheel_base: 0.319`, so the vehicle interface and
+the planner disagreed about the vehicle. **Fixed 2026-10-05**: the interface now
+reads its geometry from `vehicle_info.param.yaml` and keeps no copy
+(`docs/known-config-defects.md` §7). The book page is corrected too.
 
 ## References
 

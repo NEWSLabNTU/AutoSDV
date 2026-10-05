@@ -65,6 +65,7 @@
     <!-- AutoSDV Vehicle Interface (Actuator Node) -->
     <node pkg="autosdv_vehicle_interface" exec="actuator" name="actuator_node" output="screen">
       <param from="$(find-pkg-share autosdv_vehicle_interface)/params/actuator.yaml"/>
+      <param from="$(find-pkg-share autosdv_vehicle_description)/config/vehicle_info.param.yaml"/>
       <remap from="~/input/control_cmd" to="/control/command/control_cmd"/>
       <remap from="~/input/velocity_status" to="/vehicle/status/velocity_status"/>
     </node>
@@ -82,9 +83,9 @@
     </node>
 
     <!-- Steering Status -->
-    <!-- Uses actuator.yaml as single source of truth for max_steering_angle -->
+    <!-- max_steer_angle comes from vehicle_info, the planner's own limit -->
     <node pkg="autosdv_vehicle_interface" exec="steering_status" name="steering_status_node" output="screen">
-      <param from="$(find-pkg-share autosdv_vehicle_interface)/params/actuator.yaml"/>
+      <param from="$(find-pkg-share autosdv_vehicle_description)/config/vehicle_info.param.yaml"/>
       <param from="$(find-pkg-share autosdv_vehicle_interface)/params/steering_status.yaml"/>
     </node>
 

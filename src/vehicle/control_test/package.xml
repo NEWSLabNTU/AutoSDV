@@ -12,6 +12,7 @@
   <depend>tier4_external_api_msgs</depend>
   <depend>autoware_control_msgs</depend>
   <depend>autoware_vehicle_msgs</depend>
+  <exec_depend>autosdv_vehicle_description</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

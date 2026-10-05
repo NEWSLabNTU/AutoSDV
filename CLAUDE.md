@@ -858,10 +858,15 @@ They drifted from it once; read them there when it matters.
 
 **Steering PWM** (PCA9685 I2C, channel 1):
 - `min_steer` 439 (RIGHT, hardware is reversed), `init_steer` 489 (centre), `max_steer` 539 (LEFT)
-- `max_steering_angle` 0.349 rad ≈ 20°, which **must** equal `max_steer_angle`
-  in `vehicle_info.param.yaml` — the planner sizes every trajectory against that
-  file, so a wider clamp here lets the actuator out-steer the plan. Same rule
-  for `wheelbase` (0.319) against `wheel_base`.
+- Steering limit, wheelbase and track are **not** in `actuator.yaml`. The
+  actuator and `steering_status` read `max_steer_angle` (0.349 rad ≈ 20°),
+  `wheel_base` (0.319) and `wheel_tread` (0.263) straight from
+  `vehicle_info.param.yaml`, the file the planner sizes every trajectory
+  against. They used to keep their own copy, and it drifted to 0.5 rad and
+  0.340 m without anything noticing — do not reintroduce one.
+- `tire_angle_to_steer_ratio` −1000 saturates the servo at **0.05 rad**, so in
+  practice the steering limit never binds. Suspected ~7× too high; it needs a
+  measurement on the vehicle, not an edit (`docs/known-config-defects.md` §8).
 - Dual-mode controller: Fallback (v<0.3m/s), Normal (yaw rate feedback)
 
 **Velocity Sensing**:

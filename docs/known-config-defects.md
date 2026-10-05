@@ -222,6 +222,61 @@ is enough to get past generate, because CMake only checks existence.
 
 ---
 
+## 7. The vehicle interface kept its own copy of the vehicle's geometry — FIXED 2026-10-05
+
+`actuator.yaml` declared `wheelbase: 0.340`, `track_width: 0.24` and
+`max_steering_angle: 0.5`, while `vehicle_info.param.yaml` — the file the
+planner and MPC size every trajectory against — says `wheel_base: 0.319`,
+`wheel_tread: 0.263` and `max_steer_angle: 0.349`. Nobody had measured the
+actuator's values: they were a hard-coded dataclass default that
+`autosdv_vehicle_launch` `4cbd2f6` moved into YAML unchanged. This file's own
+quick reference had been saying 0.349 for months while the YAML said 0.5.
+
+Fixed by deleting the copy rather than correcting it (`autosdv_vehicle_launch`
+`046230a`). `actuator` and `steering_status` now declare Autoware's names and
+the launch file loads `vehicle_info.param.yaml` into them, overridable as
+`vehicle_info_param_file:=`. Verified by launching the interface and reading
+the parameters back: `wheel_base` 0.319, `wheel_tread` 0.263,
+`max_steer_angle` 0.349, and the old names unset.
+
+This changed effectively nothing on the vehicle, and §8 is why.
+
+---
+
+## 8. `tire_angle_to_steer_ratio` saturates the servo at 0.05 rad
+
+```python
+steer_pwm = init_steer + int(average_angle * tire_angle_to_steer_ratio)  # ratio -1000
+steer_pwm = max(min_steer, min(max_steer, steer_pwm))                    # 439..539
+```
+
+The servo window is ±50 counts around 489, so at −1000 counts/rad the clamp is
+reached at **|δ| = 0.05 rad, 2.9°**. Every command beyond that is full lock.
+Both steering limits in §7 are far outside this, which is why they never
+mattered.
+
+If ±50 counts really is the ±20° that the book and the quick reference in
+`CLAUDE.md` claim, the ratio should be about 50 / 0.349 ≈ **143** counts/rad,
+and the controller is commanding roughly **seven times** the steering it
+intends below 2.9°. Nothing on the vehicle would report that: there is no
+steering-angle sensor, and `steering_status` republishes the command
+(`docs/reports/steering-status-has-no-feedback.md`), so MPC sees exactly the
+angle it asked for.
+
+**Not fixed, because it needs a measurement, not an edit.** The ±20° claim is
+undocumented too, and changing the ratio on its strength would swap one
+unmeasured number for another. To settle it, on the vehicle:
+
+1. Hold `steer_pwm` at fixed offsets from 489 — say ±10, ±25, ±50 — and drive
+   slow full circles at each.
+2. Measure the circle radius `R` and convert: `δ = atan(wheel_base / R)` with
+   `wheel_base` 0.319.
+3. The slope of `δ` against the PWM offset is the ratio (sign negative, since
+   the servo is reversed). The δ at ±50 is the true `max_steer_angle`, which
+   belongs in `vehicle_info.param.yaml`.
+
+---
+
 ## Did not transfer
 
 Checked, and not defects here:
