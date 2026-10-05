@@ -35,7 +35,7 @@ for required_file in "${PTP4L_CONFIG}" "${PHC2SYS_CONFIG}" "${PTP4L_UNIT}" "${PH
 done
 [[ -x "${UTILITY_SOURCE}" ]] || die "repository utility is not executable: ${UTILITY_SOURCE}"
 
-APT_PACKAGES=(linuxptp ethtool netcat-openbsd)
+APT_PACKAGES=(linuxptp ethtool netcat-openbsd chrony)
 packages_missing=0
 for package in "${APT_PACKAGES[@]}"; do
     if ! dpkg-query -W -f='${Status}' "${package}" 2>/dev/null \

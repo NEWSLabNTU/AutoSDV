@@ -13,9 +13,11 @@ The vehicle setup profile includes the PTP step:
 ./setup.sh --run --only robin-w-ptp --yes
 ~~~
 
-The step installs the `linuxptp`, `ethtool`, and `netcat-openbsd` packages when
-needed. It then checks for a carrier on eno1 and a PTP hardware clock before
-enabling the services.
+The step installs the `linuxptp`, `ethtool`, `netcat-openbsd`, and `chrony`
+packages when needed. At boot, the PTP service waits for chrony to synchronize
+the Jetson system clock and for NetworkManager to bring eno1 online before it
+starts advertising time. This prevents the lidar from receiving the Unix epoch
+as its initial timestamp.
 
 The installer writes these repository-managed files to the system:
 

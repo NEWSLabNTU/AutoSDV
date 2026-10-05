@@ -3,12 +3,15 @@ Description=AutoSDV Robin-W PTP grandmaster
 Documentation=man:ptp4l
 Wants=network-online.target
 After=network-online.target
+Wants=NetworkManager-wait-online.service chrony.service
+After=NetworkManager-wait-online.service chrony.service
 After=sys-subsystem-net-devices-eno1.device
 BindsTo=sys-subsystem-net-devices-eno1.device
 ConditionPathExists=/sys/class/net/eno1
 
 [Service]
 Type=simple
+ExecStartPre=/usr/bin/chronyc waitsync 60 0.1
 ExecStart=/usr/sbin/ptp4l -f /etc/linuxptp/autosdv-robin-w-ptp4l.conf -i eno1 -H -E -m -q
 Restart=on-failure
 RestartSec=2
