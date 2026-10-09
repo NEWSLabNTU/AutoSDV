@@ -4,6 +4,10 @@
 #   just lab2 sim scenario:=dropout
 #   just lab2 sim controller_class:=my_lab2.cruise_controller:CruiseController
 #   just lab2 vehicle lidar_model:=robin-w imu_yaw_sign:=-1.0
+#   just lab2 vehicle 'speed_controller_params:={kp: 15.0, ki: 5.0}'
+#
+# Each argument reaches play_launch as one word, so quote a value that
+# contains spaces, such as a YAML mapping.
 #
 # Then, in a second terminal: `just lab2 engage`.
 #
@@ -20,21 +24,23 @@ default:
     @just --list lab2
 
 # Part 1: pursuit stack on the planning simulator with a scripted board
+[positional-arguments]
 sim *ARGS:
     #!/usr/bin/env bash
     args=(map_path:="$PWD/data/COSS-map-planning")
     [ -n "${DISPLAY:-}" ] || args+=(rviz:=false)
     cmd=(play_launch launch --web-addr '{{ web_addr }}'
-         autosdv_launch coach_pursuit_sim.launch.xml "${args[@]}" {{ ARGS }})
+         autosdv_launch coach_pursuit_sim.launch.xml "${args[@]}" "$@")
     printf '\033[2m%s\033[0m\n' "${cmd[*]}"
     source scripts/env.sh
     exec "${cmd[@]}"
 
 # Part 2: pursuit stack on the vehicle (LiDAR detector, dead reckoning)
+[positional-arguments]
 vehicle *ARGS:
     #!/usr/bin/env bash
     cmd=(play_launch launch --web-addr '{{ web_addr }}'
-         autosdv_launch coach_pursuit.launch.xml {{ ARGS }})
+         autosdv_launch coach_pursuit.launch.xml "$@")
     printf '\033[2m%s\033[0m\n' "${cmd[*]}"
     source scripts/env.sh
     exec "${cmd[@]}"
