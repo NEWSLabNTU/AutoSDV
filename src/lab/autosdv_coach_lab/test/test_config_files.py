@@ -36,4 +36,5 @@ def test_planner_params_load_reference_controller():
     pursuit.PlannerParams(**{k: p[k] for k in (
         'v_max', 'accel_max', 'decel_max', 'brake_decel', 'envelope_decel', 'reaction_time',
         'standoff_min', 'path_length', 'path_step')})
-    pursuit.load_controller(p['controller_class'], p['controller'])
+    assert 'controller' not in p, 'controller.* would merge under a student param file'
+    pursuit.load_controller(p['controller_class'], {})

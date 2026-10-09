@@ -18,7 +18,7 @@
        default="autosdv_coach_lab.reference.cruise_controller:CruiseController"
        description="headway law, package.module:ClassName"/>
   <arg name="controller_param_file" default=""
-       description="optional yaml with controller.* parameters, applied over the planner defaults"/>
+       description="optional yaml with controller.* parameters; the only source of the controller's params dict"/>
   <arg name="planner_param_file"
        default="$(find-pkg-share autosdv_coach_lab)/config/board_pursuit_planner.param.yaml"/>
   <arg name="tracker_param_file"

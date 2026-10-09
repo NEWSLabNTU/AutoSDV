@@ -25,9 +25,8 @@
     # path crashes MPC. The stop is encoded in velocity.
     path_length: 10.0
     path_step: 0.2
-    # Everything under controller.* reaches CruiseController(params) as a dict.
-    controller:
-      headway: 2.0
-      kp: 0.6
-      k_ff: 1.0
-      ff_tau: 0.3
+    # No controller.* entries here, on purpose. Whatever this file set would
+    # be merged under a student's own controller_param_file, so a key the
+    # student forgot would silently take the reference value in the sim and
+    # their own default on the bench. The controller's params dict holds only
+    # what controller_param_file sets; each class supplies its own defaults.
