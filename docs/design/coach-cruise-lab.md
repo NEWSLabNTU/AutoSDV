@@ -1,5 +1,26 @@
 # Course lab: vehicle interface control and feedback, with coach-car cruise
 
+> **Superseded as the architecture of Lab 2 (2026-10-10).** What was built
+> differs from this document in four places:
+>
+> - **Detector.** NEWSLabNTU/reflector-pose-init's intensity-based
+>   `board_tracking_node` (`src/perception/external/reflector_pose_init`),
+>   not LCTK's geometric detector.
+> - **Planning.** Autoware planning is replaced by `board_pursuit_planner`
+>   (`src/lab/autosdv_coach_lab`), which publishes `/planning/trajectory`
+>   for the unmodified trajectory follower, rather than commanding
+>   `vehicle_cmd_gate` directly.
+> - **Engage.** It works through the lab diagnostic graph
+>   `config/system/diagnostics/autosdv-pursuit-main.yaml`.
+> - **LiDAR topic.** The topic is `/sensing/lidar/velodyne_points` (VLP-16) or
+>   `/sensing/lidar/iv_points` (Robin-W). `/sensing/lidar/top/pointcloud_raw`
+>   below is wrong.
+>
+> The no-localization chain (§3) and the field-safety analysis (§9) still
+> apply. The current design, its sim evidence and the remaining work are in
+> the course repository's `2026/labs/Lab2/lab2-plan.md`. Run it with
+> `just lab2 sim` / `just lab2 vehicle`.
+
 A lab for the college autonomous driving course, placed **before** localization
 and NDT are taught. Students implement the vehicle interface — the control
 command path down to PWM, and the velocity feedback path back up — and then
