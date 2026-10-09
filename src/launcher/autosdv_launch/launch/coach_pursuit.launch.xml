@@ -87,8 +87,8 @@
        perception, planning and stock control alongside the lab stack.
 
        launch_vehicle_interface is not an autosdv.launch.yaml argument at all:
-       the stock vehicle interface is replaced by the lab's mirror below, which
-       carries the speed_controller_* parameters. -->
+       the stock vehicle interface is switched off here and included again
+       below with the speed_controller_* arguments. -->
   <let name="launch_vehicle_interface" value="false"/>
   <let name="launch_map" value="false"/>
   <let name="launch_localization" value="false"/>
@@ -118,7 +118,10 @@
     <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
   </include>
 
-  <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_pursuit_vehicle_interface.launch.xml">
+  <!-- launch_vehicle_interface is false in this scope (the let above, which
+       keeps the stock interface off); this include is the one that runs it. -->
+  <include file="$(find-pkg-share autosdv_vehicle_launch)/launch/vehicle_interface.launch.xml">
+    <arg name="launch_vehicle_interface" value="true"/>
     <arg name="is_simulation" value="$(var is_simulation)"/>
     <arg name="speed_controller_class" value="$(var speed_controller_class)"/>
     <arg name="speed_controller_params" value="$(var speed_controller_params)"/>
