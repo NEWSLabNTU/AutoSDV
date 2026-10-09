@@ -30,6 +30,14 @@
   <exec_depend>autosdv_mcl_launch</exec_depend>
   <exec_depend>autoware_twist2accel</exec_depend>
 
+  <!-- Lab 2 coach pursuit (coach_pursuit*.launch.xml): tracker, pursuit
+       planner and the simulator stand-ins. The board detector
+       (reflective_pose_ros) is deliberately not listed: it is a submodule
+       built only where the vehicle launch runs, and the sim launch never
+       needs it. -->
+  <exec_depend>autosdv_coach_lab</exec_depend>
+  <exec_depend>autosdv_lab_msgs</exec_depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

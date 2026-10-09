@@ -212,6 +212,18 @@ launch:
     default: "true"
     description: "Launch perception module (object detection). When false, empty objects are published."
 
+# Health-check configuration. Empty resolves both from pose_source inside
+# autosdv_autoware.launch.xml; a lab launch that runs a different module set
+# names its own (coach_pursuit.launch.xml does).
+- arg:
+    name: diagnostic_graph_aggregator_graph_path
+    default: ""
+    description: "Diagnostic graph that gates autonomous mode; empty = resolved from pose_source"
+- arg:
+    name: component_state_monitor_topic_path
+    default: ""
+    description: "component_state_monitor topic list; empty = resolved from pose_source"
+
 # Preset Configuration
 - arg:
     name: perception_preset
@@ -354,6 +366,12 @@ launch:
     -
       name: use_mapless_mode
       value: $(var use_mapless_mode)
+    -
+      name: diagnostic_graph_aggregator_graph_path
+      value: $(var diagnostic_graph_aggregator_graph_path)
+    -
+      name: component_state_monitor_topic_path
+      value: $(var component_state_monitor_topic_path)
 
 # Publish empty objects when perception is disabled
 # This unblocks behavior_path_planner which waits for /perception/object_recognition/objects

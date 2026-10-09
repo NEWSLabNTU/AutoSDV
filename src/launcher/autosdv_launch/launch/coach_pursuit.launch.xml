@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lab 2, Part 2: coach-board pursuit on the vehicle. `just lab2 vehicle`.
+
+    LiDAR -> board_tracking (reflective_pose_ros)   -> /perception/coach/board
+          -> coach_tracker                          -> /perception/coach/state
+          -> board_pursuit_planner + CruiseController -> /planning/trajectory
+          -> Autoware control (pure_pursuit + PID)  -> /control/command/control_cmd
+          -> actuator (speed PID)                   -> PWM
+    velocity_report + IMU -> dead reckoning -> /localization/kinematic_state
+
+  autosdv.launch.yaml with map, localization, perception, planning and
+  Autoware's stock control switched off. In their place:
+
+    autosdv_dead_reckoning_component  the odometry vehicle_cmd_gate needs
+    autosdv_pursuit_control_component pure_pursuit, no lane departure / AEB
+    autosdv-pursuit-main.yaml         the diagnostic graph that lets engage
+                                      succeed without a route or a map
+
+  Safety lives outside this file and must be in place first: the physical kill
+  switch, the actuator watchdog, and the planner's standoff floor and speed cap
+  (autosdv_coach_lab/config/board_pursuit_planner.param.yaml).
+
+  Design: docs/design/coach-cruise-lab.md (no-localization analysis) and the
+  Lab 2 plan in the course repository.
+-->
+<launch>
+  <!-- the car -->
+  <arg name="sensor_suite" default="vlp32c_zed_imu"
+       description="autosdv.launch.yaml sensor suite"/>
+  <arg name="lidar_model" default="vlp16" description="vlp16 or robin-w (the lab cars); overrides the suite's"/>
+  <arg name="imu_source" default="" description="empty = the suite's"/>
+  <arg name="imu_yaw_sign" default="1.0"
+       description="dead reckoning yaw sign; MEASURE it per car (coach-cruise-lab.md 3.2)"/>
+  <arg name="rviz" default="false"/>
+
+  <!-- the student's law -->
+  <arg name="controller_class" default="autosdv_coach_lab.reference.cruise_controller:CruiseController"/>
+  <arg name="controller_param_file" default=""/>
+
+  <!-- the student's inner loop: the actuator's speed-controller plug-in -->
+  <arg name="speed_controller_class"
+       default="autosdv_vehicle_interface.speed_controller:AckermannSpeedPID"
+       description="SpeedPID, package.module:ClassName"/>
+  <arg name="speed_controller_params" default=""
+       description="its parameters, a YAML mapping string: {kp: 20.0, ki: 4.0}"/>
+  <arg name="speed_controller_dt_source" default="loop"
+       description="loop (the period update() is called at) or velocity_report"/>
+  <arg name="is_simulation" default="false" description="actuator dry run: no PWM"/>
+
+  <!-- the board detector: reflector-pose-init in tracking mode. One scan per
+       detection, the board pose in base_link stamped with the scan, published
+       only on accepted detections, plus a detection-rate /diagnostics. -->
+  <arg name="launch_detector" default="true"/>
+  <arg name="detector_launch_file"
+       default="$(find-pkg-share reflective_pose_ros)/launch/board_tracking.launch.xml"/>
+  <!-- The detector profile and the cloud it reads both follow the LiDAR:
+       Robin-W publishes iv_points and uses autosdv_robin_w; the Velodyne
+       driver publishes velodyne_points, and the lab's Velodyne is the VLP-16
+       (autosdv_vlp16). A vlp32c car has no profile of its own yet; pass
+       detector_profile:= explicitly for one. -->
+  <let name="lidar_is_robin" value="$(eval &quot;'robin' in '$(var lidar_model)' or ('$(var lidar_model)' == '' and 'robin' in '$(var sensor_suite)')&quot;)"/>
+  <let name="detector_profile_default"
+       value="$(eval &quot;'autosdv_robin_w' if $(var lidar_is_robin) else 'autosdv_vlp16'&quot;)"/>
+  <arg name="detector_profile" default="$(var detector_profile_default)"
+       description="reflective_pose_core detector file: autosdv_vlp16 or autosdv_robin_w"/>
+  <let name="detector_input_default"
+       value="$(eval &quot;'/sensing/lidar/iv_points' if $(var lidar_is_robin) else '/sensing/lidar/velodyne_points'&quot;)"/>
+  <arg name="detector_input_topic" default="$(var detector_input_default)"/>
+
+  <arg name="diagnostic_graph_aggregator_graph_path"
+       default="$(find-pkg-share autosdv_launch)/config/system/diagnostics/autosdv-pursuit-main.yaml"/>
+  <arg name="component_state_monitor_topic_path"
+       default="$(find-pkg-share autosdv_launch)/config/system/component_state_monitor/topics-pursuit.yaml"/>
+
+  <!-- AutoSDV stack: sensing, vehicle interface, system, API. rviz is not an
+       argument of autosdv.launch.yaml; it reaches autosdv_autoware through the
+       launch configuration declared above, the same way `just launch
+       rviz:=false` does. -->
+  <!-- Every switch below is set twice: as a launch configuration here, and as
+       an include argument. ros2 launch honours either. play_launch 0.10's Rust
+       parser drops arguments passed from an XML include into a YAML launch
+       file (autosdv.launch.yaml's own defaults win; measured with
+       `play_launch resolve`), but it does honour a configuration already set
+       in the enclosing scope, which a YAML arg declaration does not
+       override. Without these lets, play_launch would start map, NDT,
+       perception, planning and stock control alongside the lab stack.
+
+       launch_vehicle_interface is not an autosdv.launch.yaml argument at all:
+       the stock vehicle interface is replaced by the lab's mirror below, which
+       carries the speed_controller_* parameters. -->
+  <let name="launch_vehicle_interface" value="false"/>
+  <let name="launch_map" value="false"/>
+  <let name="launch_localization" value="false"/>
+  <let name="launch_perception" value="false"/>
+  <let name="launch_planning" value="false"/>
+  <let name="launch_control" value="false"/>
+  <let name="launch_system_monitor" value="false"/>
+  <let name="camera_model" value="none"/>
+  <let name="use_gnss" value="false"/>
+  <let name="use_ntrip" value="false"/>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/autosdv.launch.yaml">
+    <arg name="sensor_suite" value="$(var sensor_suite)"/>
+    <arg name="lidar_model" value="$(var lidar_model)"/>
+    <arg name="imu_source" value="$(var imu_source)"/>
+    <arg name="camera_model" value="none"/>
+    <arg name="use_gnss" value="false"/>
+    <arg name="use_ntrip" value="false"/>
+    <arg name="launch_map" value="false"/>
+    <arg name="launch_localization" value="false"/>
+    <arg name="launch_perception" value="false"/>
+    <arg name="launch_planning" value="false"/>
+    <arg name="launch_control" value="false"/>
+    <arg name="launch_system_monitor" value="false"/>
+    <arg name="is_simulation" value="$(var is_simulation)"/>
+    <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
+    <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
+  </include>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_pursuit_vehicle_interface.launch.xml">
+    <arg name="is_simulation" value="$(var is_simulation)"/>
+    <arg name="speed_controller_class" value="$(var speed_controller_class)"/>
+    <arg name="speed_controller_params" value="$(var speed_controller_params)"/>
+    <arg name="speed_controller_dt_source" value="$(var speed_controller_dt_source)"/>
+  </include>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_dead_reckoning_component.launch.xml">
+    <arg name="imu_yaw_sign" value="$(var imu_yaw_sign)"/>
+  </include>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_pursuit_control_component.launch.xml"/>
+
+  <include file="$(var detector_launch_file)" if="$(var launch_detector)">
+    <arg name="profile" value="$(var detector_profile)"/>
+    <arg name="input_topic" value="$(var detector_input_topic)"/>
+    <arg name="output_topic" value="/perception/coach/board"/>
+  </include>
+
+  <include file="$(find-pkg-share autosdv_coach_lab)/launch/coach_pursuit_nodes.launch.xml">
+    <arg name="controller_class" value="$(var controller_class)"/>
+    <arg name="controller_param_file" value="$(var controller_param_file)"/>
+  </include>
+</launch>

@@ -1,0 +1,10 @@
+# Coach-pursuit lab: shift_decider for a stack that never has a route.
+#
+# With park_on_goal: true (the stock value), shift_decider commands PARK
+# whenever /autoware/state is WAITING_FOR_ROUTE -- which, in a lab that
+# replaces planning and sets no route, is always. With false it echoes the
+# reported gear instead, so it never drags the vehicle into PARK. The real
+# AutoSDV actuator ignores gear; this matters for the simulator.
+/**:
+  ros__parameters:
+    park_on_goal: false

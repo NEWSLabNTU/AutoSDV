@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Lab 2, Part 1: the coach-board pursuit stack on Autoware's planning
+  simulator. `just lab2 sim`.
+
+    virtual_coach   scripted board, /perception/coach/board   (detector stand-in)
+    coach_tracker   -> /perception/coach/state
+    board_pursuit_planner (+ the CruiseController under test) -> /planning/trajectory
+    Autoware control (autosdv_pursuit_control_component), unmodified
+    simple_planning_simulator  (the vehicle)
+
+  No Autoware planning, perception or localization: the simulator's odometry
+  is /localization/kinematic_state, as dead reckoning is on the car. The map is
+  loaded only so the simulator can be placed and RViz has a backdrop; nothing
+  in the lab reads it, and the diagnostic graph does not require it.
+
+  Two simulator-only pieces:
+
+  * sim_pose_init places the vehicle once through /api/localization/initialize
+    (the simulator does not move until it has a pose).
+  * Gear. shift_decider commands PARK while there is no route, and this lab
+    never has one. The control component already sets park_on_goal: false;
+    on top of that, with gear_hold:=true (default) vehicle_cmd_gate's gear
+    output is moved to /control/command/gear_cmd_unused and drive_gear_hold
+    owns /control/command/gear_cmd, so exactly one node publishes the gear the
+    simulator reads; no runtime component unloading, no two publishers.
+-->
+<launch>
+  <arg name="map_path" default="./data/COSS-map-planning"
+       description="map for placing the simulator; not used by the lab itself"/>
+  <arg name="vehicle_model" default="autosdv_vehicle"/>
+  <arg name="sensor_model" default="autosdv_sensor_kit"/>
+  <arg name="rviz" default="true"/>
+
+  <!-- the student's law -->
+  <arg name="controller_class" default="autosdv_coach_lab.reference.cruise_controller:CruiseController"/>
+  <arg name="controller_param_file" default=""/>
+
+  <!-- the scripted board -->
+  <arg name="scenario" default="default" description="virtual_coach scenario: default, dropout, noisy"/>
+  <arg name="seed" default="-1"/>
+
+  <!-- the board detector is off in simulation; virtual_coach replaces it -->
+  <arg name="launch_detector" default="false"/>
+  <arg name="gear_hold" default="true"/>
+
+  <!-- where the simulator starts: COSS Park, on the main lane -->
+  <arg name="initial_x" default="304774.86"/>
+  <arg name="initial_y" default="2768128.06"/>
+  <arg name="initial_z" default="8.98"/>
+  <arg name="initial_yaw" default="-0.1137"/>
+
+  <arg name="diagnostic_graph_aggregator_graph_path"
+       default="$(find-pkg-share autosdv_launch)/config/system/diagnostics/autosdv-pursuit-main.yaml"/>
+  <arg name="component_state_monitor_topic_path"
+       default="$(find-pkg-share autosdv_launch)/config/system/component_state_monitor/topics-pursuit.yaml"/>
+
+  <!-- read by tier4_simulator_launch without being declared there -->
+  <let name="scenario_simulation" value="false"/>
+
+  <let name="gate_gear_output" value="/control/command/gear_cmd_unused" if="$(var gear_hold)"/>
+  <let name="gate_gear_output" value="/control/command/gear_cmd" unless="$(var gear_hold)"/>
+
+  <!-- Autoware: system, map, vehicle description, API. No sensing,
+       localization, perception, planning; control is the lab's own. -->
+  <group scoped="false">
+    <include file="$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml">
+      <arg name="map_path" value="$(var map_path)"/>
+      <arg name="vehicle_model" value="$(var vehicle_model)"/>
+      <arg name="sensor_model" value="$(var sensor_model)"/>
+      <arg name="pose_source" value="ndt"/>
+      <arg name="launch_vehicle" value="true"/>
+      <arg name="launch_vehicle_interface" value="false"/>
+      <arg name="launch_system" value="true"/>
+      <arg name="launch_map" value="true"/>
+      <arg name="launch_sensing" value="false"/>
+      <arg name="launch_localization" value="false"/>
+      <arg name="launch_perception" value="false"/>
+      <arg name="launch_planning" value="false"/>
+      <arg name="launch_control" value="false"/>
+      <arg name="launch_api" value="true"/>
+      <arg name="system_run_mode" value="planning_simulation"/>
+      <arg name="launch_system_monitor" value="false"/>
+      <arg name="launch_dummy_diag_publisher" value="true"/>
+      <arg name="diagnostic_graph_aggregator_graph_path" value="$(var diagnostic_graph_aggregator_graph_path)"/>
+      <arg name="component_state_monitor_topic_path" value="$(var component_state_monitor_topic_path)"/>
+      <arg name="is_simulation" value="true"/>
+      <arg name="rviz" value="$(var rviz)"/>
+    </include>
+  </group>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_pursuit_control_component.launch.xml">
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    <arg name="output_gear_cmd" value="$(var gate_gear_output)"/>
+  </include>
+
+  <!-- the simulated vehicle, and the API-driven localization stand-in -->
+  <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_simulator_component.launch.xml">
+    <arg name="launch_dummy_perception" value="false"/>
+    <arg name="launch_dummy_vehicle" value="true"/>
+    <arg name="localization_sim_mode" value="api"/>
+    <arg name="launch_dummy_doors" value="false"/>
+    <arg name="launch_scenario_simulator_v2_adapter" value="false"/>
+    <arg name="perception/enable_detection_failure" value="false"/>
+    <arg name="perception/enable_object_recognition" value="false"/>
+    <arg name="perception/enable_traffic_light" value="false"/>
+    <arg name="perception/use_base_link_z" value="true"/>
+    <arg name="sensing/visible_range" value="300.0"/>
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    <arg name="initial_engage_state" value="true"/>
+    <arg name="vehicle_info_param_file" value="$(find-pkg-share $(var vehicle_model)_description)/config/vehicle_info.param.yaml"/>
+    <arg name="raw_vehicle_cmd_converter_param_path" value="$(find-pkg-share autoware_launch)/config/vehicle/raw_vehicle_cmd_converter/raw_vehicle_cmd_converter.param.yaml"/>
+  </include>
+
+  <node pkg="autosdv_coach_lab" exec="sim_pose_init" name="sim_pose_init" output="screen">
+    <param name="x" value="$(var initial_x)"/>
+    <param name="y" value="$(var initial_y)"/>
+    <param name="z" value="$(var initial_z)"/>
+    <param name="yaw" value="$(var initial_yaw)"/>
+  </node>
+
+  <node pkg="autosdv_coach_lab" exec="drive_gear_hold" name="drive_gear_hold" output="screen" if="$(var gear_hold)">
+    <param name="output_topic" value="/control/command/gear_cmd"/>
+  </node>
+
+  <!-- the board: scripted here, the LiDAR detector on the car -->
+  <include file="$(find-pkg-share autosdv_coach_lab)/launch/virtual_coach.launch.xml" unless="$(var launch_detector)">
+    <arg name="scenario" value="$(var scenario)"/>
+    <arg name="seed" value="$(var seed)"/>
+  </include>
+
+  <include file="$(find-pkg-share autosdv_coach_lab)/launch/coach_pursuit_nodes.launch.xml">
+    <arg name="controller_class" value="$(var controller_class)"/>
+    <arg name="controller_param_file" value="$(var controller_param_file)"/>
+  </include>
+</launch>

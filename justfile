@@ -27,6 +27,8 @@ mod map 'just/map.just'
 mod sim 'just/sim.just'
 # Development and monitoring tools: RViz, PlotJuggler, TUI, manual control
 mod tool 'just/tool.just'
+# Lab 2, coach-board pursuit: simulator bench, vehicle, recording
+mod lab2 'just/lab2.just'
 
 # ============================================================================
 # Core Commands
