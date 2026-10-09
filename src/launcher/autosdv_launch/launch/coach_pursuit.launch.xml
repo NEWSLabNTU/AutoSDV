@@ -77,18 +77,18 @@
        argument of autosdv.launch.yaml; it reaches autosdv_autoware through the
        launch configuration declared above, the same way `just launch
        rviz:=false` does. -->
-  <!-- Every switch below is set twice: as a launch configuration here, and as
-       an include argument. ros2 launch honours either. play_launch 0.10's Rust
-       parser drops arguments passed from an XML include into a YAML launch
-       file (autosdv.launch.yaml's own defaults win; measured with
-       `play_launch resolve`), but it does honour a configuration already set
-       in the enclosing scope, which a YAML arg declaration does not
-       override. Without these lets, play_launch would start map, NDT,
-       perception, planning and stock control alongside the lab stack.
+  <!-- Every switch below except launch_vehicle_interface is set twice: as a
+       launch configuration here, and as an include argument. ros2 launch
+       honours either. play_launch up to 0.13.1 dropped arguments passed from
+       an XML include into a YAML launch file, so without these lets it
+       started map, NDT, perception, planning and stock control alongside the
+       lab stack. Fixed in NEWSLabNTU/play_launch d6aa9d0e (resolves to the
+       same 75 nodes without them); delete these nine lets once every
+       vehicle runs a release containing it.
 
-       launch_vehicle_interface is not an autosdv.launch.yaml argument at all:
-       the stock vehicle interface is switched off here and included again
-       below with the speed_controller_* arguments. -->
+       launch_vehicle_interface must stay: it is not an autosdv.launch.yaml
+       argument, and the let is what switches the stock vehicle interface
+       off; the include below is the one that runs it. -->
   <let name="launch_vehicle_interface" value="false"/>
   <let name="launch_map" value="false"/>
   <let name="launch_localization" value="false"/>
