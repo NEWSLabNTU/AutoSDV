@@ -1,0 +1,16 @@
+# Planning for the coach-pursuit lab: board_pursuit_planner publishes
+# /planning/trajectory directly. No route (so no routing state or route rate),
+# and no planning_validator -- it waits for a route and a map that never come,
+# so its trajectory_validation checks would stay STALE. The rate check reads
+# /planning/trajectory (the stock topics.yaml entry already does), and a dead
+# planner fails it, which is the MRM backstop behind the planner's own stop.
+units:
+  - path: /autoware/planning
+    type: and
+    list:
+      - { type: link, link: /autoware/planning/topic_rate_check/trajectory }
+
+  - path: /autoware/planning/topic_rate_check/trajectory
+    type: diag
+    node: topic_state_monitor_scenario_planning_trajectory
+    name: planning_topic_status

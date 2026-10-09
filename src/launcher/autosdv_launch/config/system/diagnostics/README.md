@@ -14,6 +14,22 @@ Only these two, and only for `pose_source:=mcl`:
 | `map-mcl.yaml` | included by the above |
 | `localization-mcl.yaml` | included by the above |
 
+And, for the coach-pursuit lab (Lab 2), selected explicitly by
+`coach_pursuit.launch.xml` and `coach_pursuit_sim.launch.xml`:
+
+| File | Loaded when |
+|---|---|
+| `autosdv-pursuit-main.yaml` | coach pursuit (top-level graph) |
+| `control-pursuit.yaml`, `localization-pursuit.yaml`, `perception-pursuit.yaml`, `planning-pursuit.yaml` | included by the above |
+
+The pursuit graph has no map, no route, no NDT/EKF and no Autoware perception
+or planning checks; it gates autonomous on dead-reckoned odometry, the
+pursuit planner's trajectory rate, coach_tracker being alive, and the stock
+control (minus lane departure and AEB), vehicle and system checks. Its topic
+monitors are `../component_state_monitor/topics-pursuit.yaml`. The board
+detection rate is reported as `/autoware/lab/coach_detection` but gates
+nothing: a lost board is the planner's stop, not an MRM.
+
 Every other `.yaml` here — `autoware-main.yaml`, `autoware-awsim.yaml`,
 `control.yaml`, `hardware.yaml`, `localization.yaml`, `map.yaml`,
 `perception.yaml`, `planning.yaml`, `system.yaml`, `vehicle.yaml` — is **not

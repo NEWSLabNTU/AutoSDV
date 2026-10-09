@@ -1,0 +1,101 @@
+# Diagnostic graph for the coach-pursuit lab (Lab 2): Autoware control driven
+# by board_pursuit_planner, with no map, no localization estimator, no route
+# and no Autoware perception or planning.
+#
+# Built on the autosdv-mcl-main.yaml pattern: the method-independent modules
+# that still apply (system, vehicle) are included from the installed
+# autoware_launch, so they cannot drift from the Autoware in use; the rest are
+# lab variants in this directory.
+#
+#   map            dropped. The vehicle runs no map; nothing here needs one.
+#   localization   -> localization-pursuit.yaml  dead reckoning alive
+#                     (/localization/kinematic_state and map->base_link rates),
+#                     no NDT, no EKF, no localization state.
+#   perception     -> perception-pursuit.yaml    coach_tracker alive. The
+#                     board detection rate is reported under /autoware/lab
+#                     but does NOT gate autonomous: losing the board is
+#                     handled by the planner's stop, and gating on it would
+#                     turn every dropout into an MRM.
+#   planning       -> planning-pursuit.yaml      trajectory rate only: no
+#                     route, no planning_validator (it waits for a route/map).
+#   control        -> control-pursuit.yaml       stock minus lane departure and
+#                     AEB, which the lab control component does not launch.
+#
+# Selected by coach_pursuit.launch.xml and coach_pursuit_sim.launch.xml.
+# The topic monitors it reads are in ../component_state_monitor/topics-pursuit.yaml.
+files:
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/system.yaml }
+  - { path: $(find-pkg-share autoware_launch)/config/system/diagnostics/vehicle.yaml }
+  - { path: $(dirname)/control-pursuit.yaml }
+  - { path: $(dirname)/localization-pursuit.yaml }
+  - { path: $(dirname)/perception-pursuit.yaml }
+  - { path: $(dirname)/planning-pursuit.yaml }
+
+units:
+  - path: /autoware/modes/local
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /autoware/control/local }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/remote
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /autoware/control/remote }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/stop
+    type: and
+    list:
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/autonomous
+    type: and
+    list:
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+      - { type: link, link: /adapi/mrm_request/delegate }
+
+  - path: /autoware/modes/pull_over
+    type: and
+    list:
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/modes/comfortable_stop
+    type: and
+    list:
+      - { type: link, link: /autoware/localization }
+      - { type: link, link: /autoware/planning }
+      - { type: link, link: /autoware/perception }
+      - { type: link, link: /autoware/control }
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/modes/emergency_stop
+    type: and
+    list:
+      - { type: link, link: /autoware/vehicle }
+      - { type: link, link: /autoware/system }
+
+  - path: /autoware/debug/tools
+    type: and
+    list:
+      - { type: link, link: /autoware/system/service_log_checker }
+
+  - path: /adapi/mrm_request/delegate
+    type: diag
+    node: /adapi/node/mrm_request
+    name: delegate

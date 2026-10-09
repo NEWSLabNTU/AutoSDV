@@ -1,0 +1,22 @@
+# Localization for the coach-pursuit lab: there is no estimator, only dead
+# reckoning (autosdv_dead_reckoning_component on the vehicle, the simulator's
+# own odometry in the planning sim). What the control chain needs is that
+# /localization/kinematic_state keeps arriving -- vehicle_cmd_gate withholds
+# all output until it has -- and that map -> base_link exists. Both are rate
+# checks from ../component_state_monitor/topics-pursuit.yaml.
+units:
+  - path: /autoware/localization
+    type: and
+    list:
+      - { type: link, link: /autoware/localization/topic_rate_check/transform }
+      - { type: link, link: /autoware/localization/topic_rate_check/kinematic_state }
+
+  - path: /autoware/localization/topic_rate_check/transform
+    type: diag
+    node: topic_state_monitor_transform_map_to_base_link
+    name: localization_topic_status
+
+  - path: /autoware/localization/topic_rate_check/kinematic_state
+    type: diag
+    node: topic_state_monitor_localization_kinematic_state
+    name: localization_topic_status

@@ -1,0 +1,143 @@
+# Component state monitor topics for the coach-pursuit lab (Lab 2).
+# Read by diagnostics/autosdv-pursuit-main.yaml. Derived from autoware_launch's
+# topics.yaml: the map, NDT/EKF, Autoware perception and route entries are
+# dropped (the lab runs none of them), and three lab entries are added --
+# kinematic_state (dead reckoning alive), coach_state (tracker alive) and
+# coach_board (detection rate, informational).
+
+- module: planning
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: scenario_planning_trajectory
+    topic: /planning/trajectory
+    topic_type: autoware_planning_msgs/msg/Trajectory
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: control
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: trajectory_follower_control_cmd
+    topic: /control/trajectory_follower/control_cmd
+    topic_type: autoware_control_msgs/msg/Control
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: control
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: control_command_control_cmd
+    topic: /control/command/control_cmd
+    topic_type: autoware_control_msgs/msg/Control
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: vehicle
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: vehicle_status_velocity_status
+    topic: /vehicle/status/velocity_status
+    topic_type: autoware_vehicle_msgs/msg/VelocityReport
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: vehicle
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: vehicle_status_steering_status
+    topic: /vehicle/status/steering_status
+    topic_type: autoware_vehicle_msgs/msg/SteeringReport
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: system
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: system_emergency_control_cmd
+    topic: /system/emergency/control_cmd
+    topic_type: autoware_control_msgs/msg/Control
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+- module: localization
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: transform_map_to_base_link
+    topic: /tf
+    frame_id: map
+    child_frame_id: base_link
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+# AutoSDV lab: dead reckoning (or the simulator) is the only source of the
+# odometry vehicle_cmd_gate waits for.
+- module: localization
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: localization_kinematic_state
+    topic: /localization/kinematic_state
+    topic_type: nav_msgs/msg/Odometry
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+# AutoSDV lab: coach_tracker publishes CoachState at a fixed 20 Hz, valid or not.
+- module: perception
+  mode: [online, logging_simulation, planning_simulation]
+  type: autonomous
+  args:
+    node_name_suffix: coach_state
+    topic: /perception/coach/state
+    topic_type: autosdv_lab_msgs/msg/CoachState
+    best_effort: false
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0
+
+# AutoSDV lab: board detections, ~10 Hz when the board is in view. Informational
+# (/autoware/lab/coach_detection), not a gate; best_effort so it matches a
+# detector publishing either way.
+- module: perception
+  mode: [online, logging_simulation, planning_simulation]
+  type: launch
+  args:
+    node_name_suffix: coach_board
+    topic: /perception/coach/board
+    topic_type: geometry_msgs/msg/PoseStamped
+    best_effort: true
+    transient_local: false
+    warn_rate: 5.0
+    error_rate: 1.0
+    timeout: 1.0

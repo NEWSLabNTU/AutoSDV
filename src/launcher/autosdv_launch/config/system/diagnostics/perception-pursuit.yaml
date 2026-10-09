@@ -1,0 +1,25 @@
+# Perception for the coach-pursuit lab.
+#
+# /autoware/perception gates autonomous on coach_tracker being alive: it
+# publishes CoachState at a fixed rate whether or not the board is seen, so a
+# missing rate means the tracker is gone, not that the board is.
+#
+# /autoware/lab/coach_detection is the board detection rate. It is reported
+# but linked into no mode on purpose: a lost board is the planner's job (it
+# stops, then resumes on reacquisition), and gating autonomous on it would make
+# every dropout an MRM and every walk out of view a disengage.
+units:
+  - path: /autoware/perception
+    type: and
+    list:
+      - { type: link, link: /autoware/perception/topic_rate_check/coach_state }
+
+  - path: /autoware/perception/topic_rate_check/coach_state
+    type: diag
+    node: topic_state_monitor_coach_state
+    name: perception_topic_status
+
+  - path: /autoware/lab/coach_detection
+    type: diag
+    node: topic_state_monitor_coach_board
+    name: perception_topic_status
