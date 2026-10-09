@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!--
+  Simulator stand-in for the board detector: a scripted board, published as
+  /perception/coach/board exactly as the detector would. Scenarios live in
+  config/virtual_coach/SCENARIO.param.yaml (default, dropout, noisy).
+-->
+<launch>
+  <arg name="scenario" default="default" description="picks config/virtual_coach/SCENARIO.param.yaml"/>
+  <arg name="scenario_file"
+       default="$(find-pkg-share autosdv_coach_lab)/config/virtual_coach/$(var scenario).param.yaml"/>
+  <arg name="seed" default="-1"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <node pkg="autosdv_coach_lab" exec="virtual_coach" name="virtual_coach" output="screen">
+    <param from="$(var scenario_file)"/>
+    <param name="seed" value="$(var seed)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+</launch>

@@ -1,0 +1,15 @@
+# The default script with instant speed changes (accel 0): the board stops dead
+# from 0.8 m/s. The worst case for the standoff floor.
+/**:
+  ros__parameters:
+    initial_distance: 6.0
+    lateral_offset: 0.0
+    segment_durations: [10.0, 25.0]
+    segment_speeds: [0.0, 0.8]
+    accel: 0.0            # instant start and stop: the worst case for the tracker
+    noise_std: 0.03
+    latency: 0.1
+    dropout_prob: 0.0
+    dropout_windows: [-1.0, -1.0]
+    max_range: 15.0
+    fov_deg: 120.0

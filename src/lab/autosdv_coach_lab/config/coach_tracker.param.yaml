@@ -1,0 +1,17 @@
+# coach_tracker. Gains assume a ~10 Hz detector; see tracker.TrackerParams.
+/**:
+  ros__parameters:
+    input_topic: /perception/coach/board
+    output_topic: /perception/coach/state
+    frame_id: base_link
+    rate: 20.0
+    alpha: 0.5
+    beta: 0.3
+    timeout: 0.5          # s without an accepted detection -> valid: false
+    gate: 1.5             # m, innovation gate
+    max_consecutive_rejects: 3
+    max_board_speed: 3.0  # m/s, the board's own speed
+    odom_topic: /localization/kinematic_state
+    odom_timeout: 0.5
+    min_range: 0.3
+    max_range: 30.0

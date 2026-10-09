@@ -1,0 +1,15 @@
+# A harder detector: 10 cm noise, 250 ms latency, 15 % of frames lost, and a
+# board 0.5 m left of the start line.
+/**:
+  ros__parameters:
+    initial_distance: 6.0
+    lateral_offset: 0.5
+    segment_durations: [10.0, 25.0]
+    segment_speeds: [0.0, 0.8]
+    accel: 1.0            # m/s^2 board speed changes; 0 = instant (worst case)
+    noise_std: 0.10
+    latency: 0.25
+    dropout_prob: 0.15
+    dropout_windows: [-1.0, -1.0]
+    max_range: 15.0
+    fov_deg: 120.0

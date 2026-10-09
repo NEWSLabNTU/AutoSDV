@@ -1,0 +1,33 @@
+# board_pursuit_planner. The safety clamps here are provided, not student
+# tunables: the field protocol caps speed at 1.5 m/s and the standoff floor at
+# 1.0 m, and a student gain must not be able to get past either.
+/**:
+  ros__parameters:
+    controller_class: autosdv_coach_lab.reference.cruise_controller:CruiseController
+    rate: 10.0
+    state_timeout: 0.5
+    odom_timeout: 0.5
+    v_max: 1.5
+    accel_max: 0.5
+    decel_max: 2.0        # rate limit on a falling command
+    # Braking. brake_decel is what the trajectory plans (its stop and
+    # slow-down ramps, fed forward to Autoware's PID); envelope_decel and
+    # reaction_time are what the safety envelope -- the most speed allowed at
+    # a given range -- assumes the vehicle can be relied on for. The gap
+    # between the two is the margin. At these values the car may not exceed
+    # 0.84 m/s at a 2 m range, nor 1.5 m/s inside 3.6 m. Re-measure both on
+    # the real car (W5): the planning simulator brakes at what it is planned.
+    brake_decel: 1.0
+    envelope_decel: 0.6
+    reaction_time: 0.5
+    standoff_min: 1.0
+    # Fixed geometry. Do not shorten the path as the board nears: a shrinking
+    # path crashes MPC. The stop is encoded in velocity.
+    path_length: 10.0
+    path_step: 0.2
+    # Everything under controller.* reaches CruiseController(params) as a dict.
+    controller:
+      headway: 2.0
+      kp: 0.6
+      k_ff: 1.0
+      ff_tau: 0.3

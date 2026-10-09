@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<!--
+  The lab's own nodes, shared by the vehicle and simulator launches:
+
+    /perception/coach/board  (PoseStamped, base_link)
+      -> coach_tracker          -> /perception/coach/state (CoachState)
+      -> board_pursuit_planner  -> /planning/trajectory, /planning/coach_pursuit/debug
+
+  controller_class picks the headway law by import path. A student package
+  ships its CruiseController and, optionally, a param file whose
+  controller.* entries reach the class as its params dict:
+
+    controller_class:=my_lab2.cruise_controller:CruiseController
+    controller_param_file:=$(find-pkg-share my_lab2)/config/controller.param.yaml
+-->
+<launch>
+  <arg name="controller_class"
+       default="autosdv_coach_lab.reference.cruise_controller:CruiseController"
+       description="headway law, package.module:ClassName"/>
+  <arg name="controller_param_file" default=""
+       description="optional yaml with controller.* parameters, applied over the planner defaults"/>
+  <arg name="planner_param_file"
+       default="$(find-pkg-share autosdv_coach_lab)/config/board_pursuit_planner.param.yaml"/>
+  <arg name="tracker_param_file"
+       default="$(find-pkg-share autosdv_coach_lab)/config/coach_tracker.param.yaml"/>
+  <arg name="use_sim_time" default="false"/>
+
+  <node pkg="autosdv_coach_lab" exec="coach_tracker" name="coach_tracker" output="screen">
+    <param from="$(var tracker_param_file)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
+  </node>
+
+  <group if="$(eval &quot;'$(var controller_param_file)' == ''&quot;)">
+    <node pkg="autosdv_coach_lab" exec="board_pursuit_planner" name="board_pursuit_planner" output="screen">
+      <param from="$(var planner_param_file)"/>
+      <param name="controller_class" value="$(var controller_class)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+  </group>
+  <group unless="$(eval &quot;'$(var controller_param_file)' == ''&quot;)">
+    <node pkg="autosdv_coach_lab" exec="board_pursuit_planner" name="board_pursuit_planner" output="screen">
+      <param from="$(var planner_param_file)"/>
+      <param from="$(var controller_param_file)"/>
+      <param name="controller_class" value="$(var controller_class)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </node>
+  </group>
+</launch>

@@ -1,0 +1,15 @@
+# Static board 6 m ahead for 10 s (approach and stop), then walking away at
+# 0.8 m/s for 25 s (follow), then standing still (stop behind it).
+/**:
+  ros__parameters:
+    initial_distance: 6.0
+    lateral_offset: 0.0
+    segment_durations: [10.0, 25.0]
+    segment_speeds: [0.0, 0.8]
+    accel: 1.0            # m/s^2 board speed changes; 0 = instant (worst case)
+    noise_std: 0.03
+    latency: 0.1
+    dropout_prob: 0.0
+    dropout_windows: [-1.0, -1.0]
+    max_range: 15.0
+    fov_deg: 120.0
