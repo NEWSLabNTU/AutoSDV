@@ -97,9 +97,9 @@ None of these has been measured on a car; each says so in its file.
   reads its own file. `ndt_param_file` is a new `autosdv.launch.yaml` argument.
 - **Size limit** 50 MB (`downsample --max-mb`), until Vector Map Builder's upload
   limit is measured.
-- **Board initializer budget** (`config/board/initializer.param.yaml`): 60 attempts
-  (package default 5). Autoware rejects a pose until the wheel speed and NDT are up,
-  and each rejection spends an attempt.
+- **Board initializer readiness** (`config/board/initializer.param.yaml`): a board pose
+  is acted on only once the wheel speed and NDT's input cloud are flowing; before that
+  Autoware refuses it and the refusal would spend one of the 5 attempts.
 - **Bag checks** (`check-bag`): 60 s, 0.8 m/s, 100 Hz IMU, 8 s still at each end, the
   board detected in the first and last 15 s.
 
@@ -149,6 +149,7 @@ The whole sequence runs on simulated Robin-W data in the course repository
 truth; its `phases.md` lists what it found. The initializer budget, the indoor
 `required_distance`, the static compare-map loading and the one-recorder rule above
 came from it.
+
 
 ## On a car, still to verify
 

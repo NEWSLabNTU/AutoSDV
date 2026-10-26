@@ -115,6 +115,9 @@ class Run:
     record_meta: dict = field(default_factory=dict)
     run_meta: dict = field(default_factory=dict)
     odom: np.ndarray = field(default_factory=lambda: np.zeros((0, 5)))   # t x y yaw v
+    # the same poses by their header stamp, yaw unwrapped: for placing a scan's points at
+    # their own times (the scan's stamp and per-point offsets are on the stack's clock)
+    odom_stamped: np.ndarray = field(default_factory=lambda: np.zeros((0, 5)))  # stamp x y yaw z
     ndt: np.ndarray = field(default_factory=lambda: np.zeros((0, 4)))    # t x y yaw
     nvtl: np.ndarray = field(default_factory=lambda: np.zeros((0, 2)))   # t value
     init_states: List[Tuple[float, float, int]] = field(default_factory=list)  # t, stamp, state
@@ -195,7 +198,7 @@ def read_run(path: str) -> Run:
     wanted = {ODOM, NDT_POSE, NVTL, INIT_STATE, ROUTE_STATE, OP_MODE, ROUTE, INITIALPOSE,
               RUN_META, EVENTS, RECORD_META, '/tf_static', cars.BOARD_POSE_RUN}
     types = {t: get_message(topics[t]) for t in wanted if t in topics}
-    odom, ndt, nvtl = [], [], []
+    odom, ndt, nvtl, stamped = [], [], [], []
     first = None
     while reader.has_next():
         topic, raw, stamp = reader.read_next()
@@ -209,6 +212,9 @@ def read_run(path: str) -> Run:
             p = m.pose.pose
             odom.append((t, p.position.x, p.position.y, yaw_of(p.orientation),
                          m.twist.twist.linear.x))
+            hs = m.header.stamp
+            stamped.append((hs.sec + hs.nanosec * 1e-9, p.position.x, p.position.y,
+                            yaw_of(p.orientation), p.position.z))
         elif topic == NDT_POSE:
             p = m.pose.pose
             ndt.append((t, p.position.x, p.position.y, yaw_of(p.orientation)))
@@ -244,13 +250,29 @@ def read_run(path: str) -> Run:
         with open(sidecar) as f:
             r.record_meta = json.load(f)
     r.odom = np.array(odom, float).reshape(-1, 5)
+    st = np.array(sorted(stamped), float).reshape(-1, 5)
+    if len(st):
+        st[:, 3] = np.unwrap(st[:, 3])
+    r.odom_stamped = st
     r.ndt = np.array(ndt, float).reshape(-1, 4)
     r.nvtl = np.array(nvtl, float).reshape(-1, 2)
     return r
 
 
+def point_times(m, pts) -> np.ndarray:
+    """Each point's time after the scan's header stamp, seconds: the Nebula / Seyond
+    `time_stamp` (uint32 ns), or a float `time`; zeros when the cloud has neither."""
+    names = pts.dtype.names or ()
+    if 'time_stamp' in names:
+        return np.asarray(pts['time_stamp'], float) * 1e-9
+    if 'time' in names:
+        return np.asarray(pts['time'], float)
+    return np.zeros(len(pts))
+
+
 def scans(path: str, topic: str, t0: float, t1: float, period: float = SCAN_PERIOD):
-    """(t, frame, Nx3 points) for one LiDAR scan per `period` inside [t0, t1]."""
+    """(t, frame, Nx3 points, header stamp, per-point offsets [s]) for one LiDAR scan per
+    `period` inside [t0, t1]."""
     from rclpy.serialization import deserialize_message
     from rosidl_runtime_py.utilities import get_message
     from sensor_msgs_py import point_cloud2
@@ -267,9 +289,12 @@ def scans(path: str, topic: str, t0: float, t1: float, period: float = SCAN_PERI
             break
         last = t
         m = deserialize_message(raw, cloud_type)
-        pts = point_cloud2.read_points(m, field_names=('x', 'y', 'z'), skip_nans=True)
+        names = [f.name for f in m.fields]
+        want = ['x', 'y', 'z'] + [n for n in ('time_stamp', 'time') if n in names][:1]
+        pts = point_cloud2.read_points(m, field_names=want, skip_nans=True)
         xyz = np.stack([pts['x'], pts['y'], pts['z']], axis=1).astype(float)
-        yield t, m.header.frame_id, xyz
+        stamp_s = m.header.stamp.sec + m.header.stamp.nanosec * 1e-9
+        yield t, m.header.frame_id, xyz, stamp_s, point_times(m, pts)
 
 
 # ------------------------------------------------------------------ the items
@@ -452,17 +477,40 @@ def residuals(run_bag: str, r: Run, map_points: np.ndarray, t0: float, t1: float
     rng = rng or np.random.default_rng(0)
     tree = cKDTree(map_points)
     out = []
-    for t, frame, xyz in scans(run_bag, r.lidar_topic, t0, t1):
+    o = r.odom_stamped
+    for t, frame, xyz, stamp, offsets in scans(run_bag, r.lidar_topic, t0, t1):
         pose = r.pose_at(t)
         base_lidar = chain(r.tf_static, 'base_link', frame)
         if pose is None or base_lidar is None or not len(xyz):
             continue
         if len(xyz) > SCAN_POINTS:
-            xyz = xyz[rng.choice(len(xyz), SCAN_POINTS, replace=False)]
-        # base_link on the floor in the map's plane: z from the map's own floor at 0
-        c, s = math.cos(pose[2]), math.sin(pose[2])
-        map_base = np.array([[c, -s, 0, pose[0]], [s, c, 0, pose[1]], [0, 0, 1, 0], [0, 0, 0, 1]])
-        pts = (map_base @ base_lidar @ np.c_[xyz, np.ones(len(xyz))].T).T[:, :3]
+            keep = rng.choice(len(xyz), SCAN_POINTS, replace=False)
+            xyz, offsets = xyz[keep], offsets[keep]
+        in_base = (base_lidar @ np.c_[xyz, np.ones(len(xyz))].T).T[:, :3]
+        times = stamp + offsets
+        if (stamp > 0 and len(o) > 1 and o[-1, 0] > o[0, 0]
+                and o[0, 0] <= times.min() and times.max() <= o[-1, 0]):
+            # Deskewed, and at the localized height. Each point is placed with the pose at
+            # its own time: a scan is swept over 0.1 s, and one pose for a turning car's
+            # whole sweep misplaced it. And base_link is where localization put it, not on
+            # the floor: AutoSDV's cars carry the LiDAR AT base_link, 0.30 m up
+            # (lab3_robin_w.yaml base_link_height_above_ground), and NDT localizes it
+            # there, so a floor-level base_link sank every scan 0.3 m. Both together read
+            # 0.15 m on a run localized within 3 cm (lab3 TA simulation, 2026-10-27).
+            x = np.interp(times, o[:, 0], o[:, 1])
+            y = np.interp(times, o[:, 0], o[:, 2])
+            yaw = np.interp(times, o[:, 0], o[:, 3])
+            z = np.interp(times, o[:, 0], o[:, 4])
+            c, s = np.cos(yaw), np.sin(yaw)
+            pts = np.stack([c * in_base[:, 0] - s * in_base[:, 1] + x,
+                            s * in_base[:, 0] + c * in_base[:, 1] + y, in_base[:, 2] + z],
+                           axis=1)
+        else:
+            # base_link on the floor in the map's plane: z from the map's own floor at 0
+            c, s = math.cos(pose[2]), math.sin(pose[2])
+            pts = np.stack([c * in_base[:, 0] - s * in_base[:, 1] + pose[0],
+                            s * in_base[:, 0] + c * in_base[:, 1] + pose[1], in_base[:, 2]],
+                           axis=1)
         d, _ = tree.query(pts, distance_upper_bound=RESIDUAL_CAP)
         d = d[np.isfinite(d)]
         if len(d):
