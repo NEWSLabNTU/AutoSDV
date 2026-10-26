@@ -1,0 +1,9 @@
+# Lab 3, Robin-W indoors: the NDT input voxel grid. autosdv_launch's 0.5 m is a
+# 360-degree outdoor sensor's value; in a 2 m corridor it left a Robin-W scan about 180
+# points for NDT. The golf cart's narrow-FOV study ranks re-tuning the input for a dense,
+# narrow cloud among the first changes (robinw-autoware-pipeline.md, item 5).
+/**:
+  ros__parameters:
+    voxel_size_x: 0.2
+    voxel_size_y: 0.2
+    voxel_size_z: 0.2

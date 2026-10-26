@@ -22,7 +22,17 @@
        description="the board profile; default the copy the anchor wrote beside the map"/>
   <arg name="pose_source" default="ndt"
        description="ndt (default: reads ndt_param_file) or cuda_ndt (its own parameters)"/>
-  <arg name="ndt_param_file" default="$(find-pkg-share autosdv_lab3)/config/ndt_indoor.param.yaml"/>
+  <!-- Robin-W: its own NDT file and a denser NDT input (config/ndt_indoor_robin_w.param.yaml
+       and config/localization/ say why); the VLP-16 keeps the indoor file and autosdv_launch's
+       downsampling -->
+  <arg name="ndt_param_file"
+       default="$(find-pkg-share autosdv_lab3)/config/$(eval &quot;'ndt_indoor_robin_w' if '$(var sensor)' == 'robin_w' else 'ndt_indoor'&quot;).param.yaml"/>
+  <arg name="ndt_voxel_grid_param_file"
+       default="$(eval &quot;'$(find-pkg-share autosdv_lab3)/config/localization/voxel_grid_robin_w.param.yaml' if '$(var sensor)' == 'robin_w' else '$(find-pkg-share autosdv_launch)/config/localization/ndt_scan_matcher/pointcloud_preprocessor/voxel_grid_filter.param.yaml'&quot;)"/>
+  <arg name="ndt_random_downsample_param_file"
+       default="$(eval &quot;'$(find-pkg-share autosdv_lab3)/config/localization/random_downsample_robin_w.param.yaml' if '$(var sensor)' == 'robin_w' else '$(find-pkg-share autosdv_launch)/config/localization/ndt_scan_matcher/pointcloud_preprocessor/random_downsample_filter.param.yaml'&quot;)"/>
+  <let name="ndt_voxel_grid_param_file" value="$(var ndt_voxel_grid_param_file)"/>
+  <let name="ndt_random_downsample_param_file" value="$(var ndt_random_downsample_param_file)"/>
   <arg name="pose_initializer" default="board" description="board, or none to set the pose in RViz"/>
   <arg name="is_simulation" default="false"/>
   <arg name="use_sim_time" default="false"
