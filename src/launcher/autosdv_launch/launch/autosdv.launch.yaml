@@ -434,7 +434,7 @@ launch:
         if: $(var launch_empty_objects_publisher)
         children:
         - node:
-            pkg: dummy_perception_publisher
+            pkg: autoware_dummy_perception_publisher
             exec: empty_objects_publisher
             name: empty_objects_publisher
             namespace: perception/object_recognition
