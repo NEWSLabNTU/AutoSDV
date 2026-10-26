@@ -1,17 +1,21 @@
-# board_pose_initializer policy for Lab 3 (lab3_run.launch.xml). The package defaults
-# (reflective_pose_autoware/config/board_pose_initializer.param.yaml) except the budget.
+# board_pose_initializer policy for Lab 3 (lab3_run.launch.xml): the package defaults
+# (reflective_pose_autoware/config/board_pose_initializer.param.yaml) with readiness on.
 #
 # The detector finds the board within a second or two of launch, well before the rest
-# of the stack can take a pose: Autoware's pose initializer rejects the call while it
-# has no wheel speed yet ("The vehicle is not stopped") and while NDT has no scan to
-# align ("align server failed"). Each rejection spends an attempt, one per detection
-# (~1.4 s apart), so the default 5 ran out in 7 s and the car never initialized
-# (lab3 TA simulation, 2026-10-27). 60 attempts cover the ~80 s a loaded Orin takes to
-# bring the stack up; a board that is truly not there still ends in an error.
+# of the stack can take a pose: Autoware's pose initializer refuses while it has no wheel
+# speed ("The vehicle is not stopped") and while NDT has no scan to align ("align server
+# failed"). Without the gate each refusal spent an attempt, one per detection (~1.4 s
+# apart), and the 5 ran out in 7 s: the car never initialized (lab3 TA simulation,
+# 2026-10-27). With it, a board pose is acted on only once the wheel speed and NDT's
+# input cloud are flowing, and the attempts count only real refusals.
 /**:
   ros__parameters:
     initialize_service: /localization/initialize
     max_speed_for_init: 0.05          # [m/s]
-    max_attempts: 60
+    max_attempts: 5
     fallback_to_user_defined_pose: false
     pose_wait_timeout: 0.0
+    require_velocity: true
+    ready_pointcloud_topic: /localization/util/downsample/pointcloud
+    ready_timeout: 1.0
+    stopped_for: 3.0                  # [s] Autoware's stop_check_duration
