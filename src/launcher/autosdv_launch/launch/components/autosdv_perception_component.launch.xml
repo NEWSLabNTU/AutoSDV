@@ -78,6 +78,9 @@
   <arg name="detected_objects_validation_method" default="obstacle_pointcloud" description="options: obstacle_pointcloud, occupancy_grid (must be used with laserscan_based_occupancy_grid_map)"/>
   <arg name="data_path" default="$(env HOME)/autoware_data" description="packages data and artifacts directory path"/>
   <arg name="lidar_detection_model" default="centerpoint" description="If the model name is not declared, the default model in perception.launch.xml will be used"/>
+  <arg name="pointcloud_map_filter_param_path"
+       default="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/pointcloud_filter/pointcloud_map_filter.param.yaml"
+       description="the compare-map filter's parameters; Lab 3 loads its small indoor map statically"/>
   <arg name="use_mapless_mode" default="false" description="run lidar detection in base_link: densification loses its map-frame requirement, so CenterPoint works with localization off"/>
   <!-- Mapless swaps only the lidar model param dir: the mapless copies differ
        from autoware_launch's solely in densification_params.world_frame_id
@@ -169,7 +172,7 @@
     />
     <arg
       name="object_recognition_detection_pointcloud_map_filter_param_path"
-      value="$(find-pkg-share autoware_launch)/config/perception/object_recognition/detection/pointcloud_filter/pointcloud_map_filter.param.yaml"
+      value="$(var pointcloud_map_filter_param_path)"
     />
     <arg
       name="object_recognition_detection_fusion_sync_param_path"
