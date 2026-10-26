@@ -92,10 +92,14 @@ None of these has been measured on a car; each says so in its file.
   extrinsic. Measure `pose_in_map`'s height on the mounted board.
 - **Indoor NDT** (`config/ndt_indoor.param.yaml`): resolution 1.0 (outdoor 2.0) and
   the NVTL gate 1.3 (outdoor 2.0), moved together because NVTL scales with the voxel
-  size. Built-in NDT only (`pose_source:=ndt`, the `run` default): the CUDA matcher
+  size; `required_distance` 3.0 (outdoor 10.0), since indoors nothing may be 10 m away
+  and NDT then refuses every scan. Built-in NDT only (`pose_source:=ndt`, the `run` default): the CUDA matcher
   reads its own file. `ndt_param_file` is a new `autosdv.launch.yaml` argument.
 - **Size limit** 50 MB (`downsample --max-mb`), until Vector Map Builder's upload
   limit is measured.
+- **Board initializer budget** (`config/board/initializer.param.yaml`): 60 attempts
+  (package default 5). Autoware rejects a pose until the wheel speed and NDT are up,
+  and each rejection spends an attempt.
 - **Bag checks** (`check-bag`): 60 s, 0.8 m/s, 100 Hz IMU, 8 s still at each end, the
   board detected in the first and last 15 s.
 
@@ -121,6 +125,15 @@ None of these has been measured on a car; each says so in its file.
   route changes). Before the goal planner's reversing modes were off, one run in three
   lost the behavior planning container to an rclcpp crash on a route change; not seen
   since, but not ruled out.
+- **One recorder at a time in week 2.** On Humble every `ros2 bag record` is the node
+  `/rosbag2_recorder`; with two running, Autoware's duplicated-node check reports ERROR
+  and autonomous mode never becomes available. `lab3_record` is the only recorder
+  during the laps.
+- **The field stack needs perception.** Behaviour planning waits for the occupancy grid
+  and the emergency braking for the obstacle cloud, so `launch_perception:=false`
+  drives nowhere. Perception's compare-map filter loads the map whole
+  (`config/pointcloud_map_filter_indoor.param.yaml`): its dynamic loader, built for city
+  maps, crashed the pointcloud container on a Lab 3 map.
 - **A counter-clockwise loop routes but does not drive** in the simulator (validator
   curvature), even where its clockwise mirror does. The check fails it on requirement
   3 regardless.
@@ -128,6 +141,14 @@ None of these has been measured on a car; each says so in its file.
   `net.core.rmem_max` at 1 MB no node starts. Raise it (`sudo sysctl -w
   net.core.rmem_max=10485760`) or point `CYCLONEDDS_URI` at a copy with
   `min="default"`. Large clouds (a Robin-W scan is about 4 MB) still drop at 1 MB.
+
+## TA rehearsal
+
+The whole sequence runs on simulated Robin-W data in the course repository
+(`2026/labs/Lab3/ta/sim/`, `./run_all.sh`), every step checked against the simulated
+truth; its `phases.md` lists what it found. The initializer budget, the indoor
+`required_distance`, the static compare-map loading and the one-recorder rule above
+came from it.
 
 ## On a car, still to verify
 

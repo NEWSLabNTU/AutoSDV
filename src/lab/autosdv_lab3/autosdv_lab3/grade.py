@@ -624,8 +624,19 @@ def main(argv=None) -> int:
     print_report(rep)
     if args.output:
         with open(args.output, 'w') as f:
-            yaml.safe_dump(rep, f, sort_keys=False)
+            yaml.safe_dump(plain(rep), f, sort_keys=False)
     return 0
+
+
+def plain(v):
+    """The report with numpy scalars as Python ones: safe_dump rejects a numpy bool."""
+    if isinstance(v, dict):
+        return {k: plain(x) for k, x in v.items()}
+    if isinstance(v, (list, tuple)):
+        return [plain(x) for x in v]
+    if isinstance(v, np.generic):
+        return v.item()
+    return v
 
 
 if __name__ == '__main__':

@@ -594,7 +594,9 @@ def main(argv=None) -> int:
                 print(f'  leg {i + 1}/{len(route.legs)} set'
                       + ('' if args.engage else '; engage from RViz or the web UI (or pass --engage)'))
                 if args.engage:
-                    if not api.wait_for(lambda: api.op is not None and api.op.is_autonomous_mode_available, 30.0):
+                    # 120 s: the first leg waits for planning and perception to warm up (30 s
+                    # was not enough for a stack just initialized, in the lab3 TA simulation)
+                    if not api.wait_for(lambda: api.op is not None and api.op.is_autonomous_mode_available, 120.0):
                         print('error: autonomous mode never became available', file=sys.stderr)
                         return 1
                     ok, msg = api.engage()

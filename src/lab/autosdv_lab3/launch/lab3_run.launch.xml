@@ -25,9 +25,15 @@
   <arg name="ndt_param_file" default="$(find-pkg-share autosdv_lab3)/config/ndt_indoor.param.yaml"/>
   <arg name="pose_initializer" default="board" description="board, or none to set the pose in RViz"/>
   <arg name="is_simulation" default="false"/>
+  <arg name="use_sim_time" default="false"
+       description="the stack on /clock (a simulator's), which run_meta's launch time must follow"/>
   <arg name="rviz" default="false"/>
 
   <let name="lidar_topic" value="$(eval &quot;'/sensing/lidar/velodyne_points' if '$(var sensor)' == 'vlp16' else '/sensing/lidar/iv_points'&quot;)"/>
+
+  <!-- the classroom map loaded whole by perception's compare-map filter (the file says why) -->
+  <let name="pointcloud_map_filter_param_path"
+       value="$(find-pkg-share autosdv_lab3)/config/pointcloud_map_filter_indoor.param.yaml"/>
 
   <include file="$(find-pkg-share autosdv_launch)/launch/autosdv.launch.yaml">
     <arg name="vehicle_id" value="$(var vehicle_id)"/>
@@ -38,6 +44,7 @@
     <arg name="use_gnss" value="false"/>
     <arg name="use_ntrip" value="false"/>
     <arg name="is_simulation" value="$(var is_simulation)"/>
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
     <arg name="rviz" value="$(var rviz)"/>
   </include>
 
@@ -45,13 +52,14 @@
   <node pkg="autosdv_lab3" exec="lab3_run_meta" name="lab3_run_meta" output="log">
     <param name="map_path" value="$(var map_path)"/>
     <param name="vehicle_id" value="$(var vehicle_id)"/>
-    <param name="use_sim_time" value="$(var is_simulation)"/>
+    <param name="use_sim_time" value="$(var use_sim_time)"/>
   </node>
 
   <include file="$(find-pkg-share reflective_pose_autoware)/launch/board_pose_initializer.launch.xml"
            if="$(eval &quot;'$(var pose_initializer)' == 'board'&quot;)">
     <arg name="config_file" value="$(var board_config)"/>
     <arg name="detector_params_file" value="$(find-pkg-share autosdv_lab3)/config/board/detector_$(var sensor).param.yaml"/>
+    <arg name="initializer_params_file" value="$(find-pkg-share autosdv_lab3)/config/board/initializer.param.yaml"/>
     <arg name="input_topic" value="$(var lidar_topic)"/>
   </include>
 </launch>

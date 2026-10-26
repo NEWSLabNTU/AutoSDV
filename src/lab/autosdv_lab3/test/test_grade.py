@@ -324,3 +324,10 @@ def test_grade_bag_end_to_end(tmp_path, offset, resid_ok):
     assert loc['score'] == (10.0 if resid_ok else 7.5)
     # the bag's map hash ('h') is neither map: the TA decides, so no total
     assert items['fallback map']['score'] is None and rep['total'] is None
+
+
+def test_report_yaml_takes_numpy_scalars():
+    import yaml
+    rep = {'items': [{'ok': np.bool_(True), 'score': np.float64(2.5), 'n': np.int64(3)}]}
+    out = yaml.safe_load(yaml.safe_dump(grade.plain(rep)))
+    assert out == {'items': [{'ok': True, 'score': 2.5, 'n': 3}]}

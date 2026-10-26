@@ -1,0 +1,23 @@
+# Lab 3: perception's compare-map filter on a classroom map. autoware_launch's
+# pointcloud_map_filter.param.yaml with one change:
+#
+#   use_dynamic_map_loading true -> false
+#
+# Dynamic loading is for city maps: it fetches the cells within 150 m and re-grids every
+# 10 m driven. A Lab 3 map is one 12 m room of a few MB that fits in memory whole, and
+# on one (the lab3 TA simulation's corridor, in the board frame, part of it at negative
+# x and y) the dynamic loader threw std::out_of_range ("__n (which is 351) >= this->size()
+# (which is 314)") as localization initialized, taking down the pointcloud container
+# and every filter in it: no NDT input, no obstacle cloud, no occupancy grid
+# (2026-10-27). Loaded statically, it did not.
+/**:
+  ros__parameters:
+    down_sample_voxel_size: 0.1
+    distance_threshold: 0.5
+    downsize_ratio_z_axis: 0.6
+    publish_debug_pcd: False
+    use_dynamic_map_loading: false
+    timer_interval_ms: 100
+    map_update_distance_threshold: 10.0
+    map_loader_radius: 150.0
+    max_map_grid_size: 1000.0
