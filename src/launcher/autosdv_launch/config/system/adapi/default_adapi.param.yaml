@@ -1,0 +1,55 @@
+# autoware_default_adapi_universe's default_adapi.param.yaml (Autoware 1.5.0) with one change:
+# diagnostic_updater.period 0.5 instead of 1.0.
+#
+# The diagnostic graph marks a leaf STALE once its last status is `timeout` (default 1.0 s)
+# old, judged on the aggregator's clock at 10 Hz. With the AD API publishing every 1.0 s
+# there is no margin: an aggregator tick that lands before the next status is delivered
+# sees exactly 1.0 s, marks /autoware/localization/state, /autoware/planning/routing/state
+# and /adapi/mrm_request/delegate STALE, autonomous becomes unavailable and the MRM
+# emergency stop brakes for a moment. In the Lab 3 TA simulation, whose clock steps put the
+# two on the same instant, that was 423 brake pulses in one run; at 0.5 s it was 19
+# (ntu-sdv-course Lab3/issues/0007). Re-fork when the Autoware version changes.
+/**:
+  ros__parameters:
+    diagnostic_updater:
+      period: 0.5
+      use_fqn: true
+
+/adapi/node/autoware_state:
+  ros__parameters:
+    update_rate: 10.0
+
+/adapi/node/motion:
+  ros__parameters:
+    require_accept_start: false
+    stop_check_duration: 1.0
+
+/adapi/node/routing:
+  ros__parameters:
+    stop_check_duration: 1.0
+
+/adapi/node/vehicle_metrics:
+  ros__parameters:
+    update_rate: 0.1
+
+/adapi/node/vehicle_door:
+  ros__parameters:
+    check_autoware_control: true
+
+/adapi/node/manual/local:
+  ros__parameters:
+    mode: local
+
+/adapi/node/manual/remote:
+  ros__parameters:
+    mode: remote
+
+/adapi/node/fail_safe:
+  ros__parameters:
+    mrm_descriptions:
+      emergency_stop:
+        behavior: 2
+        description: "Emergency stop"
+      comfortable_stop:
+        behavior: 3
+        description: "Comfortable stop"

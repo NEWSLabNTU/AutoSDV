@@ -403,7 +403,8 @@ src/
 │       ├── localization/preset/    # Localization presets
 │       │   ├── default_preset.yaml
 │       │   └── eagleye_preset.yaml
-│       ├── control/                # Control parameters
+│       ├── control/                # Control parameters: control/autoware/ is what the main stack
+│       │                           #   loads (Autoware's + our changes); the rest, pursuit launches only
 │       ├── localization/           # Localization parameters (NDT, EKF, etc.)
 │       └── perception/             # Perception parameters
 ├── localization/                   # Localization packages

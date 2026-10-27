@@ -13,6 +13,8 @@
   <arg name="launch_deprecated_api" default="$(var scenario_simulation)"/>
   <arg name="use_sim_time" default="false"/>
   <arg name="vehicle_model" default="sample_vehicle"/>
+  <arg name="adapi_param_file" default="$(find-pkg-share autosdv_launch)/config/system/adapi/default_adapi.param.yaml"
+       description="AD API parameters: Autoware's, with the diagnostics at 0.5 s (see the file)"/>
 
   <!-- Global parameters -->
   <group scoped="false">
@@ -26,6 +28,6 @@
     <arg name="launch_default_adapi" value="false"/>
   </include>
   <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_default_adapi.launch.py">
-    <arg name="config" value="$(find-pkg-share autoware_default_adapi_universe)/config/default_adapi.param.yaml"/>
+    <arg name="config" value="$(var adapi_param_file)"/>
   </include>
 </launch>
