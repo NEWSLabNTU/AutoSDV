@@ -21,7 +21,7 @@ import time
 import Jetson.GPIO as GPIO
 
 # Configuration
-PIN = 15                    # GPIO pin (BOARD numbering)
+PIN = 16                    # GPIO pin (BOARD numbering)
 EDGE = GPIO.RISING          # velocity_report counts rising edges; GPIO.BOTH checks the wiring
 WHEEL_DIAMETER_CM = 10.5    # Wheel diameter in centimeters
 MARKERS_PER_ROTATION = 12   # Number of markers per wheel rotation

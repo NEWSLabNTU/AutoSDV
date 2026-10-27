@@ -13,7 +13,7 @@ speed controller on a real car with the motor capped low. Output goes to
 ## 1. The speed sensor first
 
 The controller is only as good as `/vehicle/status/velocity_status`. Check the
-KY-003 alone (BOARD pin 15, see `params/velocity_report.yaml`) before any
+KY-003 alone (the pin in `params/velocity_report.yaml`) before any
 closed-loop run:
 
 ```bash
@@ -29,10 +29,15 @@ Two findings from car A:
 
 - **On a lift the suspension drops the wheel away from the sensor**, so it
   reads nothing. Test speed on the ground.
-- **The A3144 on a KY-003 is specified from 4.5 V.** Powered from 3.3 V (pin 17),
-  car A's module lit its LED but pin 15 stayed LOW. At 5 V the module's pull-up
-  puts 5 V on pin 15, a 3.3 V pin: add a divider (10 k / 20 k), a level shifter,
-  or remove the on-board pull-up and pull S up to 3.3 V instead.
+- **Car A's BOARD pin 15 delivered no edges** (2026-10-27): the module lit its
+  LED, the pin stayed LOW, and the same sensor and wiring worked on pin 16.
+  Cars B and C read their sensors on pin 15 with an identical pad
+  configuration (`pinconf-groups`), so the fault was that board's pin or
+  header contact, not the pinmux. Every car moved to pin 16.
+- **The A3144 on a KY-003 is specified from 4.5 V.** If the module is powered
+  from 5 V, its pull-up puts 5 V on the signal pin, a 3.3 V pin: add a divider
+  (10 k / 20 k), a level shifter, or remove the on-board pull-up and pull S up
+  to 3.3 V instead.
 
 ## 2. A step test
 

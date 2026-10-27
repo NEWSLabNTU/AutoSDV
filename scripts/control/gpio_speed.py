@@ -13,7 +13,7 @@ import time
 import Jetson.GPIO as GPIO
 
 # Configuration
-PIN = 15                    # GPIO pin (BOARD numbering)
+PIN = 16                    # GPIO pin (BOARD numbering)
 WHEEL_DIAMETER_CM = 10.5    # Wheel diameter in centimeters
 MARKERS_PER_ROTATION = 12   # Number of markers per wheel rotation
 UPDATE_RATE = 10.0          # Speed update frequency in Hz

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """Passive hall sensor check with blocking edge waits (no polling, drives nothing).
 
-Usage: hall_edges.py SECONDS [BOARD pin, default 15]   (see README.md)
+Usage: hall_edges.py SECONDS [BOARD pin, default PIN below]   (see README.md)
 Waits on BOTH edges with GPIO.wait_for_edge, timestamps each, then reports
 rising/falling counts and HIGH/LOW pulse widths.
 """
 import sys, time
 import Jetson.GPIO as GPIO
 
+PIN = 16  # GPIO pin (BOARD numbering)
+
 secs = float(sys.argv[1])
-pin = int(sys.argv[2]) if len(sys.argv) > 2 else 15
+pin = int(sys.argv[2]) if len(sys.argv) > 2 else PIN
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(pin, GPIO.IN)
 edges = []  # (t, level after edge)
