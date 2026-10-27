@@ -29,7 +29,7 @@ All on the command line, as `key:=value`:
 | --- | --- | --- |
 | `vehicle_id` | `sim` | the car's instance, `individual_params/config/<id>`: the camera mount (URDF) and the IMU calibration. `sim` is the nominal car. Nothing drives, so the default is never unsafe, only less exact than the car's own |
 | `dictionary` | `DICT_5X5_1000` | the printed boards' family (`ARUCO_MIP_36h12` needs OpenCV 4.7 or newer: not on JetPack 6) |
-| `marker_size` | `0.4667` | metres, the edge of the **black square**, not of the board: the lab's 600 mm boards (a 7×7-cell marker with one cell of white margin: W × 7/9). Measure other boards: a wrong size scales every distance. A scan taken at the wrong size: `just aruco-map solve DIR marker_size:=X` re-solves it |
+| `marker_size` | `0.48` | metres, the edge of the **black square**, not of the board: the lab's 600 mm boards, measured. Measure other boards: a wrong size scales every distance. A scan taken at the wrong size: `just aruco-map solve DIR marker_size:=X` re-solves it |
 | `floor_offset` | `0` | metres the floor lies below `base_link`, for a car on a stand |
 
 Any other `key:=value` goes to the launch file the command runs

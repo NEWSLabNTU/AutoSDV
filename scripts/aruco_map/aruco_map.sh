@@ -20,7 +20,7 @@
 #
 # ARGS: key:=value. vehicle_id:= (default sim, the nominal car: it only picks the
 # camera mount and IMU calibration, individual_params/config/<id>), dictionary:=
-# (default DICT_5X5_1000) and marker_size:= (default 0.4667 m, the lab's 600 mm
+# (default DICT_5X5_1000) and marker_size:= (default 0.48 m, the lab's 600 mm
 # boards: the black square's edge, measured; a wrong one scales every distance)
 # for the scan, and any other argument of the launch file the command runs.
 # align takes --force, --vehicle-id (or vehicle_id:=), --bench --truth DIR.

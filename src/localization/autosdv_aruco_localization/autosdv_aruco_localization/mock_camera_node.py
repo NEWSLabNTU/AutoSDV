@@ -37,7 +37,7 @@ from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
-PLATE_RATIO = 9.0 / 7.0         # the lab's boards: a 7x7-cell marker plus one cell of margin (0.4667 m on 600 mm)
+PLATE_RATIO = 0.60 / 0.48       # the lab's boards: a 0.48 m black square on a 600 mm plate, measured
 
 
 # ------------------------------------------------------------ geometry (no ROS)

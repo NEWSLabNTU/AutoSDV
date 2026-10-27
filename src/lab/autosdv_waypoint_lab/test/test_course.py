@@ -84,7 +84,7 @@ def test_lab2_uturn_is_in_the_start_box_frame():
 def _check_coverage(xs, ys, boards, start, stop):
     from autosdv_waypoint_lab import uturn
     from autosdv_waypoint_lab.course import Course, Marker, Pose2D
-    c = Course('.', 'path.csv', False, 1, 0.8, Pose2D(*start), 0.4667,
+    c = Course('.', 'path.csv', False, 1, 0.8, Pose2D(*start), 0.48,
                [Marker(i, bx, by, 0.30, byaw) for i, (bx, by, byaw) in enumerate(boards)], 'DICT_5X5_1000')
     cov, turn, _, _, _ = uturn.course_coverage(c, (xs, ys))
     assert cov.start_box_min >= 2                  # a fix (two) before the car moves

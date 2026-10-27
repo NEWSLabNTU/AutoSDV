@@ -17,7 +17,7 @@ closed: false
 laps: 1
 v_ref: 0.8
 start_pose: {x: 0.000, y: 0.000, yaw: 0.0000}
-marker_size: 0.4667   # black edge: 0.60 m board, 7 of its 9 cells (1-cell white margin)
+marker_size: 0.48     # black edge on the 0.60 m board, measured
 dictionary: DICT_5X5_1000
 marker_height: 0.30
 markers: []
