@@ -1,27 +1,40 @@
 #!/usr/bin/env python3
-"""Minimalist GPIO-based speed measurement for AutoSDV."""
+"""Minimalist GPIO-based speed measurement for AutoSDV (drives nothing).
+
+Counts rising edges with GPIO.add_event_detect, as velocity_report.py does,
+and prints the speed over each update interval. Set the pin and the wheel
+below; keep the wheel equal to params/velocity_report.yaml so the speeds
+compare.
+"""
 import math
+import threading
 import time
+
 import Jetson.GPIO as GPIO
 
 # Configuration
 PIN = 15                    # GPIO pin (BOARD numbering)
-WHEEL_DIAMETER_CM = 20.0    # Wheel diameter in centimeters
-MARKERS_PER_ROTATION = 20   # Number of markers per wheel rotation
+WHEEL_DIAMETER_CM = 10.5    # Wheel diameter in centimeters
+MARKERS_PER_ROTATION = 12   # Number of markers per wheel rotation
 UPDATE_RATE = 10.0          # Speed update frequency in Hz
 
 # Calculate wheel circumference
 WHEEL_CIRCUMFERENCE = (WHEEL_DIAMETER_CM / 100.0) * math.pi
 
-# State
+# State, shared with the callback thread
+lock = threading.Lock()
 count = 0
+
 
 def on_marker(channel):
     """Increment count on each wheel marker detection."""
     global count
-    count += 1
+    with lock:
+        count += 1
+
 
 def main():
+    """Print the speed at UPDATE_RATE until Ctrl+C."""
     global count
 
     # Setup GPIO
@@ -34,32 +47,33 @@ def main():
     print(f"Update rate: {UPDATE_RATE} Hz\n")
 
     interval = 1.0 / UPDATE_RATE
-    prev_time = time.time()
+    prev_time = time.monotonic()
 
     try:
         while True:
             time.sleep(interval)
 
+            # Take the count and reset it in one step, so no edge is lost between
+            with lock:
+                markers, count = count, 0
+
             # Calculate speed
-            curr_time = time.time()
+            curr_time = time.monotonic()
             elapsed = curr_time - prev_time
-            markers_per_sec = count / elapsed
-            rotations_per_sec = markers_per_sec / MARKERS_PER_ROTATION
+            prev_time = curr_time
+            rotations_per_sec = markers / elapsed / MARKERS_PER_ROTATION
             speed_mps = rotations_per_sec * WHEEL_CIRCUMFERENCE
             speed_kmh = speed_mps * 3.6
 
             # Display
             print(f"Speed: {speed_mps:6.3f} m/s ({speed_kmh:6.3f} km/h) | "
-                  f"Markers: {count:4d} | RPM: {rotations_per_sec * 60:6.1f}")
-
-            # Reset for next measurement
-            count = 0
-            prev_time = curr_time
+                  f"Markers: {markers:4d} | RPM: {rotations_per_sec * 60:6.1f}", flush=True)
 
     except KeyboardInterrupt:
         print("\nStopped")
     finally:
         GPIO.cleanup()
+
 
 if __name__ == "__main__":
     main()
