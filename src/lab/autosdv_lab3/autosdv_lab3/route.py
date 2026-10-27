@@ -509,6 +509,29 @@ class AdApi:
             return True, msg    # a transition already under way; keep_engaged follows it up
         return ok, msg
 
+    def engage_when_available(self, timeout: float) -> Tuple[bool, str]:
+        """Engage once autonomous is available, retrying a refusal until ``timeout``.
+
+        Setting a route makes autonomous unavailable for a moment while planning
+        catches up, and the operation-mode state can still read available from
+        before: an engage sent then is refused ("The target mode is not available")
+        although it would succeed a second later (measured: lap 2 of three runs in
+        the lab3 TA simulation). A refusal therefore waits and tries again; only the
+        deadline is an error.
+        """
+        deadline = time.monotonic() + timeout
+        ok, msg = False, 'autonomous mode never became available'
+        while True:
+            left = deadline - time.monotonic()
+            if left <= 0 or not self.wait_for(
+                    lambda: self.op is not None and self.op.is_autonomous_mode_available, left):
+                return False, msg
+            ok, msg = self.engage()
+            if ok:
+                return True, msg
+            msg = f'engage refused: {msg}'
+            self.wait_for(lambda: False, min(1.0, max(0.0, deadline - time.monotonic())))
+
     def keep_engaged(self) -> bool:
         """Re-engage when the mode fell back to STOP before arrival; True if it did."""
         if self.autonomous():
@@ -596,12 +619,9 @@ def main(argv=None) -> int:
                 if args.engage:
                     # 120 s: the first leg waits for planning and perception to warm up (30 s
                     # was not enough for a stack just initialized, in the lab3 TA simulation)
-                    if not api.wait_for(lambda: api.op is not None and api.op.is_autonomous_mode_available, 120.0):
-                        print('error: autonomous mode never became available', file=sys.stderr)
-                        return 1
-                    ok, msg = api.engage()
+                    ok, msg = api.engage_when_available(120.0)
                     if not ok:
-                        print(f'error: engage refused: {msg}', file=sys.stderr)
+                        print(f'error: {msg}', file=sys.stderr)
                         return 1
 
                 def arrived():
