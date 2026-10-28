@@ -45,7 +45,7 @@ the image is published only while someone watches.
 
 Arguments after the origin go to the launch file:
 `dictionary:=ARUCO_MIP_36h12 marker_size:=0.25` for the printed markers
-(default `DICT_5X5_1000`, 0.4667 m: the lab's 600 mm boards), and
+(default: the lab's boards, set once in `autosdv_aruco_localization/config/boards.yaml`), and
 `vehicle_id:=car_c` for that car's camera mount (default `sim`, the nominal
 car).
 
@@ -56,7 +56,14 @@ every distance in the map. Two boards seen so far:
 | board | plate | black square (`marker_size`) |
 | --- | --- | --- |
 | LCTK 600 mm calibration board | 0.60 m | 0.48 m |
-| **the lab's boards** (Lab 2) | 0.60 m | **0.4667 m (the default)**: 7 of the board's 9 cells |
+| **the lab's boards** (Lab 2) | 0.60 m | **0.48 m**, measured 2026-10-27 (was 0.4667, 7 of 9 cells assumed): the default, from `config/boards.yaml` |
+
+The default lives in one file, `autosdv_aruco_localization/config/boards.yaml`;
+the survey node, its launch file, the synthetic bag, the course generators and
+the mock camera read it. A survey writes the size it used into its own
+`course.yaml` and `survey_data.npz`, and the localizer uses that recorded
+size, so editing `boards.yaml` changes new surveys, not existing maps. A map
+with markers but no `marker_size` is refused rather than given a default.
 
 **The floor.** `z` is the marker centre above the floor, and the floor is
 taken to be at `base_link` (the mean of the car's poses). A car held up on a

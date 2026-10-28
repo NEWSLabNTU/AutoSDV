@@ -1,0 +1,17 @@
+# The lab's ArUco boards: the ONE place their size and family are set.
+#
+# Every default reads this file (autosdv_aruco_localization.boards): the survey
+# node and its launch file, the synthetic survey bag, the Lab 2 course
+# generators and the mock camera. A marker map does NOT read it at run time: a
+# survey writes the size it was taken with into its own course.yaml (and
+# survey_data.npz), and the localizer uses that recorded value. So changing
+# this file changes new surveys and generated courses, not existing maps; to
+# correct a map surveyed with a wrong size, re-solve it:
+#   just aruco-map solve DIR marker_size:=<measured>
+dictionary: DICT_5X5_1000
+# [m] edge of the BLACK SQUARE, not the board: measured 2026-10-27 on the
+# lab's 600 mm boards (was 0.4667, a 7-of-9-cells guess, never measured).
+# A wrong size scales every distance in a map.
+marker_size: 0.48
+# [m] edge of the board the square is printed on (the mock camera draws it)
+plate_size: 0.60

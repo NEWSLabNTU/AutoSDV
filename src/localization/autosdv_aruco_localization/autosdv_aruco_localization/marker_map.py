@@ -12,7 +12,7 @@ route (path, laps, speed); this module reads only the marker part and ignores
 the rest:
 
     start_pose: {x: 0.0, y: 0.0, yaw: 0.0}   # where start_pose_init seeds the EKF (base_link)
-    marker_size: 0.4667   # [m] black edge, what the detector is told
+    marker_size: 0.48     # [m] black edge, what the detector is told
     dictionary: DICT_5X5_1000   # the printed markers' family (below)
     marker_height: 0.25   # [m] marker centre above the floor (default for all)
     markers:              # yaw: the direction the marker FACES (its normal)
@@ -156,12 +156,29 @@ def parse_start_pose(d: dict) -> Pose2D:
     return Pose2D(float(sp.get('x', 0.0)), float(sp.get('y', 0.0)), float(sp.get('yaw', 0.0)))
 
 
+def parse_marker_size(d: dict, directory: str) -> float:
+    """The map's own marker_size: the size it was surveyed with, never a default.
+
+    A map that has markers but no marker_size is refused, because any default
+    would silently scale every fix. One with no markers needs none.
+    """
+    size = d.get('marker_size')
+    if not d.get('markers'):
+        return float(size or 0.0)
+    if size is None:
+        raise ValueError(f'{directory}/course.yaml has markers but no marker_size: write the '
+                         'size the boards were surveyed with (the black square, in metres)')
+    if not float(size) > 0.0:
+        raise ValueError(f'{directory}/course.yaml: marker_size {size} must be positive')
+    return float(size)
+
+
 def load_marker_map(directory: str) -> MarkerMap:
     d = read_yaml(directory)
     return MarkerMap(
         directory=directory,
         start_pose=parse_start_pose(d),
-        marker_size=float(d.get('marker_size', 0.25)),
+        marker_size=parse_marker_size(d, directory),
         markers=parse_markers(d, directory),
         dictionary=parse_dictionary(d, directory))
 

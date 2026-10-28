@@ -38,6 +38,7 @@ from std_srvs.srv import Trigger
 import tf2_ros
 from visualization_msgs.msg import Marker, MarkerArray
 
+from autosdv_aruco_localization import boards
 from autosdv_marker_survey.finish import finish, save_dump
 from autosdv_marker_survey.survey import (
     Detector, Survey, SurveySettings, interpolate_T, make_T, quat_to_matrix)
@@ -76,8 +77,8 @@ class MarkerSurveyNode(Node):
         P = self.declare_parameter
         P('origin_id', -1)
         P('course_dir', '')
-        P('dictionary', 'DICT_5X5_1000')
-        P('marker_size', 0.4667)
+        P('dictionary', boards.DICTIONARY)
+        P('marker_size', boards.MARKER_SIZE)
         P('image_topic', '/sensing/camera/zedxm/rgb/color/rect/image')
         P('camera_info_topic', '/sensing/camera/zedxm/rgb/color/rect/camera_info')
         P('compressed', False)
@@ -100,9 +101,13 @@ class MarkerSurveyNode(Node):
         self.course_dir = gp('course_dir')
         if self.origin_id < 0 or not self.course_dir:
             raise RuntimeError('set origin_id (the marker that defines the course frame) and course_dir')
-        self.dictionary = gp('dictionary')
+        # empty / 0 (the launch file's defaults): the lab's boards, config/boards.yaml
+        self.dictionary = gp('dictionary') or boards.DICTIONARY
+        marker_size = float(gp('marker_size')) or boards.MARKER_SIZE
+        if marker_size < 0.0:
+            raise RuntimeError(f'marker_size {marker_size} must be positive')
         self.settings = SurveySettings(
-            marker_size=float(gp('marker_size')), keyframe_distance=float(gp('keyframe_distance')),
+            marker_size=marker_size, keyframe_distance=float(gp('keyframe_distance')),
             keyframe_angle=math.radians(float(gp('keyframe_angle_deg'))),
             odom_drift=float(gp('odom_drift')), min_marker_px=float(gp('min_marker_px')))
         self.detector = Detector(self.dictionary)
@@ -143,8 +148,8 @@ class MarkerSurveyNode(Node):
         self.create_timer(5.0, self.on_status)
         self.get_logger().info(
             f'surveying {self.dictionary} markers; marker_size {self.settings.marker_size} m is the '
-            "edge of the BLACK SQUARE, not the board: measure it (the lab's 0.60 m board: 0.4667 m; "
-            'an LCTK 600 mm board: 0.48 m). A wrong size scales every distance. '
+            "edge of the BLACK SQUARE, not the board: measure it (the lab's boards: "
+            f'{boards.MARKER_SIZE:g} m, config/boards.yaml). A wrong size scales every distance. '
             f'Origin marker {self.origin_id}; course -> {self.course_dir}. Drive slowly past '
             'every marker; Ctrl-C (or the ~/save service) solves and writes the course.')
 

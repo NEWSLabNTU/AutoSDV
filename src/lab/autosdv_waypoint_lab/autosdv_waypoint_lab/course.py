@@ -33,7 +33,8 @@ from typing import List
 from autosdv_aruco_localization.marker_map import (  # noqa: F401  (re-exported)
     ARUCO_DICTIONARIES, LANDMARK_SUBTYPE, LANDMARK_TYPE, SHIPPED_DICTIONARIES, Landmark,
     Marker, Pose2D, check_or_write, landmark_from_corners, make_ar_tag_params, make_osm,
-    parse_dictionary, parse_markers, parse_osm_landmarks, parse_start_pose, read_yaml)
+    parse_dictionary, parse_marker_size, parse_markers, parse_osm_landmarks, parse_start_pose,
+    read_yaml)
 
 
 @dataclass
@@ -66,7 +67,7 @@ def load_course(directory: str) -> Course:
         laps=int(d.get('laps', 1)),
         v_ref=float(d.get('v_ref', 0.8)),
         start_pose=parse_start_pose(d),
-        marker_size=float(d.get('marker_size', 0.25)),
+        marker_size=parse_marker_size(d, directory),
         dictionary=parse_dictionary(d, directory),
         markers=parse_markers(d, directory))
 
