@@ -1,90 +1,118 @@
 #!/usr/bin/env python3
-"""Watch hall-sensor edges the way velocity_report sees them (drives nothing).
+"""Watch the hall sensor's GPIO pin: its live level and every edge (drives nothing).
 
-    python3 scripts/control/gpio_read.py           # a line per edge, a summary per second
-    python3 scripts/control/gpio_read.py --quiet   # the summaries only
+    python3 scripts/control/gpio_read.py            # live level, refreshed in place
+    python3 scripts/control/gpio_read.py --edges    # plus one line per edge
 
-Uses the same detection as velocity_report.py: GPIO.add_event_detect with a
-callback. It does not poll GPIO.input(): add_event_detect closes the pin's line
-handle and requests an event line instead (Jetson.GPIO 2.1.x), so input()
-afterwards reads through a stale handle. The level is read once, before.
+Opens the pin's kernel event line itself, for BOTH edges, instead of
+Jetson.GPIO's add_event_detect: there, input() reads through the line handle
+add_event_detect closed (Jetson.GPIO 2.1.x), so the level cannot be shown.
+On its own event line the level is read at any moment, and each event says
+whether it rose or fell and carries the kernel's timestamp, not the time a
+Python callback happened to run.
 
-Each edge prints its gap to the previous one and the speed that gap means.
-Set the pin, the edge and the wheel below; keep the wheel equal to
-params/velocity_report.yaml so the speeds compare.
+The status line shows the level now, the rising and falling counts, and the
+bursts: edges closer than BURST_GAP_MS are counted as one burst, so a clean
+magnet pass is two bursts (it arrives, it leaves) and a chattering one is the
+same two bursts with many edges each. velocity_report counts rising edges and
+drops gaps under 1 ms, so it sees about one edge per burst that contains one.
+
+Set the pin and the wheel below; keep the wheel equal to
+params/velocity_report.yaml so the speeds compare. Stop velocity_report first:
+both want the pin's event line.
 """
+import ctypes
+import fcntl
 import math
+import os
+import select
 import sys
-import threading
 import time
 
 import Jetson.GPIO as GPIO
+from Jetson.GPIO import gpio as jgpio
+from Jetson.GPIO import gpio_cdev as cdev
 
 # Configuration
 PIN = 16                    # GPIO pin (BOARD numbering)
-EDGE = GPIO.RISING          # velocity_report counts rising edges; GPIO.BOTH checks the wiring
 WHEEL_DIAMETER_CM = 10.5    # Wheel diameter in centimeters
 MARKERS_PER_ROTATION = 12   # Number of markers per wheel rotation
+BURST_GAP_MS = 1.0          # edges closer than this belong to one burst
+REFRESH_S = 0.1             # status line refresh period
 
-# With BOTH, two edges per marker pass
-EDGES_PER_MARKER = 2 if EDGE == GPIO.BOTH else 1
-METRES_PER_EDGE = math.pi * WHEEL_DIAMETER_CM / 100.0 / MARKERS_PER_ROTATION / EDGES_PER_MARKER
-EDGE_NAME = {GPIO.RISING: 'rising', GPIO.FALLING: 'falling', GPIO.BOTH: 'both'}[EDGE]
-
-# State, shared with the callback thread
-lock = threading.Lock()
-count = 0
-window = 0
-last_t = None
-quiet = '--quiet' in sys.argv[1:]
+METRES_PER_MARKER = math.pi * WHEEL_DIAMETER_CM / 100.0 / MARKERS_PER_ROTATION
+EVENT_SIZE = ctypes.sizeof(cdev.gpioevent_data)
 
 
-def on_edge(channel):
-    """Count an edge and print its gap."""
-    global count, window, last_t
-    t = time.monotonic()
-    with lock:
-        count += 1
-        window += 1
-        n, last = count, last_t
-        last_t = t
-    if quiet:
-        return
-    if last is None:
-        print(f'edge #{n:6d} pin {channel}', flush=True)
-    else:
-        gap = t - last
-        print(f'edge #{n:6d} pin {channel}  gap {gap * 1e3:8.2f} ms  '
-              f'{METRES_PER_EDGE / gap:6.3f} m/s', flush=True)
+def open_event_line(pin):
+    """(chip fd, event line fd) for BOARD ``pin``, requesting both edges."""
+    GPIO.setmode(GPIO.BOARD)
+    info = jgpio._channel_to_info(pin, need_gpio=True)
+    chip_fd = cdev.chip_open_by_label(info.gpio_chip)
+    request = cdev.request_event(info.line_offset, cdev.GPIOEVENT_REQUEST_BOTH_EDGES, 'gpio_read')
+    try:
+        fcntl.ioctl(chip_fd, cdev.GPIO_GET_LINEEVENT_IOCTL, request)
+    except OSError as e:
+        os.close(chip_fd)
+        sys.exit(f'pin {pin} ({info.gpio_chip} line {info.line_offset}): {e.strerror}; '
+                 'is velocity_report (or another reader) holding it?')
+    return chip_fd, request.fd, info
 
 
 def main():
-    """Print a summary per second until Ctrl+C."""
-    global window
+    """Refresh the status line until Ctrl+C."""
+    show_edges = '--edges' in sys.argv[1:]
+    chip_fd, fd, info = open_event_line(PIN)
+    level = cdev.get_value(fd)
+    print(f'pin {PIN} ({info.gpio_name}, {info.gpio_chip} line {info.line_offset}): start level '
+          f'{level}. Both edges; a burst is edges under {BURST_GAP_MS:g} ms apart. Ctrl+C stops.',
+          flush=True)
 
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(PIN, GPIO.IN)
-    level = GPIO.input(PIN)
-    GPIO.add_event_detect(PIN, EDGE, callback=on_edge)
-
-    print(f'pin {PIN}: start level {level} ({"HIGH" if level else "LOW"}), '
-          f'{EDGE_NAME} edges, {METRES_PER_EDGE * 100:.2f} cm per edge. Ctrl+C stops.', flush=True)
-
+    rising = falling = bursts = 0
+    last_ns = None          # kernel time of the previous edge
+    burst_start_ns = None
+    burst_edges = 0
     t0 = time.monotonic()
+    next_refresh = 0.0
     try:
         while True:
-            time.sleep(1.0)
-            with lock:
-                k, window = window, 0
-                total = count
-            print(f'[{time.monotonic() - t0:6.1f} s] {k:4d} edges/s  '
-                  f'{k * METRES_PER_EDGE:6.3f} m/s  total {total} '
-                  f'({total * METRES_PER_EDGE:.2f} m)', flush=True)
+            ready, _, _ = select.select([fd], [], [], REFRESH_S)
+            if ready:
+                data = os.read(fd, EVENT_SIZE * 64)
+                for i in range(0, len(data) - EVENT_SIZE + 1, EVENT_SIZE):
+                    ev = cdev.gpioevent_data.from_buffer_copy(data, i)
+                    up = ev.id == cdev.GPIOEVENT_REQUEST_RISING_EDGE
+                    rising += up
+                    falling += not up
+                    gap_ms = (ev.timestamp - last_ns) / 1e6 if last_ns is not None else math.inf
+                    if gap_ms >= BURST_GAP_MS:
+                        if burst_edges and show_edges:
+                            print(f'\r  burst: {burst_edges} edge(s) over '
+                                  f'{(last_ns - burst_start_ns) / 1e6:.2f} ms' + ' ' * 20)
+                        bursts += 1
+                        burst_start_ns, burst_edges = ev.timestamp, 0
+                    burst_edges += 1
+                    last_ns = ev.timestamp
+                    if show_edges:
+                        gap = f'{gap_ms:9.3f} ms' if gap_ms != math.inf else '        first'
+                        print(f'\r{"RISE" if up else "fall"}  gap {gap}' + ' ' * 40, flush=True)
+            now = time.monotonic()
+            if now >= next_refresh:
+                next_refresh = now + REFRESH_S
+                level = cdev.get_value(fd)
+                ago = (f'{(time.clock_gettime_ns(time.CLOCK_MONOTONIC) - last_ns) / 1e9:6.2f} s ago'
+                       if last_ns is not None else '   never')
+                # velocity_report: about one counted edge per burst; a magnet pass is 2 bursts
+                print(f'\r[{now - t0:6.1f} s] level {level} {"HIGH" if level else "LOW "}  '
+                      f'rise {rising:6d}  fall {falling:6d}  bursts {bursts:5d} '
+                      f'(~{bursts / 2:.0f} magnets, {bursts / 2 * METRES_PER_MARKER:.2f} m)  '
+                      f'last edge {ago}', end='', flush=True)
     except KeyboardInterrupt:
         pass
     finally:
-        GPIO.cleanup()
-    print(f'\nStopped. {count} edges, {count * METRES_PER_EDGE:.2f} m', flush=True)
+        os.close(fd)
+        os.close(chip_fd)
+    print(f'\nStopped. rising {rising}, falling {falling}, bursts {bursts}', flush=True)
 
 
 if __name__ == '__main__':
