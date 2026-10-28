@@ -957,10 +957,10 @@ bench base with `--reference`; 75 CAUGHT, 20 OK):
   path for 1 s passed, because the path deviation is measured across the path.
   Now a validity gate in `route_grade` (and a check-bags reason): over every
   1 s from engage to rest the pose's displacement and the integrated wheel
-  speed must agree within `LOC_JUMP_MAX` = 0.30 m ("localization jump"). Clean
+  speed must agree within `LOC_JUMP_MAX` = 0.50 m ("localization jump"). Clean
   bench runs (virtual and rendered camera, the TA reference) reach 0.05-0.07 m.
-  Not yet calibrated on a car bag: a marker fix after a gap moves the EKF
-  legitimately, so check the first car bags' `localization jump` line.
+  It was 0.30 m until 2026-10-28, when a car bag (car A, lab2_uturn_2) showed a
+  marker fix after a gap moving the EKF 0.41 m legitimately.
 - **was CRASH, `loc:nan_pose_1_sample`**: one non-finite pose crashed
   check-bags, the grade and the audit (`Path.project` returned None). Now
   non-finite poses are dropped before measuring and named: "N non-finite

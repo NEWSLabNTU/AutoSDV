@@ -78,10 +78,11 @@ PATH_DEV_MAX = 0.50         # m
 # agree within LOC_JUMP_MAX. The path deviation sees a jump ACROSS the path; this one
 # sees a jump ALONG it. Calibrated on bench bags (virtual and mock camera, the TA
 # reference): a clean run reaches 0.05-0.07 m (the EKF pulled by marker fixes, the
-# speed report's low-speed quantization at the stop), so 0.30 m leaves room for a car
-# whose fixes nudge harder and still catches a 0.5 m jump.
+# speed report's low-speed quantization at the stop). 0.50 m since 2026-10-28: on the
+# first car bags a marker fix after a gap legitimately moved the EKF by 0.41 m (car A,
+# lab2_uturn_2), which 0.30 m failed; 0.50 m still catches a pose jumping a car length.
 JUMP_WINDOW = 1.0           # s
-LOC_JUMP_MAX = 0.30         # m
+LOC_JUMP_MAX = 0.50         # m
 
 POINTS = {
     'uturn': {'speed_rmse_straight': 15.0, 'speed_rmse_turn': 10.0,
@@ -94,13 +95,14 @@ FLOORS = {'speed_rmse': 0.02, 'speed_rmse_straight': 0.02, 'speed_rmse_turn': 0.
 # (full up to, zero from), when there is no reference bag. The speed lines since 2026-10-20:
 # the reference model on car C (lab2_uturn_3..5) runs a speed RMSE of 0.14-0.19 m/s and a
 # start overshoot of 0.27-0.44 m/s on the real car (ESC dead band, hall-sensor speed), so
-# 0.04 -> 0.15 (and 0.04 -> 0.20) gave every practical run zero speed points.
+# 0.04 -> 0.15 (and 0.04 -> 0.20) gave every practical run zero speed points. The stop
+# error's full-marks line is 0.20 m since 2026-10-28 (was 0.10).
 ABSOLUTE = {
     'speed_rmse': (0.10, 0.30),
     'speed_rmse_straight': (0.10, 0.30),
     'speed_rmse_turn': (0.10, 0.30),
     'overshoot': (0.15, 0.50),
-    'stop_error': (0.10, 0.60),
+    'stop_error': (0.20, 0.60),
 }
 
 ROUTE_TOPICS = [g.PROGRESS, g.CONTROL, g.VELOCITY, g.KINEMATIC, g.MRM, g.MODE, bm.META_TOPIC]
