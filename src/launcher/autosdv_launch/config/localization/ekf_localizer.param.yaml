@@ -1,8 +1,9 @@
 /**:
   ros__parameters:
     node:
-      # Enable debug output for fusion tuning
-      show_debug_info: true
+      # Per-step trace of the filter (about 950 log lines a second at 50 Hz);
+      # turn on only while tuning the fusion
+      show_debug_info: false
 
       # Enable automatic yaw bias estimation for IMU drift correction
       enable_yaw_bias_estimation: true
