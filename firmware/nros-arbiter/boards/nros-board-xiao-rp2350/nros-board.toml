@@ -1,0 +1,47 @@
+# nano-ros board descriptor for the Seeed XIAO RP2350, on Zephyr.
+#
+# nano-ros configures a board through its Zephyr family package and this one
+# file (RFC-0115 D3): the Zephyr board id below, plus the Kconfig fragment
+# beside it. The board is not in nano-ros's tree, so builds find it through
+# NROS_EXTRA_BOARD_PATH, which firmware/nros-arbiter/ws.sh sets.
+#
+# The board exists only on the Zephyr 4.4 line: Zephyr 3.7, nano-ros's default
+# line, has xiao_rp2040 and no RP2350.
+
+[[board]]
+names = ["xiao-rp2350"]
+platform = "zephyr"
+toolchain = "stable"
+platform_feature = "platform-zephyr"
+entry_kind = "zephyr-staticlib"
+# Zephyr's own configuration owns the link; nano-ros picks no netstack.
+supported_netstacks = []
+
+# What a generated Rust entry needs on Zephyr; the same two lines and deps as
+# nano-ros's in-tree Zephyr descriptors. Unused by the C++ arbiter, kept so a
+# Rust image for this board builds without editing the descriptor.
+[board.entry]
+crate_root_extra = "extern crate zephyr;"
+crate_root_deps = ["zephyr = \"0.1.0\"", "log = \"0.4\""]
+
+[board.zephyr]
+west_board = "xiao_rp2350/rp2350a/m33"
+# prj.conf turns the FPU on, so zephyr-lang-rust picks the hard-float triple.
+rust_target = "thumbv8m.main-none-eabihf"
+rust_prereqs = ["clang", "libclang-dev"]
+rust_components = ["clippy"]
+
+[board.capabilities]
+heap = true
+atomics = true
+threads = true
+
+[board.net]
+stack = "os"
+# No IP stack on this board: the link to the Orin is zenoh-pico's serial
+# framing, over USB CDC-ACM.
+links = ["serial"]
+
+[board.provisioning]
+zephyr_line = "4.4"
+rust_targets = ["thumbv8m.main-none-eabihf"]

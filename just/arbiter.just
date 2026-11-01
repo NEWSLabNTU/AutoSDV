@@ -33,3 +33,25 @@ monitor:
 clean:
     pio run -d {{fw}} -e xiao_rp2350 -t clean
     rm -rf {{fw}}/.pio/build/native
+
+# ---- Zephyr + nano-ros build (firmware/nros-arbiter) -----------------------
+# The same arbiter logic (firmware/rc-arbiter/lib) on Zephyr 4.4, with a
+# nano-ros node that publishes the mode to the Orin over USB serial.
+
+nros := 'firmware/nros-arbiter'
+
+# Fetch Zephyr 4.4 and nano-ros, apply nano-ros's patches, build the nros CLI (~1 GB, once)
+nros-setup:
+    {{nros}}/ws.sh setup
+
+# Cross-compile the Zephyr + nano-ros image; prints flash and RAM use
+nros-build *ARGS:
+    {{nros}}/ws.sh build {{ARGS}}
+
+# Copy the UF2 onto a board in BOOTSEL mode (hold BOOT while plugging in)
+nros-flash:
+    {{nros}}/ws.sh flash
+
+# Remove the Zephyr build directory; the workspace stays
+nros-clean:
+    {{nros}}/ws.sh clean

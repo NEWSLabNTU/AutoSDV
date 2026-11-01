@@ -1,0 +1,76 @@
+/*
+ * XIAO RP2350 wiring for the RC override arbiter. Pin for pin the same as
+ * firmware/rc-arbiter/src/pins.h and the "Wiring" table of
+ * docs/design/rc-override-arbiter.md; change all three together.
+ */
+
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	chosen {
+		/*
+		 * Two USB CDC-ACM ports: the first carries zenoh to the Orin, the
+		 * second is the log console. The board's default console is uart0,
+		 * which is D6/D7 and belongs to the VESC here.
+		 */
+		zephyr,console = &cdc_acm_uart1;
+		zephyr,shell-uart = &cdc_acm_uart1;
+	};
+
+	zephyr,user {
+		/* The board's ADC channels sit on D0/D1, which are pulse inputs here. */
+		/delete-property/ io-channels;
+
+		rx-steer-gpios = <&gpio0 26 GPIO_ACTIVE_HIGH>;      /* D0 */
+		rx-throttle-gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;   /* D1 */
+		orin-throttle-gpios = <&gpio0 5 GPIO_ACTIVE_HIGH>;  /* D3, PCA9685 ch0 via pole A */
+		orin-steer-gpios = <&gpio0 6 GPIO_ACTIVE_HIGH>;     /* D4, PCA9685 ch1 via pole B */
+		heartbeat-gpios = <&gpio0 7 GPIO_ACTIVE_HIGH>;      /* D5, PCA9685 ch2 */
+		/* D8, pull-up; the switch pulls it low when ON. */
+		switch-gpios = <&gpio0 2 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+		auto-line-gpios = <&gpio0 3 GPIO_ACTIVE_HIGH>;      /* D10, AUTO state to the Orin */
+		led-power-gpios = <&gpio0 23 GPIO_ACTIVE_HIGH>;     /* onboard RGB LED supply */
+
+		/* D9: steering servo, PWM slice 2 channel A, 50 Hz. */
+		pwms = <&pwm 4 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
+	};
+};
+
+&adc {
+	status = "disabled";
+};
+
+/* uart1's pins are GPIO20/21; GPIO20 is D12, the optional external LED. */
+&uart1 {
+	status = "disabled";
+};
+
+&pinctrl {
+	pwm_servo_default: pwm_servo_default {
+		group1 {
+			pinmux = <PWM_2A_P4>;
+		};
+	};
+};
+
+/* The board routes PWM 4B to the user LED; the servo takes the PWM block. */
+&pwm {
+	pinctrl-0 = <&pwm_servo_default>;
+	pinctrl-names = "default";
+};
+
+/* VESC: UART0 on D6 (TX) / D7 (RX), the board's default pins. */
+&uart0 {
+	current-speed = <115200>;
+};
+
+&zephyr_udc0 {
+	cdc_acm_uart0: cdc_acm_uart0 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+
+	cdc_acm_uart1: cdc_acm_uart1 {
+		compatible = "zephyr,cdc-acm-uart";
+	};
+};

@@ -1,0 +1,50 @@
+# West manifest for the nano-ros arbiter firmware (Zephyr 4.4 + nano-ros).
+#
+# This is nano-ros's own Zephyr 4.4 manifest (west-4.4.yml) with two changes:
+#
+#   * hal_rpi_pico joins the allowlist. nano-ros ships no RP2350 board, so its
+#     allowlist leaves the HAL out; a downstream manifest adds the HAL it needs
+#     (nano-ros's nros-sdk-index.toml says so for hal_nxp).
+#   * nano-ros itself is a project, pinned to a commit. Its zephyr/module.yml
+#     makes it a Zephyr module, so no ZEPHYR_EXTRA_MODULES is needed.
+#
+# Keep the zephyr and zephyr-lang-rust revisions equal to nano-ros's
+# west-4.4.yml at the pinned nano-ros commit: nano-ros's 4.4 patch set, which
+# ws.sh applies, is written against them.
+
+manifest:
+  version: "1.0"
+
+  remotes:
+    - name: zephyrproject-rtos
+      url-base: https://github.com/zephyrproject-rtos
+    - name: newslab
+      url-base: https://github.com/NEWSLabNTU
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject-rtos
+      revision: v4.4.0
+      import:
+        name-allowlist:
+          - cmsis
+          - cmsis_6
+          - picolibc
+          - mbedtls
+          - tinycrypt
+          - hal_rpi_pico
+          - mcuboot
+          - net-tools
+
+    - name: zephyr-lang-rust
+      remote: zephyrproject-rtos
+      revision: a763400f31e92994d5c5aa0836346e19048f5bde
+      path: modules/lang/rust
+
+    - name: nano-ros
+      remote: newslab
+      revision: fc06d58870f849d5fcb6042c9391c4aa211327a3
+      path: modules/lib/nano-ros
+
+  self:
+    path: manifest
