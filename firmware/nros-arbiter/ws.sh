@@ -73,14 +73,8 @@ setup() {
 build() {
     [ -d "$WS/zephyr" ] || die "no workspace at $WS; run \`ws.sh setup\` first"
     eval "$(print_env)"
-    # EXTRA_CONF_FILE repeats the image's os_config fragments. nano-ros drops
-    # them when the board has its own prj.conf (a `;` inside NROS_LEAF_CONF
-    # splits it), which built an image with no zenoh link and no warning.
-    # Remove once the pinned nano-ros carries the fix.
     west build -p auto -b "$BOARD" -d "$BUILD" "$HERE/app" -- \
-        -DNROS_IMAGE=arbiter \
-        "-DEXTRA_CONF_FILE=prj-link.conf" \
-        "$@"
+        -DNROS_IMAGE=arbiter "$@"
 }
 
 flash() {

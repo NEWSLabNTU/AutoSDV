@@ -5,8 +5,8 @@ The same arbiter as [`../rc-arbiter`](../rc-arbiter), built on Zephyr 4.4 with
 ROS 2 to the Orin. What the arbiter does and why is in
 [`docs/design/rc-override-arbiter.md`](../../docs/design/rc-override-arbiter.md).
 
-Status: builds (555,876 B of 1 MB flash, 418,200 B of 520 KB RAM, nano-ros
-`fc06d58`). It has not run on a board or in an emulator yet.
+Status: builds (551,764 B of 1 MB flash, 266,032 B of 520 KB RAM, nano-ros
+`41891e9`). It has not run on a board or in an emulator yet.
 
 ## What is shared and what is not
 
@@ -34,7 +34,8 @@ manifest/west.yml          Zephyr 4.4 + hal_rpi_pico + nano-ros, pinned
 boards/nros-board-xiao-rp2350/   the nano-ros board package: one descriptor,
                            one Kconfig fragment (found via NROS_EXTRA_BOARD_PATH)
 app/
-  system.toml              the nano-ros image: board, RMW, serial locator, knobs
+  system.toml              the nano-ros image: board, RMW, serial locator, and
+                           the node's entities, which size its RAM pools
   prj.conf, prj-link.conf  Kconfig: hardware, then the zenoh-over-USB link
   app.overlay              pin map (same as ../rc-arbiter/src/pins.h)
   src/                     control loop, capture, VESC UART, LED, ROS node

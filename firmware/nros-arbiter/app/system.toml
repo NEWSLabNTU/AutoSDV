@@ -9,6 +9,14 @@ default_images = ["arbiter"]
 pkg = "autosdv_arbiter"
 class = "autosdv_arbiter::ArbiterNode"
 name = "arbiter"
+# What the node creates (ArbiterNode.cpp). Declaring it lets nano-ros size the
+# executor and the zenoh receive pools from these entities: one publisher, no
+# subscriptions, so no large-payload receive pool. Undeclared, the image
+# budgets the worst case and does not fit the board's 520 KiB of RAM.
+entities = [
+    "publisher:std_msgs/msg/String:/vehicle/arbiter/mode",
+    "timer",
+]
 
 [image.arbiter]
 board = "xiao-rp2350"
@@ -18,8 +26,3 @@ os_config = ["prj-link.conf"]
 # serial listener on the board's /dev/ttyACM* device.
 locator = "serial/cdc_acm_uart0#baudrate=115200"
 
-# The node subscribes to nothing, so the large-payload receive pool (128 KiB
-# by default) is dead weight on a 520 KiB part. nano-ros currently derives it
-# from the linked message types rather than the subscriptions.
-[image.arbiter.knobs.zenoh]
-max_large_subscribers = 0
