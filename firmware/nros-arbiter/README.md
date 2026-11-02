@@ -55,6 +55,40 @@ toolchain (to build the nros CLI), and an Arm GNU toolchain, found in
 `GNUARMEMB_TOOLCHAIN_PATH` or nano-ros's store (`~/.nros/sdk/arm-none-eabi-gcc`).
 Set `NROS_ARBITER_WS` to keep the workspace elsewhere.
 
+## Zephyr patches
+
+`patches/zephyr-*.patch` are upstream Zephyr fixes that v4.4.0 lacks;
+`ws.sh setup` applies them after nano-ros's own 4.4 patch set. Drop each once
+the pinned Zephyr contains it.
+
+- `bd05a26a67` (hal_rpi_pico uninitialized data). The RP2350 entropy driver
+  pulls in pico_rand, whose `NOLOAD` section landed in the middle of the
+  initialized data region, so every section after it was copied from the
+  wrong flash address at boot. On this image that is the USB device context:
+  USB init fails with "Failed to initialize language descriptor (-1)" and
+  then faults. Found in the simulator; it would hit the board the same way.
+
+## Simulator (Wokwi)
+
+```bash
+just arbiter nros-sim --timeout 10000
+```
+
+Wokwi has no XIAO RP2350, but its Pi Pico 2 is the same RP2350 and the
+firmware addresses pins by GPIO number. The simulator build differs in one
+way (`wokwi/sim.overlay`): the log goes to uart1 (GPIO20/21), because Wokwi's
+serial monitor cannot read the second USB CDC-ACM port. `wokwi/diagram.json`
+wires the mode switch, the servo and the RGB LED. Needs `wokwi-cli` and a token
+in `$WOKWI_CLI_TOKEN` or `~/.config/wokwi/token` (never in this repository).
+
+Status: the image boots and USB comes up, then the first zenoh-pico heap
+allocation returns to its caller with the callee's frame still on the stack.
+The same code path is ordinary Thumb-2 (an IT block, LDREX/STREX), and GDB
+shows a return to `LR` rather than to the interrupted `PC`, which points at the
+simulator's Cortex-M33 rather than at the firmware. Unconfirmed: the free
+plan's CI minutes ran out before a tick-rate experiment could separate the two.
+Hello world on the same board and overlay runs fine.
+
 ## The Orin end
 
 The board is a zenoh client on its first CDC-ACM port. The Orin needs a zenoh

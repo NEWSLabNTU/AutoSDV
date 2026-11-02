@@ -5,6 +5,8 @@
 #                   create the Python venv, build the nros CLI (~10 min, ~1 GB)
 #   ws.sh build     cross-compile app/ for the XIAO RP2350
 #   ws.sh flash     copy the UF2 onto a board mounted in BOOTSEL mode
+#   ws.sh sim       build the simulator variant and run it in Wokwi (needs
+#                   wokwi-cli and a token: $WOKWI_CLI_TOKEN or ~/.config/wokwi/token)
 #   ws.sh clean     remove the build directory (the workspace stays)
 #   ws.sh env       print the environment the build uses, for `eval`
 #
@@ -60,6 +62,16 @@ setup() {
     # Python 3.12 venv Zephyr 4.4 requires (made with uv).
     NROS_ZEPHYR_CREATE_VENV=1 bash "$NROS/scripts/zephyr/patches/4.4.sh" "$WS"
 
+    # Zephyr fixes this board needs that v4.4.0 lacks, backported from
+    # upstream. Drop each once the pinned Zephyr contains it.
+    local p
+    for p in "$HERE"/patches/zephyr-*.patch; do
+        if git -C "$WS/zephyr" apply --reverse --check "$p" 2>/dev/null; then
+            continue    # already applied
+        fi
+        git -C "$WS/zephyr" apply "$p" || die "cannot apply $(basename "$p")"
+    done
+
     # The nros CLI at the pinned commit. The module calls it during configure;
     # an older installed CLI does not know the board-descriptor road.
     (cd "$NROS/packages/cli" &&
@@ -89,11 +101,26 @@ flash() {
     echo "ws.sh: flashed $uf2 to $mnt"
 }
 
+# Wokwi has no XIAO RP2350, but its Pi Pico 2 is the same chip. The only
+# difference in the build is where the log goes (wokwi/sim.overlay).
+sim() {
+    BUILD="$HERE/build-sim"
+    build "-DEXTRA_DTC_OVERLAY_FILE=$HERE/wokwi/sim.overlay"
+    command -v wokwi-cli >/dev/null || die "wokwi-cli not found: https://github.com/wokwi/wokwi-cli/releases"
+    if [ -z "${WOKWI_CLI_TOKEN:-}" ] && [ -f "$HOME/.config/wokwi/token" ]; then
+        WOKWI_CLI_TOKEN="$(cat "$HOME/.config/wokwi/token")"
+        export WOKWI_CLI_TOKEN
+    fi
+    [ -n "${WOKWI_CLI_TOKEN:-}" ] || die "no Wokwi token: set WOKWI_CLI_TOKEN or write it to ~/.config/wokwi/token"
+    wokwi-cli "$HERE/wokwi" "$@"
+}
+
 case "${1:-}" in
     setup) setup ;;
     build) shift; build "$@" ;;
     flash) flash ;;
+    sim) shift; sim "$@" ;;
     clean) rm -rf "$BUILD" ;;
     env) print_env ;;
-    *) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+    *) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

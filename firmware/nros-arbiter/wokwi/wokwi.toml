@@ -1,0 +1,7 @@
+# Wokwi simulation of the arbiter firmware: `just arbiter nros-sim`.
+# The board is a Pi Pico 2, which has the XIAO RP2350's chip; the firmware
+# uses GPIO numbers, not XIAO pad names, so it runs unchanged.
+[wokwi]
+version = 1
+firmware = "../build-sim/zephyr/zephyr.uf2"
+elf = "../build-sim/zephyr/zephyr.elf"

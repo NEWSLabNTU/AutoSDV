@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "author": "AutoSDV",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-pi-pico-2", "id": "pico", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-slide-switch", "id": "sw", "top": -90, "left": 40, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servo", "top": 40, "left": 220, "attrs": {} },
+    { "type": "wokwi-neopixel", "id": "rgb", "top": 200, "left": 220, "attrs": {} }
+  ],
+  "connections": [
+    [ "pico:GP20", "$serialMonitor:RX", "", [] ],
+    [ "pico:GP21", "$serialMonitor:TX", "", [] ],
+    [ "sw:1", "pico:GP2", "green", [] ],
+    [ "sw:2", "pico:GND.1", "black", [] ],
+    [ "servo:PWM", "pico:GP4", "orange", [] ],
+    [ "servo:V+", "pico:VBUS", "red", [] ],
+    [ "servo:GND", "pico:GND.2", "black", [] ],
+    [ "rgb:DIN", "pico:GP22", "green", [] ],
+    [ "rgb:VDD", "pico:3V3", "red", [] ],
+    [ "rgb:VSS", "pico:GND.3", "black", [] ]
+  ],
+  "dependencies": {}
+}

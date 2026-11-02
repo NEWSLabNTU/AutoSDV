@@ -1,0 +1,54 @@
+From bd05a26a676b5b9e9b6030cf9ceb86dcf358ec38 Mon Sep 17 00:00:00 2001
+From: Scott Shawcroft <scott@tannewt.org>
+Date: Tue, 31 Mar 2026 09:48:12 -0700
+Subject: [PATCH] modules: hal_rpi_pico: fix sdk uninitialized data
+
+The pico-sdk rand module places rng_state in a .uninitialized_data
+section that must not be initialized at boot. The linker fragment was
+added via zephyr_linker_sources(DATA_SECTIONS ...), which placed a
+(NOLOAD) section in the middle of the initialized data region. This
+caused a VMA/LMA mismatch during the boot-time flash-to-RAM copy:
+the NOLOAD section consumed VMA but no LMA, shifting all subsequent
+section data to the wrong RAM addresses.
+
+On RP2350 boards with USB enabled, this corrupted the USBD context
+struct (placed in an iterable section after the NOLOAD gap), causing
+USB initialization to fail with "Failed to initialize language
+descriptor (-1)" followed by a bus fault.
+
+Fix by using NOINIT instead of DATA_SECTIONS, which places the
+uninitialized data in the noinit section where NOLOAD content
+belongs. Update the linker fragment to only contribute the section
+glob, since the noinit section wrapper is provided by
+common-noinit.ld.
+
+Signed-off-by: Scott Shawcroft <scott@tannewt.org>
+---
+ modules/hal_rpi_pico/CMakeLists.txt | 2 +-
+ modules/hal_rpi_pico/uninit_data.ld | 6 ++----
+ 2 files changed, 3 insertions(+), 5 deletions(-)
+
+diff --git a/modules/hal_rpi_pico/CMakeLists.txt b/modules/hal_rpi_pico/CMakeLists.txt
+index 2f6fbb73af33..74b9f5edfe09 100644
+--- a/modules/hal_rpi_pico/CMakeLists.txt
++++ b/modules/hal_rpi_pico/CMakeLists.txt
+@@ -176,7 +176,7 @@ if(CONFIG_HAS_RPI_PICO)
+           ${rp2_common_dir}/pico_time_adapter/include
+           ${rp2_common_dir}/pico_unique_id/include
+   )
+-  zephyr_linker_sources_ifdef(CONFIG_PICOSDK_USE_RAND DATA_SECTIONS uninit_data.ld)
++  zephyr_linker_sources_ifdef(CONFIG_PICOSDK_USE_RAND NOINIT uninit_data.ld)
+ 
+   zephyr_include_directories_ifdef(CONFIG_RISCV
+           ${common_dir}/pico_sync/include
+diff --git a/modules/hal_rpi_pico/uninit_data.ld b/modules/hal_rpi_pico/uninit_data.ld
+index c04ae32cd8a3..a077c0bbfe2b 100644
+--- a/modules/hal_rpi_pico/uninit_data.ld
++++ b/modules/hal_rpi_pico/uninit_data.ld
+@@ -1,4 +1,2 @@
+-.uninitialized_data (NOLOAD): {
+-    . = ALIGN(4);
+-    *(.uninitialized_data*)
+-} > RAM
++. = ALIGN(4);
++*(.uninitialized_data*)

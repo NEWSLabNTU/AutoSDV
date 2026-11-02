@@ -55,3 +55,7 @@ nros-flash:
 # Remove the Zephyr build directory; the workspace stays
 nros-clean:
     {{nros}}/ws.sh clean
+
+# Run the firmware in Wokwi (Pi Pico 2, same RP2350); ARGS go to wokwi-cli, e.g. --timeout 10000
+nros-sim *ARGS:
+    {{nros}}/ws.sh sim {{ARGS}}

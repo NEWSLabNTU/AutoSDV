@@ -1,0 +1,17 @@
+/*
+ * Simulator build only (Wokwi, Pi Pico 2 = the same RP2350). Wokwi's serial
+ * monitor cannot read the second USB CDC-ACM port, so the log moves to uart1
+ * (GPIO20 TX / GPIO21 RX), which the diagram wires to the monitor. On the car
+ * GPIO20 is D12, the optional external LED, which is why the real build
+ * keeps uart1 off.
+ */
+/ {
+	chosen {
+		zephyr,console = &uart1;
+		zephyr,shell-uart = &uart1;
+	};
+};
+
+&uart1 {
+	status = "okay";
+};
