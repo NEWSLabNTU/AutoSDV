@@ -5,15 +5,18 @@ The same arbiter as [`../rc-arbiter`](../rc-arbiter), built on Zephyr 4.4 with
 ROS 2 to the Orin. What the arbiter does and why is in
 [`docs/design/rc-override-arbiter.md`](../../docs/design/rc-override-arbiter.md).
 
-Status: builds (551,764 B of 1 MB flash, 266,032 B of 520 KB RAM, nano-ros
-`41891e9`). It has not run on a board or in an emulator yet.
+Status: builds (551,800 B of 1 MB flash, 266,032 B of 520 KB RAM, nano-ros
+`41891e9`). Runs end to end in QEMU on a Cortex-M33 (below); not yet run on
+a board.
 
 ## What is shared and what is not
 
 The decisions live in `../rc-arbiter/lib` (the state machine, pulse handling,
 the heartbeat, the LED table, the VESC packets). This build compiles those
 files in place; it copies nothing, so `just arbiter test` covers both builds.
-`app/src` is only the Zephyr hardware layer and the ROS node.
+`app/src` is only the Zephyr hardware layer and the ROS node, and the
+hardware layer sits behind `board_io.h` (plus `capture.h` and `vesc_uart.h`),
+so the same control loop runs on the XIAO and, simulated, in QEMU.
 
 | | `rc-arbiter` (PlatformIO) | `nros-arbiter` (this) |
 |---|---|---|
@@ -31,15 +34,24 @@ The control loop and the LED run whether or not the link is up.
 
 ```
 manifest/west.yml          Zephyr 4.4 + hal_rpi_pico + nano-ros, pinned
-boards/nros-board-xiao-rp2350/   the nano-ros board package: one descriptor,
-                           one Kconfig fragment (found via NROS_EXTRA_BOARD_PATH)
+boards/                    nano-ros board packages (found via NROS_EXTRA_BOARD_PATH)
+  nros-board-xiao-rp2350/  the car's board
+  nros-board-mps2-an521/   QEMU's Cortex-M33, the emulator stand-in
+patches/                   upstream fixes the pinned Zephyr / zenoh-pico lack
 app/
-  system.toml              the nano-ros image: board, RMW, serial locator, and
-                           the node's entities, which size its RAM pools
-  prj.conf, prj-link.conf  Kconfig: hardware, then the zenoh-over-USB link
-  app.overlay              pin map (same as ../rc-arbiter/src/pins.h)
-  src/                     control loop, capture, VESC UART, LED, ROS node
-ws.sh                      workspace setup, build, flash
+  system.toml              the images (arbiter, arbiter_qemu): board, RMW,
+                           serial locator, and the node's entities, which size
+                           its RAM pools
+  prj.conf                 Kconfig every image shares
+  prj-link.conf            the zenoh link over a UART
+  prj-xiao.conf            the XIAO's hardware and USB CDC-ACM
+  boards/*.overlay         per-board devicetree; the XIAO's is the pin map
+                           (same as ../rc-arbiter/src/pins.h)
+  src/                     control loop, ROS node, the XIAO hardware layer
+  src/sim/board_sim.cpp    the hardware layer, simulated by a 12 s script
+qemu/                      end-to-end run: QEMU <-> rmw_zenohd <-> ROS 2
+wokwi/                     Wokwi project (see below; not usable for this image)
+ws.sh                      workspace setup, build, flash, qemu, sim
 ```
 
 ## Developer steps
@@ -55,11 +67,12 @@ toolchain (to build the nros CLI), and an Arm GNU toolchain, found in
 `GNUARMEMB_TOOLCHAIN_PATH` or nano-ros's store (`~/.nros/sdk/arm-none-eabi-gcc`).
 Set `NROS_ARBITER_WS` to keep the workspace elsewhere.
 
-## Zephyr patches
+## Patches
 
-`patches/zephyr-*.patch` are upstream Zephyr fixes that v4.4.0 lacks;
-`ws.sh setup` applies them after nano-ros's own 4.4 patch set. Drop each once
-the pinned Zephyr contains it.
+`ws.sh setup` applies `patches/` after nano-ros's own 4.4 patch set. Drop each
+once the pinned version contains it.
+
+`patches/zephyr-*.patch`, upstream Zephyr fixes that v4.4.0 lacks:
 
 - `bd05a26a67` (hal_rpi_pico uninitialized data). The RP2350 entropy driver
   pulls in pico_rand, whose `NOLOAD` section landed in the middle of the
@@ -67,6 +80,58 @@ the pinned Zephyr contains it.
   wrong flash address at boot. On this image that is the USB device context:
   USB init fails with "Failed to initialize language descriptor (-1)" and
   then faults. Found in the simulator; it would hit the board the same way.
+
+`patches/zenoh-pico-*.patch`, fixes to nano-ros's zenoh-pico fork. nano-ros
+compiles zenoh-pico from a shared store unless its own checkout's submodule
+carries edits, so `ws.sh setup` checks the submodule out at nano-ros's pin
+inside `.ws` and applies them there, never to the store:
+
+- UART with no runtime configuration. `uart_configure()` answers `-ENOSYS` on
+  QEMU's CMSDK APB UART, and zenoh-pico treated that as a failed open, so the
+  QEMU image never reached the router. The XIAO's CDC-ACM driver does
+  implement it, so the car is not affected.
+
+## Emulator (QEMU)
+
+```bash
+just arbiter nros-qemu [SECONDS]    # default 30
+```
+
+QEMU's `mps2-an521` is a Cortex-M33, the RP2350's core, with none of the car's
+hardware: image `arbiter_qemu` swaps the hardware layer for
+`src/sim/board_sim.cpp`, whose inputs follow a 12 s script (switch ON at 3 s,
+AUTO about 1 s later, heartbeat lost at 8 s, switch OFF at 10 s). The zenoh
+link runs on uart1 through a socat pty pair to a stock `rmw_zenohd` with a
+serial listener, and a ROS 2 subscriber prints every mode change it receives.
+The run fails when the subscriber receives nothing. A passing run:
+
+```
+--- board
+[00:00:03.050,000] <inf> arbiter: 3050 ms: MANUAL -> ARMING
+[00:00:04.050,000] <inf> arbiter: 4050 ms: ARMING -> AUTO
+[00:00:08.131,000] <inf> arbiter: 8131 ms: AUTO -> DISENGAGED_ORIN_LOST
+[00:00:10.050,000] <inf> arbiter: 10050 ms: DISENGAGED_ORIN_LOST -> MANUAL
+--- ROS 2 subscriber
+  0.07 s  MANUAL
+  3.67 s  ARMING
+  4.98 s  AUTO
+ 10.10 s  DISENGAGED_ORIN_LOST
+ 12.45 s  MANUAL
+messages: 239
+```
+
+Needs ROS 2 Humble with `ros-humble-rmw-zenoh-cpp`, and `socat`. The router
+listens on 127.0.0.1:7457, so a router already running on port 7447 is left
+alone. QEMU's timing is approximate (`-icount shift=auto`), so the host's
+times drift from the board's.
+
+What it does not cover: the RP2350's peripherals (pulse capture, PWM, the VESC
+UART, USB, the LED), and floating point in hardware (Zephyr's AN521 `cpu0`
+declares no FPU, so floats are soft here).
+
+Known limit, firmware side: nano-ros gives up opening the zenoh session after
+10 attempts 300 ms apart and does not retry, so a board that boots more than
+about 3 s before its router never publishes. The control loop is unaffected.
 
 ## Simulator (Wokwi)
 
@@ -81,18 +146,16 @@ serial monitor cannot read the second USB CDC-ACM port. `wokwi/diagram.json`
 wires the mode switch, the servo and the RGB LED. Needs `wokwi-cli` and a token
 in `$WOKWI_CLI_TOKEN` or `~/.config/wokwi/token` (never in this repository).
 
-Status: the image boots and USB comes up, then the first zenoh-pico heap
-allocation returns to its caller with the callee's frame still on the stack.
-The same code path is ordinary Thumb-2 (an IT block, LDREX/STREX), and GDB
-shows a return to `LR` rather than to the interrupted `PC`, which points at the
-simulator's Cortex-M33 rather than at the firmware. Unconfirmed: the free
-plan's CI minutes ran out before a tick-rate experiment could separate the two.
-Hello world on the same board and overlay runs fine.
+Status: not usable for this image. It boots and USB comes up, then the first
+zenoh-pico heap allocation returns to its caller with the callee's frame still
+on the stack. The same image runs cleanly on QEMU's Cortex-M33 (above), so the
+fault is Wokwi's emulation, not the firmware. Hello world runs fine there.
 
 ## The Orin end
 
 The board is a zenoh client on its first CDC-ACM port. The Orin needs a zenoh
-router listening on that serial device, and a bridge into the car's ROS 2
+router listening on that serial device (a stock `rmw_zenohd` has the serial
+link; `qemu/e2e.sh` shows the config), and a bridge into the car's ROS 2
 setup, which runs Cyclone DDS rather than rmw_zenoh. Not set up yet.
 
 ## Pins

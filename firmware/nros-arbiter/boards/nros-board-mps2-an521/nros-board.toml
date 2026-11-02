@@ -1,0 +1,29 @@
+# Board descriptor for `mps2-an521`: QEMU's Arm MPS2 AN521 (Cortex-M33) on
+# Zephyr 4.4. It stands in for the car's XIAO RP2350 in emulation: same core,
+# same nano-ros and zenoh-pico, the zenoh link on a UART, none of the car's
+# hardware (the app's src/sim/board_sim.cpp replaces it).
+[[board]]
+names = ["mps2-an521"]
+platform = "zephyr"
+toolchain = "stable"
+entry_kind = "zephyr-staticlib"
+supported_netstacks = []
+
+[board.zephyr]
+west_board = "mps2/an521/cpu0"
+# Soft-float: Zephyr's AN521 cpu0 declares no FPU (see prj.conf), and
+# zephyr-lang-rust picks -eabihf only with CONFIG_FP_HARDABI.
+rust_target = "thumbv8m.main-none-eabi"
+
+[board.capabilities]
+heap = true
+atomics = true
+threads = true
+
+[board.net]
+stack = "os"
+links = ["serial"]
+
+[board.provisioning]
+zephyr_line = "4.4"
+rust_targets = ["thumbv8m.main-none-eabi"]

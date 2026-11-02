@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>nros_board_mps2_an521</name>
+  <version>0.1.0</version>
+  <description>nano-ros board support for QEMU mps2-an521 (Cortex-M33) on Zephyr 4.4, the emulator stand-in for the XIAO RP2350.</description>
+  <maintainer email="jerry73204@gmail.com">AutoSDV</maintainer>
+  <license>Apache-2.0</license>
+
+  <export>
+    <build_type>nros_cmake</build_type>
+    <!-- Must equal the descriptor's `names`; nano-ros compares the two. -->
+    <nano_ros_provides kind="board" name="mps2-an521"/>
+  </export>
+</package>

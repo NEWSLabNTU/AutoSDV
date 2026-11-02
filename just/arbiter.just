@@ -59,3 +59,7 @@ nros-clean:
 # Run the firmware in Wokwi (Pi Pico 2, same RP2350); ARGS go to wokwi-cli, e.g. --timeout 10000
 nros-sim *ARGS:
     {{nros}}/ws.sh sim {{ARGS}}
+
+# Run the firmware in QEMU (Cortex-M33, hardware simulated) against rmw_zenohd and a ROS 2 subscriber
+nros-qemu SECS='30':
+    {{nros}}/ws.sh qemu {{SECS}}

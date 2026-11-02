@@ -19,10 +19,20 @@ target_sources(app PRIVATE
     ${RC_ARBITER_LIB}/arbiter/heartbeat.cpp
     ${RC_ARBITER_LIB}/arbiter/pulse.cpp
     ${RC_ARBITER_LIB}/vesc/vesc_packet.cpp
-    src/capture.cpp
-    src/control.cpp
-    src/status_led.cpp
-    src/vesc_uart.cpp)
+    src/control.cpp)
+
+# The hardware layer. On the car's XIAO RP2350 it is the pins of app.overlay;
+# on QEMU's mps2/an521, which has none of them, a scripted stand-in
+# (src/sim/board_sim.cpp) feeds the same control loop.
+if(BOARD STREQUAL "mps2")
+  target_sources(app PRIVATE src/sim/board_sim.cpp)
+else()
+  target_sources(app PRIVATE
+      src/board_io_xiao.cpp
+      src/capture.cpp
+      src/status_led.cpp
+      src/vesc_uart.cpp)
+endif()
 
 find_package(nano_ros REQUIRED)
 find_package(std_msgs REQUIRED)

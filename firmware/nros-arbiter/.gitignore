@@ -1,3 +1,4 @@
 .ws/
 build/
 build-sim/
+build-qemu/

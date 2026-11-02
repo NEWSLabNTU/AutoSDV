@@ -1,0 +1,9 @@
+/*
+ * QEMU mps2-an521 (Cortex-M33): the console stays on uart0, zenoh takes uart1.
+ * QEMU wires -serial arguments to uart0, uart1, ... in order, so the second
+ * one is the link to the host's zenoh router (just arbiter nros-qemu).
+ */
+&uart1 {
+	status = "okay";
+	current-speed = <115200>;
+};

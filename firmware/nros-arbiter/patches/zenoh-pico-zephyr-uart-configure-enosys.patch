@@ -1,0 +1,23 @@
+# zenoh-pico (jerry73204/zenoh-pico, nano-ros-1.10.1): accept a UART with no
+# runtime configuration. uart_configure() answers -ENOSYS on QEMU's CMSDK APB
+# UART, and _z_serial_open_from_dev treated that as a failed open, so the
+# mps2-an521 image never reached the router. Drop once the pinned nano-ros
+# carries it.
+diff --git a/src/link/transport/serial/uart_zephyr.c b/src/link/transport/serial/uart_zephyr.c
+index 0a6000a6..5b656d03 100644
+--- a/src/link/transport/serial/uart_zephyr.c
++++ b/src/link/transport/serial/uart_zephyr.c
+@@ -1025,7 +1025,12 @@ z_result_t _z_serial_open_from_dev(_z_sys_net_socket_t *sock, const char *dev, u
+             _z_serial_async_quiesce(sock->_serial);
+         }
+ #endif
+-        if (uart_configure(sock->_serial, &config) != 0) {
++        /* A driver with no runtime configuration answers -ENOSYS and keeps its
++           devicetree settings (QEMU's CMSDK APB UART, and any build with
++           CONFIG_UART_USE_RUNTIME_CONFIGURE off). That is a working link, not a
++           failed open: refusing it left such a board unable to reach any peer. */
++        const int cfg_rc = uart_configure(sock->_serial, &config);
++        if (cfg_rc != 0 && cfg_rc != -ENOSYS) {
+             _Z_ERROR_LOG(_Z_ERR_GENERIC);
+             ret = _Z_ERR_GENERIC;
+         }

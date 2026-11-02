@@ -1,4 +1,5 @@
-# nano-ros system description: one component, one image.
+# nano-ros system description: one component, two images (the car, and its
+# QEMU stand-in).
 [system]
 name = "autosdv_arbiter"
 rmw = "zenoh"
@@ -21,8 +22,17 @@ entities = [
 [image.arbiter]
 board = "xiao-rp2350"
 rmw = "zenoh"
-os_config = ["prj-link.conf"]
-# The first CDC-ACM port (app.overlay). The Orin end is a zenoh router with a
-# serial listener on the board's /dev/ttyACM* device.
+os_config = ["prj-link.conf", "prj-xiao.conf"]
+# The first CDC-ACM port (boards/xiao_rp2350_rp2350a_m33.overlay). The Orin
+# end is a zenoh router with a serial listener on the board's /dev/ttyACM*.
 locator = "serial/cdc_acm_uart0#baudrate=115200"
+
+# QEMU mps2-an521 (Cortex-M33), the car's image with its hardware simulated
+# (src/sim/board_sim.cpp): `just arbiter nros-qemu`. Zephyr names a UART
+# device by its devicetree node, so uart1 is "uart@201000".
+[image.arbiter_qemu]
+board = "mps2-an521"
+rmw = "zenoh"
+os_config = ["prj-link.conf"]
+locator = "serial/uart@201000#baudrate=115200"
 
