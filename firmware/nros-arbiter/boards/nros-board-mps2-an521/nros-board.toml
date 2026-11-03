@@ -27,3 +27,9 @@ links = ["serial"]
 [board.provisioning]
 zephyr_line = "4.4"
 rust_targets = ["thumbv8m.main-none-eabi"]
+
+# The arbiter boots with the car, usually before the Orin's router is up, and
+# must keep dialling until it answers: nano-ros's default is one attempt
+# (issue 2207), after which the image stops with "Failed to open session".
+[knobs.zenoh.limits]
+connect_forever = true

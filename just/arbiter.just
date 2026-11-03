@@ -61,5 +61,6 @@ nros-sim *ARGS:
     {{nros}}/ws.sh sim {{ARGS}}
 
 # Run the firmware in QEMU (Cortex-M33, hardware simulated) against rmw_zenohd and a ROS 2 subscriber
-nros-qemu SECS='30':
-    {{nros}}/ws.sh qemu {{SECS}}
+# (ROUTER_DELAY > 0: the router starts that many seconds after the board)
+nros-qemu SECS='30' ROUTER_DELAY='0':
+    {{nros}}/ws.sh qemu {{SECS}} {{ROUTER_DELAY}}

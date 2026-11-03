@@ -43,7 +43,7 @@ manifest:
 
     - name: nano-ros
       remote: newslab
-      revision: 41891e96e3a5dbfab66a5599abfbca8d9ea49077
+      revision: 2c6b8c295fd37e3de09c8650298cb48319d4a714
       path: modules/lib/nano-ros
 
   self:

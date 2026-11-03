@@ -7,10 +7,11 @@
 #   ws.sh flash     copy the UF2 onto a board mounted in BOOTSEL mode
 #   ws.sh sim       build the simulator variant and run it in Wokwi (needs
 #                   wokwi-cli and a token: $WOKWI_CLI_TOKEN or ~/.config/wokwi/token)
-#   ws.sh qemu [s]  build the QEMU mps2-an521 image and run it end to end for
-#                   s seconds (default 30): serial link, rmw_zenohd, a ROS 2
+#   ws.sh qemu [s] [d]  build the QEMU mps2-an521 image and run it end to end
+#                   for s seconds (default 30): serial link, rmw_zenohd, a ROS 2
 #                   subscriber on /vehicle/arbiter/mode (needs ROS 2 Humble with
-#                   rmw_zenoh_cpp, and socat)
+#                   rmw_zenoh_cpp, and socat). With d, the router starts d
+#                   seconds after the board, as when the car boots before the Orin
 #   ws.sh clean     remove the build directory (the workspace stays)
 #   ws.sh env       print the environment the build uses, for `eval`
 #
@@ -141,7 +142,7 @@ sim() {
 # hardware; the image simulates it (app/src/sim/board_sim.cpp).
 qemu() {
     build_image mps2/an521/cpu0 arbiter_qemu "$HERE/build-qemu"
-    "$HERE/qemu/e2e.sh" "$HERE/build-qemu/zephyr/zephyr.elf" "$HERE/build-qemu/e2e" "${1:-30}"
+    "$HERE/qemu/e2e.sh" "$HERE/build-qemu/zephyr/zephyr.elf" "$HERE/build-qemu/e2e" "${1:-30}" "${2:-0}"
 }
 
 case "${1:-}" in

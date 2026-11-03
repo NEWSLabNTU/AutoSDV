@@ -5,7 +5,12 @@
 #                                                     ^
 #                                  ROS 2 subscriber --+ (rmw_zenoh_cpp, tcp)
 #
-#   e2e.sh <zephyr.elf> <run dir> <seconds>
+#   e2e.sh <zephyr.elf> <run dir> <seconds> [router delay]
+#
+# With a router delay the board boots first and the router (with the
+# subscriber) starts that many seconds later: the board must keep dialling
+# until it answers (connect_forever in the board toml), which is what happens
+# on the car when the arbiter powers up before the Orin.
 #
 # The router listens on 127.0.0.1:7457, not ROS's 7447, so a router already
 # running on this machine is neither used nor disturbed. Logs land in the run
@@ -16,6 +21,7 @@ set -euo pipefail
 ELF="$1"
 RUN="$2"
 SECS="$3"
+DELAY="${4:-0}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROS_CFG=/opt/ros/humble/share/rmw_zenoh_cpp/config
 
@@ -53,20 +59,33 @@ source /opt/ros/humble/setup.bash
 set -u
 export RMW_IMPLEMENTATION=rmw_zenoh_cpp ROS_DOMAIN_ID=0
 
-# The router first: the board gives up after about 3 s without one.
-ZENOH_ROUTER_CONFIG_URI="$RUN/router.json5" ros2 run rmw_zenoh_cpp rmw_zenohd >"$RUN/router.log" 2>&1 &
-pids+=($!)
-sleep 3
+start_router() {
+    ZENOH_ROUTER_CONFIG_URI="$RUN/router.json5" ros2 run rmw_zenoh_cpp rmw_zenohd >"$RUN/router.log" 2>&1 &
+    pids+=($!)
+    sleep 3
+    ZENOH_SESSION_CONFIG_URI="$RUN/session.json5" \
+        /usr/bin/python3 "$HERE/sub.py" "$((SECS - DELAY + 2))" >"$RUN/sub.log" 2>&1 &
+    sub=$!
+    pids+=($sub)
+}
 
-ZENOH_SESSION_CONFIG_URI="$RUN/session.json5" \
-    /usr/bin/python3 "$HERE/sub.py" "$((SECS + 2))" >"$RUN/sub.log" 2>&1 &
-sub=$!
-pids+=($sub)
+run_qemu() {
+    timeout "$SECS" "$QEMU" -M mps2-an521 -nographic -kernel "$ELF" \
+        -serial mon:stdio -serial "$(readlink -f "$RUN/qemu-pty")" -icount shift=auto \
+        </dev/null >"$RUN/qemu.log" 2>&1 || true
+}
 
-echo "e2e.sh: running $SECS s; console in $RUN/qemu.log"
-timeout "$SECS" "$QEMU" -M mps2-an521 -nographic -kernel "$ELF" \
-    -serial mon:stdio -serial "$(readlink -f "$RUN/qemu-pty")" -icount shift=auto \
-    </dev/null >"$RUN/qemu.log" 2>&1 || true
+echo "e2e.sh: running $SECS s, router after $DELAY s; console in $RUN/qemu.log"
+if [ "$DELAY" -eq 0 ]; then
+    start_router
+    run_qemu
+else
+    run_qemu &
+    qemu=$!
+    sleep "$DELAY"
+    start_router
+    wait "$qemu"
+fi
 
 wait "$sub" || true
 echo "--- board"

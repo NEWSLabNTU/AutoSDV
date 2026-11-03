@@ -5,8 +5,8 @@ The same arbiter as [`../rc-arbiter`](../rc-arbiter), built on Zephyr 4.4 with
 ROS 2 to the Orin. What the arbiter does and why is in
 [`docs/design/rc-override-arbiter.md`](../../docs/design/rc-override-arbiter.md).
 
-Status: builds (551,800 B of 1 MB flash, 266,032 B of 520 KB RAM, nano-ros
-`41891e9`). Runs end to end in QEMU on a Cortex-M33 (below); not yet run on
+Status: builds (553,008 B of 1 MB flash, 266,032 B of 520 KB RAM, nano-ros
+`2c6b8c2`). Runs end to end in QEMU on a Cortex-M33 (below); not yet run on
 a board.
 
 ## What is shared and what is not
@@ -81,15 +81,12 @@ once the pinned version contains it.
   USB init fails with "Failed to initialize language descriptor (-1)" and
   then faults. Found in the simulator; it would hit the board the same way.
 
-`patches/zenoh-pico-*.patch`, fixes to nano-ros's zenoh-pico fork. nano-ros
-compiles zenoh-pico from a shared store unless its own checkout's submodule
-carries edits, so `ws.sh setup` checks the submodule out at nano-ros's pin
-inside `.ws` and applies them there, never to the store:
-
-- UART with no runtime configuration. `uart_configure()` answers `-ENOSYS` on
-  QEMU's CMSDK APB UART, and zenoh-pico treated that as a failed open, so the
-  QEMU image never reached the router. The XIAO's CDC-ACM driver does
-  implement it, so the car is not affected.
+`patches/zenoh-pico-*.patch`, fixes to nano-ros's zenoh-pico fork, for when
+the pin lacks one. nano-ros compiles zenoh-pico from a shared store unless its
+own checkout's submodule carries edits, so `ws.sh setup` checks the submodule
+out at nano-ros's pin inside `.ws` and applies them there, never to the store.
+None is needed at the current pin: the last one (a UART with no runtime
+configuration, which QEMU's CMSDK UART is) landed in the fork as `fed5d711`.
 
 ## Emulator (QEMU)
 
@@ -129,9 +126,19 @@ What it does not cover: the RP2350's peripherals (pulse capture, PWM, the VESC
 UART, USB, the LED), and floating point in hardware (Zephyr's AN521 `cpu0`
 declares no FPU, so floats are soft here).
 
-Known limit, firmware side: nano-ros gives up opening the zenoh session after
-10 attempts 300 ms apart and does not retry, so a board that boots more than
-about 3 s before its router never publishes. The control loop is unaffected.
+The board keeps dialling until the router answers: both board tomls state
+`[knobs.zenoh.limits] connect_forever = true`, because nano-ros's default is
+one attempt and the car powers the arbiter up before the Orin. The late-router
+case has its own run, with the router and subscriber started 20 s after the
+board:
+
+```bash
+just arbiter nros-qemu 45 20
+```
+
+The board's session comes up when the router does, and the subscriber
+receives from then on (175 messages in the remaining 25 s). The control loop
+runs either way.
 
 ## Simulator (Wokwi)
 
