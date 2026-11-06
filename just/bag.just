@@ -57,10 +57,15 @@ map VEHICLE_ID *ARGS:
         echo "$bag has no metadata.yaml: the recording is still open or was not closed cleanly" >&2
         exit 1
     fi
+    # A recording made with a topic list that keeps the driver's own cloud
+    # instead is left to lab3_map's detection
+    lidar=()
+    if grep -q 'name: /sensing/lidar/concatenated/pointcloud$' "$bag/metadata.yaml"; then
+        lidar=(--lidar-topic /sensing/lidar/concatenated/pointcloud)
+    fi
     echo "Mapping $bag ($vid, $sensor)"
     source scripts/env.sh
-    exec ros2 run autosdv_lab3 lab3_map "$bag" \
-        --lidar-topic /sensing/lidar/concatenated/pointcloud --sensor "$sensor" "$@"
+    exec ros2 run autosdv_lab3 lab3_map "$bag" "${lidar[@]}" --sensor "$sensor" "$@"
 
 # Play the most recent outdoor recording
 play:
