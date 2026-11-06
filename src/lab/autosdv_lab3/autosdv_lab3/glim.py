@@ -220,9 +220,26 @@ def chain_transform(transforms: Sequence[Tuple[str, str, Sequence[float], Sequen
     return np.linalg.inv(T_root_target) @ T_root_source
 
 
+def _tree_path(transforms, frame: str) -> List[str]:
+    """The frames from `frame` up to its tree's root (parents as chain_transform takes them)."""
+    parent = {_frame(c): _frame(p) for p, c, _, _ in transforms}
+    path, frame = [], _frame(frame)
+    while frame in parent and frame not in path:
+        path.append(frame)
+        frame = parent[frame]
+    return path
+
+
 def read_bag_frames(bag: str, storage: str, lidar_topic: str, imu_topic: str,
-                    has_tf_static: bool, window_s: float = 5.0):
-    """(lidar frame_id, imu frame_id, /tf_static transforms) from the bag itself."""
+                    has_tf_static: bool, window_s: float = 5.0, has_tf: bool = False):
+    """(lidar frame_id, imu frame_id, transforms, frames taken from /tf) from the bag itself.
+
+    /tf_static first. A frame it lacks is taken from /tf, the first time /tf carries
+    it: the ZED driver broadcasts its factory camera -> IMU extrinsic there and
+    nowhere else (sensors.publish_imu_tf), so without it base_link and the IMU are
+    two trees. A moving edge also taken this way (odom -> base_link) lies on both
+    frames' paths to the root and cancels in chain_transform.
+    """
     import rosbag2_py
     from rclpy.serialization import deserialize_message
     from sensor_msgs.msg import Imu, PointCloud2
@@ -231,10 +248,12 @@ def read_bag_frames(bag: str, storage: str, lidar_topic: str, imu_topic: str,
     reader = rosbag2_py.SequentialReader()
     reader.open(rosbag2_py.StorageOptions(uri=bag, storage_id=storage),
                 rosbag2_py.ConverterOptions('', ''))
-    topics = [lidar_topic, imu_topic] + (['/tf_static'] if has_tf_static else [])
+    topics = ([lidar_topic, imu_topic] + (['/tf_static'] if has_tf_static else [])
+              + (['/tf'] if has_tf else []))
     reader.set_filter(rosbag2_py.StorageFilter(topics=topics))
     lidar_frame = imu_frame = None
     transforms = []
+    dynamic = {}   # child -> (parent, child, xyz, quat), the first /tf copy
     t0 = None
     # /tf_static is latched, so every publisher's copy lands in the first moments of
     # the recording; reading a few seconds collects them all without reading the bag.
@@ -246,13 +265,24 @@ def read_bag_frames(bag: str, storage: str, lidar_topic: str, imu_topic: str,
                 t, r = tf.transform.translation, tf.transform.rotation
                 transforms.append((tf.header.frame_id, tf.child_frame_id,
                                    (t.x, t.y, t.z), (r.x, r.y, r.z, r.w)))
+        elif topic == '/tf':
+            for tf in deserialize_message(data, TFMessage).transforms:
+                if _frame(tf.child_frame_id) not in dynamic:
+                    t, r = tf.transform.translation, tf.transform.rotation
+                    dynamic[_frame(tf.child_frame_id)] = (
+                        tf.header.frame_id, tf.child_frame_id,
+                        (t.x, t.y, t.z), (r.x, r.y, r.z, r.w))
         elif topic == lidar_topic and lidar_frame is None:
             lidar_frame = deserialize_message(data, PointCloud2).header.frame_id
         elif topic == imu_topic and imu_frame is None:
             imu_frame = deserialize_message(data, Imu).header.frame_id
-        if lidar_frame and imu_frame and (not has_tf_static or (stamp - t0) / 1e9 > window_s):
+        if lidar_frame and imu_frame and (
+                not (has_tf_static or has_tf) or (stamp - t0) / 1e9 > window_s):
             break
-    return lidar_frame, imu_frame, transforms
+    static_children = {_frame(c) for _, c, _, _ in transforms}
+    from_tf = sorted(c for c in dynamic if c not in static_children)
+    transforms = [dynamic[c] for c in from_tf] + transforms
+    return lidar_frame, imu_frame, transforms, from_tf
 
 
 def parse_tum(text: str) -> np.ndarray:
@@ -569,8 +599,9 @@ def main(argv=None):
                                   daemon=True)
         hasher.start()
 
-        lidar_frame, imu_frame, transforms = read_bag_frames(
-            bag, meta['storage'], lidar_topic, imu_topic, '/tf_static' in meta['topics'])
+        lidar_frame, imu_frame, transforms, from_tf = read_bag_frames(
+            bag, meta['storage'], lidar_topic, imu_topic, '/tf_static' in meta['topics'],
+            has_tf='/tf' in meta['topics'])
         warnings: List[str] = []
         if args.T_lidar_imu:
             T_li = parse_tum(args.T_lidar_imu)
@@ -578,11 +609,15 @@ def main(argv=None):
         else:
             try:
                 if not transforms:
-                    raise Lab3MapError('the bag has no /tf_static')
+                    raise Lab3MapError('the bag has no /tf_static or /tf')
                 if not lidar_frame or not imu_frame:
                     raise Lab3MapError('no LiDAR or IMU message carries a frame_id')
                 T_li = chain_transform(transforms, lidar_frame, imu_frame)
                 t_source = f'bag /tf_static ({lidar_frame} <- {imu_frame})'
+                used = [f for f in from_tf
+                        if f in _tree_path(transforms, lidar_frame) + _tree_path(transforms, imu_frame)]
+                if used:
+                    t_source += f'; from /tf: {", ".join(used)}'
             except Lab3MapError as e:
                 T_li = np.eye(4)
                 t_source = f'IDENTITY -- {e}'

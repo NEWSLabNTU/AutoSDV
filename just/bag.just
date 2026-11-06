@@ -47,7 +47,8 @@ map VEHICLE_ID *ARGS:
     if [ $# -gt 0 ] && [ -d "$1" ]; then
         bag=$1; shift
     else
-        bag=$(ls -td rosbags/outdoor_* 2>/dev/null | head -1 || true)
+        # the newest recording, not a map this recipe wrote beside one (BAG_glim)
+        bag=$(ls -td rosbags/outdoor_* 2>/dev/null | grep -v '_glim$' | head -1 || true)
         if [ -z "$bag" ]; then
             echo "No outdoor recordings in rosbags/ (record one with: just bag record)" >&2
             exit 1

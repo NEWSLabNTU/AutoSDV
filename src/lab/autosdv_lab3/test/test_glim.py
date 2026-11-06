@@ -294,3 +294,70 @@ def test_export_writes_pcd_with_intensity(tmp_path):
     assert b'FIELDS x y z intensity' in head and b'DATA binary' in head
     back = pio.read_cloud(path)
     assert np.allclose(back.points, pts) and np.allclose(back.intensity, [7, 250])
+
+
+# ------------------------------------------------------- frames from the bag
+
+def _write_tf_bag(path, imu_on_tf=True):
+    """base_link -> camera on /tf_static; camera -> imu (the ZED's) and odom ->
+    base_link (moving) on /tf only."""
+    rosbag2_py = pytest.importorskip('rosbag2_py')
+    from rclpy.serialization import serialize_message
+    from geometry_msgs.msg import TransformStamped
+    from sensor_msgs.msg import Imu, PointCloud2
+    from tf2_msgs.msg import TFMessage
+
+    w = rosbag2_py.SequentialWriter()
+    w.open(rosbag2_py.StorageOptions(uri=str(path), storage_id='sqlite3'),
+           rosbag2_py.ConverterOptions('cdr', 'cdr'))
+    for name, typ in (('/cloud', 'sensor_msgs/msg/PointCloud2'),
+                      ('/imu', 'sensor_msgs/msg/Imu'),
+                      ('/tf_static', 'tf2_msgs/msg/TFMessage'),
+                      ('/tf', 'tf2_msgs/msg/TFMessage')):
+        w.create_topic(rosbag2_py.TopicMetadata(name=name, type=typ,
+                                                serialization_format='cdr'))
+
+    def tfm(parent, child, xyz, q=(0.0, 0.0, 0.0, 1.0)):
+        t = TransformStamped()
+        t.header.frame_id, t.child_frame_id = parent, child
+        (t.transform.translation.x, t.transform.translation.y,
+         t.transform.translation.z) = xyz
+        (t.transform.rotation.x, t.transform.rotation.y,
+         t.transform.rotation.z, t.transform.rotation.w) = q
+        return t
+
+    w.write('/tf_static', serialize_message(TFMessage(transforms=[
+        tfm('base_link', 'camera', (0.1, 0.0, -0.1), yaw_q(0.3))])), 1)
+    cloud, imu = PointCloud2(), Imu()
+    cloud.header.frame_id, imu.header.frame_id = 'base_link', 'imu'
+    for k in range(80):   # 8 s at 10 Hz
+        ns = int(1e9 + k * 1e8)
+        moving = [tfm('odom', 'base_link', (0.2 * k, 0.0, 0.0), yaw_q(0.05 * k))]
+        if imu_on_tf:
+            moving.append(tfm('camera', 'imu', (0.0, 0.03, 0.0)))
+        w.write('/tf', serialize_message(TFMessage(transforms=moving)), ns)
+        w.write('/cloud', serialize_message(cloud), ns)
+        w.write('/imu', serialize_message(imu), ns)
+    del w
+
+
+def test_imu_edge_from_tf_joins_the_trees(tmp_path):
+    _write_tf_bag(tmp_path / 'bag')
+    lidar, imu, tfs, from_tf = glim.read_bag_frames(
+        str(tmp_path / 'bag'), 'sqlite3', '/cloud', '/imu', True, has_tf=True)
+    assert (lidar, imu) == ('base_link', 'imu')
+    assert from_tf == ['base_link', 'imu']
+    T = glim.chain_transform(tfs, lidar, imu)
+    # camera at (0.1, 0, -0.1) yawed 0.3; imu 3 cm along the camera's y; the moving
+    # odom -> base_link edge cancels
+    off = np.array([-np.sin(0.3) * 0.03, np.cos(0.3) * 0.03, 0.0])
+    assert np.allclose(T[:3, 3], np.array([0.1, 0.0, -0.1]) + off, atol=1e-9)
+    assert np.allclose(glim.T_to_tum(T)[3:], yaw_q(0.3), atol=1e-9)
+
+
+def test_without_the_imu_edge_the_trees_stay_apart(tmp_path):
+    _write_tf_bag(tmp_path / 'bag', imu_on_tf=False)
+    lidar, imu, tfs, _ = glim.read_bag_frames(
+        str(tmp_path / 'bag'), 'sqlite3', '/cloud', '/imu', True, has_tf=True)
+    with pytest.raises(glim.Lab3MapError):
+        glim.chain_transform(tfs, lidar, imu)
