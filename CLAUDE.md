@@ -340,6 +340,7 @@ never the reverse. Guide: `docs/guides/aruco-map.md`.
 ```bash
 just bag record         # Record outdoor sensor topics
 just bag play           # Play most recent recording
+just bag map car_b      # GLIM point cloud map of the latest recording (BAG_glim/raw_map.pcd)
 ```
 
 ### Simulation
