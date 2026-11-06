@@ -603,8 +603,9 @@ STEPS: list[Step] = [
         id="glim",
         label="GLIM (LiDAR-IMU mapping, for Lab 3)",
         why="`just lab3 map` builds the classroom point cloud map with it. "
-            "Not a rosdep key: it comes from koide3's PPA, as the CUDA 12.6 "
-            "build where there is an NVIDIA GPU and the CPU build elsewhere.",
+            "Not a rosdep key: it comes from koide3's PPA, as the CUDA "
+            "build matching the installed CUDA toolkit (12.2, 12.6 or 13.1) where "
+            "there is an NVIDIA GPU, and the CPU build elsewhere.",
         group="Libraries",
         run=[_S("install-glim.sh")],
         # No hardware="cuda": the script falls back to the CPU build, so the
@@ -617,7 +618,8 @@ STEPS: list[Step] = [
         verify=["bash", "-c",
                 "source /opt/ros/humble/setup.bash >/dev/null 2>&1 && "
                 "ros2 pkg prefix glim_ros >/dev/null 2>&1"],
-        note="AUTOSDV_GLIM_VARIANT=cpu|cuda overrides the GPU detection.",
+        note="AUTOSDV_GLIM_VARIANT=cpu|cuda overrides the GPU detection, "
+             "AUTOSDV_GLIM_CUDA=X.Y the CUDA build.",
     ),
     Step(
         id="blickfeld",
