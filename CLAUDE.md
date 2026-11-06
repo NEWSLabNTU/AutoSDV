@@ -999,6 +999,7 @@ recipes that no longer exist.
 | [docs/known-config-defects.md](docs/known-config-defects.md) | Configuration that is wrong on every run until someone edits a file |
 | [docs/guides/vehicle_calibration.md](docs/guides/vehicle_calibration.md) | PWM control, PID tuning, testing tools |
 | [docs/guides/zed_camera.md](docs/guides/zed_camera.md) | ZED setup, troubleshooting |
+| [docs/guides/bag-to-pointcloud-map.md](docs/guides/bag-to-pointcloud-map.md) | Recording to GLIM point cloud map (`just bag record`, `just bag map`): setup, driving, checks, failures |
 | [docs/guides/aruco-map.md](docs/guides/aruco-map.md) | ArUco board survey and localization (`just aruco-map`): commands, frame, outputs |
 | [docs/guides/lidar_integration.md](docs/guides/lidar_integration.md) | Robin-W, Velodyne, TensorRT |
 | [docs/guides/control_testing.md](docs/guides/control_testing.md) | Control system testing procedures |
