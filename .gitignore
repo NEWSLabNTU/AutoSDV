@@ -55,3 +55,6 @@ setup/.markers/
 
 # Lab 2 students' vehicle models (the handout's packages, renamed): never committed here
 src/lab2_vehicles/
+
+# Car A twin: the COSS Isaac world, built by `just twin world` (roadmap 15), never committed
+/data/coss-isaac/
