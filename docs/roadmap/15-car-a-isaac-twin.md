@@ -31,7 +31,7 @@ Measured on server133 (RTX 5090):
 | COSS world | 12 tiles, 3.1 M triangles; lanes 100 % meshed, p99 roughness 2.6 mm |
 | colour transfer | 60 % of points within 1.5 m of an original, 11 % within 6 cm |
 | NDT on `coss_loop` | NVTL min 2.71, p50 2.99 (2395 scans) |
-| `coss_loop` drive | 65.2 m in 40 s, top speed 2.005 m/s against the 2.0 cap |
+| `coss_loop` drive | 65.2 m in 38-40 s; Autoware capped at 2.0 m/s: planned max 2.000, car 2.007 |
 | standing obstacle | not detected: perception emits no object, the car drives into it |
 
 Deviations from the plan:

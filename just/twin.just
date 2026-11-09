@@ -17,6 +17,8 @@ spec := twin / 'vehicle/autosdv_car_a.yaml'
 dae := 'src/vehicle/autosdv_vehicle_launch/autosdv_vehicle_description/mesh/car_a.dae'
 # The twin's ROS domain. Never one another stack uses: aib's own default ego pins 1.
 domain := env_var_or_default('TWIN_DOMAIN', '47')
+# what `up` started, for `down`: the boot, then one "pgid start-time" line per group
+pgids := env_var_or_default('TWIN_PGIDS', 'tmp/twin.pgids')
 
 [private]
 default:
@@ -96,7 +98,7 @@ world from='color':
     # is meshed from, so NDT localizes against what the lidar sees.
     for f in lanelet2_map.osm map_projector_info.yaml pointcloud_map.pcd; do ln -sfn "$src/$f" "$out/map/$f"; done
     run() { echo "[twin world] $1"; shift; env -u PYTHONPATH "$py" "$@" 2>&1 | tee -a "$out/logs/world.log"; }
-    steps=(color ground refill smooth meshes usd); go=0
+    steps=(color ground refill smooth meshes usd report); go=0
     for st in "${steps[@]}"; do
         [ "$st" = "{{from}}" ] && go=1
         [ $go = 1 ] || continue
@@ -111,6 +113,10 @@ world from='color':
             usd)    echo "[twin world] USD"; env -u PYTHONPATH {{isaac_root}}/venv/bin/python "$s/world_usd.py" \
                         "$out/meshes" "$out/ground/ortho_refill" "$out/map" --clear-road "$out/ground" --clear-margin 0.5 \
                         2>&1 | tee -a "$out/logs/world.log" ;;
+            report) rm -f "$out/world_report.json"
+                    run "lane report" "$s/world_report.py" "$out/ground" "$out/meshes" "$out/map/lanelet2_map.osm" \
+                        --json "$out/world_report.json" || true
+                    python3 {{twin}}/scripts/world_gate.py "$out/world_report.json" --pit-depth 0.04 ;;
         esac
     done
     [ $go = 1 ] || { echo "from: one of ${steps[*]}" >&2; exit 2; }
@@ -121,7 +127,7 @@ world from='color':
 up route='coss_loop' world='data/coss-isaac/map/isaac/world.yaml':
     #!/usr/bin/env bash
     set -eo pipefail
-    [ -f tmp/twin.pgids ] && { echo "tmp/twin.pgids exists: just twin down first" >&2; exit 1; }
+    [ -f {{pgids}} ] && { echo "{{pgids}} exists: just twin down first" >&2; exit 1; }
     [ -f {{world}} ] || { echo "no world {{world}}: just twin world" >&2; exit 1; }
     set +u; source scripts/env.sh >/dev/null 2>&1; set -u
     eval "$(just twin env)"
@@ -131,11 +137,12 @@ up route='coss_loop' world='data/coss-isaac/map/isaac/world.yaml':
     setsid bash -c "unset DISPLAY; exec just --justfile {{swb}}/src/autoware_isaac_bridge/justfile isaac-ego \
         ego:=$PWD/{{twin}}/isaac/ego.yaml world:=$(realpath {{world}}) \
         pose:=$pose realtime:=true" > tmp/twin_run/runner.log 2>&1 < /dev/null &
-    echo $! > tmp/twin.pgids
+    started() { echo "$1 $(cut -d')' -f2- /proc/$1/stat | awk '{print $20}')"; }
+    { echo "boot $(cat /proc/sys/kernel/random/boot_id)"; started $!; } > {{pgids}}
     LD_LIBRARY_PATH=$TWIN_CUDA_LIB:$LD_LIBRARY_PATH setsid play_launch launch --disable-web-ui --log-dir tmp/twin_run/play_log autosdv_twin twin_autoware.launch.xml \
         twin_map_path:=$PWD/data/coss-isaac/map > tmp/twin_run/autoware.log 2>&1 < /dev/null &
-    echo $! >> tmp/twin.pgids
-    echo "[twin] up: runner pgid $(sed -n 1p tmp/twin.pgids), Autoware pgid $(sed -n 2p tmp/twin.pgids)"
+    started $! >> {{pgids}}
+    echo "[twin] up: runner pgid $(sed -n '2s/ .*//p' {{pgids}}), Autoware pgid $(sed -n '3s/ .*//p' {{pgids}})"
 
 # Localize the twin at the route's start, set its goal, engage, wait for arrival
 drive route='coss_loop':
@@ -145,14 +152,29 @@ drive route='coss_loop':
     eval "$(just twin env)"
     python3 {{twin}}/scripts/twin_go.py --route {{route}}
 
-# Stop what `just twin up` started (its process groups only)
+# Stop what `just twin up` started: its process groups only, and only while each is still the
+# one `up` recorded (same boot, same start time); a PGID from before a reboot or a crash may
+# since belong to anything of yours
 down:
     #!/usr/bin/env bash
-    [ -f tmp/twin.pgids ] || { echo "nothing up (no tmp/twin.pgids)"; exit 0; }
-    for g in $(cat tmp/twin.pgids); do kill -INT -"$g" 2>/dev/null || true; done
-    sleep 15
-    for g in $(cat tmp/twin.pgids); do kill -TERM -"$g" 2>/dev/null || true; done
-    sleep 5
-    for g in $(cat tmp/twin.pgids); do kill -KILL -"$g" 2>/dev/null || true; done
-    rm -f tmp/twin.pgids
+    f={{pgids}}
+    [ -f "$f" ] || { echo "nothing up (no $f)"; exit 0; }
+    groups=()
+    if [ "$(sed -n 's/^boot //p' "$f")" != "$(cat /proc/sys/kernel/random/boot_id)" ]; then
+        echo "[twin] $f is from another boot: nothing to stop"
+    else
+        while read -r g t; do
+            [ "$g" = boot ] && continue
+            now=$(cut -d')' -f2- /proc/"$g"/stat 2>/dev/null | awk '{print $20}')
+            if [ -n "$now" ] && [ "$now" = "$t" ]; then groups+=("$g")
+            else echo "[twin] skip $g: not the group up started (gone, or its PID reused)"; fi
+        done < "$f"
+    fi
+    alive() { for g in "${groups[@]}"; do kill -0 -"$g" 2>/dev/null && return 0; done; return 1; }
+    for sig in INT TERM KILL; do
+        alive || break
+        for g in "${groups[@]}"; do kill -"$sig" -"$g" 2>/dev/null || true; done
+        for _ in $(seq 30); do alive || break; sleep 0.5; done
+    done
+    rm -f "$f"
     echo "[twin] down"

@@ -864,6 +864,7 @@ gnss_receiver:=garmin|ublox|septentrio
 ```bash
 # pose_source options:
 pose_source:=cuda_ndt  # Default: CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)
+                       # but it never allows autonomous mode: docs/known-config-defects.md §9
 pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
 # pose_source_package defaults to "auto" and is derived from pose_source
 # (cuda_ndt -> cuda_ndt_matcher_launch, otherwise built-in NDT). Set it

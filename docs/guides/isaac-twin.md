@@ -89,8 +89,12 @@ scaled to the car's 2.04 m/s top speed. Result on server133: **PASS**, creep at 
 
 ```bash
 just twin world            # all steps, into data/coss-isaac/ (gitignored)
-just twin world usd        # rerun from a step: color, ground, refill, smooth, meshes, usd
+just twin world report     # rerun from a step: color, ground, refill, smooth, meshes, usd, report
 ```
+
+The last step, `report`, measures the lanes (swb's `world_report.py`) and fails the build on
+a hole under a lanelet or p99 roughness above 1 cm (`scripts/world_gate.py`); a pit deeper
+than the site fills only warns.
 
 scenario-world-bridge's `scripts/ntu_twin` pipeline under its `coss` site: colours from the
 NAS originals (the 2024 survey) onto `data/COSS-map-planning/pointcloud_map.pcd`, a 0.25 m
@@ -107,7 +111,7 @@ kerb step crosses a path near (-12.6, -14.5); routes avoid it.
 ```bash
 just twin up      # Isaac on the COSS world + our Autoware, in the background; logs in tmp/twin_run/
 just twin drive   # localize at the route's start, set the goal, engage, wait for arrival
-just twin down    # stop both process groups
+just twin down    # stop both process groups, if they are still the ones `up` started
 ```
 
 `up` takes a route and a world: `just twin up coss_loop data/coss-isaac/map/isaac/world.yaml`
@@ -117,8 +121,10 @@ AutoSDV's logging simulation as car A runs it (`twin_autoware.launch.xml`): `veh
 sim time. The domain is 47 unless `TWIN_DOMAIN` says otherwise.
 
 Measured on `coss_loop` (server133, RTX 5090): NDT NVTL min 2.71, p50 2.99 over 2395 scans;
-65.2 m in 40 s; top speed 2.005 m/s (the cap is 2.0); no node left on the domain after
-`down`.
+65.2 m in 38-40 s; no node left on the domain after `down`. `drive` latches Autoware's
+speed cap at 2.0 m/s, as AutoSDV's drive tool does: planning then peaks at 2.000 m/s and the
+car at 2.007. Without the cap Autoware planned up to 3.46 m/s and only the plant's motor
+(2.04 m/s) held the car back.
 
 Two settings in the recipes work around defects found here:
 

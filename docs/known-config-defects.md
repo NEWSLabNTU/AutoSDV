@@ -296,6 +296,39 @@ measured; Lab 2 loads a -143 stand-in meanwhile.
 
 ---
 
+## 9. Under `cuda_ndt` autonomous mode never becomes available
+
+Found on car A's Isaac twin, 2026-11-10 (`docs/guides/isaac-twin.md`). Autoware's
+diagnostic graph, which every `pose_source` but `mcl` loads
+(`autoware_launch/config/system/diagnostics/localization.yaml`), waits for a status named
+`ndt_scan_matcher: scan_matching_status`. cuda_ndt publishes a bare
+`scan_matching_status` (`cuda_ndt_matcher/src/io/diagnostics.rs`), so the leaf stays STALE,
+`/system/operation_mode/availability` reports `autonomous: false`, and
+`change_to_autonomous` is refused, however good the pose. Measured on the twin with
+`pose_source:=cuda_ndt`: localization INITIALIZED, route SET, autonomous unavailable for
+two minutes; with `pose_source:=ndt` it engaged at once.
+
+`cuda_ndt` is the documented default, so `just launch vehicle_id:=car_X` should hit this
+on every car. Not yet confirmed on a car. The fix belongs in cuda_ndt (publish the status
+under the node's name, as Autoware's `DiagnosticsInterface` does); until then, engage with
+`pose_source:=ndt`.
+
+## 10. COSS's map frame is not the projection its `map_projector_info.yaml` names
+
+`data/COSS-map-planning`'s map frame is **TWD97 less TWD97 of the map origin**, a plain
+translation: the lanelets' `local_x`/`local_y` plus (-304731.3793, -2768113.4495) reproduce
+the map coordinates exactly over all 2276 nodes. Its `map_projector_info.yaml` says
+`TransverseMercator` about the origin (25.0201, 121.5423), which is what Autoware projects
+GNSS fixes with. TWD97's central meridian is 121 deg E, so the two frames differ by the
+meridian convergence, about 0.23 deg, and by the scale factor (0.9999 against 0.9996).
+
+A GNSS fix therefore lands rotated about the origin against the PCD and the lanelets:
+about 0.4 m at 100 m from the origin. Anything run on COSS with `use_gnss:=true` (car B's
+ublox, NTRIP) carries that bias into the EKF and into NDT's initial pose. The twin is
+unaffected (no GNSS; swb's `sites/coss.yaml` records the frame as `twd97_minus_origin`).
+The fix is a projector the map frame actually is, or a map re-expressed in the declared
+one; either needs the original survey's datum confirmed first.
+
 ## Did not transfer
 
 Checked, and not defects here:

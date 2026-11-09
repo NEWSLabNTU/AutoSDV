@@ -21,6 +21,7 @@ import yaml
 
 Pose = namedtuple("Pose", "x y z qx qy qz qw yaw")
 ROUTES = Path(__file__).resolve().parents[1] / "config" / "routes.yaml"
+MAX_SPEED = 2.0   # m/s, latched as AutoSDV's drive tool does (scripts/testing/drive/run.py)
 
 
 def load_route(path, name):
@@ -41,6 +42,16 @@ def load_route(path, name):
 def spawn_arg(p):
     """The runner's pose:= (x,y,z,yaw), 5 cm above the road, as a spawn."""
     return f"{p.x:g},{p.y:g},{p.z + 0.05:g},{p.yaw:g}"
+
+
+def velocity_limit(max_speed):
+    """(topic, VelocityLimit): Autoware's default speed cap, published latched."""
+    from autoware_internal_planning_msgs.msg import VelocityLimit
+    msg = VelocityLimit()
+    msg.max_velocity = float(max_speed)
+    msg.use_constraints = False
+    msg.sender = "twin_go"
+    return "/planning/scenario_planning/max_velocity_default", msg
 
 
 def drive(start, goal, timeout):
@@ -101,6 +112,12 @@ def drive(start, goal, timeout):
         r.position.x, r.position.y, r.position.z = p.x, p.y, p.z
         r.orientation.z, r.orientation.w = p.qz, p.qw
         return r
+
+    # the cap must be Autoware's: without it planning runs to max_vel 4.17 m/s and only the
+    # plant's motor (2.04 m/s) holds the car back
+    topic, cap = velocity_limit(MAX_SPEED)
+    cap.stamp = node.get_clock().now().to_msg()
+    node.create_publisher(type(cap), topic, latched).publish(cap)
 
     t0 = time.monotonic()
     init = InitializeLocalization.Request()
