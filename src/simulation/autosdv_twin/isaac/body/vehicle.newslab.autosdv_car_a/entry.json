@@ -1,0 +1,95 @@
+{
+ "id": "vehicle.newslab.autosdv_car_a",
+ "base_type": "car",
+ "wheels_n": 4,
+ "usd": "vehicle.newslab.autosdv_car_a/vehicle.newslab.autosdv_car_a.usda",
+ "prim": "/Vehicle",
+ "render_min": [
+  -0.2265,
+  -0.156,
+  0.0
+ ],
+ "render_max": [
+  0.2195,
+  0.156,
+  0.394
+ ],
+ "render_size": [
+  0.446,
+  0.312,
+  0.394
+ ],
+ "carla_bbox": {
+  "center": [
+   0.0,
+   0.0,
+   0.131
+  ],
+  "extent": [
+   0.2105,
+   0.1665,
+   0.131
+  ]
+ },
+ "wheels": [
+  {
+   "name": "Wheel_Front_Left",
+   "path": "/Vehicle/Wheels/Wheel_Front_Left",
+   "pos": [
+    0.1675,
+    0.1315,
+    0.052
+   ],
+   "radius": 0.052,
+   "width": 0.049,
+   "max_steer_deg": 19.996,
+   "usd": "vehicle.newslab.autosdv_car_a/wheels.usda",
+   "usd_prim": "/Wheel_Front_Left"
+  },
+  {
+   "name": "Wheel_Front_Right",
+   "path": "/Vehicle/Wheels/Wheel_Front_Right",
+   "pos": [
+    0.1675,
+    -0.1315,
+    0.052
+   ],
+   "radius": 0.052,
+   "width": 0.049,
+   "max_steer_deg": 19.996,
+   "usd": "vehicle.newslab.autosdv_car_a/wheels.usda",
+   "usd_prim": "/Wheel_Front_Right"
+  },
+  {
+   "name": "Wheel_Rear_Left",
+   "path": "/Vehicle/Wheels/Wheel_Rear_Left",
+   "pos": [
+    -0.1515,
+    0.1315,
+    0.052
+   ],
+   "radius": 0.052,
+   "width": 0.049,
+   "max_steer_deg": 0.0,
+   "usd": "vehicle.newslab.autosdv_car_a/wheels.usda",
+   "usd_prim": "/Wheel_Rear_Left"
+  },
+  {
+   "name": "Wheel_Rear_Right",
+   "path": "/Vehicle/Wheels/Wheel_Rear_Right",
+   "pos": [
+    -0.1515,
+    -0.1315,
+    0.052
+   ],
+   "radius": 0.052,
+   "width": 0.049,
+   "max_steer_deg": 0.0,
+   "usd": "vehicle.newslab.autosdv_car_a/wheels.usda",
+   "usd_prim": "/Wheel_Rear_Right"
+  }
+ ],
+ "rear_axle_x": -0.1515,
+ "wheel_base": 0.319,
+ "track": 0.263
+}

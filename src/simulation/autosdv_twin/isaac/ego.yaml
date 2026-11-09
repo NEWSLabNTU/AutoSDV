@@ -1,0 +1,9 @@
+# Car A in Isaac Sim: aib's ego config (scenario-world-bridge's autoware_isaac_bridge). Paths
+# are relative to this file.
+#   rig   generated from ../vehicle/autosdv_car_a.yaml by aib.gen (just twin generate)
+#   body  car A's look, made by ../body/make_body.py (just twin generate)
+# No domain: the ego joins the starting terminal's ROS_DOMAIN_ID, which the twin's Autoware
+# shares. Never leave it at a domain another stack uses (aib's own default ego pins 1).
+rig: autosdv_car_a.rig.yaml
+node_name: isaac_vehicle
+body: body/vehicle.newslab.autosdv_car_a/entry.json
