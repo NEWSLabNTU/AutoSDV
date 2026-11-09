@@ -1,4 +1,4 @@
-# Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba) by aib.gen (autoware_isaac_bridge `just generate`): do not edit; change the spec and regenerate.
+# Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809) by aib.gen (autoware_isaac_bridge `just generate`): do not edit; change the spec and regenerate.
 # The Isaac rig: what aib builds the PhysX vehicle and its sensors from (aib.rig).
 # Sensor transforms are base_link -> link, translation in m, quaternion w x y z.
 spec: ../vehicle/autosdv_car_a.yaml
@@ -7,7 +7,7 @@ description: AutoSDV car A, 1/10 RC car with VLP-16 and ZED X Mini (geometry mea
   mass and drive estimated)
 assumptions: [body.ground_clearance, brakes, inertia.com_front_fraction, inertia.com_height, inertia.inertia_box,
   inertia.mass, powertrain, resistance, steering.time_constant, suspension, tires, wheels]
-spec_hash: 4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba
+spec_hash: 6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809
 body:
   catalogue_model: vehicle.newslab.autosdv_car_a
   box_center: [0.1515, 0.0, 0.131]
@@ -75,18 +75,18 @@ sensors:
     width: 960
     height: 600
     horizontal_fov: 110.0
-    rate_hz: 15.0
+    rate_hz: 10.0
     info_topic: /sensing/camera/zedxm/rgb/color/rect/camera_info
     k: [336.099618341, 0.0, 480.0, 0.0, 336.099618341, 300.0, 0.0, 0.0, 1.0]
   imu:
     type: imu
     enabled: true
-    link: zedxm_imu_link
-    frame: zedxm_imu_link
+    link: zedxm_camera_center
+    frame: zedxm_camera_center
     topic: /sensing/camera/zedxm/imu/data
-    translation: [0.31, 0.025, 0.156]
+    translation: [0.32, 0.0, 0.156]
     quat: [1.0, 0.0, 0.0, 0.0]
-    rate_hz: 100.0
+    rate_hz: 20.0
   gnss:
     type: gnss
     enabled: false

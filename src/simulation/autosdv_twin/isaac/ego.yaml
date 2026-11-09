@@ -7,3 +7,9 @@
 rig: autosdv_car_a.rig.yaml
 node_name: isaac_vehicle
 body: body/vehicle.newslab.autosdv_car_a/entry.json
+# The onboard computers' calibration, beyond what the spec gives (sim_vehicle_ecu.Calibration
+# fields). brake_floor: a releasing brake below it is released; the road car's default, 50 N m,
+# is more than car A's whole braking (~0.2 N m a wheel) and left it with no friction brakes.
+# 0.005 N m a wheel is ~0.02 m/s^2 on 5 kg, the default's intent.
+ecu:
+  brake_floor: 0.005

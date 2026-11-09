@@ -123,7 +123,12 @@ def lathe_y(profile, n=24):
 # 0.095, the Jetson deck at 0.166, the Jetson 0.17-0.26, the top plate at 0.274, the lidar's
 # base at its optical centre less 37.7 mm (Velodyne's VLP-16 drawing).
 
-LIDAR_R, LIDAR_BELOW, LIDAR_ABOVE = 0.0515, 0.0377, 0.034
+LIDAR_R, LIDAR_BELOW = 0.0515, 0.0377
+# The RTX lidar renders this body: a housing around its origin catches every ray inside the
+# near range and the sensor returns nothing (the golf cart twin's VLP_CLEAR). So the VLP-16's
+# housing ends LIDAR_CLEAR below its optical centre: its base is drawn, its window and cap,
+# which the rays would leave through, are not. Likewise the ZED's box ends behind its lens.
+LIDAR_CLEAR = 0.03
 TOP_PLATE_Z = 0.274
 JETSON_DECK_Z = 0.166
 MID_DECK_Z = 0.095
@@ -180,9 +185,7 @@ def build():
     for dx, dy in ((0.03, 0.02), (0.03, -0.02), (-0.03, 0.02), (-0.03, -0.02)):
         so.add(*zcyl(lx + dx, ly + dy, TOP_PLATE_Z, base_z - 0.012, 0.0055, 10))
     part("Lidar/Mount", "red_anodized").add(*zcyl(lx, ly, base_z - 0.012, base_z, LIDAR_R + 0.004, 28))
-    part("Lidar/Base", "lidar_body").add(*zcyl(lx, ly, base_z, lz - 0.012, LIDAR_R, 32))
-    part("Lidar/Window", "lidar_window").add(*zcyl(lx, ly, lz - 0.012, lz + 0.022, LIDAR_R - 0.001, 32))
-    part("Lidar/Cap", "lidar_body").add(*zcyl(lx, ly, lz + 0.022, lz + LIDAR_ABOVE, LIDAR_R, 32))
+    part("Lidar/Base", "lidar_body").add(*zcyl(lx, ly, base_z, lz - LIDAR_CLEAR, LIDAR_R, 32))
 
     # the front deck on standoffs, the Velodyne interface box, the ZED X Mini
     fd = part("Front/Deck", "black_plastic")
@@ -193,11 +196,11 @@ def build():
             fso.add(*zcyl(px, py, MID_DECK_Z, 0.158, 0.004, 8))
     part("Front/Interface_box", "dark_plastic").add(*box_span((0.199, 0.282), (-0.055, 0.055), (0.162, 0.201)))
     zx, zy, zz = ZED_LEFT
-    zc = np.array([zx - 0.012, 0.0, zz])                       # the camera's centre, behind the lens
+    zc = np.array([zx - 0.020, 0.0, zz])                       # the box's front face 4 mm behind the lens
     part("Front/ZED", "alu_black").add(*cbox(zc, (0.032, 0.094, 0.032)))
     lens = part("Front/ZED_lenses", "lens")
     for y in (zy, -zy):
-        lens.add(*cylinder((zc[0] + 0.016, y, zz), (zc[0] + 0.019, y, zz), 0.008, 16))
+        lens.add(*cylinder((zx - 0.004, y, zz), (zx - 0.002, y, zz), 0.008, 16))
 
     # the red rear mount: bracket, the hexagonal enclosure, the GNSS puck on its disc
     rm = part("Rear/Mount", "red_print")
@@ -238,7 +241,6 @@ MATERIALS = {   # name: (diffuse, roughness, metallic)
     "alu_black": ((0.05, 0.05, 0.055), 0.35, 0.6),
     "alloy": ((0.55, 0.56, 0.58), 0.3, 0.9),
     "lidar_body": ((0.62, 0.63, 0.65), 0.45, 0.5),
-    "lidar_window": ((0.02, 0.12, 0.30), 0.1, 0.3),
     "lens": ((0.01, 0.012, 0.015), 0.05, 0.0),
     "tyre": ((0.02, 0.02, 0.02), 0.85, 0.0),
     "rim_black": ((0.04, 0.04, 0.045), 0.35, 0.6),

@@ -71,7 +71,7 @@ powertrain:
   drive_axle: all
   front_drive_share: 0.5
   gear_ratio: 8.0
-  motor_peak_torque: 0.15
+  motor_peak_torque: 0.2
   motor_peak_power: 60.0
   # The twin's ceiling, 2.0 m/s, as the motor's top speed: torque tapers to 0 over the last
   # 5 %, at 3000 rpm / 8 x 2 pi x 0.052 m = 2.04 m/s.
@@ -146,17 +146,17 @@ sensors:
     width: 960
     height: 600
     horizontal_fov: 110.0
-    rate_hz: 15.0
+    rate_hz: 10.0                   # aib renders at its 20 Hz frame rate, a camera every other
     isaac:
       enabled: true
   imu:
     type: imu
     calibration_key: zedxm_imu_link
-    link: zedxm_imu_link
-    frame: zedxm_imu_link
+    link: zedxm_camera_center       # a URDF link; zedxm_imu_link is a launch's static TF
+    frame: zedxm_camera_center      # the contract wants a URDF frame; see provenance
     topic: /sensing/camera/zedxm/imu/data
-    mount: {x: 0.244, y: 0.025, z: -0.204, roll: 0.0, pitch: 0.0, yaw: 0.0}
-    rate_hz: 100.0
+    mount: {x: 0.254, y: 0.0, z: -0.204, roll: 0.0, pitch: 0.0, yaw: 0.0}
+    rate_hz: 20.0                   # aib publishes once per 20 Hz frame
     isaac:
       enabled: true
   gnss:
@@ -182,10 +182,10 @@ provenance:
   wheels: {assumed: true, basis: "a 1/10 touring wheel and tire, ~70 g; damping scaled from the cart's per kg"}
   tires: {assumed: true, basis: "rubber touring tires on asphalt; the Model 3's PhysX tire scaled to the rest load"}
   brakes: {assumed: true, basis: "ESC motor braking; torque past the tire limit"}
-  powertrain: {assumed: true, basis: "shaft-driven 4WD touring chassis (photos), brushless motor through ~8:1; ~3 m/s^2; the twin's ceiling 2.0 m/s (roadmap 15), car A's ESC can go faster"}
+  powertrain: {assumed: true, basis: "shaft-driven 4WD touring chassis (photos), brushless motor through ~8:1; 0.2 N m peak gives ~4.5 m/s^2 at the wheels, so the vehicle check's 3 m/s^2 step holds against the road load (0.15 fell 0.38 short); the twin's ceiling 2.0 m/s (roadmap 15), car A's ESC can go faster"}
   resistance: {assumed: true, basis: "small tires and drivetrain losses; frontal area ~0.3 x 0.3 m"}
   steering.time_constant: {assumed: true, basis: "a hobby servo, ~0.1 s; autosdv_vehicle_description simulator_model.param.yaml's 0.27 is Autoware's sample value, not car A's"}
   suspension: {assumed: true, basis: "a touring chassis' oil shocks, ~20 mm travel"}
   isaac.physx: {basis: "newslab_golfcart's / tesla_model3's (swb roadmap 043 and 059 N8); to be retuned for 5 kg (roadmap 15 task 5)"}
   sensor_kit: {basis: "individual_params config/twin/autosdv_sensor_kit/sensors_calibration.yaml: estimated from photos, +-1.5 cm"}
-  sensors: {basis: "mounts: config/twin/autosdv_sensor_kit/sensor_kit_calibration.yaml through the sensor kit URDF (photo estimates: ZED +-2 cm, GNSS +-3 cm); topics, frames and layouts: autosdv_sensor_kit_launch (VLP16.param.yaml frame vlp16, pointcloud_preprocessor LIDAR_TOPICS, imu.launch.xml ZED IMU topic); ZED X Mini 2.2 mm lens 110 deg, rendered at 960x600 (assumed)"}
+  sensors: {basis: "mounts: config/twin/autosdv_sensor_kit/sensor_kit_calibration.yaml through the sensor kit URDF (photo estimates: ZED +-2 cm, GNSS +-3 cm); topics, frames and layouts: autosdv_sensor_kit_launch (VLP16.param.yaml frame vlp16, pointcloud_preprocessor LIDAR_TOPICS, imu.launch.xml ZED IMU topic); ZED X Mini 2.2 mm lens 110 deg, rendered at 960x600 (assumed). Rates: what aib delivers at its 20 Hz frame (the IMU once a frame, the camera every other), not the hardware's (ZED IMU ~200 Hz, camera 15-60 Hz), as tesla_model3's. The IMU is placed at, and stamps, zedxm_camera_center (a URDF link: the I5 contract wants every sensor frame in the URDF). Car A's ZED stamps zedxm_imu_link, a static TF 2.5 cm away (zed_imu_tf.launch.xml); imu_corrector takes either through TF"}

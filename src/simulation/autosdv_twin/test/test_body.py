@@ -40,6 +40,17 @@ def test_wheels_at_the_axles(entry, geometry):
     assert all(w["radius"] == geometry["wheel_radius"] for w in entry["wheels"])
 
 
-def test_lidar_top_height(entry):
-    # the photos: the VLP-16's top about 0.39 m above the ground
-    assert entry["render_max"][2] == pytest.approx(0.39, abs=0.01)
+def _sensor_z(name):
+    s = yaml.safe_load(SPEC.read_text())
+    return s["sensor_kit"]["mount"]["z"] + s["sensors"][name]["mount"]["z"]
+
+
+def test_the_lidar_sits_where_the_photos_put_it():
+    # the photos: the VLP-16's optical centre 0.36 m up (its top at ~0.39)
+    assert _sensor_z("vlp16") == pytest.approx(0.36, abs=0.01)
+
+
+def test_the_body_stays_out_of_the_lidars_rays(entry):
+    # The RTX lidar renders the body: a housing around its origin swallows every ray inside
+    # the near range, and the sensor returns nothing. The body ends LIDAR_CLEAR below it.
+    assert entry["render_max"][2] <= _sensor_z("vlp16") - 0.03 + 1e-6

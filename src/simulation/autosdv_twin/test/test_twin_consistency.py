@@ -32,9 +32,6 @@ VEHICLE_INFO = (
     / "src/vehicle/autosdv_vehicle_launch/autosdv_vehicle_description/config/vehicle_info.param.yaml"
 )
 TOL = 1e-6
-# Frames a launch file publishes as a static transform rather than the URDF: child ->
-# (parent, the launch's default offset). zed_imu_tf.launch.xml's offsets default to zero.
-STATIC_TF = {"zedxm_imu_link": "zedxm_left_camera_frame"}
 
 
 def _tf(x=0.0, y=0.0, z=0.0, roll=0.0, pitch=0.0, yaw=0.0):
@@ -65,8 +62,6 @@ def _urdf_poses():
         xyz = [float(v) for v in (o.get("xyz", "0 0 0") if o is not None else "0 0 0").split()]
         rpy = [float(v) for v in (o.get("rpy", "0 0 0") if o is not None else "0 0 0").split()]
         parent[j.find("child").get("link")] = (j.find("parent").get("link"), _tf(*xyz, *rpy))
-    for child, par in STATIC_TF.items():
-        parent.setdefault(child, (par, np.eye(4)))
 
     def pose(link):
         t = np.eye(4)
