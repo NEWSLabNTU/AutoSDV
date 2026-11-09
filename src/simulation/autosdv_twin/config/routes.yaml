@@ -1,0 +1,7 @@
+# Routes for car A's twin on the COSS world (data/coss-isaac/map), in the map frame. The start
+# is where the twin spawns and localization is initialized; the goal is set with Autoware's
+# routing API (scripts/twin_go.py). z is the lanelets' elevation there.
+coss_loop:
+  description: "65 m over 5 lanelets (1030000620214 .. 1030000620228), clear of the 9 cm kerb step near (-12.6, -14.5)"
+  start: {x: 28.30, y: -2.32, z: 8.93, yaw: 0.476}
+  goal: {x: 33.05, y: 3.41, z: 8.94, yaw: 1.999}

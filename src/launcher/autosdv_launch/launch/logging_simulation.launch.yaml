@@ -90,7 +90,7 @@ launch:
 - arg:
     name: vehicle_id
     default: "default"
-    description: "individual_params instance for the replayed bag's calibration: default, car_a, car_b, car_c"
+    description: "individual_params instance for the replayed bag's calibration: default, car_a, car_b, car_c, or twin (car A's Isaac twin)"
 - arg:
     name: vehicle_model
     default: "autosdv_vehicle"
@@ -289,12 +289,20 @@ launch:
     default: "true"
     description: "Launch RViz"
 
+- arg:
+    name: planning_profile
+    default: "stock"
+    description: "stock (autoware_launch's planning files) or rc (config/planning_rc/), as autosdv.launch.yaml takes it; car A's twin runs rc"
+
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
     arg:
     -
       name: vehicle_id
       value: $(var vehicle_id)
+    -
+      name: planning_profile
+      value: $(var planning_profile)
     -
       name: vehicle_model
       value: $(var vehicle_model)

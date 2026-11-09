@@ -51,12 +51,16 @@ check:
 env:
     #!/usr/bin/env bash
     mkdir -p tmp/no-mps
+    # cuda_ndt compiles its kernels with NVRTC at start-up, and an NVRTC older than the GPU
+    # refuses its architecture (CUDA 12.6 on an RTX 5090, sm_120): the newest toolkit wins
+    cuda_lib=${TWIN_CUDA_LIB:-$(ls -d /usr/local/cuda-*.*/lib64 2>/dev/null | sort -V | tail -1)}
     cat <<EOF
     export CYCLONEDDS_URI=file://$PWD/{{twin}}/config/cyclonedds-unicast-lo.xml
     export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     export CUDA_MPS_PIPE_DIRECTORY=$PWD/tmp/no-mps CUDA_MPS_LOG_DIRECTORY=$PWD/tmp/no-mps
     export ISAAC_ROOT={{isaac_root}}
     export ROS_DOMAIN_ID={{domain}}
+    export TWIN_CUDA_LIB=$cuda_lib
     EOF
 
 # The twin car alone on a flat plane, against its spec (aib's vehicle-check): topics, types,
@@ -110,3 +114,45 @@ world from='color':
         esac
     done
     [ $go = 1 ] || { echo "from: one of ${steps[*]}" >&2; exit 2; }
+
+# Bring the twin up on the COSS world: aib's runner (the world, car A, its sensors, on
+# TWIN_DOMAIN) at the route's start, and AutoSDV's Autoware (twin_autoware.launch.xml).
+# Both in process groups of their own, recorded in tmp/twin.pgids for `just twin down`.
+up route='coss_loop' world='data/coss-isaac/map/isaac/world.yaml':
+    #!/usr/bin/env bash
+    set -eo pipefail
+    [ -f tmp/twin.pgids ] && { echo "tmp/twin.pgids exists: just twin down first" >&2; exit 1; }
+    [ -f {{world}} ] || { echo "no world {{world}}: just twin world" >&2; exit 1; }
+    set +u; source scripts/env.sh >/dev/null 2>&1; set -u
+    eval "$(just twin env)"
+    mkdir -p tmp/twin_run
+    pose=$(python3 {{twin}}/scripts/twin_go.py --spawn --route {{route}})
+    echo "[twin] domain $ROS_DOMAIN_ID, spawn $pose, logs in tmp/twin_run/"
+    setsid bash -c "unset DISPLAY; exec just --justfile {{swb}}/src/autoware_isaac_bridge/justfile isaac-ego \
+        ego:=$PWD/{{twin}}/isaac/ego.yaml world:=$(realpath {{world}}) \
+        pose:=$pose realtime:=true" > tmp/twin_run/runner.log 2>&1 < /dev/null &
+    echo $! > tmp/twin.pgids
+    LD_LIBRARY_PATH=$TWIN_CUDA_LIB:$LD_LIBRARY_PATH setsid play_launch launch --disable-web-ui --log-dir tmp/twin_run/play_log autosdv_twin twin_autoware.launch.xml \
+        twin_map_path:=$PWD/data/coss-isaac/map > tmp/twin_run/autoware.log 2>&1 < /dev/null &
+    echo $! >> tmp/twin.pgids
+    echo "[twin] up: runner pgid $(sed -n 1p tmp/twin.pgids), Autoware pgid $(sed -n 2p tmp/twin.pgids)"
+
+# Localize the twin at the route's start, set its goal, engage, wait for arrival
+drive route='coss_loop':
+    #!/usr/bin/env bash
+    set -eo pipefail
+    set +u; source scripts/env.sh >/dev/null 2>&1; set -u
+    eval "$(just twin env)"
+    python3 {{twin}}/scripts/twin_go.py --route {{route}}
+
+# Stop what `just twin up` started (its process groups only)
+down:
+    #!/usr/bin/env bash
+    [ -f tmp/twin.pgids ] || { echo "nothing up (no tmp/twin.pgids)"; exit 0; }
+    for g in $(cat tmp/twin.pgids); do kill -INT -"$g" 2>/dev/null || true; done
+    sleep 15
+    for g in $(cat tmp/twin.pgids); do kill -TERM -"$g" 2>/dev/null || true; done
+    sleep 5
+    for g in $(cat tmp/twin.pgids); do kill -KILL -"$g" 2>/dev/null || true; done
+    rm -f tmp/twin.pgids
+    echo "[twin] down"

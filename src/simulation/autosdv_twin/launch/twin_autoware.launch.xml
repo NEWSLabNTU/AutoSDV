@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+  AutoSDV's Autoware driving car A's twin in Isaac Sim (roadmap 15): the logging simulation,
+  which starts no sensor driver and no vehicle interface and runs on sim time, set as car A
+  runs. aib's runner provides what the drivers and the PCA9685 interface would: the VLP-16's
+  points, the ZED's IMU, /vehicle/status/*, /clock, and it takes /control/command/* (the I5
+  contract).
+
+    vehicle_id twin        car A's files with the photo-estimated mounts (individual_params)
+    planning_profile rc    as car A drives in Lab 3
+    sensor_suite vlp16_zed car A's suite; camera_model none, so no ZED driver starts (the twin
+                           publishes the camera and the IMU itself), imu_source zed
+    use_gnss false         as car A
+
+  Its own arguments are prefixed twin_: include arguments are not scoped (ros2 launch and
+  play_launch alike), and an include setting rviz:= would override one named rviz.
+-->
+<launch>
+  <arg name="twin_map_path" description="the twin world's map dir: data/coss-isaac/map (just twin world)"/>
+  <arg name="twin_rviz" default="false"/>
+  <!-- ndt, not AutoSDV's default cuda_ndt: cuda_ndt reports bare "scan_matching_status",
+       which the stock diagnostic graph never matches, so autonomous mode stays unavailable -->
+  <arg name="twin_pose_source" default="ndt"/>
+
+  <include file="$(find-pkg-share autosdv_launch)/launch/logging_simulation.launch.yaml">
+    <arg name="map_path" value="$(var twin_map_path)"/>
+    <arg name="vehicle_id" value="twin"/>
+    <arg name="planning_profile" value="rc"/>
+    <arg name="sensor_suite" value="vlp16_zed"/>
+    <arg name="camera_model" value="none"/>
+    <arg name="imu_source" value="zed"/>
+    <arg name="use_gnss" value="false"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="launch_sensing_driver" value="false"/>
+    <arg name="launch_vehicle_interface" value="false"/>
+    <arg name="pose_source" value="$(var twin_pose_source)"/>
+    <arg name="rviz" value="$(var twin_rviz)"/>
+  </include>
+</launch>
