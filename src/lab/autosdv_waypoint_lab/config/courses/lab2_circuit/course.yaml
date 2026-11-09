@@ -1,0 +1,42 @@
+# Lab 2 TEST route lab2_circuit: lab2_uturn closed into a loop, NOT graded.
+#
+# Route: lab2_uturn's path (straight 2 m driving +x, a RIGHT U-turn of radius
+# 1.1 m, straight 2 m back driving -x at y = -2.2), then a second RIGHT
+# semicircle of radius 1.1 m about (0, -1.1), behind the start box, back onto
+# the start box driving +x. A closed track: two 2 m straights, two R 1.1 m
+# semicircles, lap length 10.91 m, driven `laps` times at v_ref 0.8 m/s; the
+# end ramp (decel 0.3 m/s^2) stops the car on the start box after the last
+# lap. The curvature speed limit sqrt(a_lat_max * R) = sqrt(0.6 * 1.1) =
+# 0.81 m/s is just above v_ref.
+#
+# Frame: the START-BOX frame, the same as lab2_uturn: origin on the floor at
+# the start box (base_link: the rear axle centre), x along the first leg, y to
+# the car's left. Every point of lab2_uturn's path.csv is in this one, so the
+# U-turn's tape and alignment serve; tape the second semicircle too (centre
+# (0.00, -1.10), apex (-1.10, -1.10)).
+#
+# Boards: lab2_uturn's, unchanged (the same field; a run uses the aligned
+# survey's boards when there is one). The closing arc is covered by
+# board 27 (s = 4.5-7.7 m) and boards 24 and 25 (s = 10.2 m on); the blind
+# stretch between, s = 7.7 to 10.1 m, is 2.38 m = 3.0 s at 0.8 m/s, under
+# localization_monitor's 5 s error_age. Board 27 at (-2.00, -2.50) stands
+# 1.34 m from the closing arc, under the 1.4 m make-uturn keeps: the car
+# passes about 0.95 m from its plate. Floor: x -2.5 to 5.0, y -5.5 to 0.5.
+#
+# path.csv, lanelet2_map.osm and ar_tag.param.yaml were generated once from
+# lab2_uturn (its path and boards, course.make_osm, course.make_ar_tag_params);
+# if lab2_uturn is regenerated with another radius or leg, regenerate these.
+path: path.csv
+closed: true
+laps: 3
+v_ref: 0.8
+start_pose: {x: 0.000, y: 0.000, yaw: 0.0000}
+marker_size: 0.48
+dictionary: DICT_5X5_1000
+# 600 mm board standing on the floor, the 0.48 m black square centred on it
+marker_height: 0.3
+markers:
+  - {id: 24, x: 4.500, y: 0.000, yaw: 3.1416}
+  - {id: 25, x: 4.500, y: -1.500, yaw: 2.0944}
+  - {id: 26, x: 1.500, y: -5.000, yaw: 0.2618}
+  - {id: 27, x: -2.000, y: -2.500, yaw: 0.2618}
