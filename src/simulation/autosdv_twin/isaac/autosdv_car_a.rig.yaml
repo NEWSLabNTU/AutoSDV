@@ -1,0 +1,98 @@
+# Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba) by aib.gen (autoware_isaac_bridge `just generate`): do not edit; change the spec and regenerate.
+# The Isaac rig: what aib builds the PhysX vehicle and its sensors from (aib.rig).
+# Sensor transforms are base_link -> link, translation in m, quaternion w x y z.
+spec: ../vehicle/autosdv_car_a.yaml
+name: autosdv_car_a
+description: AutoSDV car A, 1/10 RC car with VLP-16 and ZED X Mini (geometry measured; mounts from photos;
+  mass and drive estimated)
+assumptions: [body.ground_clearance, brakes, inertia.com_front_fraction, inertia.com_height, inertia.inertia_box,
+  inertia.mass, powertrain, resistance, steering.time_constant, suspension, tires, wheels]
+spec_hash: 4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba
+body:
+  catalogue_model: vehicle.newslab.autosdv_car_a
+  box_center: [0.1515, 0.0, 0.131]
+  box_dims: [0.421, 0.333, 0.262]
+  ground_clearance: 0.015
+vehicle:
+  model: vehicle.newslab.autosdv_car_a
+  wheel_base: 0.319
+  wheel_tread: 0.263
+  wheel_radius: 0.052
+  wheel_width: 0.049
+  max_steer_angle: 0.349
+  mass: 5.0
+  com: [0.14355, 0.0, 0.15]
+  inertia_box: [0.42, 0.3, 0.3]
+  wheel_mass: 0.07
+  wheel_damping_rate: 0.002
+  tire_friction: 1.0
+  lat_stiff_max_load: 2.0
+  lat_stiff_value: 17.0
+  long_stiff_value: 12.5
+  friction_vs_slip:
+  - [0.0, 1.0]
+  - [0.1, 1.0]
+  - [1.0, 0.8]
+  rolling_coefficient: 0.03
+  drag_coefficient: 0.9
+  frontal_area: 0.09
+  air_density: 1.2
+  ackermann: true
+  suspension_frequency: 3.0
+  suspension_damping_ratio: 0.5
+  suspension_travel: 0.02
+  physx_substeps: 8
+  substep_threshold_speed: 5.0
+  min_active_slip_denominator: 4.0
+  min_passive_slip_denominator: 4.0
+  min_lateral_slip_denominator: 1.0
+  sticky_tire_threshold_speed: 0.2
+  sticky_tire_threshold_time: 1.0
+  longitudinal_sticky_tire_damping: 200.0
+  lateral_sticky_tire_damping: 200.0
+sensors:
+  vlp16:
+    type: lidar
+    enabled: true
+    link: vlp16
+    frame: vlp16
+    topic: /sensing/lidar/velodyne_points
+    translation: [0.066, 0.0, 0.36]
+    quat: [1.0, 0.0, 0.0, 0.0]
+    channels: 16
+    rate_hz: 10.0
+    range: 100.0
+    vertical_fov: [-10.0, 10.0]
+    isaac: {usd: lidars/VLP16.usda, point_format: xyzircaedt, rings_by_elevation: true}
+  zed:
+    type: camera
+    enabled: true
+    link: zedxm_left_camera_frame
+    frame: zedxm_left_camera_frame_optical
+    topic: /sensing/camera/zedxm/rgb/color/rect/image
+    translation: [0.31, 0.025, 0.156]
+    quat: [1.0, 0.0, 0.0, 0.0]
+    width: 960
+    height: 600
+    horizontal_fov: 110.0
+    rate_hz: 15.0
+    info_topic: /sensing/camera/zedxm/rgb/color/rect/camera_info
+    k: [336.099618341, 0.0, 480.0, 0.0, 336.099618341, 300.0, 0.0, 0.0, 1.0]
+  imu:
+    type: imu
+    enabled: true
+    link: zedxm_imu_link
+    frame: zedxm_imu_link
+    topic: /sensing/camera/zedxm/imu/data
+    translation: [0.31, 0.025, 0.156]
+    quat: [1.0, 0.0, 0.0, 0.0]
+    rate_hz: 100.0
+  gnss:
+    type: gnss
+    enabled: false
+    link: gnss_base_link
+    frame: gnss_base_link
+    topic: /sensing/gnss/ublox/nav_sat_fix
+    translation: [-0.03, -0.07, 0.26]
+    quat: [1.0, 0.0, 0.0, 0.0]
+    rate_hz: 1.0

@@ -129,10 +129,10 @@ sensors:
     channels: 16
     rate_hz: 10.0
     range: 100.0
-    vertical_fov: [-15.0, 15.0]
+    vertical_fov: [-10.0, 10.0]   # the Puck Hi-Res (VLP16_hires.yaml)
     isaac:
       enabled: true
-      usd: isaac/lidars/VLP16.usda
+      usd: lidars/VLP16.usda       # relative to the rig (isaac/)
       point_format: xyzircaedt     # Nebula's, as car A's driver publishes
       rings_by_elevation: true
   zed:

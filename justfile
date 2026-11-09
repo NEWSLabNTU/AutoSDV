@@ -38,6 +38,8 @@ mod aruco-map 'just/aruco_map.just'
 mod coach 'just/coach.just'
 # RC override arbiter firmware (XIAO RP2350): host tests, build, flash
 mod arbiter 'just/arbiter.just'
+# Car A's digital twin on Isaac Sim (roadmap 15)
+mod twin 'just/twin.just'
 
 # ============================================================================
 # Core Commands

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba) by sim_vehicle_spec.gen (`just generate`): do not edit; change the spec and regenerate. -->
+<!-- The simulated cars as SSv2 vehicles: one entry per spec, its body box and axles in the
+     spec's base_link (the rear axle centre on the ground), model3d its body. A scenario refers to
+     an entry with CatalogReference and assigns maxSpeed, maxAcceleration, maxDeceleration and
+     maxSteering, all four (the entry declares no defaults: in SSv2 a declared default would
+     shadow the assignment); the box and the axles are the car's and are not parameters. -->
+<OpenSCENARIO>
+  <FileHeader author="sim_vehicle_spec" date="2026-10-23T00:00:00" description="Simulated cars, generated from sim_vehicle_spec's specs" revMajor="1" revMinor="1" />
+  <Catalog name="vehicles">
+    <Vehicle name="autosdv_car_a" vehicleCategory="car" model3d="vehicle.newslab.autosdv_car_a">
+      <BoundingBox>
+        <Center x="0.151" y="0.0" z="0.131" />
+        <Dimensions width="0.333" height="0.262" length="0.421" />
+      </BoundingBox>
+      <Performance maxSpeed="$maxSpeed" maxAcceleration="$maxAcceleration" maxDeceleration="$maxDeceleration" />
+      <Axles>
+        <FrontAxle maxSteering="$maxSteering" positionX="0.319" wheelDiameter="0.104" trackWidth="0.263" positionZ="0.052" />
+        <RearAxle maxSteering="0.0" positionX="0.0" wheelDiameter="0.104" trackWidth="0.263" positionZ="0.052" />
+      </Axles>
+      <Properties>
+        <Property name="swb.spec_hash" value="4a5a1d8bff32e9d9e4eb2ee15f9d45afe41dab80091bc19ce96080dd347ffaba" />
+      </Properties>
+    </Vehicle>
+  </Catalog>
+</OpenSCENARIO>

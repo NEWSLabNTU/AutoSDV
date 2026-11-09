@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Cyclone DDS for car A's twin: Isaac Sim (its bundled Humble) and AutoSDV's Autoware on one
+  host, discovery by unicast to the loopback peer. AutoSDV's cyclonedds.xml relies on multicast
+  on lo, which is off on newslab-server133 (`multicast-lo` not started), and Isaac's Cyclone
+  then fails to create the domain ("rmw_create_node: failed to create domain"). Both sides of
+  the twin must use this same profile. After the golf cart twin's (golfcart_twin config/):
+  MaxAutoParticipantIndex bounds the unicast port probe and stays under 494 with Cyclone's
+  default gains; NetworkInterfaceAddress is the element Cyclone 0.10 understands.
+  No SocketReceiveBufferSize minimum: AutoSDV's profile asks for 10 MB, and Cyclone refuses to
+  start when net.core.rmem_max is lower (it was 1 MB here on 2026-11-10).
+-->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain Id="any">
+    <General>
+      <NetworkInterfaceAddress>lo</NetworkInterfaceAddress>
+      <AllowMulticast>false</AllowMulticast>
+      <MaxMessageSize>65500B</MaxMessageSize>
+    </General>
+    <Discovery>
+      <ParticipantIndex>auto</ParticipantIndex>
+      <MaxAutoParticipantIndex>450</MaxAutoParticipantIndex>
+      <Peers>
+        <Peer address="127.0.0.1"/>
+      </Peers>
+    </Discovery>
+  </Domain>
+</CycloneDDS>
