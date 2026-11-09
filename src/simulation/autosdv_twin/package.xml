@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>autosdv_twin</name>
+  <version>0.1.0</version>
+  <description>Car A's digital twin on Isaac Sim: the vehicle spec, the Isaac assets generated from it, and the launches that drive it with AutoSDV's own Autoware through scenario-world-bridge (roadmap 15).</description>
+  <maintainer email="d10922013@csie.ntu.edu.tw">aeon</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>autosdv_launch</exec_depend>
+  <exec_depend>individual_params</exec_depend>
+
+  <test_depend>autosdv_sensor_kit_description</test_depend>
+  <test_depend>xacro</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

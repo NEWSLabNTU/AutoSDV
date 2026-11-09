@@ -1,0 +1,191 @@
+# AutoSDV car A (NEWSLabNTU/AutoSDV): a 1/10 RC touring chassis with a Velodyne VLP-16 on
+# standoffs, a Jetson AGX Orin, a ZED X Mini at the front and a GNSS puck at the rear, for
+# car A's digital twin on Isaac Sim (AutoSDV roadmap 15).
+#
+# The twin runs AutoSDV's OWN Autoware (vehicle_id:=twin); this spec gives the simulator the
+# car and its sensors. Geometry is autosdv_vehicle_description's vehicle_info.param.yaml,
+# verbatim. Every sensor pose is the twin instance's calibration
+# (individual_params config/twin/autosdv_sensor_kit), which was estimated from 14 photos of
+# car A; autosdv_twin's test fails when the two disagree. Topics, frames and point layouts are
+# AutoSDV's sensor kit's for sensor_suite vlp16_zed. Nothing records car A's mass, drive or
+# tires: those are estimates (provenance, assumed: true).
+spec_version: 2
+name: autosdv_car_a
+description: AutoSDV car A, 1/10 RC car with VLP-16 and ZED X Mini (geometry measured; mounts from photos; mass and drive estimated)
+
+body:
+  catalogue_model: vehicle.newslab.autosdv_car_a
+  ground_clearance: 0.015
+
+geometry:
+  wheel_base: 0.319
+  wheel_tread: 0.263
+  wheel_radius: 0.052
+  wheel_width: 0.049
+  front_overhang: 0.043
+  rear_overhang: 0.059
+  left_overhang: 0.035
+  right_overhang: 0.035
+  vehicle_height: 0.262
+  max_steer_angle: 0.349
+
+mirror:
+  min_longitudinal_offset: 0.0
+  max_longitudinal_offset: 0.0
+  min_lateral_offset: 0.0
+  max_lateral_offset: 0.0
+  min_height_offset: 0.0
+  max_height_offset: 0.0
+
+inertia:
+  mass: 5.0
+  com_front_fraction: 0.45
+  com_lateral: 0.0
+  com_height: 0.15
+  inertia_box: [0.42, 0.30, 0.30]
+
+wheels:
+  mass: 0.07
+  damping_rate: 0.002
+
+tires:
+  friction: 1.0
+  lat_stiff_max_load: 2.0
+  lat_stiff_value: 17.0
+  long_stiff_value: 12.5      # kg: 10 x a quarter-car rest load, as the Model 3's and the cart's
+  friction_vs_slip: [[0.0, 1.0], [0.1, 1.0], [1.0, 0.8]]
+
+brakes:
+  # An RC ESC brakes through the motor: no friction brakes, no ABS. Torque past the tire limit
+  # (~0.64 N m per wheel at rest load).
+  max_brake_torque: 1.0
+  hold_brake_torque: 0.5
+  distribution: dynamic_axle_load
+  dead_time: 0.05
+  time_constant: 0.05
+  abs: {enabled: false, slip_release: 0.25, slip_reapply: 0.15, release_rate: 8.0, apply_rate: 4.0, min_speed: 0.5}
+
+powertrain:
+  model: ev
+  max_drive_torque: 1.2
+  drive_axle: all
+  front_drive_share: 0.5
+  gear_ratio: 8.0
+  motor_peak_torque: 0.15
+  motor_peak_power: 60.0
+  # The twin's ceiling, 2.0 m/s, as the motor's top speed: torque tapers to 0 over the last
+  # 5 %, at 3000 rpm / 8 x 2 pi x 0.052 m = 2.04 m/s.
+  motor_max_rpm: 3000.0
+  motor_time_constant: 0.05
+  regen_max_torque: 0.03
+  regen_max_power: 20.0
+  regen_fade_speeds: [0.2, 0.5]
+  traction_control: {enabled: false, slip_limit: 0.25, slip_reapply: 0.15, release_rate: 20.0, apply_rate: 5.0}
+
+resistance:
+  rolling_coefficient: 0.03
+  drag_coefficient: 0.9
+  frontal_area: 0.09
+  air_density: 1.2
+
+steering:
+  ackermann: true
+  time_constant: 0.1
+  rate_limit: 0.0
+
+suspension:
+  frequency: 3.0
+  damping_ratio: 0.5
+  travel: 0.02
+
+isaac:
+  physx:
+    substeps: 8
+    substep_threshold_speed: 5.0
+    min_active_slip_denominator: 4.0
+    min_passive_slip_denominator: 4.0
+    min_lateral_slip_denominator: 1.0
+    sticky_tire_threshold_speed: 0.2
+    sticky_tire_threshold_time: 1.0
+    longitudinal_sticky_tire_damping: 200.0
+    lateral_sticky_tire_damping: 200.0
+
+# base_link -> sensor_kit_base_link: the twin's sensors_calibration.yaml. The kit's base is
+# the VLP-16's optical centre.
+sensor_kit:
+  mount: {x: 0.066, y: 0.0, z: 0.36, roll: 0.0, pitch: 0.0, yaw: 0.0}
+
+# Mounts are in the kit's frame: the twin's sensor_kit_calibration.yaml, composed through the
+# sensor kit URDF (the ZED's frames come from zed_wrapper's macro, its IMU from
+# zed_imu_tf.launch.xml, zero offset from the left camera frame).
+sensors:
+  vlp16:
+    type: lidar
+    calibration_key: vlp16
+    link: vlp16
+    frame: vlp16
+    topic: /sensing/lidar/velodyne_points
+    mount: {x: 0.0, y: 0.0, z: 0.0, roll: 0.0, pitch: 0.0, yaw: 0.0}
+    channels: 16
+    rate_hz: 10.0
+    range: 100.0
+    vertical_fov: [-15.0, 15.0]
+    isaac:
+      enabled: true
+      usd: isaac/lidars/VLP16.usda
+      point_format: xyzircaedt     # Nebula's, as car A's driver publishes
+      rings_by_elevation: true
+  zed:
+    type: camera
+    calibration_key: zedxm_camera_link
+    link: zedxm_left_camera_frame
+    frame: zedxm_left_camera_frame_optical
+    topic: /sensing/camera/zedxm/rgb/color/rect/image
+    info_topic: /sensing/camera/zedxm/rgb/color/rect/camera_info
+    mount: {x: 0.244, y: 0.025, z: -0.204, roll: 0.0, pitch: 0.0, yaw: 0.0}
+    width: 960
+    height: 600
+    horizontal_fov: 110.0
+    rate_hz: 15.0
+    isaac:
+      enabled: true
+  imu:
+    type: imu
+    calibration_key: zedxm_imu_link
+    link: zedxm_imu_link
+    frame: zedxm_imu_link
+    topic: /sensing/camera/zedxm/imu/data
+    mount: {x: 0.244, y: 0.025, z: -0.204, roll: 0.0, pitch: 0.0, yaw: 0.0}
+    rate_hz: 100.0
+    isaac:
+      enabled: true
+  gnss:
+    type: gnss
+    calibration_key: gnss_base_link
+    link: gnss_base_link
+    frame: gnss_base_link
+    topic: /sensing/gnss/ublox/nav_sat_fix
+    mount: {x: -0.096, y: -0.07, z: -0.1, roll: 0.0, pitch: 0.0, yaw: 0.0}
+    rate_hz: 1.0
+    isaac:
+      enabled: false              # car A runs use_gnss: false
+
+provenance:
+  body.catalogue_model: {basis: "autosdv_twin body/make_body.py: a low-poly body from 14 photos of car A (2026-11-10), sized to vehicle_info"}
+  body.ground_clearance: {assumed: true, basis: "a 1/10 touring chassis' ~15 mm"}
+  geometry: {basis: "autosdv_vehicle_description/config/vehicle_info.param.yaml, verbatim. The photos read wheel_radius ~0.054-0.056, the front of the car at the tire (~0.053 overhang) and 0.39 m to the lidar's top; vehicle_info is kept so the twin and Autoware agree"}
+  mirror: {basis: "autosdv_vehicle_description/config/mirror.param.yaml"}
+  inertia.mass: {assumed: true, basis: "no record: chassis with motor and servo ~1.5, VLP-16 0.83, Jetson AGX Orin in its case ~1.4, LiPo ~0.4, plates and standoffs ~0.6, ZED, interface box, breaker and GNSS ~0.3 kg"}
+  inertia.com_front_fraction: {assumed: true, basis: "the lidar and the Jetson sit just ahead of the rear axle"}
+  inertia.com_height: {assumed: true, basis: "the 0.83 kg lidar at 0.36 m and the Jetson above a low chassis"}
+  inertia.inertia_box: {assumed: true, basis: "a uniform box of the car's size"}
+  wheels: {assumed: true, basis: "a 1/10 touring wheel and tire, ~70 g; damping scaled from the cart's per kg"}
+  tires: {assumed: true, basis: "rubber touring tires on asphalt; the Model 3's PhysX tire scaled to the rest load"}
+  brakes: {assumed: true, basis: "ESC motor braking; torque past the tire limit"}
+  powertrain: {assumed: true, basis: "shaft-driven 4WD touring chassis (photos), brushless motor through ~8:1; ~3 m/s^2; the twin's ceiling 2.0 m/s (roadmap 15), car A's ESC can go faster"}
+  resistance: {assumed: true, basis: "small tires and drivetrain losses; frontal area ~0.3 x 0.3 m"}
+  steering.time_constant: {assumed: true, basis: "a hobby servo, ~0.1 s; autosdv_vehicle_description simulator_model.param.yaml's 0.27 is Autoware's sample value, not car A's"}
+  suspension: {assumed: true, basis: "a touring chassis' oil shocks, ~20 mm travel"}
+  isaac.physx: {basis: "newslab_golfcart's / tesla_model3's (swb roadmap 043 and 059 N8); to be retuned for 5 kg (roadmap 15 task 5)"}
+  sensor_kit: {basis: "individual_params config/twin/autosdv_sensor_kit/sensors_calibration.yaml: estimated from photos, +-1.5 cm"}
+  sensors: {basis: "mounts: config/twin/autosdv_sensor_kit/sensor_kit_calibration.yaml through the sensor kit URDF (photo estimates: ZED +-2 cm, GNSS +-3 cm); topics, frames and layouts: autosdv_sensor_kit_launch (VLP16.param.yaml frame vlp16, pointcloud_preprocessor LIDAR_TOPICS, imu.launch.xml ZED IMU topic); ZED X Mini 2.2 mm lens 110 deg, rendered at 960x600 (assumed)"}
