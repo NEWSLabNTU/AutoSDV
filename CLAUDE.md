@@ -250,7 +250,7 @@ just --list             # Show all available commands
 
 Grouped commands live in justfile modules under `just/`, so the top-level list
 stays short: `arbiter`, `aruco-map`, `bag`, `coach`, `control`, `coss`, `lab2`, `lab3`, `map`,
-`sim`, `tool`, plus `demo` in `demo/`.
+`sim`, `tool`, `twin`, plus `demo` in `demo/`.
 `just <module>` lists that module's recipes, and both spellings work —
 `just bag play` and `just bag::play`.
 
@@ -371,6 +371,15 @@ DIR`). TA: `submission:=DIR` (a `<id>_lab_2_1/` holding the model) builds it int
 own `ws/`; `--class ... --params ...` runs a class on `autosdv_vehicle`.
 See `docs/guides/simulation_testing.md` for the full simulation guide
 (planning sim, rosbag replay, CARLA integration).
+
+**Car A's digital twin** (`just twin`, package `src/simulation/autosdv_twin`): car A in
+Isaac Sim 6.1 on a coloured COSS world, driven by our own Autoware through
+scenario-world-bridge's Isaac bridge (an external checkout, `SWB_ROOT`). The twin car is
+its own instance, `vehicle_id:=twin`: car A's files with photo-estimated mounts, so
+`car_a` stays the physical car. `just twin up` / `drive` / `down` run it on ROS domain 47
+with the twin's unicast DDS profile; it localizes with Autoware's `ndt`, since under
+`cuda_ndt` autonomous mode never becomes available (a diagnostic-name mismatch). Perception
+emits no objects on the twin yet. Guide, measurements and gaps: `docs/guides/isaac-twin.md`.
 
 ### Manual Build
 ```bash

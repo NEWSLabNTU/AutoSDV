@@ -73,3 +73,76 @@ just twin check      # fails on a stale generated file, or the spec and `twin` a
 
 Edit the spec (`vehicle/autosdv_car_a.yaml`) and the `twin` calibration together: the check
 composes every sensor's pose in `base_link` from both and refuses a difference.
+
+## Vehicle check on a flat plane
+
+```bash
+just twin vehicle-check   # aib's vehicle_check against the spec; writes tmp/twin_vc/<time>/report.json
+```
+
+The contract (topics, types, rates, frames, stamps, `/robot_description`) and the dynamics run
+(acceleration and brake steps, a steering sweep against the bicycle model), with the speeds
+scaled to the car's 2.04 m/s top speed. Result on server133: **PASS**, creep at rest
+0.002 cm/s.
+
+## The COSS world
+
+```bash
+just twin world            # all steps, into data/coss-isaac/ (gitignored)
+just twin world usd        # rerun from a step: color, ground, refill, smooth, meshes, usd
+```
+
+scenario-world-bridge's `scripts/ntu_twin` pipeline under its `coss` site: colours from the
+NAS originals (the 2024 survey) onto `data/COSS-map-planning/pointcloud_map.pcd`, a 0.25 m
+ground model under the lanelets, meshed tiles, and `map/isaac/world.yaml` beside the map's
+own lanelets, projector and PCD (symlinks), so Autoware and Isaac read one map frame.
+
+Measured: 12 tiles, 3.1 M triangles; lanes 100 % meshed, p99 roughness 2.6 mm; 60 % of the
+points coloured within 1.5 m of an original (11 % within 6 cm: the map PCD is not the
+coloured survey). COSS has no building classes, so only the ground collides. One real 9 cm
+kerb step crosses a path near (-12.6, -14.5); routes avoid it.
+
+## Driving it
+
+```bash
+just twin up      # Isaac on the COSS world + our Autoware, in the background; logs in tmp/twin_run/
+just twin drive   # localize at the route's start, set the goal, engage, wait for arrival
+just twin down    # stop both process groups
+```
+
+`up` takes a route and a world: `just twin up coss_loop data/coss-isaac/map/isaac/world.yaml`
+(the defaults). Routes are in `src/simulation/autosdv_twin/config/routes.yaml`. Autoware is
+AutoSDV's logging simulation as car A runs it (`twin_autoware.launch.xml`): `vehicle_id:=twin`,
+`planning_profile:=rc`, VLP-16 and the ZED IMU, no GNSS, no drivers, no vehicle interface,
+sim time. The domain is 47 unless `TWIN_DOMAIN` says otherwise.
+
+Measured on `coss_loop` (server133, RTX 5090): NDT NVTL min 2.71, p50 2.99 over 2395 scans;
+65.2 m in 40 s; top speed 2.005 m/s (the cap is 2.0); no node left on the domain after
+`down`.
+
+Two settings in the recipes work around defects found here:
+
+- **Autoware's NDT, not cuda_ndt.** cuda_ndt publishes its status as a bare
+  `scan_matching_status`; Autoware's diagnostic graph waits for
+  `ndt_scan_matcher: scan_matching_status`, so under cuda_ndt autonomous mode never becomes
+  available. `twin_pose_source:=cuda_ndt` brings it back once that is fixed.
+- **The newest CUDA for Autoware.** cuda_ndt compiles its kernels with NVRTC at start-up, and
+  CUDA 12.6's NVRTC rejects an RTX 5090 (`invalid value for --gpu-architecture`). `twin env`
+  puts the newest `/usr/local/cuda-X.Y/lib64` first (`TWIN_CUDA_LIB` overrides it).
+
+## Known gaps
+
+- **Perception sees no objects.** A 0.4 x 0.5 x 1.7 m box standing on the route (a world
+  variant, `world_ped.usda`, sublayering the COSS world) gets 1.5-5 k lidar points and keeps
+  100-750 through obstacle segmentation, yet perception emits no object in the whole run and
+  planning never stops: the car drives into it. Every trial of obstacle handling on the twin
+  starts here.
+- **The lidar is not the VLP-16's timing.** aib publishes a full 360 deg sweep every 20 Hz
+  frame (the spec says 10 Hz), about 43 k points against the VLP-16's 29 k, with every
+  per-point `time_stamp` zero, so deskewing has nothing to correct.
+- **Rates follow aib's 20 Hz frame**, not the hardware: the IMU at 20 Hz (the ZED's is about
+  200 Hz), the camera at 10 Hz.
+- **Estimated, not measured:** the sensor mounts (from photos; ZED +-2 cm, GNSS +-3 cm), the
+  mass (5 kg), the motor (0.2 N m, 3000 rpm) and the drivetrain (all-wheel, 50/50).
+- **The host's DDS drops datagrams.** With `net.core.rmem_max` at 1 MB, play_launch reports
+  thousands of UDP drops a minute on the twin's domain. Raising it needs root.

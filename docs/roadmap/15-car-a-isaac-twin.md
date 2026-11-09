@@ -20,6 +20,28 @@ Autoware.
 
 **Spec:** `docs/superpowers/specs/2026-11-10-car-a-isaac-twin-design.md`
 
+## Status (2026-11-10): done
+
+All nine tasks are done; the guide, `docs/guides/isaac-twin.md`, carries the commands.
+Measured on server133 (RTX 5090):
+
+| what | result |
+|---|---|
+| vehicle check, flat plane | PASS; creep at rest 0.002 cm/s |
+| COSS world | 12 tiles, 3.1 M triangles; lanes 100 % meshed, p99 roughness 2.6 mm |
+| colour transfer | 60 % of points within 1.5 m of an original, 11 % within 6 cm |
+| NDT on `coss_loop` | NVTL min 2.71, p50 2.99 (2395 scans) |
+| `coss_loop` drive | 65.2 m in 40 s, top speed 2.005 m/s against the 2.0 cap |
+| standing obstacle | not detected: perception emits no object, the car drives into it |
+
+Deviations from the plan:
+- Autoware's `ndt` instead of `cuda_ndt`, and the newest CUDA put first for NVRTC (the guide
+  says why);
+- a standing box in a world variant instead of a spawned pedestrian (the runner has no actor
+  spawn);
+- no `twin.launch.py`: `just twin up` starts aib's runner and Autoware as two process
+  groups, since the runner is standalone and play_launch gives Autoware its multi-stage kill.
+
 ## Global Constraints
 
 - **Host:** newslab-server133 (RTX 5090, driver 590.48). `ISAAC_ROOT=/home/aeon/isaac-sim`;
@@ -75,20 +97,20 @@ Autoware.
 **Files:**
 - Create: `docs/guides/isaac-twin.md` (install section only, extended later)
 
-- [ ] **Install.** `uv venv --python 3.12 /home/aeon/isaac-sim`, then
+- [x] **Install.** `uv venv --python 3.12 /home/aeon/isaac-sim`, then
   `uv pip install "isaacsim[all,extscache]==6.1.0" --extra-index-url https://pypi.nvidia.com`.
   Record the exact versions installed.
-- [ ] **Accept the EULA and check the version.** Run
+- [x] **Accept the EULA and check the version.** Run
   `OMNI_KIT_ACCEPT_EULA=YES /home/aeon/isaac-sim/bin/python -c "import isaacsim; print('ok')"`.
   Expected: `ok`.
-- [ ] **Set up and test aib.** In `src/autoware_isaac_bridge` of swb, check that the working
+- [x] **Set up and test aib.** In `src/autoware_isaac_bridge` of swb, check that the working
   tree equals its pin (`git status`). If it is dirty, stop and report rather than reset.
   Then run `ISAAC_ROOT=/home/aeon/isaac-sim just setup && just build && just test && just test-isaac`.
   Expected: all pass.
-- [ ] **Smoke run.** `DISPLAY=:8 just isaac-ego duration:=20` on the flat plane (Model 3).
+- [x] **Smoke run.** `DISPLAY=:8 just isaac-ego duration:=20` on the flat plane (Model 3).
   Expected: `ros2 topic hz /clock` and the lidar topic tick, then a clean exit.
   - Use a fresh display. Check `:8` isn't someone else's first; never use `:2`.
-- [ ] **Write the guide's install section** with the exact commands and versions, then commit
+- [x] **Write the guide's install section** with the exact commands and versions, then commit
   it to AutoSDV develop.
 
 ## Phase B — The twin car
@@ -132,25 +154,25 @@ Autoware.
 - **Test:** `test_twin_consistency.py` composes base_link → sensor from the two twin
   calibration files and compares it with `spec.sensor_kit.mount` ∘ `sensors.<x>.mount`.
 
-- [ ] **Write the failing tests.**
+- [x] **Write the failing tests.**
   - `test_mounts_match`: every spec sensor's base_link pose equals the twin calibration's,
     within 1e-6.
   - `test_geometry_matches_vehicle_info`: the spec's `geometry` equals `vehicle_info.param.yaml`.
   - `test_car_a_untouched`: `git diff --quiet HEAD -- .../config/car_a` (subprocess) returns 0.
-- [ ] **Run `pytest src/simulation/autosdv_twin/test -q`.** Expected: FAIL (files missing).
-- [ ] **Write the instance and the spec.**
-- [ ] **Validate the spec** with
+- [x] **Run `pytest src/simulation/autosdv_twin/test -q`.** Expected: FAIL (files missing).
+- [x] **Write the instance and the spec.**
+- [x] **Validate the spec** with
   `PYTHONPATH=~/repos/scenario-world-bridge/src/sim_vehicle_spec python3 -c "from sim_vehicle_spec.spec import load; load('src/simulation/autosdv_twin/vehicle/autosdv_car_a.yaml')"`
   (use the loader's actual name in `spec.py`).
   - Expected: no error.
   - If the format can't express something car A needs, extend sim_vehicle_spec on `main`
     with a test there, push it, and note it in provenance.
-- [ ] **Run the tests again.** Expected: PASS.
-- [ ] **Check the URDF.**
+- [x] **Run the tests again.** Expected: PASS.
+- [x] **Check the URDF.**
   `xacro .../autosdv_sensor_kit_description/urdf/sensors.xacro config_dir:=<twin dir>`
   must yield `vlp16` at z 0.36 in base_link. Use `tf2`-free math, or `check_urdf` plus a
   small script.
-- [ ] **Commit and push.** Commit individual_params in its submodule, push, then commit the
+- [x] **Commit and push.** Commit individual_params in its submodule, push, then commit the
   pin and `autosdv_twin` in AutoSDV develop and push.
 
 ### Task 3: Generated Isaac assets — rig, catalog, spec_hash, VLP-16 lidar
@@ -169,13 +191,13 @@ Autoware.
   - `check`: the same with `--check`, plus Task 2's pytest.
   - Register `mod twin 'just/twin.just'` in the root justfile.
 
-- [ ] **`just twin generate`.** Expected: four files written. A second run changes nothing
+- [x] **`just twin generate`.** Expected: four files written. A second run changes nothing
   (`git diff --quiet`).
-- [ ] **Failing check.** Hand-edit one mount in the spec, then run `just twin check`.
+- [x] **Failing check.** Hand-edit one mount in the spec, then run `just twin check`.
   Expected: FAIL naming the stale file. Revert the edit.
-- [ ] **Load the lidar.** Open `VLP16.usda` with Isaac's Python (`pxr.Usd.Stage.Open`).
+- [x] **Load the lidar.** Open `VLP16.usda` with Isaac's Python (`pxr.Usd.Stage.Open`).
   Expected: an OmniLidar prim with 16 emitters at the factory elevations −15…+15°.
-- [ ] **Commit and push** (AutoSDV develop).
+- [x] **Commit and push** (AutoSDV develop).
 
 ### Task 4: Body USD, ego.yaml, car-A mesh for the vehicle description
 
@@ -198,18 +220,18 @@ Autoware.
   - Adding a mesh key to car_a's individual_params is the one permitted car_a edit, and it
     is visual only. Note it in the commit.
 
-- [ ] **Render previews** from the photos' four viewpoints (side ×2, front, rear) next to
+- [x] **Render previews** from the photos' four viewpoints (side ×2, front, rear) next to
   the photos in `tmp/twin_body/`. Expected:
   - the silhouettes overlap the photos within about 1 cm at the wheels, the lidar and the
     ZED, by eye;
   - lidar top at 0.39 m.
-- [ ] **Check the body box** with
+- [x] **Check the body box** with
   `python3 -c` reading `entry.json`: length 0.421 ± 0.01, width 0.333 ± 0.01, rear axle
   offset matching `rear_overhang`.
-- [ ] **Check the URDF meshes.** `xacro vehicle.xacro` with each instance resolves the mesh
+- [x] **Check the URDF meshes.** `xacro vehicle.xacro` with each instance resolves the mesh
   for car_a and twin, and the box for the others. Expected: diff of the car_b URDF against
   HEAD's is empty.
-- [ ] **Commit and push** (submodule first, then AutoSDV develop).
+- [x] **Commit and push** (submodule first, then AutoSDV develop).
 
 ## Phase C — The car drives
 
@@ -224,16 +246,16 @@ Autoware.
   vehicle-check` recipe that runs aib's `isaac-ego ego:=<twin ego.yaml>` and aib's
   `vehicle-check` against it.
 
-- [ ] **Run `just twin vehicle-check`** and record the first result in `tmp/twin_vc/`.
-- [ ] **Tune until it passes:**
+- [x] **Run `just twin vehicle-check`** and record the first result in `tmp/twin_vc/`.
+- [x] **Tune until it passes:**
   - topics, frames and stamps;
   - an acceleration step to 1.0 m/s;
   - braking to a stop;
   - a steering sweep to ±0.349;
   - parked for 30 s: creep < 0.5 cm/s, no wheel jitter.
   Each change is a spec edit with its reason in provenance.
-- [ ] **Regenerate and check.** `just twin generate && just twin check`.
-- [ ] **Commit and push**, swb submodules first if touched.
+- [x] **Regenerate and check.** `just twin generate && just twin check`.
+- [x] **Commit and push**, swb submodules first if touched.
 
 ## Phase D — The COSS world
 
@@ -254,27 +276,27 @@ Autoware.
 - Create (AutoSDV): a `just twin world` recipe that runs the pipeline with `--site coss`
   into `data/coss-isaac/`, and a `.gitignore` entry for it.
 
-- [ ] **Failing test.** `test_color_transfer.py::test_anisotropic_match`:
+- [x] **Failing test.** `test_color_transfer.py::test_anisotropic_match`:
   - a synthetic precise cloud, plus a copy whose northing is quantized to 0.25 and shifted
     by a known offset, carrying distinct colours;
   - assert that ≥ 99 % of points get their own colour, and that the recovered offset is
     within 0.02 m.
-- [ ] **Run it.** Expected: FAIL. Implement until it passes.
-- [ ] **NTU regression.** Run one NTU tile before and after the refactor. Expected:
+- [x] **Run it.** Expected: FAIL. Implement until it passes.
+- [x] **NTU regression.** Run one NTU tile before and after the refactor. Expected:
   identical outputs (`cmp`).
-- [ ] **Colour transfer on COSS** (reading the NAS originals, about 2.5 GB, with timeout
+- [x] **Colour transfer on COSS** (reading the NAS originals, about 2.5 GB, with timeout
   guards). Expected: a stats line, unmatched < 2 %, and a ground orthophoto in which lane
   paint is visible (look at a 512² crop).
-- [ ] **Ground at 5 cm under lanelets.** Run `smooth_dtm` and `build_meshes --lanes --clear-road`.
+- [x] **Ground at 5 cm under lanelets.** Run `smooth_dtm` and `build_meshes --lanes --clear-road`.
   Add test `test_lane_cells_meshed`: every DTM cell under a lanelet polygon has a triangle.
   Expected:
   - roughness p99 |z − 3×3 median| ≤ 0.01 m under lanelets (printed by the recipe);
   - no pit deeper than 0.05 m under a lanelet.
-- [ ] **world_usd with Isaac's Python.** Run `world_usd --site coss`. Expected:
+- [x] **world_usd with Isaac's Python.** Run `world_usd --site coss`. Expected:
   - `data/coss-isaac/isaac/world.yaml`;
   - the USD loads in under 30 s;
   - VRAM recorded.
-- [ ] **Commit and push** swb `main`, then the AutoSDV recipe on develop.
+- [x] **Commit and push** swb `main`, then the AutoSDV recipe on develop.
 
 ### Task 7: World layout and alignment
 
@@ -287,16 +309,16 @@ Autoware.
     for the exact relative path.
 - Create: `src/simulation/autosdv_twin/test/test_world_layout.py`.
 
-- [ ] **Failing test** `test_world_layout`:
+- [x] **Failing test** `test_world_layout`:
   - `map_projector_info.yaml` is found where aib resolves it from `world.yaml`;
   - `world.yaml`'s USD path is relative and exists;
   - the world's origin equals map frame − map_origin.
-- [ ] **Run, fix the layout, run.** Expected: PASS.
-- [ ] **Projector check.** Read aib's projector code for TransverseMercator with a non-zero
+- [x] **Run, fix the layout, run.** Expected: PASS.
+- [x] **Projector check.** Read aib's projector code for TransverseMercator with a non-zero
   origin. A twin pose given with `--map-pose` at a known lanelet point must appear at that
   map point in `/localization` (±0.05 m) once Autoware is up (closed in Task 8). If aib
   mishandles a TM origin, fix it in aib `main` with a test.
-- [ ] **Commit and push.**
+- [x] **Commit and push.**
 
 ## Phase E — Autoware drives the twin
 
@@ -321,27 +343,27 @@ Autoware.
   `tmp/twin.pgid`), `just twin drive` (set the route and engage, as golfcart's `twin_go.py`
   does) and `just twin down` (kill that PGID).
 
-- [ ] **Failing test.** `test_twin_launch_args`: parse `twin_autoware.launch.xml` and assert
+- [x] **Failing test.** `test_twin_launch_args`: parse `twin_autoware.launch.xml` and assert
   that it passes `vehicle_id=twin`, `planning_profile=rc`, `camera_model=none` and
   `use_gnss=false` to the logging simulation, and that the logging simulation declares
   `planning_profile`.
-- [ ] **Run, implement, run.** Expected: PASS.
-- [ ] **`just twin up`.** Expected within 3 min (TensorRT 10.8 runtime first, per
+- [x] **Run, implement, run.** Expected: PASS.
+- [x] **`just twin up`.** Expected within 3 min (TensorRT 10.8 runtime first, per
   `scripts/trt-runtime-env.sh`):
   - no node from the ZED driver, the Velodyne driver, the PCA9685 or the hall sensor;
   - `/sensing/lidar/...` (the spec topic), `/clock` and `/vehicle/status/velocity_status`
     ticking;
   - no process died in `play_log/latest`.
-- [ ] **Localization.** Initial pose from `config/routes.yaml` start. Expected: NDT converges
+- [x] **Localization.** Initial pose from `config/routes.yaml` start. Expected: NDT converges
   within 30 s, NVTL ≥ 2.5 on the route (report it with
   `scripts/testing/localization/ndt_quality_report.py`).
-- [ ] **`just twin drive`.** Expected: the route completes. Max speed ≤ 2.0 m/s, no AEB
+- [x] **`just twin drive`.** Expected: the route completes. Max speed ≤ 2.0 m/s, no AEB
   stop on shrubs. Record a bag of the drive in `rosbags/twin/`.
-- [ ] **Standing obstacle.** Spawn a standing pedestrian 4 m ahead on the route (the swb
+- [x] **Standing obstacle.** Spawn a standing pedestrian 4 m ahead on the route (the swb
   runner or the world server's spawn) and record whether it is detected and whether the car
   stops. Report the result even if it fails: it is a finding, not a gate.
-- [ ] **`just twin down`.** Expected: no orphan nodes (`ros2 node list` empty).
-- [ ] **Commit and push.**
+- [x] **`just twin down`.** Expected: no orphan nodes (`ros2 node list` empty).
+- [x] **Commit and push.**
 
 ### Task 9: Guide and wrap-up
 
@@ -353,6 +375,6 @@ Autoware.
   module, the `twin` instance and a pointer to the guide.
 - Modify: this file. Mark the tasks done and record the measured numbers.
 
-- [ ] **Run every check once more** (`just twin check`, pytest), and confirm `git status`
+- [x] **Run every check once more** (`just twin check`, pytest), and confirm `git status`
   is clean in AutoSDV and swb.
-- [ ] **Commit and push.**
+- [x] **Commit and push.**
