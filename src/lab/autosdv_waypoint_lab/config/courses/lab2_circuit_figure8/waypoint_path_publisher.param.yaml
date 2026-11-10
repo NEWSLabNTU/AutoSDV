@@ -1,0 +1,9 @@
+/**:
+  ros__parameters:
+    laps: 0              # 0: the course's own (course.yaml)
+    v_max: 2.0           # [m/s] lab2_circuit_figure8: its fast lap (the lab default is 0.8)
+    decel: 0.3           # [m/s^2] the end-of-run stop ramp
+    spacing: 0.1         # [m] the course is resampled to this
+    window_behind: 1.0   # [m] trajectory window behind the car
+    window_ahead: 6.0    # [m] and ahead of it
+    rate: 10.0

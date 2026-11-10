@@ -1,13 +1,28 @@
 # Lab 2 TEST route lab2_circuit_figure8: three parts in one run, NOT graded.
 #
-#   s =  0.00-10.91 m  lab2_circuit once at 0.5 m/s
-#   s = 10.91-24.84 m  a figure 8 at 0.5 m/s
-#   s = 24.84-35.75 m  lab2_circuit once at 0.8 m/s, then the end ramp (decel
+#   s =  0.00-10.91 m  lab2_circuit once at 1.0 m/s
+#   s = 10.91-24.84 m  a figure 8 at 1.0 m/s
+#   s = 24.84-35.75 m  lab2_circuit once at 2.0 m/s, then the end ramp (decel
 #                      0.3 m/s^2) stops the car on the start box
-# Open path, one run, 35.75 m, about 63 s of driving. The speeds are path.csv's
-# third column; v_ref is the fast lap's. 0.8 m/s is the path publisher's v_max
-# and, at R 1.1 m, the tracker's curvature limit sqrt(a_lat_max * R) =
-# sqrt(0.6 * 1.1) = 0.81 m/s, so no lap can be faster without raising both.
+# Open path, one run, 35.75 m, about 33 s of driving. The speeds are path.csv's
+# third column; v_ref (1.0) only sets the run's timeout and the audit's target.
+#
+# FASTER THAN THE LAB'S LIMITS, so it needs this directory's two parameter files:
+#   waypoint_path_publisher.param.yaml  v_max 2.0 m/s (the lab's: 0.8)
+#   path_tracker.param.yaml             a_lat_max 3.7 m/s^2 (the lab's: 0.6), the
+#                                       tracker's curvature speed limit: 2.0 m/s on
+#                                       R 1.1 m is 3.64 m/s^2, 1.0 m/s is 0.91
+# Without them every waypoint is capped at 0.8 m/s and the turns at 0.81 m/s.
+#   D=$PWD/src/lab/autosdv_waypoint_lab/config/courses/lab2_circuit_figure8
+#   just lab2 run route:=lab2_circuit_figure8 car:=A \
+#       path_param_file:=$D/waypoint_path_publisher.param.yaml \
+#       tracker_param_file:=$D/path_tracker.param.yaml
+# The end ramp stays at 0.3 m/s^2, so the 2.0 m/s lap starts slowing 6.7 m
+# before the end. Kinematic bench (reference tracker, 5 cm / 2 deg pose noise, no
+# tyre slip): finished, peak 1.97 m/s, 0.26 m off the path at most (in the fast
+# lap), steering at the 0.349 rad lock in the turns, stopped 0.06 m from the end.
+# Not driven yet at these speeds: 3.6 m/s^2 of lateral grip and the camera's
+# marker fixes at 2.0 m/s are unmeasured; the run stops at 0.8 m off the path.
 #
 # Frame: the START-BOX frame of lab2_uturn and lab2_circuit (origin at the start
 # box, the rear axle; x along the first leg; y to the car's left). Every part
@@ -46,7 +61,7 @@
 path: path.csv
 closed: false
 laps: 1
-v_ref: 0.8
+v_ref: 1.0
 start_pose: {x: 0.000, y: 0.000, yaw: 0.0000}
 marker_size: 0.48
 dictionary: DICT_5X5_1000
