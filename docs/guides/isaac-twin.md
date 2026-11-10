@@ -126,12 +126,13 @@ speed cap at 2.0 m/s, as AutoSDV's drive tool does: planning then peaks at 2.000
 car at 2.007. Without the cap Autoware planned up to 3.46 m/s and only the plant's motor
 (2.04 m/s) held the car back.
 
-Two settings in the recipes work around defects found here:
+The twin localizes with `cuda_ndt`, car A's matcher (`twin_pose_source:=ndt` runs
+Autoware's). It needs a cuda_ndt_matcher from c2f979a on: older pins named their status
+without the node prefix, which kept autonomous mode unavailable (known-config-defects §9).
+Measured with it on `coss_loop`: engaged and arrived, 65.0 m, top speed 2.01 m/s.
 
-- **Autoware's NDT, not cuda_ndt.** cuda_ndt publishes its status as a bare
-  `scan_matching_status`; Autoware's diagnostic graph waits for
-  `ndt_scan_matcher: scan_matching_status`, so under cuda_ndt autonomous mode never becomes
-  available. `twin_pose_source:=cuda_ndt` brings it back once that is fixed.
+One setting in the recipes works around a host defect:
+
 - **The newest CUDA for Autoware.** cuda_ndt compiles its kernels with NVRTC at start-up, and
   CUDA 12.6's NVRTC rejects an RTX 5090 (`invalid value for --gpu-architecture`). `twin env`
   puts the newest `/usr/local/cuda-X.Y/lib64` first (`TWIN_CUDA_LIB` overrides it).

@@ -18,9 +18,8 @@
 <launch>
   <arg name="twin_map_path" description="the twin world's map dir: data/coss-isaac/map (just twin world)"/>
   <arg name="twin_rviz" default="false"/>
-  <!-- ndt, not AutoSDV's default cuda_ndt: cuda_ndt reports bare "scan_matching_status",
-       which the stock diagnostic graph never matches, so autonomous mode stays unavailable -->
-  <arg name="twin_pose_source" default="ndt"/>
+  <!-- car A's matcher, AutoSDV's default; twin_pose_source:=ndt runs Autoware's -->
+  <arg name="twin_pose_source" default="cuda_ndt"/>
 
   <include file="$(find-pkg-share autosdv_launch)/launch/logging_simulation.launch.yaml">
     <arg name="map_path" value="$(var twin_map_path)"/>

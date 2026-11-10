@@ -296,7 +296,14 @@ measured; Lab 2 loads a -143 stand-in meanwhile.
 
 ---
 
-## 9. Under `cuda_ndt` autonomous mode never becomes available
+## 9. Under `cuda_ndt` autonomous mode never became available — FIXED 2026-11-10
+
+**Fixed** by bumping the cuda_ndt_matcher pin from 326c303 to c2f979a. Upstream had already
+fixed the naming on 2026-09-29 (1e1e1a0, `"<node>: <category>"` with the node's name as
+hardware_id), but the pin was nine commits behind. c2f979a also publishes a category only
+once its event has happened, as Autoware does. Verified on the twin: `cuda_ndt` engages
+and completes `coss_loop`. Any car whose build predates the bump still has the defect.
+
 
 Found on car A's Isaac twin, 2026-11-10 (`docs/guides/isaac-twin.md`). Autoware's
 diagnostic graph, which every `pose_source` but `mcl` loads

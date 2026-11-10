@@ -46,10 +46,9 @@ def test_the_logging_simulation_declares_and_forwards_planning_profile():
     assert passed.get("planning_profile") == "$(var planning_profile)"
 
 
-def test_the_twin_localizes_with_autoware_ndt_by_default():
-    # cuda_ndt reports its status as bare "scan_matching_status", not the
-    # "ndt_scan_matcher: scan_matching_status" Autoware's diagnostic graph waits for, so
-    # under it autonomous mode never becomes available (measured on the twin, 2026-11-10)
+def test_the_twin_localizes_with_car_as_matcher():
+    # cuda_ndt, AutoSDV's default, as car A runs; it once kept autonomous mode unavailable
+    # by naming its status without the node prefix (known-config-defects §9, fixed upstream)
     root = ET.parse(TWIN).getroot()
     arg = next(a for a in root.findall("arg") if a.get("name") == "twin_pose_source")
-    assert arg.get("default") == "ndt"
+    assert arg.get("default") == "cuda_ndt"

@@ -377,8 +377,7 @@ Isaac Sim 6.1 on a coloured COSS world, driven by our own Autoware through
 scenario-world-bridge's Isaac bridge (an external checkout, `SWB_ROOT`). The twin car is
 its own instance, `vehicle_id:=twin`: car A's files with photo-estimated mounts, so
 `car_a` stays the physical car. `just twin up` / `drive` / `down` run it on ROS domain 47
-with the twin's unicast DDS profile; it localizes with Autoware's `ndt`, since under
-`cuda_ndt` autonomous mode never becomes available (a diagnostic-name mismatch). Perception
+with the twin's unicast DDS profile; it localizes with `cuda_ndt`, as car A does. Perception
 emits no objects on the twin yet. Guide, measurements and gaps: `docs/guides/isaac-twin.md`.
 
 ### Manual Build
@@ -864,7 +863,6 @@ gnss_receiver:=garmin|ublox|septentrio
 ```bash
 # pose_source options:
 pose_source:=cuda_ndt  # Default: CUDA-accelerated NDT (1.3-1.6x faster, 57% less CPU on Jetson)
-                       # but it never allows autonomous mode: docs/known-config-defects.md §9
 pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
 # pose_source_package defaults to "auto" and is derived from pose_source
 # (cuda_ndt -> cuda_ndt_matcher_launch, otherwise built-in NDT). Set it

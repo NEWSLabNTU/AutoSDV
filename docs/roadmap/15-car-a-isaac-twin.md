@@ -35,8 +35,9 @@ Measured on server133 (RTX 5090):
 | standing obstacle | not detected: perception emits no object, the car drives into it |
 
 Deviations from the plan:
-- Autoware's `ndt` instead of `cuda_ndt`, and the newest CUDA put first for NVRTC (the guide
-  says why);
+- the newest CUDA put first for NVRTC (the guide says why); the twin ran on Autoware's `ndt`
+  until cuda_ndt's diagnostic name was fixed (known-config-defects §9), and runs `cuda_ndt`
+  since;
 - a standing box in a world variant instead of a spawned pedestrian (the runner has no actor
   spawn);
 - no `twin.launch.py`: `just twin up` starts aib's runner and Autoware as two process
