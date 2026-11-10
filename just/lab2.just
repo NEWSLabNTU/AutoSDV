@@ -110,7 +110,10 @@ bench *ARGS:
 [positional-arguments]
 vehicle *ARGS:
     #!/usr/bin/env bash
-    unset DISPLAY                       # the ZED cannot have one: scripts/camera_display.sh
+    # The ZED gets no DISPLAY and no VirtualGL faker in LD_PRELOAD (scripts/camera_display.sh):
+    # a terminal on the VNC desktop carries both, and either stops the camera at CAMERA OPENING.
+    source scripts/camera_display.sh
+    camera_display >/dev/null 2>&1
     source scripts/env.sh
     source scripts/testing/lab2/lab2_config.sh
     lab2_config vehicle "$@" || exit 2
