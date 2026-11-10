@@ -9,7 +9,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
-TOPICS_FILE="$SCRIPT_DIR/outdoor_topics.txt"
+TOPICS_FILE="${TOPICS_FILE:-$SCRIPT_DIR/outdoor_topics.txt}"
 
 # Default output directory with timestamp
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

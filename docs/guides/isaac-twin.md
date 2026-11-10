@@ -152,13 +152,29 @@ How aib publishes it is the rig's `isaac:` block: `publish: scan|frame`, `point_
 `motion_distortion`, each defaulting to the real behaviour for the `xyzircaedt` point format.
 The rates are the spec's `rate_hz`.
 
+## Obstacles
+
+A 0.4 x 0.5 x 1.7 m box standing 22 m along `coss_loop` (a world variant: a USD that
+sublayers `world.usdc` and adds the box, `just twin up coss_loop <world_ped.yaml>`) is
+tracked as an UNKNOWN object from about 20 m; obstacle_stop engages at 10 m and the car,
+from 1.95 m/s, halts 6.0 m short of it. The plain route still runs clean: no objects, no
+stop. Two perception settings made this work, and both apply to the real cars
+(known-config-defects §11): obstacle segmentation now keeps points up to 1.26 m, not the
+car's 0.262 m height, and the lidar-only preset merges the clustering's objects instead of
+tracking CenterPoint's alone.
+
+## Recording a proof run
+
+```bash
+just bag record-proof        # on car A
+just twin record             # on the twin, while `just twin drive` runs
+```
+
+Both record `scripts/rosbag/proof_run_topics.txt`, so a car bag and a twin bag on the same
+route hold the same topics.
+
 ## Known gaps
 
-- **Perception sees no objects.** A 0.4 x 0.5 x 1.7 m box standing on the route (a world
-  variant, `world_ped.usda`, sublayering the COSS world) gets 1.5-5 k lidar points and keeps
-  100-750 through obstacle segmentation, yet perception emits no object in the whole run and
-  planning never stops: the car drives into it. Every trial of obstacle handling on the twin
-  starts here.
 - **The lidar's channel numbers** rank the lasers by elevation (aib's `rings_by_elevation`);
   Nebula numbers them by laser id. Each laser keeps one channel either way.
 - **The camera** renders every other 20 Hz frame (10 Hz), not the hardware's 15-60 Hz, and

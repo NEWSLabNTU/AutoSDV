@@ -13,6 +13,12 @@ default:
 record:
     ./scripts/rosbag/record_outdoor.sh
 
+# The topics car A's Isaac twin records too (`just twin record`), so the two bags compare
+# directly: scripts/rosbag/proof_run_topics.txt
+# Record a proof run on the car (the topics its twin records too)
+record-proof out='':
+    TOPICS_FILE=scripts/rosbag/proof_run_topics.txt ./scripts/rosbag/record_outdoor.sh {{out}}
+
 #   just bag map car_b                        the latest rosbags/outdoor_*
 #   just bag map car_b rosbags/outdoor_X      a recording of your choosing
 #   just bag map car_a rosbags/outdoor_X --cpu -o DIR    further arguments go to lab3_map

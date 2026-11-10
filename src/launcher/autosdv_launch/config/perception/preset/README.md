@@ -11,6 +11,8 @@ Default preset for AutoSDV. Uses only LiDAR for perception.
 - `perception_mode`: `lidar`
 - `use_traffic_light_recognition`: `false`
 - `use_detection_by_tracker`: `false`
+- `use_multi_channel_tracker_merger`: `false` (the lidar merger: clustered objects reach the
+  tracker; CenterPoint alone finds nothing from a lidar 0.36 m up, known-config-defects §11)
 - `use_image_segmentation_based_filter`: `false`
 - `use_pointcloud_map`: `true`
 

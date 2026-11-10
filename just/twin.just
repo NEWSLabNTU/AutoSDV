@@ -149,6 +149,16 @@ drive route='coss_loop':
     eval "$(just twin env)"
     python3 {{twin}}/scripts/twin_go.py --route {{route}}
 
+# The car's proof-run topics (scripts/rosbag/proof_run_topics.txt, as `just bag record-proof`
+# records on the car), on sim time, into rosbags/twin/; Ctrl-C stops it
+# Record the twin's run as a car proof run is recorded
+record name='proof':
+    #!/usr/bin/env bash
+    set +u; source scripts/env.sh >/dev/null 2>&1; set -u
+    eval "$(just twin env)"
+    mapfile -t topics < <(grep -v '^[[:space:]]*#' scripts/rosbag/proof_run_topics.txt | grep .)
+    exec ros2 bag record --use-sim-time -o rosbags/twin/{{name}}_$(date +%Y%m%d_%H%M%S) "${topics[@]}" /clock
+
 # Stop what `just twin up` started: its process groups only, and only while each is still the
 # one `up` recorded (same boot, same start time); a PGID from before a reboot or a crash may
 # since belong to anything of yours

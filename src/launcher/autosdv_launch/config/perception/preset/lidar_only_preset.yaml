@@ -17,6 +17,16 @@ launch:
       name: use_detection_by_tracker
       default: "false"
 
+  # The lidar merger, not the multi-channel tracker merger: in lidar mode Autoware's
+  # multi-channel tracker reads only the ML detector (CenterPoint), so the clustering's
+  # unknown objects reached nothing. CenterPoint is trained on full-size cars' roof lidars
+  # and finds nothing from a VLP-16 0.36 m up; a pedestrian-sized box on the route went
+  # undetected and the car drove into it (car A's twin, 2026-11-10). Merged, the clusters
+  # are tracked as unknown objects.
+  - arg:
+      name: use_multi_channel_tracker_merger
+      default: "false"
+
   - arg:
       name: use_image_segmentation_based_filter
       default: "false"

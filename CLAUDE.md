@@ -378,7 +378,7 @@ scenario-world-bridge's Isaac bridge (an external checkout, `SWB_ROOT`). The twi
 its own instance, `vehicle_id:=twin`: car A's files with photo-estimated mounts, so
 `car_a` stays the physical car. `just twin up` / `drive` / `down` run it on ROS domain 47
 with the workspace's DDS profile; it localizes with `cuda_ndt`, as car A does. Perception
-emits no objects on the twin yet. Guide, measurements and gaps: `docs/guides/isaac-twin.md`.
+stops for a standing box on the twin (known-config-defects §11). Guide, measurements and gaps: `docs/guides/isaac-twin.md`.
 
 ### Manual Build
 ```bash

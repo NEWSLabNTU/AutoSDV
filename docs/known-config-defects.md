@@ -353,6 +353,29 @@ Autoware's TM frame (transform the PCD, rewrite the lanelet lat/lon from EPSG:38
 anything stored in map coordinates), or, map untouched, a NavSatFix shim before gnss_poser
 (EPSG:4326 -> 3826 -> less the offset -> Autoware TM inverse).
 
+## 11. Perception never reported an obstacle — FIXED 2026-11-10
+
+Found on car A's Isaac twin: a 1.7 m pedestrian-sized box on the route, lidar returns on it
+by the thousand, no object, and the car drove into it. Two settings, both on every car:
+
+- **Obstacle segmentation kept a 6 cm band.** Autoware crops obstacles at `vehicle_height`
+  (0.262 m here) plus `margin_max_z` (0), and its ground filter drops points below
+  `non_ground_height_threshold` (0.20 m): only points between 0.20 and 0.262 m survived,
+  two on the box. AutoSDV did carry its own `ground_segmentation.param.yaml`, a stale copy
+  of an older Autoware's, but `autosdv_perception_component.launch.xml` loaded
+  autoware_launch's. The copy is now 1.5.0's file plus `margin_max_z: 1.0` (obstacles up to
+  1.26 m) and `non_ground_height_threshold: 0.10` (5 cm wheels, 9 cm kerbs), and the
+  component loads it.
+- **The clustering's objects reached nothing.** With `use_multi_channel_tracker_merger`
+  true (Autoware's default) the tracker in lidar mode reads only CenterPoint, which is
+  trained on full-size cars' roof lidars and found nothing from a VLP-16 0.36 m up. The
+  lidar_only preset now sets it false, so the lidar merger feeds clustered UNKNOWN objects
+  to the tracker.
+
+Verified on the twin: the box is tracked from about 20 m, obstacle_stop engages at 10 m, the
+car halts 6.0 m short; the plain route shows no objects and no stop. Not yet run on a car:
+watch for false stops on kerbs and vegetation, the cost of the lower ground threshold.
+
 ## Did not transfer
 
 Checked, and not defects here:

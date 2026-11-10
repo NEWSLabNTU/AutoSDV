@@ -1,0 +1,23 @@
+# A proof run: car A and its Isaac twin on the same route, compared bag against bag.
+# Recorded identically on the car (`just bag record-proof`) and the twin (`just twin record`).
+# Sensors as the drivers publish them
+/sensing/lidar/velodyne_points
+/sensing/camera/zedxm/imu/data
+# The vehicle: what it did, and what it was told
+/vehicle/status/velocity_status
+/vehicle/status/steering_status
+/vehicle/status/control_mode
+/vehicle/status/gear_status
+/control/command/control_cmd
+/autosdv/actuator_node/debug/pwm_values
+# Localization, planning, perception, the AD API's states
+/localization/kinematic_state
+/localization/pose_estimator/pose_with_covariance
+/localization/pose_estimator/nearest_voxel_transformation_likelihood
+/planning/scenario_planning/trajectory
+/planning/planning_factors/obstacle_stop
+/perception/object_recognition/objects
+/api/operation_mode/state
+/api/routing/state
+/tf
+/tf_static

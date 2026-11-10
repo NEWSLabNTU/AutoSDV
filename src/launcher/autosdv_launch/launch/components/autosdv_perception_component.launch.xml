@@ -275,7 +275,7 @@
     <!-- obstacle segmentation parameters -->
     <arg
       name="obstacle_segmentation_ground_segmentation_param_path"
-      value="$(find-pkg-share autoware_launch)/config/perception/obstacle_segmentation/ground_segmentation/ground_segmentation.param.yaml"
+      value="$(find-pkg-share autosdv_launch)/config/perception/obstacle_segmentation/ground_segmentation/ground_segmentation.param.yaml"
     />
     <arg
       name="obstacle_segmentation_ground_segmentation_elevation_map_param_path"

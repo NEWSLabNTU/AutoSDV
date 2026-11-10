@@ -1,9 +1,9 @@
+# autoware_launch 1.5.0's file with AutoSDV's changes marked; loaded by
+# autosdv_perception_component.launch.xml
 /**:
   ros__parameters:
     additional_lidars: []
     ransac_input_topics: []
-    use_single_frame_filter: False
-    use_time_series_filter: True
 
     common_crop_box_filter:
       parameters:
@@ -11,9 +11,14 @@
         max_x: 150.0
         min_y: -70.0
         max_y: 70.0
-        margin_max_z: 0.0  # to extend the crop box max_z from vehicle_height
+        # AutoSDV: Autoware keeps obstacles up to vehicle_height (0.262 m on these cars) plus this
+        # margin. A margin of 0 above a 0.20 m ground threshold left a 6 cm band: a 1.7 m
+        # pedestrian-sized box on the route gave 2 points, perception no object, and the car
+        # drove into it (car A's twin, 2026-11-10). 1.0 m keeps anything up to 1.26 m.
+        margin_max_z: 1.0
         margin_min_z: -2.5 # to extend the crop box min_z from ground
         negative: False
+        processing_time_threshold_sec: 0.01
 
     common_ground_filter:
       plugin: "ground_segmentation::ScanGroundFilterComponent"
@@ -23,13 +28,15 @@
         split_points_distance_tolerance: 0.2
         use_virtual_ground_point: True
         split_height_distance: 0.2
-        non_ground_height_threshold: 0.20
+        # AutoSDV: 0.20 is sized for a full-size car; 0.10 m for 5 cm wheels and 9 cm kerbs
+        non_ground_height_threshold: 0.10
         grid_size_m: 0.5
-        grid_mode_switch_radius: 20.0
+        grid_mode_switch_radius: 150.0
         gnd_grid_buffer_size: 4
         detection_range_z_max: 2.5
         elevation_grid_mode: true
         use_recheck_ground_cluster: true
+        recheck_start_distance: 20.0
         use_lowest_point: true
         low_priority_region_x: -20.0
         center_pcl_shift: 0.0
