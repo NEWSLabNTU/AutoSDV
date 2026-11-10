@@ -54,6 +54,19 @@ def velocity_limit(max_speed):
     return "/planning/scenario_planning/max_velocity_default", msg
 
 
+def engage(change, wait_available, say, attempts=3):
+    """Engage autonomous mode: `change()` -> (success, message). Availability can drop for a
+    cycle right after it is reported, so a refusal waits for it again (`wait_available`) and
+    retries, saying why (`say`). True once engaged; False after `attempts` refusals."""
+    for i in range(attempts):
+        ok, why = change()
+        if ok:
+            return True
+        say(f"[twin_go] engage refused ({i + 1}/{attempts}): {why}")
+        wait_available()
+    return False
+
+
 def drive(start, goal, timeout):
     import rclpy
     from autoware_adapi_v1_msgs.msg import (LocalizationInitializationState, OperationModeState,
@@ -94,7 +107,7 @@ def drive(start, goal, timeout):
             rclpy.spin_once(node, timeout_sec=0.2)
         print(f"[twin_go] {what}", flush=True)
 
-    def call(srv_type, name, req, limit=30):
+    def call(srv_type, name, req, limit=30, check=True):
         # limit: initialization runs NDT's Monte Carlo alignment, which takes far longer
         cli = node.create_client(srv_type, name)
         wait(lambda: cli.service_is_ready(), f"{name} up", 300)
@@ -103,7 +116,7 @@ def drive(start, goal, timeout):
         res = fut.result()
         if res is None:
             sys.exit(f"[twin_go] {name}: no answer in {limit:g} s")
-        if not res.status.success:
+        if check and not res.status.success:
             sys.exit(f"[twin_go] {name} failed: {res.status.message}")
         return res
 
@@ -137,9 +150,18 @@ def drive(start, goal, timeout):
     req.goal = ros_pose(goal)
     call(SetRoutePoints, "/api/routing/set_route_points", req)
     wait(lambda: seen.get("route") == RouteState.SET, "route set", 60)
-    wait(lambda: getattr(seen.get("mode"), "is_autonomous_mode_available", False),
-         "autonomous mode available", 120)
-    call(ChangeOperationMode, "/api/operation_mode/change_to_autonomous", ChangeOperationMode.Request())
+    def available():
+        wait(lambda: getattr(seen.get("mode"), "is_autonomous_mode_available", False),
+             "autonomous mode available", 120)
+
+    def change():
+        res = call(ChangeOperationMode, "/api/operation_mode/change_to_autonomous",
+                   ChangeOperationMode.Request(), check=False)
+        return res.status.success, res.status.message
+
+    available()
+    if not engage(change, available, lambda m: print(m, flush=True)):
+        sys.exit("[twin_go] autonomous mode refused three times")
     t_drive = time.monotonic()
     wait(lambda: seen.get("route") == RouteState.ARRIVED, "arrived", timeout)
     print(f"[twin_go] arrived: {time.monotonic() - t_drive:.1f} s driving ({time.monotonic() - t0:.1f} s "

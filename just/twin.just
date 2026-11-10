@@ -54,16 +54,12 @@ check:
 env:
     #!/usr/bin/env bash
     mkdir -p tmp/no-mps
-    # cuda_ndt compiles its kernels with NVRTC at start-up, and an NVRTC older than the GPU
-    # refuses its architecture (CUDA 12.6 on an RTX 5090, sm_120): the newest toolkit wins
-    cuda_lib=${TWIN_CUDA_LIB:-$(ls -d /usr/local/cuda-*.*/lib64 2>/dev/null | sort -V | tail -1)}
     cat <<EOF
     export CYCLONEDDS_URI=${TWIN_CYCLONEDDS_URI:-${CYCLONEDDS_URI:-file:///opt/autoware/1.5.0/config/cyclonedds.xml}}
     export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     export CUDA_MPS_PIPE_DIRECTORY=$PWD/tmp/no-mps CUDA_MPS_LOG_DIRECTORY=$PWD/tmp/no-mps
     export ISAAC_ROOT={{isaac_root}}
     export ROS_DOMAIN_ID={{domain}}
-    export TWIN_CUDA_LIB=$cuda_lib
     EOF
 
 # The twin car alone on a flat plane, against its spec (aib's vehicle-check): topics, types,
@@ -140,7 +136,7 @@ up route='coss_loop' world='data/coss-isaac/map/isaac/world.yaml':
         pose:=$pose realtime:=true" > tmp/twin_run/runner.log 2>&1 < /dev/null &
     started() { echo "$1 $(cut -d')' -f2- /proc/$1/stat | awk '{print $20}')"; }
     { echo "boot $(cat /proc/sys/kernel/random/boot_id)"; started $!; } > {{pgids}}
-    LD_LIBRARY_PATH=$TWIN_CUDA_LIB:$LD_LIBRARY_PATH setsid play_launch launch --disable-web-ui --log-dir tmp/twin_run/play_log autosdv_twin twin_autoware.launch.xml \
+    setsid play_launch launch --disable-web-ui --log-dir tmp/twin_run/play_log autosdv_twin twin_autoware.launch.xml \
         twin_map_path:=$PWD/data/coss-isaac/map > tmp/twin_run/autoware.log 2>&1 < /dev/null &
     started $! >> {{pgids}}
     echo "[twin] up: runner pgid $(sed -n '2s/ .*//p' {{pgids}}), Autoware pgid $(sed -n '3s/ .*//p' {{pgids}})"

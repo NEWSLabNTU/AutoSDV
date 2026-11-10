@@ -134,11 +134,23 @@ Autoware's). It needs a cuda_ndt_matcher from c2f979a on: older pins named their
 without the node prefix, which kept autonomous mode unavailable (known-config-defects §9).
 Measured with it on `coss_loop`: engaged and arrived, 65.0 m, top speed 2.01 m/s.
 
-One setting in the recipes works around a host defect:
+cuda_ndt compiles its kernels with NVRTC at start-up, and CUDA 12.6's NVRTC rejects an RTX
+5090 (`invalid value for --gpu-architecture`). From cuda_ndt_matcher 514db0b its build embeds
+the newest toolkit that can compile for the GPU as an rpath when the default cannot, so no
+setting is needed; rebuild it after installing a toolkit.
 
-- **The newest CUDA for Autoware.** cuda_ndt compiles its kernels with NVRTC at start-up, and
-  CUDA 12.6's NVRTC rejects an RTX 5090 (`invalid value for --gpu-architecture`). `twin env`
-  puts the newest `/usr/local/cuda-X.Y/lib64` first (`TWIN_CUDA_LIB` overrides it).
+## The sensors as their drivers publish them
+
+| sensor | real (car A) | twin |
+|---|---|---|
+| VLP-16 | 600 rpm, one message a revolution, 16 lasers 2.304 us apart every 55.296 us (at most 28,928 points), per-point `time_stamp`, the motion of the revolution in the points | the same: 10.0 Hz, about 21.7 k points a revolution on COSS (the sky returns none), 16 channels, times over 100 ms, motion distortion that Autoware's distortion corrector removes |
+| ZED IMU | `sensors_pub_rate` 100 Hz (`zed_imu_minimal.yaml`; 99.9 Hz in a car bag) | 99.6 Hz, stamps exactly 10 ms apart, sampled from the physics substeps |
+
+The lidar's timing is its profile, `isaac/make_lidars.py`: RTX's firing clock is
+`patternFiringRateHz` (18,080, the VLP-16's 55.296 us cycle rounded to divide by 10 Hz).
+How aib publishes it is the rig's `isaac:` block: `publish: scan|frame`, `point_times`,
+`motion_distortion`, each defaulting to the real behaviour for the `xyzircaedt` point format.
+The rates are the spec's `rate_hz`.
 
 ## Known gaps
 
@@ -147,10 +159,9 @@ One setting in the recipes works around a host defect:
   100-750 through obstacle segmentation, yet perception emits no object in the whole run and
   planning never stops: the car drives into it. Every trial of obstacle handling on the twin
   starts here.
-- **The lidar is not the VLP-16's timing.** aib publishes a full 360 deg sweep every 20 Hz
-  frame (the spec says 10 Hz), about 43 k points against the VLP-16's 29 k, with every
-  per-point `time_stamp` zero, so deskewing has nothing to correct.
-- **Rates follow aib's 20 Hz frame**, not the hardware: the IMU at 20 Hz (the ZED's is about
-  200 Hz), the camera at 10 Hz.
+- **The lidar's channel numbers** rank the lasers by elevation (aib's `rings_by_elevation`);
+  Nebula numbers them by laser id. Each laser keeps one channel either way.
+- **The camera** renders every other 20 Hz frame (10 Hz), not the hardware's 15-60 Hz, and
+  nothing on the twin reads it.
 - **Estimated, not measured:** the sensor mounts (from photos; ZED +-2 cm, GNSS +-3 cm), the
   mass (5 kg), the motor (0.2 N m, 3000 rpm) and the drivetrain (all-wheel, 50/50).

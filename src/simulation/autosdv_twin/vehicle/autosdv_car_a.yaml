@@ -156,7 +156,7 @@ sensors:
     frame: zedxm_camera_center      # the contract wants a URDF frame; see provenance
     topic: /sensing/camera/zedxm/imu/data
     mount: {x: 0.254, y: 0.0, z: -0.204, roll: 0.0, pitch: 0.0, yaw: 0.0}
-    rate_hz: 20.0                   # aib publishes once per 20 Hz frame
+    rate_hz: 100.0                  # the ZED's sensors_pub_rate (zed_imu_minimal.yaml); aib samples substeps
     isaac:
       enabled: true
   gnss:
@@ -188,4 +188,4 @@ provenance:
   suspension: {assumed: true, basis: "a touring chassis' oil shocks, ~20 mm travel"}
   isaac.physx: {basis: "newslab_golfcart's / tesla_model3's (swb roadmap 043 and 059 N8); to be retuned for 5 kg (roadmap 15 task 5)"}
   sensor_kit: {basis: "individual_params config/twin/autosdv_sensor_kit/sensors_calibration.yaml: estimated from photos, +-1.5 cm"}
-  sensors: {basis: "mounts: config/twin/autosdv_sensor_kit/sensor_kit_calibration.yaml through the sensor kit URDF (photo estimates: ZED +-2 cm, GNSS +-3 cm); topics, frames and layouts: autosdv_sensor_kit_launch (VLP16.param.yaml frame vlp16, pointcloud_preprocessor LIDAR_TOPICS, imu.launch.xml ZED IMU topic); ZED X Mini 2.2 mm lens 110 deg, rendered at 960x600 (assumed). Rates: what aib delivers at its 20 Hz frame (the IMU once a frame, the camera every other), not the hardware's (ZED IMU ~200 Hz, camera 15-60 Hz), as tesla_model3's. The IMU is placed at, and stamps, zedxm_camera_center (a URDF link: the I5 contract wants every sensor frame in the URDF). Car A's ZED stamps zedxm_imu_link, a static TF 2.5 cm away (zed_imu_tf.launch.xml); imu_corrector takes either through TF"}
+  sensors: {basis: "mounts: config/twin/autosdv_sensor_kit/sensor_kit_calibration.yaml through the sensor kit URDF (photo estimates: ZED +-2 cm, GNSS +-3 cm); topics, frames and layouts: autosdv_sensor_kit_launch (VLP16.param.yaml frame vlp16, pointcloud_preprocessor LIDAR_TOPICS, imu.launch.xml ZED IMU topic); ZED X Mini 2.2 mm lens 110 deg, rendered at 960x600 (assumed). Rates: the IMU at the ZED wrapper's sensors_pub_rate, 100 Hz (zed_imu_minimal.yaml; a car bag shows 99.9 Hz), sampled from aib's physics substeps; the lidar at the VLP-16's 600 rpm, one message a revolution with per-point times and the motion it spans (aib publish: scan, point_times, motion_distortion); the camera every other 20 Hz frame, not the hardware's 15-60 Hz. The IMU is placed at, and stamps, zedxm_camera_center (a URDF link: the I5 contract wants every sensor frame in the URDF). Car A's ZED stamps zedxm_imu_link, a static TF 2.5 cm away (zed_imu_tf.launch.xml); imu_corrector takes either through TF"}

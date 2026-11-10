@@ -54,3 +54,29 @@ def test_the_body_stays_out_of_the_lidars_rays(entry):
     # The RTX lidar renders the body: a housing around its origin swallows every ray inside
     # the near range, and the sensor returns nothing. The body ends LIDAR_CLEAR below it.
     assert entry["render_max"][2] <= _sensor_z("vlp16") - 0.03 + 1e-6
+
+
+DAE = TWIN.parents[1] / "vehicle/autosdv_vehicle_launch/autosdv_vehicle_description/mesh/car_a.dae"
+# Velodyne's VLP-16 datasheet (63-9229 Rev H): 103 mm across, 72 mm tall, the optical centre
+# 37.8 mm above the base
+VLP16_HEIGHT, VLP16_CENTRE_ABOVE_BASE = 0.072, 0.0378
+
+
+def _dae_vertices():
+    import re
+    import xml.etree.ElementTree as ET
+
+    import numpy as np
+
+    root = ET.parse(DAE).getroot()
+    pts = [np.array(a.text.split(), float).reshape(-1, 3)
+           for a in root.iter() if re.sub(r"\{.*\}", "", a.tag) == "float_array"]
+    return np.vstack(pts)
+
+
+def test_the_rviz_mesh_draws_the_whole_vlp16():
+    # no rays render the RViz mesh, so it has the VLP-16's full housing, cap and window,
+    # where the Isaac body stops LIDAR_CLEAR below the optical centre
+    v = _dae_vertices()
+    top = _sensor_z("vlp16") - VLP16_CENTRE_ABOVE_BASE + VLP16_HEIGHT
+    assert v[:, 2].max() == pytest.approx(top, abs=0.002)

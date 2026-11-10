@@ -18,7 +18,7 @@ def OmniLidar "VLP16" (
     custom float[] omni:sensor:Core:emitterState:s001:distanceCorrectionM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     custom float[] omni:sensor:Core:emitterState:s001:elevationDeg = [-10, 0.6666667, -8.666667, 2, -7.3333335, 3.3333333, -6, 4.6666665, -4.6666665, 6, -3.3333333, 7.3333335, -2, 8.666667, -0.6666667, 10]
     custom float[] omni:sensor:Core:emitterState:s001:emitterPeakPowerW = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-    custom uint[] omni:sensor:Core:emitterState:s001:fireTimeNs = [0, 1500, 3000, 4500, 6000, 7500, 9000, 10500, 12000, 13500, 15000, 16500, 18000, 19500, 21000, 22500]
+    custom uint[] omni:sensor:Core:emitterState:s001:fireTimeNs = [0, 2304, 4608, 6912, 9216, 11520, 13824, 16128, 18432, 20736, 23040, 25344, 27648, 29952, 32256, 34560]
     custom float[] omni:sensor:Core:emitterState:s001:focalDistM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     custom float[] omni:sensor:Core:emitterState:s001:focalSlope = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     custom float[] omni:sensor:Core:emitterState:s001:horOffsetM = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -31,12 +31,12 @@ def OmniLidar "VLP16" (
     custom float omni:sensor:Core:nearRangeM = 0.3
     custom uint omni:sensor:Core:numberOfChannels = 16
     custom uint omni:sensor:Core:numberOfEmitters = 16
+    custom uint omni:sensor:Core:patternFiringRateHz = 18080
     custom float omni:sensor:Core:peakPowerW = 0.002
     custom uint omni:sensor:Core:pulseTimeNs = 6
     custom float omni:sensor:Core:rangeAccuracyM = 0.03
     custom float omni:sensor:Core:rangeResolutionM = 0.004
     custom token omni:sensor:Core:rayType = "IDEALIZED"
-    custom uint omni:sensor:Core:reportRateBaseHz = 18000
     custom token omni:sensor:Core:rotationDirection = "CW"
     custom uint omni:sensor:Core:scanRateBaseHz = 10
     custom token omni:sensor:Core:scanType = "ROTARY"

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809) by sim_vehicle_spec.gen (`just generate`): do not edit; change the spec and regenerate. -->
+<!-- Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 78c6c0a120669ee6bede2109ee7cee16fe6750612a5c172508f5187013ee58a8) by sim_vehicle_spec.gen (`just generate`): do not edit; change the spec and regenerate. -->
 <!-- The simulated cars as SSv2 vehicles: one entry per spec, its body box and axles in the
      spec's base_link (the rear axle centre on the ground), model3d its body. A scenario refers to
      an entry with CatalogReference and assigns maxSpeed, maxAcceleration, maxDeceleration and
@@ -19,7 +19,7 @@
         <RearAxle maxSteering="0.0" positionX="0.0" wheelDiameter="0.104" trackWidth="0.263" positionZ="0.052" />
       </Axles>
       <Properties>
-        <Property name="swb.spec_hash" value="6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809" />
+        <Property name="swb.spec_hash" value="78c6c0a120669ee6bede2109ee7cee16fe6750612a5c172508f5187013ee58a8" />
       </Properties>
     </Vehicle>
   </Catalog>

@@ -50,17 +50,18 @@ def vlp16(path, calibration):
     n = len(lasers)
     elevation = [math.degrees(l["vert_correction"]) for l in lasers]
     azimuth = [math.degrees(l["rot_correction"]) for l in lasers]
-    # The VLP-16 fires its 16 lasers one after another, 2.304 us apart. The RTX lidar renders
-    # nothing when one firing's times span more than about 25 us (the golf cart twin bisected
-    # it), so 1.5 us apart, 22.5 us in all; the order is kept and the points carry no
-    # per-point time downstream. 18000 firings a second is 1800 a revolution at 10 Hz,
-    # 0.2 deg apart, the VLP-16's resolution at 600 rpm.
-    fire = [i * 1500 for i in range(n)]
+    # The VLP-16 fires its 16 lasers one after another, 2.304 us apart, and repeats every
+    # 55.296 us (18.08 kHz; Velodyne's VLP-16 manual): 1808 firings a revolution at 600 rpm,
+    # 0.2 deg apart, at most 28,928 points. RTX's firing clock is patternFiringRateHz, which
+    # must divide by the scan rate: 18080. (An earlier profile set reportRateBaseHz, which is
+    # no RTX attribute: the firing clock stayed at its 36 kHz default, twice the VLP-16's, and
+    # a firing spanning more than one 27.8 us tick rendered nothing, hence 1.5 us spacing.)
+    fire = [i * 2304 for i in range(n)]
     zeros = [0.0] * n
     scalars = {
         "omni:sensor:Core:numberOfChannels": (Sdf.ValueTypeNames.UInt, n),
         "omni:sensor:Core:numberOfEmitters": (Sdf.ValueTypeNames.UInt, n),
-        "omni:sensor:Core:reportRateBaseHz": (Sdf.ValueTypeNames.UInt, 18000),
+        "omni:sensor:Core:patternFiringRateHz": (Sdf.ValueTypeNames.UInt, 18080),
         "omni:sensor:Core:scanType": (Sdf.ValueTypeNames.Token, "ROTARY"),
         "omni:sensor:Core:startAzimuthOffsetDeg": (Sdf.ValueTypeNames.Float, 0.0),
         "omni:sensor:Core:nearRangeM": (Sdf.ValueTypeNames.Float, 0.3),

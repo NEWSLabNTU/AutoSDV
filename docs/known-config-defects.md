@@ -320,21 +320,38 @@ on every car. Not yet confirmed on a car. The fix belongs in cuda_ndt (publish t
 under the node's name, as Autoware's `DiagnosticsInterface` does); until then, engage with
 `pose_source:=ndt`.
 
-## 10. COSS's map frame is not the projection its `map_projector_info.yaml` names
+## 10. COSS's map frame is TWD97, not the projection its `map_projector_info.yaml` names
 
-`data/COSS-map-planning`'s map frame is **TWD97 less TWD97 of the map origin**, a plain
-translation: the lanelets' `local_x`/`local_y` plus (-304731.3793, -2768113.4495) reproduce
-the map coordinates exactly over all 2276 nodes. Its `map_projector_info.yaml` says
-`TransverseMercator` about the origin (25.0201, 121.5423), which is what Autoware projects
-GNSS fixes with. TWD97's central meridian is 121 deg E, so the two frames differ by the
-meridian convergence, about 0.23 deg, and by the scale factor (0.9999 against 0.9996).
+Checked 2026-11-10 (computed with pyproj 3.8 / PROJ 9.8):
 
-A GNSS fix therefore lands rotated about the origin against the PCD and the lanelets:
-about 0.4 m at 100 m from the origin. Anything run on COSS with `use_gnss:=true` (car B's
-ublox, NTRIP) carries that bias into the EKF and into NDT's initial pose. The twin is
-unaffected (no GNSS; swb's `sites/coss.yaml` records the frame as `twd97_minus_origin`).
-The fix is a projector the map frame actually is, or a map re-expressed in the declared
-one; either needs the original survey's datum confirmed first.
+- **The map frame is Taiwan's datum.** `data/COSS-map-planning`'s x, y are **TWD97 / TM2
+  zone 121** (EPSG:3826: GRS80, central meridian 121 deg E, k0 0.9999, false easting
+  250 000 m) less (304731.3793, 2768113.4495): a pure shift. All 2276 lanelet nodes carry
+  `local_x`/`local_y` in TWD97; TWD67 misses by 9.6 m. The survey originals are
+  `pt0{1,2,3}_TWD97.pcd`. Heights are orthometric (lanelets about 9 m).
+- **GNSS goes in as WGS84 through a different projection.** `map_projector_info.yaml` says
+  `TransverseMercator` about (25.0201, 121.5423): Autoware projects a NavSatFix with
+  GeographicLib's TM on WGS84, central meridian at the origin, k0 0.9996. Nothing in the
+  repository converts datums.
+- **The lanelets' lat/lon tags were back-computed** through Autoware's projection from the
+  TWD97 values, so they are 0.17 m (mean) to 0.30 m off the true positions.
+- **The mismatch is a similarity**, exact to 0.2 mm:
+  `autoware_xy = 0.99966300 x R(-0.229364 deg) x map_xy + (0.0001, 0.0219) m`. The rotation
+  is TWD97's meridian convergence at the origin, the scale -337 ppm. A WGS84 fix therefore
+  lands 0.02 m off at the origin, 0.42 m at 100 m, 2.03 m at 500 m (about 0.35 m at the
+  current PCD's far corner), mostly sideways. `scale_factor` cannot remove the rotation.
+- **TWD97 against WGS84 as datums** differs by plate motion only, about 2.9 cm/yr ESE: 0.87 m
+  from TWD97@1997, 0.20 m from TWD97[2020] today. The survey's realization is not recorded.
+  Standalone GNSS is noisier than that; RTK from a Taiwanese caster (the ublox config's
+  "Taiwan" mountpoint) is in TWD97; RTK from an ITRF caster would be 0.2-0.9 m off.
+
+Harmless while GNSS only seeds NDT's initial pose (`use_gnss: false` on car A by default).
+Not acceptable for RTK, GNSS-fused localization (eagleye) or GNSS as ground truth. Autoware 1.5
+has no projector for TWD97 TM2 (it takes MGRS, LocalCartesian, LocalCartesianUTM,
+TransverseMercator about the origin, and Local). The fix is to re-express the map in
+Autoware's TM frame (transform the PCD, rewrite the lanelet lat/lon from EPSG:3826, redo
+anything stored in map coordinates), or, map untouched, a NavSatFix shim before gnss_poser
+(EPSG:4326 -> 3826 -> less the offset -> Autoware TM inverse).
 
 ## Did not transfer
 

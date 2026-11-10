@@ -1,4 +1,4 @@
-# Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809) by aib.gen (autoware_isaac_bridge `just generate`): do not edit; change the spec and regenerate.
+# Generated from ../vehicle/autosdv_car_a.yaml (spec_hash 78c6c0a120669ee6bede2109ee7cee16fe6750612a5c172508f5187013ee58a8) by aib.gen (autoware_isaac_bridge `just generate`): do not edit; change the spec and regenerate.
 # The Isaac rig: what aib builds the PhysX vehicle and its sensors from (aib.rig).
 # Sensor transforms are base_link -> link, translation in m, quaternion w x y z.
 spec: ../vehicle/autosdv_car_a.yaml
@@ -7,7 +7,7 @@ description: AutoSDV car A, 1/10 RC car with VLP-16 and ZED X Mini (geometry mea
   mass and drive estimated)
 assumptions: [body.ground_clearance, brakes, inertia.com_front_fraction, inertia.com_height, inertia.inertia_box,
   inertia.mass, powertrain, resistance, steering.time_constant, suspension, tires, wheels]
-spec_hash: 6550e320766feab2bcc40cd03ab93f4073016314c0e18b57313b70dc9b6f7809
+spec_hash: 78c6c0a120669ee6bede2109ee7cee16fe6750612a5c172508f5187013ee58a8
 body:
   catalogue_model: vehicle.newslab.autosdv_car_a
   box_center: [0.1515, 0.0, 0.131]
@@ -86,7 +86,7 @@ sensors:
     topic: /sensing/camera/zedxm/imu/data
     translation: [0.32, 0.0, 0.156]
     quat: [1.0, 0.0, 0.0, 0.0]
-    rate_hz: 20.0
+    rate_hz: 100.0
   gnss:
     type: gnss
     enabled: false

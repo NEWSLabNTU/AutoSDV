@@ -120,21 +120,24 @@ def lathe_y(profile, n=24):
 
 # ---- car A, in base_link -----------------------------------------------------------------------
 # Heights from the side photos (78ce8998, 23aca77f): chassis tub 0.02-0.045, the middle deck at
-# 0.095, the Jetson deck at 0.166, the Jetson 0.17-0.26, the top plate at 0.274, the lidar's
-# base at its optical centre less 37.7 mm (Velodyne's VLP-16 drawing).
+# 0.095, the Jetson deck at 0.166, the Jetson 0.17-0.26, the top plate at 0.274. The VLP-16
+# from Velodyne's datasheet (63-9229 Rev H): 103 mm across, 72 mm tall, its optical centre
+# 37.8 mm above its base, the window a band around it.
 
-LIDAR_R, LIDAR_BELOW = 0.0515, 0.0377
+LIDAR_R, LIDAR_BELOW, LIDAR_HEIGHT = 0.0515, 0.0378, 0.072
+LIDAR_WINDOW = 0.015  # the window's half height about the optical centre (from the photos)
 # The RTX lidar renders this body: a housing around its origin catches every ray inside the
 # near range and the sensor returns nothing (the golf cart twin's VLP_CLEAR). So the VLP-16's
 # housing ends LIDAR_CLEAR below its optical centre: its base is drawn, its window and cap,
 # which the rays would leave through, are not. Likewise the ZED's box ends behind its lens.
+# No ray renders the RViz mesh (--dae), so it has the whole housing: build(full_lidar=True).
 LIDAR_CLEAR = 0.03
 TOP_PLATE_Z = 0.274
 JETSON_DECK_Z = 0.166
 MID_DECK_Z = 0.095
 
 
-def build():
+def build(full_lidar=False):
     parts = {}
 
     def part(name, mat):
@@ -185,7 +188,14 @@ def build():
     for dx, dy in ((0.03, 0.02), (0.03, -0.02), (-0.03, 0.02), (-0.03, -0.02)):
         so.add(*zcyl(lx + dx, ly + dy, TOP_PLATE_Z, base_z - 0.012, 0.0055, 10))
     part("Lidar/Mount", "red_anodized").add(*zcyl(lx, ly, base_z - 0.012, base_z, LIDAR_R + 0.004, 28))
-    part("Lidar/Base", "lidar_body").add(*zcyl(lx, ly, base_z, lz - LIDAR_CLEAR, LIDAR_R, 32))
+    if full_lidar:
+        part("Lidar/Base", "lidar_body").add(*zcyl(lx, ly, base_z, lz - LIDAR_WINDOW, LIDAR_R, 32))
+        part("Lidar/Window", "black_plastic").add(
+            *zcyl(lx, ly, lz - LIDAR_WINDOW, lz + LIDAR_WINDOW, LIDAR_R - 0.001, 32))
+        part("Lidar/Cap", "lidar_body").add(
+            *zcyl(lx, ly, lz + LIDAR_WINDOW, base_z + LIDAR_HEIGHT, LIDAR_R, 32))
+    else:
+        part("Lidar/Base", "lidar_body").add(*zcyl(lx, ly, base_z, lz - LIDAR_CLEAR, LIDAR_R, 32))
 
     # the front deck on standoffs, the Velodyne interface box, the ZED X Mini
     fd = part("Front/Deck", "black_plastic")
@@ -285,9 +295,9 @@ def wheel_positions():
     return out
 
 
-def all_parts_base_link():
+def all_parts_base_link(full_lidar=False):
     """Every part, the wheels included, in base_link: [(name, Part, material)]."""
-    out = [(n, p, m) for n, (p, m) in build().items()]
+    out = [(n, p, m) for n, (p, m) in build(full_lidar).items()]
     for name, (c, left) in wheel_positions().items():
         for pn, (p, m) in wheel(left).items():
             q = Part().add(p.points() + c, p.faces)
@@ -298,7 +308,7 @@ def all_parts_base_link():
 def write_dae(path):
     """The whole car as one COLLADA file in base_link, a geometry per material."""
     by_mat = {}
-    for _, p, m in all_parts_base_link():
+    for _, p, m in all_parts_base_link(full_lidar=True):
         q = by_mat.setdefault(m, Part())
         tris = []
         for f in p.faces:

@@ -41,3 +41,20 @@ def test_autoware_is_capped_at_car_as_speed_not_only_the_motor():
     assert msg.max_velocity == 2.0
     assert msg.use_constraints is False
     assert twin_go.MAX_SPEED == 2.0
+
+
+def test_an_engage_refused_while_availability_flickers_is_retried():
+    # availability can drop for a cycle right after it is reported (seen once in ten twin
+    # runs); a refused engage waits for it again and retries, saying why each time
+    answers = iter([(False, "The target mode is not available."), (True, "")])
+    said = []
+    assert twin_go.engage(lambda: next(answers), wait_available=lambda: None,
+                          say=said.append, attempts=3)
+    assert len(said) == 1 and "not available" in said[0]
+
+
+def test_an_engage_refused_every_time_gives_up():
+    said = []
+    assert not twin_go.engage(lambda: (False, "no"), wait_available=lambda: None,
+                              say=said.append, attempts=3)
+    assert len(said) == 3
