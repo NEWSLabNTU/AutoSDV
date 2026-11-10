@@ -275,6 +275,33 @@ run *ARGS:
     source scripts/env.sh
     exec python3 scripts/testing/lab2/lab2_run.py "$@"
 
+#   just lab2 run-route lab2_circuit_figure8 car:=A      a route by name (config/courses/NAME)
+#   just lab2 run-route ~/repos/2026-SDV-Indoor/routes/lab2_circuit_figure8 car:=A   or by directory
+# `just lab2 run route:=ROUTE`, plus the route's own speed limits when its directory has them:
+# waypoint_path_publisher.param.yaml -> path_param_file:=, path_tracker.param.yaml ->
+# tracker_param_file:= (a route faster than the lab's v_max 0.8 m/s needs both). One given on
+# the command line wins. Every other argument goes to `just lab2 run`.
+# One run of ROUTE with the settings files in its directory
+[positional-arguments]
+run-route ROUTE *ARGS:
+    #!/usr/bin/env bash
+    route=$1; shift
+    case "$route" in
+        */*) dir=$(realpath "$route") ;;
+        *)   dir=$PWD/src/lab/autosdv_waypoint_lab/config/courses/$route ;;
+    esac
+    [ -f "$dir/course.yaml" ] || { echo "error: no route at $dir (no course.yaml)" >&2; exit 2; }
+    case "$route" in */*) route=$dir ;; esac
+    extra=()
+    for pair in waypoint_path_publisher.param.yaml:path_param_file path_tracker.param.yaml:tracker_param_file; do
+        file=${pair%%:*} arg=${pair#*:}
+        [ -f "$dir/$file" ] || continue
+        given=0; for a in "$@"; do [[ $a == "$arg:="* ]] && given=1; done
+        [ $given = 1 ] || extra+=("$arg:=$dir/$file")
+    done
+    printf '\033[2mjust lab2 run route:=%s %s %s\033[0m\n' "$route" "${extra[*]}" "$*"
+    exec just lab2 run "route:=$route" "${extra[@]}" "$@"
+
 #   just lab2 audit                          the latest bag, car/team/reference from the config
 #   just lab2 audit rosbags/lab2_uturn_3
 #   just lab2 audit --show                   also open the PNG (export DISPLAY=:1 on the car, view over RDP)

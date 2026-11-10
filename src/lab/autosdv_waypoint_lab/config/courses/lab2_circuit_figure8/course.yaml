@@ -13,10 +13,7 @@
 #                                       tracker's curvature speed limit: 2.0 m/s on
 #                                       R 1.1 m is 3.64 m/s^2, 1.0 m/s is 0.91
 # Without them every waypoint is capped at 0.8 m/s and the turns at 0.81 m/s.
-#   D=$PWD/src/lab/autosdv_waypoint_lab/config/courses/lab2_circuit_figure8
-#   just lab2 run route:=lab2_circuit_figure8 car:=A \
-#       path_param_file:=$D/waypoint_path_publisher.param.yaml \
-#       tracker_param_file:=$D/path_tracker.param.yaml
+#   just lab2 run-route lab2_circuit_figure8 car:=A    (passes both)
 # The end ramp stays at 0.3 m/s^2, so the 2.0 m/s lap starts slowing 6.7 m
 # before the end. Kinematic bench (reference tracker, 5 cm / 2 deg pose noise, no
 # tyre slip): finished, peak 1.97 m/s, 0.26 m off the path at most (in the fast
