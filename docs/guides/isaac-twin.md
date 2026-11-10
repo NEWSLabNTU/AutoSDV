@@ -32,18 +32,21 @@ just build && just test && just test-isaac
 
 On newslab-server133 it was already installed (2026-10-30), at `/mnt/p5plus/aeon/isaac-sim`.
 
-### Two host settings every twin process needs
+### Two host settings the twin depends on
 
-Both are in the twin's recipes; set them yourself only when running aib by hand.
+The recipes handle both; set them yourself only when running aib by hand.
 
-- **DDS: unicast on loopback.** AutoSDV's `cyclonedds.xml` uses multicast on `lo` and asks for
-  10 MB socket buffers. On a host without the `multicast-lo` service, or with
-  `net.core.rmem_max` below 10 MB (it was 1 MB on server133), Isaac's Cyclone fails with
-  `rmw_create_node: failed to create domain`. Every process of the twin, Isaac's and
-  Autoware's, uses `src/simulation/autosdv_twin/config/cyclonedds-unicast-lo.xml` instead:
+- **DDS: the setup steps, or the unicast profile.** The twin uses the workspace's
+  `CYCLONEDDS_URI`, as every AutoSDV process does. That profile uses multicast on `lo` and
+  asks for 10 MB socket buffers, so it needs setup's `multicast-lo` and `cyclonedds-sysctl`
+  steps; without them Isaac's Cyclone fails with `rmw_create_node: failed to create domain`.
+  On server133 `cyclonedds-sysctl` had been overridden by the ZED SDK's
+  `/etc/sysctl.d/60-zed-buffers.conf` (`rmem_max` 1 MB) until the step was re-run
+  (2026-11-10); with it, the twin drives on the default profile with no UDP drops. On a host
+  you cannot fix, point the twin at the unicast loopback profile, which needs neither:
 
   ```bash
-  export CYCLONEDDS_URI=file://$PWD/src/simulation/autosdv_twin/config/cyclonedds-unicast-lo.xml
+  export TWIN_CYCLONEDDS_URI=file://$PWD/src/simulation/autosdv_twin/config/cyclonedds-unicast-lo.xml
   ```
 
 - **CUDA: no foreign MPS daemon.** When another user runs `nvidia-cuda-mps-control` on the
@@ -151,5 +154,3 @@ One setting in the recipes works around a host defect:
   200 Hz), the camera at 10 Hz.
 - **Estimated, not measured:** the sensor mounts (from photos; ZED +-2 cm, GNSS +-3 cm), the
   mass (5 kg), the motor (0.2 N m, 3000 rpm) and the drivetrain (all-wheel, 50/50).
-- **The host's DDS drops datagrams.** With `net.core.rmem_max` at 1 MB, play_launch reports
-  thousands of UDP drops a minute on the twin's domain. Raising it needs root.

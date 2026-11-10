@@ -47,7 +47,8 @@ check:
     set +u; source install/setup.bash >/dev/null 2>&1; set -u
     python3 -m pytest -q {{twin}}/test
 
-# The environment every twin process runs in: the twin's DDS profile, CUDA without another
+# The environment every twin process runs in: the workspace's DDS profile (TWIN_CYCLONEDDS_URI
+# overrides it), CUDA without another
 # user's MPS daemon, Isaac, the twin's domain
 [private]
 env:
@@ -57,7 +58,7 @@ env:
     # refuses its architecture (CUDA 12.6 on an RTX 5090, sm_120): the newest toolkit wins
     cuda_lib=${TWIN_CUDA_LIB:-$(ls -d /usr/local/cuda-*.*/lib64 2>/dev/null | sort -V | tail -1)}
     cat <<EOF
-    export CYCLONEDDS_URI=file://$PWD/{{twin}}/config/cyclonedds-unicast-lo.xml
+    export CYCLONEDDS_URI=${TWIN_CYCLONEDDS_URI:-${CYCLONEDDS_URI:-file:///opt/autoware/1.5.0/config/cyclonedds.xml}}
     export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     export CUDA_MPS_PIPE_DIRECTORY=$PWD/tmp/no-mps CUDA_MPS_LOG_DIRECTORY=$PWD/tmp/no-mps
     export ISAAC_ROOT={{isaac_root}}
