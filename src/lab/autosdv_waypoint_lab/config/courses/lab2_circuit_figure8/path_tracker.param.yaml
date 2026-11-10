@@ -8,8 +8,8 @@
     odom_timeout: 0.3
     max_faults: 3
     tracker:
-      k_lookahead: 0.6     # [s] lookahead grows by this times speed
+      k_lookahead: 0.4     # [s] lab2_circuit_figure8: steer earlier at 2 m/s (the lab default is 0.6)
       lookahead_min: 0.6   # [m]
       lookahead_max: 2.0   # [m]
-      a_lat_max: 3.7       # [m/s^2] lab2_circuit_figure8: 2.0 m/s on R 1.1 m needs 3.64 (the lab default is 0.6)
+      a_lat_max: 4.5       # [m/s^2] lab2_circuit_figure8: 2.0 m/s on R 0.9 m needs 4.44 (the lab default is 0.6)
       preview: 1.0         # [m] how far ahead it looks for curvature

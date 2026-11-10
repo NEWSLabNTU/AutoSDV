@@ -2,31 +2,49 @@
 #
 #   s =  0.00-10.91 m  lab2_circuit once at 1.0 m/s
 #   s = 10.91-24.84 m  a figure 8 at 1.0 m/s
-#   s = 24.84-35.75 m  lab2_circuit once at 2.0 m/s, then the end ramp (decel
-#                      0.3 m/s^2) stops the car on the start box
-# Open path, one run, 35.75 m, about 33 s of driving. The speeds are path.csv's
+#   s = 24.84-34.49 m  a NARROWER circuit once at 2.0 m/s, then the end ramp
+#                      (decel 0.3 m/s^2) stops the car on the start box
+# Open path, one run, 34.49 m, about 33 s of driving. The speeds are path.csv's
 # third column; v_ref (1.0) only sets the run's timeout and the audit's target.
 #
-# FASTER THAN THE LAB'S LIMITS, so it needs this directory's two parameter files:
+# The narrower circuit: 2 m straights at y = 0 and y = -1.8, right semicircles
+# of R 0.9 m about (2.0, -0.9) and (0.0, -0.9) (apexes (2.9, -0.9), (-0.9, -0.9)),
+# 0.4 m narrower than lab2_circuit. Why: at 2 m/s the car turns wider than it
+# steers. lab2_circuit_figure8_2 (2026-11-10, car A, R 1.1 m at 2 m/s) drove its
+# first fast turn on R 1.45 m at 1.96 m/s (2.65 m/s^2) for a commanded 0.26 rad
+# (1.21 m), and left it 0.74 m outside the path at (1.22, -2.94), 0.23 m from
+# the boards along y = -3.17. R 0.9 m makes the tracker steer to the lock
+# (0.349 rad) in the turns, the most it can do, and moves the lower straight
+# 0.4 m away from those boards.
+#
+# FASTER THAN THE LAB'S LIMITS: this directory's two parameter files, which
+# `just lab2 run-route` passes (path_param_file:=, tracker_param_file:=):
+#   just lab2 run-route lab2_circuit_figure8 car:=A
 #   waypoint_path_publisher.param.yaml  v_max 2.0 m/s (the lab's: 0.8)
-#   path_tracker.param.yaml             a_lat_max 3.7 m/s^2 (the lab's: 0.6), the
-#                                       tracker's curvature speed limit: 2.0 m/s on
-#                                       R 1.1 m is 3.64 m/s^2, 1.0 m/s is 0.91
-# Without them every waypoint is capped at 0.8 m/s and the turns at 0.81 m/s.
-#   just lab2 run-route lab2_circuit_figure8 car:=A    (passes both)
-# The end ramp stays at 0.3 m/s^2, so the 2.0 m/s lap starts slowing 6.7 m
-# before the end. Kinematic bench (reference tracker, 5 cm / 2 deg pose noise, no
-# tyre slip): finished, peak 1.97 m/s, 0.26 m off the path at most (in the fast
-# lap), steering at the 0.349 rad lock in the turns, stopped 0.06 m from the end.
-# Not driven yet at these speeds: 3.6 m/s^2 of lateral grip and the camera's
-# marker fixes at 2.0 m/s are unmeasured; the run stops at 0.8 m off the path.
+#   path_tracker.param.yaml             a_lat_max 4.5 m/s^2 (the lab's: 0.6), the
+#                                       curvature speed limit: 2.0 m/s on R 0.9 m
+#                                       is 4.44 m/s^2;
+#                                       k_lookahead 0.4 s (the lab's: 0.6), so the
+#                                       tracker turns in earlier at 2 m/s
+# Without them every waypoint is capped at 0.8 m/s and the turns are slower.
+#
+# Kinematic bench, reference tracker, 5 cm / 2 deg pose noise, the car's slide
+# modelled as a wheelbase 1.4x the real one (which reproduces the run above:
+# lowest point y -2.98 vs -2.94, 0.78 vs 0.74 m off the path); the fast lap:
+#                         lowest y   off the path   nearest board
+#   R 1.1, k 0.6 (as run)   -2.98       0.78 m          0.31 m
+#   R 0.9, k 0.4 (now)      -2.58       0.78 m          0.50 m
+# with a 1.21x slide (the yaw rate measured) R 0.9 gives -2.26, 0.46 m, 0.66 m.
+# 0.8 m off the path stops the run (localization_monitor), so the fast lap may
+# still end early on a stop; it brakes, it does not crash. The 1.0 m/s parts
+# track better with k 0.4 (0.11 m off at most, was 0.18 m).
 #
 # Frame: the START-BOX frame of lab2_uturn and lab2_circuit (origin at the start
 # box, the rear axle; x along the first leg; y to the car's left). Every part
 # passes the start box at (0, 0) heading +x, where the next one begins.
 #
-# The circuit: lab2_circuit's path.csv, unchanged (2 m straights at y = 0 and
-# y = -2.2, right semicircles R 1.1 m about (2.0, -1.1) and (0.0, -1.1)).
+# The circuit (first part): lab2_circuit's path.csv, unchanged (2 m straights at
+# y = 0 and y = -2.2, right semicircles R 1.1 m about (2.0, -1.1) and (0.0, -1.1)).
 #
 # The figure 8: two circles of R 1.1 m, the LEFT one the circuit's own,
 # centre (0.0, -1.1), driven clockwise (right turns), the RIGHT one centre
@@ -45,7 +63,8 @@
 #
 # Tape (rear axle): the start box (0, 0); the circuit as lab2_circuit's header
 # gives it; for the 8, the right circle's centre (2.40, -1.10) and apex
-# (3.50, -1.10), and the crossing (1.20, -1.10).
+# (3.50, -1.10), and the crossing (1.20, -1.10); for the narrower circuit, the
+# lower straight at y = -1.80 and the centres (2.00, -0.90), (0.00, -0.90).
 #
 # Checked against the map of 2026-11-10 (surveys/2026-11-10_14-49-16, 12 boards):
 # the nearest board is 0.95 m from the path (id 12, below the second straight,
