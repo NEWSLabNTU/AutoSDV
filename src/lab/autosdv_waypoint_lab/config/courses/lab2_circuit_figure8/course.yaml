@@ -1,0 +1,59 @@
+# Lab 2 TEST route lab2_circuit_figure8: three parts in one run, NOT graded.
+#
+#   s =  0.00-10.91 m  lab2_circuit once at 0.5 m/s
+#   s = 10.91-24.84 m  a figure 8 at 0.5 m/s
+#   s = 24.84-35.75 m  lab2_circuit once at 0.8 m/s, then the end ramp (decel
+#                      0.3 m/s^2) stops the car on the start box
+# Open path, one run, 35.75 m, about 63 s of driving. The speeds are path.csv's
+# third column; v_ref is the fast lap's. 0.8 m/s is the path publisher's v_max
+# and, at R 1.1 m, the tracker's curvature limit sqrt(a_lat_max * R) =
+# sqrt(0.6 * 1.1) = 0.81 m/s, so no lap can be faster without raising both.
+#
+# Frame: the START-BOX frame of lab2_uturn and lab2_circuit (origin at the start
+# box, the rear axle; x along the first leg; y to the car's left). Every part
+# passes the start box at (0, 0) heading +x, where the next one begins.
+#
+# The circuit: lab2_circuit's path.csv, unchanged (2 m straights at y = 0 and
+# y = -2.2, right semicircles R 1.1 m about (2.0, -1.1) and (0.0, -1.1)).
+#
+# The figure 8: two circles of R 1.1 m, the LEFT one the circuit's own,
+# centre (0.0, -1.1), driven clockwise (right turns), the RIGHT one centre
+# (2.4, -1.1), driven counter-clockwise (left turns), joined by two straights
+# that cross at (1.2, -1.1), 66.4 deg from the x axis, 0.96 m each:
+#   from (0, 0) right turn on the left circle to (1.008, -0.660),
+#   straight down-right through (1.2, -1.1) to (1.392, -1.540),
+#   left turn of 312.8 deg round (2.4, -1.1) to (1.392, -0.660),
+#   straight down-left through (1.2, -1.1) to (1.008, -1.540),
+#   right turn of 246.4 deg round (0.0, -1.1) back to (0, 0) heading +x.
+# The right circle is 0.4 m further right than the circuit's (apex (3.5, -1.1),
+# not (3.1, -1.1)): its centre is 2.4 m from the left one, the least that leaves
+# a straight between the two turns (2R = 2.2 m), so the steering reverses over
+# 0.96 m. Each crossing comes round again 6.97 m later, beyond the published
+# trajectory window (6 m ahead), so the tracker never sees the other branch.
+#
+# Tape (rear axle): the start box (0, 0); the circuit as lab2_circuit's header
+# gives it; for the 8, the right circle's centre (2.40, -1.10) and apex
+# (3.50, -1.10), and the crossing (1.20, -1.10).
+#
+# Checked against the map of 2026-11-10 (surveys/2026-11-10_14-49-16, 12 boards):
+# the nearest board is 0.95 m from the path (id 12, below the second straight,
+# as on lab2_circuit), a board is in view on 97 % of the path, the longest blind
+# stretch 0.40 m. Board 29 stands 1.2 m from the 8's apex.
+#
+# Generated once from lab2_circuit's path.csv and the geometry above; the map
+# files are lab2_circuit's. The boards below are the plan's (lab2_uturn's); a
+# run uses the aligned survey's.
+path: path.csv
+closed: false
+laps: 1
+v_ref: 0.8
+start_pose: {x: 0.000, y: 0.000, yaw: 0.0000}
+marker_size: 0.48
+dictionary: DICT_5X5_1000
+# 600 mm board standing on the floor, the 0.48 m black square centred on it
+marker_height: 0.3
+markers:
+  - {id: 24, x: 4.500, y: 0.000, yaw: 3.1416}
+  - {id: 25, x: 4.500, y: -1.500, yaw: 2.0944}
+  - {id: 26, x: 1.500, y: -5.000, yaw: 0.2618}
+  - {id: 27, x: -2.000, y: -2.500, yaw: 0.2618}
