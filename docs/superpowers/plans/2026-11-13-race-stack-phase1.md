@@ -24,6 +24,32 @@ uv or venv, colcon, just. Measured on newslab-server133 (x86 reference) and a ca
 **Spec:** `docs/superpowers/specs/2026-11-12-autoware-drift-integration-design.md`
 (phase doc: `docs/roadmap/16-autoware-drift/1-submodule-gate-benchmark.md`).
 
+## Status (2026-11-13): Tasks 1–6 done, Task 7 blocked on an Orin
+
+| task | commits | result |
+|---|---|---|
+| 1 test skips | autoware-drift `b366069` | suite on py3.10: 0 failed |
+| 2 regression gate | autoware-drift `d6c5b12`, `a20a0f7` | `just regress-check`: 6 runs, bit for bit; an error never passes; Ctrl-C kills the runs |
+| 3 submodule, setup step | AutoSDV `a243db4` | acados v0.6.0; `just build`/`just test` unchanged (337 pre-existing failures, same by name) |
+| 4 L1/L2 timing study | autoware-drift `21c796a`, `30471d5` | x86 smoke: L1 p95 0.227 s, L2 p95 2.6 ms |
+| 5 acados tracker | autoware-drift `7d7afee` | x86: time_tot p95 0.30 ms, 488/488 status 0 |
+| 6 bench wrapper | AutoSDV `01eb7ce`, `4ffc560` | `bench.sh` + `bench_report.py` |
+| final-review fixes | autoware-drift `b9165dd`; AutoSDV `b196276`, `381ce5c` | 8 findings fixed; suite 229 passed, 7 skipped |
+| 7 Orin runs, report | — | blocked: needs a car's Orin |
+
+Deviations from the plan, as decided while executing:
+- `race-env.sh` does not set `LD_LIBRARY_PATH`: acados' `libhpipm`/`libblasfeo` shadowed
+  CasADi's copies and broke 6 tracker tests. acados is built with `RUNPATH=$ORIGIN` instead.
+- The CasADi tracker and acados never share a process (two copies of HPIPM).
+- `bench_live` passes `cpus[1:]` to the L1 seed workers; `cpus[0]` is the control loop's.
+- `bench_live` takes `--length` and `--budget` (fields of `live.Driver`).
+- The acados model omits the Tracker's delta tracking, jerk and grip rows: its solve time
+  is a lower bound for phase 4's NMPC.
+- Under a 1-minute load of ~53 (other users) server133's L1 p95 rose to ~0.87 s: L1 is
+  load-sensitive.
+
+Follow-ups from the reviews: `docs/roadmap/16-autoware-drift/1-follow-ups.md`.
+
 ## Global Constraints
 
 - **Opt-in only.** `just build` and `just test` without the new dependencies give today's
@@ -390,6 +416,13 @@ Orin; until then the task is blocked and ledgered as such.
 4. `orin-stack-rig`: as 2, plus rig_localization on three replayed image streams, only if it
    already builds on the Orin. Otherwise the report says "not measured; phase 5".
 
+- [ ] **Step 0: Two fixes carried from the final review** (each with a failing test first;
+  autoware-drift behind `just regress-check`, then the AutoSDV pin):
+  - `bench_live --budget` must scale the multistart seed budget (`e1.SEED_BUDGET`, 0.85 s)
+    with it, and record `seed_budget` in the JSON. Until then a period sweep below 0.85 s
+    reports overruns the configuration builds in.
+  - `install-race-stack.sh` `make_venv` removes `$VENV` only if it holds `pyvenv.cfg` or is
+    empty, never any directory whose python does not run.
 - [ ] **Step 1: Set up the Orin.** Check out AutoSDV at the pushed `develop`. Before the
   setup step, clone scenario-world-bridge with the submodules the planner reads
   (`src/sim_vehicle_ecu`, `src/sim_vehicle_spec`, and `src/swb_isaac_world` for its

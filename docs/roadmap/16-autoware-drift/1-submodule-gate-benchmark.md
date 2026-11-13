@@ -1,6 +1,10 @@
 # Phase 1: Submodule, regression gate, Orin benchmark
 
-**Status:** planned. **Needs:** nothing. **Runs beside:** phase 2.
+**Status:** in progress, 2026-11-13. Tasks 1.1 and 1.2 done; 1.3's tools done and measured on
+x86, the Orin runs wait for a car's Orin. **Needs:** nothing. **Runs beside:** phase 2.
+
+Plan and per-task record: [`docs/superpowers/plans/2026-11-13-race-stack-phase1.md`](../../superpowers/plans/2026-11-13-race-stack-phase1.md).
+Open items from the reviews: [1-follow-ups.md](1-follow-ups.md).
 
 [← Overview](README.md) · [Phase 2 →](2-car-facts.md)
 
@@ -72,6 +76,9 @@ taken up before phase 3.
 
 ## Exit
 
-- The submodule is pinned in AutoSDV; `just build` and `just test` unchanged.
-- `just regress check` exists in autoware-drift and passes on `main`.
-- The benchmark report is committed with the chosen horizon and re-plan period.
+- The submodule is pinned in AutoSDV; `just build` and `just test` unchanged. **Done** (AutoSDV `a243db4`; pin now `b9165dd`).
+- `just regress-check` exists in autoware-drift and passes on `main`. **Done** (autoware-drift `a20a0f7` and later).
+- The benchmark report is committed with the chosen horizon and re-plan period. **Open:**
+  the tools are `scripts/race/bench.sh` and `bench_report.py`; x86 so far: L1 p95 0.23 s on a
+  quiet host, ~0.87 s at a load of ~53; L2 p95 ~3 ms; the first acados tracker ~0.3 ms (a lower
+  bound: its model omits delta tracking, jerk and grip).

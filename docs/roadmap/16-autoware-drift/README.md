@@ -1,6 +1,7 @@
 # 16. autoware-drift on the AutoSDV cars
 
-**Status:** planned, 2026-11-12. No phase started.
+**Status:** phase 1 in progress (2026-11-13): submodule, regression gate and the benchmark
+tools are done and pushed; the Orin runs wait for a car's Orin. Phase 2 can start any time.
 
 **Spec:** [`docs/superpowers/specs/2026-11-12-autoware-drift-integration-design.md`](../../superpowers/specs/2026-11-12-autoware-drift-integration-design.md).
 The spec is the authority; these documents break its stages into tasks and exit criteria.
