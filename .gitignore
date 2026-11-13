@@ -58,3 +58,6 @@ src/lab2_vehicles/
 
 # Car A twin: the COSS Isaac world, built by `just twin world` (roadmap 15), never committed
 /data/coss-isaac/
+
+# Race stack venv (setup/scripts/install-race-stack.sh)
+.venv-race/

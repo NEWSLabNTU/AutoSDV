@@ -622,6 +622,25 @@ STEPS: list[Step] = [
              "AUTOSDV_GLIM_CUDA=X.Y the CUDA build.",
     ),
     Step(
+        id="race-stack",
+        label="Race stack (autoware-drift planner, acados)",
+        why="The race planner's own Python (numpy ≥ 1.26, CasADi) and acados "
+            "for the NMPC, in a private venv; nothing else needs them.",
+        group="Libraries",
+        run=[_S("install-race-stack.sh")],
+        # No sudo: the venv defaults to <repo>/.venv-race (AUTOSDV_RACE_VENV)
+        # and acados to ~/.local/opt/acados (ACADOS_ROOT).
+        requires=Requires(sudo=False),
+        # Opt-in: only the race stack uses it, and the build does not.
+        profiles=_on(),
+        # The script's own checks, so they have one home: the venv imports
+        # race_planner, casadi and acados_template, libacados.so is at the
+        # pinned tag, and t_renderer is the version acados_template wants.
+        verify=[_S("install-race-stack.sh"), "--check"],
+        note="source .venv-race/race-env.sh (or $AUTOSDV_RACE_VENV/race-env.sh) "
+             "before running the race planner.",
+    ),
+    Step(
         id="blickfeld",
         label="Blickfeld Scanner Library",
         why="The Cube1 LiDAR driver. Selecting it accepts the library's "

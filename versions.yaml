@@ -230,6 +230,22 @@ container:
   sim_tag: "sim"
 
 # =============================================================================
+# Race stack (autoware-drift)
+#
+# Opt-in: installed only by the `race-stack` setup step
+# (setup/scripts/install-race-stack.sh), into a private venv and a user prefix,
+# never the system Python. export-versions.sh does not read this block.
+#
+#   acados   the release tag cloned and built into ${ACADOS_ROOT}; the
+#            t_renderer version follows from it (acados_template's
+#            TERA_DEFAULT_VERSION), so it is not pinned separately
+#   python   the venv's interpreter: Humble's /usr/bin/python3.10, as on the cars
+# =============================================================================
+race:
+  acados: "v0.6.0"
+  python: "3.10"
+
+# =============================================================================
 # Tool versions
 # =============================================================================
 tools:
