@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """Markdown table from tmp/race-bench/<label>/ directories (written by bench.sh).
 
-One row per label: host, power mode, 1-min load at start/end, L1 p50/p95/max and overruns,
+One row per label: host, power mode, clocks pinned (min == max in sysfs: cpu, gpu, both, or
+"no"), 1-min load at start/end, L1 p50/p95/max and overruns,
 L2 p95/max, acados p95/max, GPU utilisation p95 (Jetson runs). Times in ms.
+"CasADi record wall p95" is acados_tracker's `record` step (under RP_DET, unpinned): context for
+the acados column, not the live L2 number (that is "L2 p95").
 
     scripts/race/bench_report.py tmp/race-bench/x86-idle tmp/race-bench/orin-idle -o report.md
 """
@@ -13,10 +16,10 @@ import os
 import sys
 
 DASH = "—"
-HEADER = ["Label", "Host", "nvpmodel", "Load 1m start", "Load 1m end",
+HEADER = ["Label", "Host", "nvpmodel", "Clocks pinned", "Load 1m start", "Load 1m end",
           "L1 p50 ms", "L1 p95 ms", "L1 max ms", "L1 overruns",
           "L2 p95 ms", "L2 max ms", "acados p95 ms", "acados max ms",
-          "CasADi step wall p95 ms", "GPU util p95 %"]
+          "CasADi record wall p95 ms", "GPU util p95 %"]
 
 
 def _load(path):
@@ -60,6 +63,16 @@ def _power_mode(nv):
     return nv.splitlines()[0]
 
 
+def _pinned(clocks):
+    if not clocks:
+        return DASH
+    cpu, gpu = clocks.get("cpu_pinned"), clocks.get("gpu_pinned")
+    if cpu is None and gpu is None:
+        return DASH
+    got = [n for n, v in (("cpu", cpu), ("gpu", gpu)) if v]
+    return "+".join(got) if got else "no"
+
+
 def row(d):
     label = os.path.basename(os.path.normpath(d))
     live = _load(os.path.join(d, label + ".json")) or {}
@@ -71,6 +84,7 @@ def row(d):
     ms = 1000.0
     gpu = _gpu_p95(os.path.join(d, "gpu.csv"))
     return [label, host.get("machine") or DASH, _power_mode(host.get("nvpmodel")),
+            _pinned(host.get("clocks")),
             _f(load.get("start"), 2), _f(load.get("end"), 2),
             _f(allv.get("l1_p50"), 1, ms), _f(allv.get("l1_p95"), 1, ms),
             _f(allv.get("l1_max"), 1, ms),

@@ -16,7 +16,10 @@
 #       acados_template would otherwise download on first use.
 #   <venv>/race-env.sh
 #       Exports ACADOS_SOURCE_DIR, AUTOSDV_RACE_VENV, and SWB when SWB was set
-#       while this script ran. Written when anything was
+#       while this script ran (as a default: an SWB the shell already exports
+#       wins). SWB is a scenario-world-bridge checkout with its src/sim_vehicle_ecu,
+#       src/sim_vehicle_spec and src/swb_isaac_world submodules; the benchmark
+#       (scripts/race/bench.sh) needs it. Written when anything was
 #       installed or the file is missing; a verify-only rerun leaves it alone.
 #
 # Why a private venv
@@ -39,7 +42,7 @@
 # Rerunning with everything present only runs the checks.
 set -euo pipefail
 
-REPO_DIR="$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)"
+REPO_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../.." && pwd)"
 GET_VERSION="${REPO_DIR}/scripts/version/get-version.sh"
 DRIFT_DIR="${REPO_DIR}/src/planning/external/autoware-drift"
 PLANNER_DIR="${DRIFT_DIR}/src/planning/race_planner"
@@ -133,7 +136,7 @@ write_env() {
         echo "export AUTOSDV_RACE_VENV=\"${VENV}\""
         echo "export ACADOS_SOURCE_DIR=\"${ACADOS_ROOT}\""
         if [[ -n "${SWB:-}" ]]; then
-            echo "export SWB=\"${SWB}\""
+            echo "export SWB=\"\${SWB:-${SWB}}\""
         fi
     } > "$tmp"
     mv "$tmp" "$ENV_FILE"
@@ -170,10 +173,15 @@ install_acados() {
 
 # --- t_renderer ----------------------------------------------------------------
 # acados_template downloads it on first use into ${ACADOS_SOURCE_DIR}/bin; doing
-# it here keeps a solver build from needing the network. There is a prebuilt
-# x86_64 binary; on aarch64 it is built from source with cargo.
+# it here keeps a solver build from needing the network. The release publishes
+# linux-amd64 and linux-arm64 binaries (the names acados_template itself asks
+# for); cargo is only the fallback when the download fails.
+tera_url() {   # VERSION ARCH
+    echo "https://github.com/acados/tera_renderer/releases/download/v$1/t_renderer-v$1-linux-$2"
+}
+
 install_tera() {
-    local want tmp
+    local want tmp url
     want="$(tera_required)"
     if [[ -z "$want" ]]; then
         echo "race-stack: cannot read TERA_DEFAULT_VERSION from acados_template" >&2
@@ -181,17 +189,18 @@ install_tera() {
     fi
     mkdir -p "${ACADOS_ROOT}/bin"
     tmp="${ACADOS_ROOT}/bin/t_renderer.partial"
-    if [[ "$TERA_ARCH" == amd64 ]]; then
-        say "downloading t_renderer ${want}"
-        curl -fsSL -o "$tmp" \
-            "https://github.com/acados/tera_renderer/releases/download/v${want}/t_renderer-v${want}-linux-${TERA_ARCH}"
-    else
+    rm -f "$tmp"
+    url="$(tera_url "$want" "$TERA_ARCH")"
+    say "downloading t_renderer ${want} (linux-${TERA_ARCH})"
+    if ! curl -fsSL -o "$tmp" "$url"; then
+        rm -f "$tmp"
+        echo "race-stack: download failed: ${url}" >&2
         if ! command -v cargo >/dev/null; then
-            echo "race-stack: building t_renderer on aarch64 needs cargo (Rust):" >&2
+            echo "race-stack: the fallback, building t_renderer from source, needs cargo (Rust):" >&2
             echo "    curl https://sh.rustup.rs -sSf | sh" >&2
             return 1
         fi
-        say "building t_renderer ${want} with cargo"
+        say "building t_renderer ${want} with cargo instead"
         local root="${ACADOS_ROOT}/src/tera_renderer-${want}"
         cargo install --locked --git https://github.com/acados/tera_renderer.git \
             --tag "v${want}" --root "$root" t_renderer
@@ -207,19 +216,47 @@ install_tera() {
 }
 
 # --- venv --------------------------------------------------------------------
-install_venv() {
-    local py="/usr/bin/python${PY_VERSION}"
-    [[ -x "$py" ]] || py="$PY_VERSION"
-    if [[ ! -x "$VPY" ]]; then
-        say "creating venv ${VENV} (python ${PY_VERSION})"
-        if command -v uv >/dev/null; then
-            uv venv --python "$py" "$VENV"
-        else
-            "python${PY_VERSION}" -m venv "$VENV"
-        fi
+# The interpreter: the system's, never a ~/.local one (PATH has ~/.local/bin
+# first, for uv). uv may still fetch one by version when there is none.
+resolve_py() {
+    if [[ -x "/usr/bin/python${PY_VERSION}" ]]; then
+        echo "/usr/bin/python${PY_VERSION}"
+    else
+        echo "$PY_VERSION"
     fi
+}
+
+have_uv() { command -v uv >/dev/null; }
+
+# A venv whose python does not run (half made by a venv that failed, or its
+# interpreter gone) is removed and made again, never reused.
+make_venv() {
+    local py
+    py="$(resolve_py)"
+    if [[ -e "$VENV" ]] && ! "$VPY" -c 'import sys' >/dev/null 2>&1; then
+        say "removing ${VENV}: its python does not run"
+        rm -rf "$VENV"
+    fi
+    [[ -x "$VPY" ]] && return 0
+    say "creating venv ${VENV} (python ${PY_VERSION})"
+    if have_uv; then
+        uv venv --python "$py" "$VENV"
+    elif [[ "$py" != /* ]]; then
+        echo "race-stack: no /usr/bin/python${PY_VERSION} and no uv to fetch one:" >&2
+        echo "    sudo apt install python${PY_VERSION} python${PY_VERSION}-venv" >&2
+        return 1
+    elif ! "$py" -m venv "$VENV"; then
+        rm -rf "$VENV"
+        echo "race-stack: ${py} -m venv failed; on Ubuntu it needs the venv package:" >&2
+        echo "    sudo apt install python${PY_VERSION}-venv" >&2
+        return 1
+    fi
+}
+
+install_venv() {
+    make_venv
     say "installing race_planner and acados_template into ${VENV}"
-    if command -v uv >/dev/null; then
+    if have_uv; then
         uv pip install --python "$VPY" \
             -e "${PLANNER_DIR}[test]" \
             -e "${ACADOS_SRC}/interfaces/acados_template"
@@ -229,6 +266,9 @@ install_venv() {
             -e "${ACADOS_SRC}/interfaces/acados_template"
     fi
 }
+
+# Sourced (by the tests), stop here: the functions above, nothing run.
+[[ "${BASH_SOURCE[0]}" == "$0" ]] || return 0
 
 # A rerun with everything present writes nothing, so the env file keeps the SWB
 # it was written with; delete it and rerun to write it again.

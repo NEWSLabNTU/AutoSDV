@@ -390,11 +390,21 @@ Orin; until then the task is blocked and ledgered as such.
 4. `orin-stack-rig`: as 2, plus rig_localization on three replayed image streams, only if it
    already builds on the Orin. Otherwise the report says "not measured; phase 5".
 
-- [ ] **Step 1: Set up the Orin.** Check out AutoSDV at the pushed `develop` and run
-  `./setup.sh --run --only race-stack --yes`. Then run `just build`. Expected: the verify
-  step passes and `just build` succeeds.
-- [ ] **Step 2: Record the Orin's power mode.** Run `nvpmodel -q` and
-  `jetson_clocks --show`; use MAXN if the car uses MAXN. The car's normal mode is what gets
+- [ ] **Step 1: Set up the Orin.** Check out AutoSDV at the pushed `develop`. Before the
+  setup step, clone scenario-world-bridge with the submodules the planner reads
+  (`src/sim_vehicle_ecu`, `src/sim_vehicle_spec`, and `src/swb_isaac_world` for its
+  `config/surface_classes.yaml`) and export `SWB`, so race-env.sh records it:
+  ```bash
+  git clone https://github.com/NEWSLabNTU/scenario-world-bridge.git ~/repos/scenario-world-bridge
+  git -C ~/repos/scenario-world-bridge submodule update --init \
+      src/sim_vehicle_ecu src/sim_vehicle_spec src/swb_isaac_world
+  export SWB=~/repos/scenario-world-bridge
+  ./setup.sh --run --only race-stack --yes
+  ```
+  Then run `just build`. Expected: the verify step passes and `just build` succeeds.
+- [ ] **Step 2: Record the Orin's power mode.** Run `nvpmodel -q`; the clock state is
+  recorded by each bench run from sysfs (`host.clocks`, the report's "Clocks pinned" column),
+  since `jetson_clocks --show` needs root. Use MAXN if the car uses MAXN. The car's normal mode is what gets
   measured. Do not change the board's power mode for the benchmark.
 - [ ] **Step 3: Run each load configuration.** For each, bring the load up, wait until NDT
   reports activated (`python3 scripts/testing/localization/check_ndt_activated.py`), then run

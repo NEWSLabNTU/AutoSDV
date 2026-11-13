@@ -44,3 +44,22 @@ def test_report_has_one_row_per_label_with_load_and_power_mode(tmp_path):
     assert "—" in x86 and "MAXN" not in x86 and "1.50" in x86 and "2.50" in x86
     assert "95" in orin          # gpu util p95 sampled
     assert "100 ms" not in orin and "400.0" in orin   # L1 max = 0.4 s in ms
+
+
+def test_clocks_pinned_cell_from_host_clocks(tmp_path):
+    a = _label_dir(tmp_path, "orin-maxn", "NV Power Mode: MAXN", 0.1, 0.2)
+    b = _label_dir(tmp_path, "orin-float", "NV Power Mode: MAXN", 0.1, 0.2)
+    c = _label_dir(tmp_path, "x86-none", None, 0.1, 0.2)
+    for d, cpu, gpu in ((a, True, True), (b, True, False), (c, None, None)):
+        f = d / f"{d.name}.json"
+        j = json.loads(f.read_text())
+        j["host"]["clocks"] = {"cpu": None, "gpu": None, "cpu_pinned": cpu, "gpu_pinned": gpu}
+        f.write_text(json.dumps(j))
+    out = tmp_path / "r.md"
+    bench_report.main([str(a), str(b), str(c), "-o", str(out)])
+    lines = out.read_text().splitlines()
+    col = lines[0].split(" | ").index("Clocks pinned")
+    cell = {ln.split(" | ")[0].strip("| "): ln.split(" | ")[col] for ln in lines[2:]}
+    assert cell["orin-maxn"] == "cpu+gpu"
+    assert cell["orin-float"] == "cpu"
+    assert cell["x86-none"] == "—"
