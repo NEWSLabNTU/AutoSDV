@@ -17,8 +17,9 @@
 #
 # Week 2, in the hall:
 #
+#   just lab3 record --car car_b --team 3 --kind run --map ~/lab3/team3_map    terminal 2, first,
+#                                              so the bag holds the board initialization
 #   just lab3 run car_b ~/lab3/team3_map       terminal 1: the full stack; the board sets the pose
-#   just lab3 record --car car_b --team 3 --kind run --map ~/lab3/team3_map    terminal 2
 #   just lab3 route ~/lab3/team3_map --engage --laps 2                         terminal 3
 #
 # Settings are on the command line; nothing here reads a config file. The design is
