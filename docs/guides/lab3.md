@@ -134,6 +134,37 @@ the origin facing the map's +x (backward, see above). Then the RViz sequence bel
 overall speed limit is the same file as on the car (`speed_limit_config:=` to use a
 team's copy).
 
+### Part 1: replay the mapping bag against the map (localization report)
+
+The team plays its own mapping bag back through the stack (no drivers, no vehicle
+interface, simulated time), localizing against the map built from it, and hands in the
+localization report. Three terminals, in this order:
+
+```bash
+SHARE=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3
+# 1. the stack, sensors and motor off
+play_launch launch autosdv_lab3 lab3_replay.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+# 2. record the localization output (stops with Ctrl-C after the bag ends)
+mkdir -p ~/lab3/bags && cd ~/lab3/bags && ros2 bag record $(cat $SHARE/config/record/localization_topics.txt)
+# 3. play the mapping bag's sensor inputs
+ros2 bag play ~/lab3/bags/<mapping bag> --clock --topics $(cat $SHARE/config/record/replay_topics.txt)
+```
+
+In RViz, a 2D Pose Estimate at the map origin within the first seconds, while the car
+still stands on the start mark: the mapping recording began there. On the Robin-W cars
+GLIM's map +x points backward from the start heading, so the car faces the map's -x.
+After the bag ends, Ctrl-C the recorder, then
+
+```bash
+ros2 run autosdv_lab3 lab3_localization_report ~/lab3/bags/<replay bag>
+```
+
+prints and writes `localization.yaml`: the localized share (0.5 s bins with NVTL at or
+above the 1.3 gate), NVTL median and minimum, and the scan-to-map distance (one scan per
+0.5 s placed at the estimated pose, median distance to the nearest map point, share of
+points on the map). `--map PCD` supplies the map when a recording lacks
+`/map/pointcloud_map`. The grader reports the same measures over a lap.
+
 ### Week 2: the laps (on the car)
 
 Terminal 1, the stack (no RViz: the ZED must not see a display, so the launch removes
