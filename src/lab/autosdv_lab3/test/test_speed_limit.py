@@ -1,27 +1,47 @@
-"""The Lab 3 speed limit: 3 km/h by default, at most 10, raised only on request."""
+"""The Lab 3 overall speed limit: 3 km/h from the shipped config file, at most 10."""
+
+from pathlib import Path
 
 import pytest
 
 from autosdv_lab3 import fixtures, speed_limit
 
+SHIPPED = Path(__file__).resolve().parents[1] / 'config' / 'speed_limit.yaml'
 
-def test_default_is_3_kmh_below_the_lanelet_limit():
+
+def test_shipped_config_is_3_kmh():
+    assert speed_limit.read_config(str(SHIPPED)) == (3.0, None)
     assert speed_limit.DEFAULT_KMH == 3.0
+
+
+def test_default_is_below_the_lanelet_limit():
     assert speed_limit.MAX_KMH == 10.0
     assert speed_limit.DEFAULT_KMH < fixtures.SPEED_LIMIT_KMH == speed_limit.MAX_KMH
 
 
-@pytest.mark.parametrize('kmh', [0.5, 3, 3.0, 5, 10.0])
-def test_accepts_limits_up_to_10(kmh):
-    assert speed_limit.refusal(kmh) is None
+@pytest.mark.parametrize('text, kmh', [('max_speed_kmh: 5\n', 5.0), ('max_speed_kmh: 10.0\n', 10.0),
+                                       ('max_speed_kmh: 0.5\n', 0.5)])
+def test_reads_a_valid_limit(tmp_path, text, kmh):
+    p = tmp_path / 'speed_limit.yaml'
+    p.write_text(text)
+    assert speed_limit.read_config(str(p)) == (kmh, None)
 
 
-@pytest.mark.parametrize('kmh, why', [(0, 'not above 0'), (-1.0, 'not above 0'),
-                                      (10.5, 'above the 10 km/h maximum'),
-                                      (36, 'above the 10 km/h maximum'),
-                                      ('5', 'not a number'), (True, 'not a number')])
-def test_refuses_out_of_range(kmh, why):
-    assert why in speed_limit.refusal(kmh)
+@pytest.mark.parametrize('text, why', [('max_speed_kmh: 12\n', 'above the 10 km/h maximum'),
+                                       ('max_speed_kmh: 0\n', 'not above 0'),
+                                       ('max_speed_kmh: fast\n', 'not a number'),
+                                       ('speed: 5\n', 'no max_speed_kmh'),
+                                       ('max_speed_kmh: [5\n', 'cannot read')])
+def test_refuses_an_unusable_file(tmp_path, text, why):
+    p = tmp_path / 'speed_limit.yaml'
+    p.write_text(text)
+    kmh, reason = speed_limit.read_config(str(p))
+    assert kmh is None and why in reason
+
+
+def test_missing_file(tmp_path):
+    kmh, reason = speed_limit.read_config(str(tmp_path / 'none.yaml'))
+    assert kmh is None and 'cannot read' in reason
 
 
 def test_kmh_to_mps():
@@ -37,34 +57,7 @@ def test_message_carries_the_limit_in_mps():
     assert msg.sender == 'lab3_speed_limit'
 
 
-def test_cli_refuses_before_touching_ros(capsys):
-    assert speed_limit.cli(['12']) == 2
-    assert 'above the 10 km/h maximum' in capsys.readouterr().err
-
-
 @pytest.mark.parametrize('mps, kmh', [(5 / 3.6, 5.0), (1.0, 3.6), (20.0, 10.0), (0.0, None),
                                       (-1.0, None)])
 def test_adopts_another_senders_limit_clamped(mps, kmh):
     assert speed_limit.adopted_kmh(mps) == kmh
-
-
-def test_first_lap_holds_the_default():
-    assert speed_limit.lap_refusal(5, lap1_done=False) == speed_limit.LAP1_RULE
-    assert speed_limit.lap_refusal(3, lap1_done=False) is None      # the default itself
-    assert speed_limit.lap_refusal(2, lap1_done=False) is None      # lowering is always allowed
-    assert speed_limit.lap_refusal(10, lap1_done=True) is None
-
-
-@pytest.mark.parametrize('event, done', [
-    ({'event': 'arrived', 'lap': 1, 'leg': 2, 'legs': 2}, True),
-    ({'event': 'arrived', 'lap': 1, 'leg': 1, 'legs': 2}, False),   # half a lap
-    ({'event': 'leg_set', 'lap': 1, 'leg': 2, 'legs': 2}, False),
-    ({'event': 'arrived', 'lap': 2, 'leg': 2, 'legs': 2}, False),
-    ({}, False)])
-def test_lap1_completion(event, done):
-    assert speed_limit.completes_lap1(event) is done
-
-
-def test_events_topic_matches_the_route_script():
-    from autosdv_lab3 import route
-    assert speed_limit.EVENTS_TOPIC == route.EVENTS_TOPIC

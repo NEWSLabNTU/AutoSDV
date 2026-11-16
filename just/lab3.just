@@ -21,7 +21,7 @@
 #                                              so the bag holds the board initialization
 #   just lab3 run car_b ~/lab3/team3_map       terminal 1: the full stack; the board sets the pose
 #   just lab3 route ~/lab3/team3_map --engage --laps 2                         terminal 3
-#   just lab3 speed 5                          raise the speed limit after lap 1 (default 3, at most 10)
+#   (overall speed limit: src/lab/autosdv_lab3/config/speed_limit.yaml, 3 km/h; edit to raise)
 #   just lab3 lanelet-speed MAP --corners 4    segment speeds (restart the stack to load them)
 #
 # Settings are on the command line; nothing here reads a config file. The design is
@@ -150,15 +150,6 @@ lanelet-speed MAP_DIR *ARGS:
     map=$1; shift
     source scripts/env.sh
     exec ros2 run autosdv_lab3 lab3_lanelet_speed "$map" "$@"
-
-#   just lab3 speed          print the speed limit in force
-#   just lab3 speed 5        raise it to 5 km/h (at most the lanelets' 10)
-# Week 2: the running stack's speed limit (3 km/h until changed here)
-[positional-arguments]
-speed *ARGS:
-    #!/usr/bin/env bash
-    source scripts/env.sh
-    exec ros2 run autosdv_lab3 lab3_speed "$@"
 
 #   just lab3 grade --map TEAM_MAP --run RUN_BAG --checkpoints CP_BAG --marks marks.yaml --sheet sheet.yaml
 #   just lab3 grade ... --fallback-map ~/lab3/ta_map_robin_w -o report.yaml

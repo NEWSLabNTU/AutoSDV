@@ -20,7 +20,7 @@ anywhere         just lab3 anchor BAG_glim/raw_map.pcd MAP --car car_b
 week 2, hall     just lab3 record --car car_b --team 3 --kind run --map MAP   terminal 2, FIRST
                  just lab3 run car_b MAP                     terminal 1
                  just lab3 route MAP --engage --laps 2
-                 just lab3 speed [KMH]                       the speed limit (3 km/h until raised)
+                 (config/speed_limit.yaml)                   the overall speed limit, 3 km/h; edit to raise
 TA               just lab3 grade --map MAP --run RUN_BAG --checkpoints CP_BAG \
                      --marks marks.yaml --sheet sheet.yaml [--fallback-map DIR]
 ```
@@ -28,25 +28,26 @@ TA               just lab3 grade --map MAP --run RUN_BAG --checkpoints CP_BAG \
 The run bag is started before the stack: the board pose that initializes it is not
 latched, so a bag that begins after INITIALIZED cannot show the board did it.
 
-**Speed.** The lanelets carry 10 km/h (`fixtures.SPEED_LIMIT_KMH`), an upper bound. The
-week-2 stack drives at 3 km/h until a team raises it: `lab3_speed_limit`
-(`lab3_run.launch.xml`, `max_speed_kmh:=`) publishes Autoware's default velocity limit on
-`/planning/scenario_planning/max_velocity_default`, once a second because the selector
-subscribes without durability, and `just lab3 speed KMH` changes its parameter, refused
-above 10. RViz's Set Velocity Limit writes the same topic (Autoware's external velocity limit; the AD API has none); the node adopts a value another sender publishes there, clamped to 10, so its repeat does not undo the slider. The run bag records the
-selected limit (`/planning/scenario_planning/max_velocity`). The `check-lanelet`
-simulator lap also runs at 3 km/h (`lab3_sim_lap --speed`); on the 98 m example loop it
-averaged 0.74 m/s, against 1.73 m/s at the lanelets' 10 km/h.
+**Speed.** Two limits, and Autoware drives at the lower on each lanelet. The lanelets'
+`speed_limit` tags are the segment limits: `check-lanelet` row "1 speed limits" fails a
+lanelet with no limit, or one not above 0 or above 10 km/h. The overall limit is
+`src/lab/autosdv_lab3/config/speed_limit.yaml` (`max_speed_kmh: 3.0` as shipped;
+`lab3_run.launch.xml speed_limit_config:=` for another file). `lab3_speed_limit` publishes
+it as Autoware's external velocity limit on `/planning/scenario_planning/max_velocity_default`,
+once a second because the selector subscribes without durability, and re-reads the file
+when it changes, so an edit applies within a second without a restart; a value above 10
+is refused and the previous one kept. RViz's Set Velocity Limit writes the same topic and
+is taken over (clamped to 10) until the file next changes. The run bag records the
+selected limit (`/planning/scenario_planning/max_velocity`) and `/lab3/run_meta` the
+segment limits loaded. The `check-lanelet` simulator lap runs at 3 km/h
+(`lab3_sim_lap --speed`); on the 98 m example loop it averaged 0.74 m/s, against
+1.73 m/s at the lanelets' 10 km/h.
 
-The first lap of every launch runs at 3 km/h: `lab3_speed_limit` refuses a raise (and
-holds an RViz value at 3) until `lab3_route` announces lap 1's last leg arrived on
-`/lab3/route_events`. Segment speeds are the lanelets' `speed_limit` tags:
-`check-lanelet` row "1 speed limits" requires one on every lanelet, above 0 and at most
-10, and `just lab3 lanelet-speed MAP [--corners K] [--straights K] [--lanelet ID=K]`
-edits them in place in week 2. `mapdir.folder_hash` hashes the lanelet file without its
-speed tags, so a retuned map still matches the handed-in one; any other edit does not.
-Autoware loads the map at launch, so a segment change needs a restart (and its first lap
-is again at 3 km/h).
+`just lab3 lanelet-speed MAP [--corners K] [--straights K] [--lanelet ID=K]` edits the
+segment tags in place, as an alternative to Vector Map Builder. `mapdir.folder_hash`
+hashes the lanelet file without its speed tags, so a retuned map still matches the
+handed-in one; any other edit does not. Autoware loads the map at launch, so a segment
+change needs a restart.
 
 ## Week-2 grading (`lab3_grade`)
 

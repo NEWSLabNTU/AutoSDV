@@ -1,0 +1,9 @@
+# Lab 3: the overall speed limit of the week-2 stack, in km/h (lab3_speed_limit).
+#
+# Start at 3. Raise it once the car laps reliably: edit this number and save; the stack
+# applies it within a second, no restart. At most 10 (the lanelets' maximum); a value
+# above 10 or not above 0 is refused and the previous limit kept.
+#
+# On each lanelet the car drives at no more than the lower of this limit and the
+# lanelet's own speed_limit (set in Vector Map Builder).
+max_speed_kmh: 3.0

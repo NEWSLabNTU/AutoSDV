@@ -58,11 +58,12 @@
     <arg name="rviz" value="$(var rviz)"/>
   </include>
 
-  <!-- the speed limit: 3 km/h until the team raises it (`just lab3 speed KMH`, at most the
-       lanelets' 10 km/h); latched on /planning/scenario_planning/max_velocity_default -->
-  <arg name="max_speed_kmh" default="3.0" description="the starting speed limit, km/h (at most 10)"/>
+  <!-- the overall speed limit, from a config file (3 km/h as shipped; at most 10): edit the
+       file and save, and lab3_speed_limit applies it within a second -->
+  <arg name="speed_limit_config" default="$(find-pkg-share autosdv_lab3)/config/speed_limit.yaml"
+       description="YAML with max_speed_kmh, re-read on change"/>
   <node pkg="autosdv_lab3" exec="lab3_speed_limit" name="lab3_speed_limit" output="log">
-    <param name="max_speed_kmh" value="$(var max_speed_kmh)"/>
+    <param name="config_file" value="$(var speed_limit_config)"/>
   </node>
 
   <!-- latched /lab3/run_meta: launch time and the hash of the map loaded, for grading -->
