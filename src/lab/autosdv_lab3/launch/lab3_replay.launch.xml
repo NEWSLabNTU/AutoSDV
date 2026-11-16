@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!--
+  Lab 3: replay a lap's recording at home against your map (Autoware's "rosbag replay"
+  logging simulation, with the Lab 3 settings).
+
+      ros2 launch autosdv_lab3 lab3_replay.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+
+  then, in a second terminal, ros2 bag play on the bag with the clock option and the topics
+  in config/record/replay_topics.txt (docs/guides/lab3.md has the exact command).
+
+  lab3_run.launch.xml with replay:=true: the same NDT, map and planning settings as on the
+  car, but no sensor drivers and no vehicle interface (nothing drives), and the whole
+  stack on the bag's /clock. The sensing chain runs as on the car (LiDAR preprocessing,
+  the IMU corrector, the wheel-speed converter, the sensor kit's TF for vehicle_id), so
+  the bag plays only the raw inputs in config/record/replay_topics.txt. Start the play,
+  then 2D Pose Estimate in RViz where the car stood when the recording began, and watch
+  NDT follow the drive.
+-->
+<launch>
+  <arg name="vehicle_id"
+       description="REQUIRED: the car that recorded the bag, car_b or car_c (its calibration)"/>
+  <arg name="map_path" description="REQUIRED: the team's map folder"/>
+  <arg name="rviz" default="true"/>
+
+  <include file="$(find-pkg-share autosdv_lab3)/launch/lab3_run.launch.xml">
+    <arg name="vehicle_id" value="$(var vehicle_id)"/>
+    <arg name="map_path" value="$(var map_path)"/>
+    <arg name="replay" value="true"/>
+    <arg name="is_simulation" value="true"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="rviz" value="$(var rviz)"/>
+  </include>
+</launch>

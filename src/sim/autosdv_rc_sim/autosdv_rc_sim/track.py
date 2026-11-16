@@ -280,6 +280,11 @@ def load_track(directory) -> TrackProfile:
 
 
 def track_poses(directory) -> dict:
+    """The start and goal poses from track.yaml. A map folder without one (any Autoware
+    map, e.g. a Lab 3 team's) starts the car at the origin facing +x, with no goal: the
+    route is the user's (RViz's 2D Pose Estimate moves the car, then 2D Goal Pose)."""
+    if not (Path(directory) / 'track.yaml').is_file():
+        return {'start_pose': {'x': 0.0, 'y': 0.0, 'yaw': 0.0}, 'goal_pose': None}
     d = _read(directory)
     return {'start_pose': d['start_pose'], 'goal_pose': d['goal_pose']}
 

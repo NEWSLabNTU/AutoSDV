@@ -94,3 +94,9 @@ def test_the_committed_default_track_is_current(tmp_path):
     committed = default_track_dir()
     for name in ('lanelet2_map.osm', 'pointcloud_map.pcd', 'map_projector_info.yaml', 'track.yaml'):
         assert filecmp.cmp(tmp_path / name, committed / name, shallow=False), name
+
+
+def test_a_map_folder_without_track_yaml_starts_at_the_origin(tmp_path):
+    from autosdv_rc_sim.track import track_poses
+    assert track_poses(tmp_path) == {'start_pose': {'x': 0.0, 'y': 0.0, 'yaw': 0.0},
+                                     'goal_pose': None}
