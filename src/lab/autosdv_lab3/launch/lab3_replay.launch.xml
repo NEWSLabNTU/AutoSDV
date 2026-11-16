@@ -22,6 +22,8 @@
   <arg name="map_path" description="REQUIRED: the team's map folder"/>
   <arg name="rviz" default="true"/>
 
+  <!-- RViz once, not respawned: without a display (ssh) a respawning RViz crash-loops -->
+  <let name="rviz_respawn" value="false"/>
   <include file="$(find-pkg-share autosdv_lab3)/launch/lab3_run.launch.xml">
     <arg name="vehicle_id" value="$(var vehicle_id)"/>
     <arg name="map_path" value="$(var map_path)"/>

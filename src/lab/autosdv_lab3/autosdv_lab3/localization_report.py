@@ -3,7 +3,9 @@
 For a recording of a replay (Part 1: the team's own mapping bag played back against the
 team's map) or of any run. BAG must hold the localization output and what the scan-to-map
 measure needs, which config/record/localization_topics.txt lists: the pose estimate,
-NDT's NVTL, the LiDAR, /tf_static and the map.
+NDT's NVTL, NDT's input cloud (/localization/util/downsample/pointcloud: the scan NDT
+matched, deskewed and downsampled, so a replay recording stays small), /tf_static and the
+map. A raw LiDAR topic is used when the input cloud was not recorded.
 
 Over the time NDT was publishing (first to last NVTL message) it reports:
 

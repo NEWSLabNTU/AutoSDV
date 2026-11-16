@@ -65,6 +65,7 @@ END_BEHIND = 2.0         # m: a lap reaches at least this close behind the start
 OFF_LANE_TOL = 0.15      # m: a pose this close outside a lanelet still counts as on it
 REPORT = 'grade.yaml'
 VELOCITY = '/vehicle/status/velocity_status'
+NDT_INPUT = '/localization/util/downsample/pointcloud'
 
 # ---- localization and speed measures (the rubric's thresholds are set after the TA dry run) ----
 NVTL_GATE = 1.3          # the Lab 3 indoor NDT gate (ndt_indoor_robin_w.param.yaml)
@@ -102,8 +103,10 @@ def read_run(path: str) -> Run:
              if t in topics}
     reader.set_filter(rosbag2_py.StorageFilter(topics=list(types)))
     r = Run()
-    r.lidar_topic = next((t for t in ('/sensing/lidar/iv_points', '/sensing/lidar/velodyne_points')
-                          if t in topics), None)
+    # NDT's own input (deskewed, cropped, downsampled, in base_link) when recorded: the scan
+    # NDT matched, and small; else the raw LiDAR
+    r.lidar_topic = next((t for t in (NDT_INPUT, '/sensing/lidar/iv_points',
+                                      '/sensing/lidar/velodyne_points') if t in topics), None)
     odom, nvtl, speed, first = [], [], [], None
     while reader.has_next():
         topic, raw, stamp = reader.read_next()

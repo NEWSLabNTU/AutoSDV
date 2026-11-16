@@ -21,3 +21,4 @@
 /planning/scenario_planning/max_velocity
 /api/planning/steering_factors
 /map/pointcloud_map
+/localization/util/downsample/pointcloud
