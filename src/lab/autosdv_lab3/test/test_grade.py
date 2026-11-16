@@ -44,20 +44,22 @@ def test_full_lap_ending_behind_the_start_is_accepted():
     assert rep['travel_distance_m'] == pytest.approx(lp.length - 0.6, abs=0.15)
     assert rep['travel_time_s'] == pytest.approx((lp.length - 0.6) / 0.8, abs=0.5)
     assert rep['segments_missed'] == []
+    assert rep['end_gap_m'] == pytest.approx(0.6, abs=0.1)
 
 
 def test_stopping_too_far_behind_fails():
     lp = loop()
     rep = grade.grade_run(drive(2.0, 2.0 + lp.length - 2.6, lp))
     assert not rep['ok'] and not rep['checks']['one lap']
-    assert 'm behind the start' in ' '.join(rep['reasons'])
+    assert 'not complete' in ' '.join(rep['reasons'])
 
 
-def test_stopping_past_the_start_fails():
+def test_overshooting_the_start_is_accepted_and_counted():
     lp = loop()
     rep = grade.grade_run(drive(2.0, 2.0 + lp.length + 0.4, lp))
-    assert not rep['checks']['one lap']
-    assert 'past the start' in ' '.join(rep['reasons'])
+    assert rep['ok'], rep['reasons']
+    assert rep['end_gap_m'] == pytest.approx(0.4, abs=0.1)
+    assert rep['distance_plus_gap_m'] == pytest.approx(rep['travel_distance_m'] + rep['end_gap_m'])
 
 
 def test_a_short_drive_misses_segments():

@@ -26,8 +26,10 @@ first moves under autonomous control, and the lap ends where it last comes to re
 | travel time | first autonomous motion to the final stop |
 | travel distance | the path's length over that window |
 | every segment | each lanelet of the loop holds at least one pose of the path |
-| the end | at most END_BEHIND m behind the start along the loop, and not ahead of it |
-| one lap | progress round the loop (unwrapped arc length) within END_BEHIND of a lap |
+| end gap | the straight-line distance from the start to where the car came to rest; an |
+|  | overshoot past the start is fine. Added to the travel distance for scoring |
+| one lap | progress round the loop (unwrapped arc length) reaches at least END_BEHIND short |
+|  | of a full lap: the car came round to the start (or past it) |
 | autonomous | the distance driven in any other operation mode (a transmitter takeover |
 |  | leaves no trace in the bag: the TA notes it) |
 
@@ -58,7 +60,7 @@ NVTL = '/localization/pose_estimator/nearest_voxel_transformation_likelihood'
 AUTONOMOUS = 2           # autoware_adapi_v1_msgs/OperationModeState.AUTONOMOUS
 MOVING = 0.05            # m/s: faster than this the car is moving
 REST_S = 1.0             # s below MOVING that count as having stopped
-END_BEHIND = 2.0         # m: the lap ends at most this far behind the start (the car stops ~0.3 m short of a goal set ~0.7 m behind)
+END_BEHIND = 2.0         # m: a lap reaches at least this close behind the start; an overshoot is fine
 OFF_LANE_TOL = 0.15      # m: a pose this close outside a lanelet still counts as on it
 REPORT = 'grade.yaml'
 
@@ -202,7 +204,10 @@ def grade_run(r: Run) -> dict:
 
     prog = progress(loop, xy)
     behind = loop.length - prog[-1]          # > 0: short of a full lap, i.e. behind
-    rep['end_behind_start_m'] = round(float(behind), 2)
+    rep['end_behind_start_m'] = round(float(behind), 2)   # < 0: past the start
+    gap = float(np.hypot(*(xy[-1] - xy[0])))
+    rep['end_gap_m'] = round(gap, 2)
+    rep['distance_plus_gap_m'] = round(rep['travel_distance_m'] + gap, 2)
     rep['laps'] = round(float(prog[-1] / loop.length), 3)
 
     seen = {lanelet_of(loop, x, y) for x, y in xy}
@@ -220,10 +225,9 @@ def grade_run(r: Run) -> dict:
 
     checks = {
         'every segment': (not missed, f'lanelets {missed} not driven'),
-        'one lap': (0.0 <= behind <= END_BEHIND,
-                    f'the car stopped {behind:.2f} m behind the start (at most {END_BEHIND:g})'
-                    if behind > 0 else
-                    f'the car stopped {-behind:.2f} m past the start (it must stop behind it)'),
+        'one lap': (behind <= END_BEHIND,
+                    f'the car stopped {behind:.2f} m behind the start: the lap is not complete '
+                    f'(it must come within {END_BEHIND:g} m of the start, or pass it)'),
         'autonomous': (rep['distance_not_autonomous_m'] < 0.1,
                        f'{rep["distance_not_autonomous_m"]:.2f} m driven outside autonomous mode'),
     }
@@ -235,7 +239,8 @@ def grade_run(r: Run) -> dict:
 
 def print_report(rep: dict, bag: str):
     print(f'\nLab 3 lap: {bag}')
-    for key in ('loop_length_m', 'travel_time_s', 'travel_distance_m', 'end_behind_start_m',
+    for key in ('loop_length_m', 'travel_time_s', 'travel_distance_m', 'end_gap_m',
+                'distance_plus_gap_m', 'end_behind_start_m',
                 'laps', 'segments_visited', 'distance_not_autonomous_m', 'nvtl_min'):
         if key in rep:
             print(f'  {key:28s} {rep[key]}')
