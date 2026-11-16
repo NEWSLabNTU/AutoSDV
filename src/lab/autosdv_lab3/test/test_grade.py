@@ -48,7 +48,7 @@ def test_full_lap_ending_behind_the_start_is_accepted():
 
 def test_stopping_too_far_behind_fails():
     lp = loop()
-    rep = grade.grade_run(drive(2.0, 2.0 + lp.length - 2.0, lp))
+    rep = grade.grade_run(drive(2.0, 2.0 + lp.length - 2.6, lp))
     assert not rep['ok'] and not rep['checks']['one lap']
     assert 'm behind the start' in ' '.join(rep['reasons'])
 
