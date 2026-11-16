@@ -51,6 +51,14 @@ mkdir -p "$vnc_data/applications"
 # Terminals are D-Bus activated, so they inherit the session's environment, not
 # the shell's; a GL viewer started from one wants `vglrun` explicitly.
 vgl_display="${AUTOSDV_VGL_DISPLAY:-egl}"
+# Applications launched by the shell (a terminal from the dock or Ctrl+Alt+T) inherit
+# its LD_PRELOAD all the same (measured on car B, 2026-11-16: libdlfaker.so:libvglfaker.so
+# in every terminal), but not the -d of vglrun, so the faker fell back to :0, which the
+# car does not have, and a plain `rviz2` died with "[VGL] ERROR: Could not open display
+# :0". Exporting the back end for the whole session makes such an rviz2 render through
+# VirtualGL on the GPU, as the shell does. A launch that opens the ZED still unsets
+# LD_PRELOAD and DISPLAY first.
+export VGL_DISPLAY="$vgl_display"
 sed "s|^Exec=/usr/bin/gnome-shell\$|Exec=/usr/bin/vglrun -d $vgl_display /usr/bin/gnome-shell --x11|" \
     /usr/share/applications/org.gnome.Shell.desktop \
     > "$vnc_data/applications/org.gnome.Shell.desktop"
