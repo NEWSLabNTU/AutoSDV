@@ -46,7 +46,7 @@ SPEED_LIMIT_KMH = 10.0                # the lanelet speed limit a team sets in V
 
 # the start mark, where the mapping recording began and so GLIM's origin: on the
 # first lanelet's centreline, this far past its start
-ORIGIN_INTO = 0.2
+ORIGIN_INTO = 0.5
 
 VARIANTS = {
     'good': dict(),

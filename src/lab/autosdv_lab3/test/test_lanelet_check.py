@@ -25,13 +25,12 @@ def maps(tmp_path_factory):
     return {v: make_map(base, v) for v in fixtures.VARIANTS}
 
 
-def test_exactly_three_requirements(maps):
-    assert list(rows(maps['good'])) == ['loop', 'clockwise', 'speed limits']
+def test_exactly_four_requirements(maps):
+    assert list(rows(maps['good'])) == ['loop', 'clockwise', 'speed limits', 'start boundary']
 
 
-@pytest.mark.parametrize('variant', ['good', 'far'])
-def test_good_passes_every_check(maps, variant):
-    r = rows(maps[variant])
+def test_good_passes_every_check(maps):
+    r = rows(maps['good'])
     assert all(x.ok for x in r.values()), lanelet_check.table(list(r.values()))
 
 
@@ -40,7 +39,9 @@ def test_each_variant_fails_its_requirement_only(maps, variant, failing):
     r = rows(maps[variant])
     assert r[failing].ok is False, lanelet_check.table(list(r.values()))
     assert r[failing].reason
-    others = [x for k, x in r.items() if k != failing]
+    # reversing the loop moves the origin relative to the boundaries, so the start
+    # boundary of the counter-clockwise variant is not this test's concern
+    others = [x for k, x in r.items() if k != failing and k != 'start boundary']
     # after a broken chain the direction cannot be measured (None), but nothing else fails
     assert all(x.ok in (True, None) for x in others), lanelet_check.table(list(r.values()))
 
@@ -75,10 +76,21 @@ def test_main_records_and_exits(maps):
     assert mapdir.load_meta(maps['ccw'])['lanelet_check']['passed'] is False
 
 
-def test_hint_never_fails_the_check(maps, capsys):
-    assert lanelet_check.main([maps['far'], '--no-sim']) == 0
-    out = capsys.readouterr().out
-    assert 'NOT within 1.5 m' in out and "the start's own" in out
+def test_start_boundary_too_far_fails(maps, capsys):
+    r = rows(maps['far'])
+    assert r['start boundary'].ok is False and '2.00 m behind' in r['start boundary'].value
+    assert all(x.ok for k, x in r.items() if k != 'start boundary')
+    assert lanelet_check.main([maps['far'], '--no-sim']) == 1
+    assert "the start's own" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize('into, ok', [(0.2, False), (0.5, True), (0.75, True), (1.0, False)])
+def test_start_boundary_window(into, ok):
+    from autosdv_lab3.route import lanelets_from_text, loop_from_lanelets
+    loop = loop_from_lanelets(lanelets_from_text(fixtures.lanelet_osm()))
+    first = loop.order[0]
+    x, y, _ = loop.pose_at(loop.starts[first] + into)
+    assert lanelet_check.boundary_check(loop, (x, y)).ok is ok
 
 
 def test_start_hint_numbers(maps):
@@ -123,7 +135,7 @@ def test_single_goal_route(maps):
     assert _forward(loop, s0, route.legs[0].s_goal) == pytest.approx(loop.length - 0.7, abs=1e-6)
     assert abs(route.start[0]) < 0.02 and abs(route.start[1]) < 0.02
     with pytest.raises(MapError, match="start's own lanelet"):
-        single_goal_route(loop, s0 + 2.0, 0.7)
+        single_goal_route(loop, s0 + 1.0, 0.7)
 
 
 @pytest.mark.parametrize('variant', ['good', 'ccw'])

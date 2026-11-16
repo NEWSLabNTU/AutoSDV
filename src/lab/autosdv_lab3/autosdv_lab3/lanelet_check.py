@@ -2,19 +2,22 @@
 
     lab3_check_lanelet MAP_DIR [--no-sim] [--goal-behind 1.0] [--timeout S] [--keep-log]
 
-Three requirements, each PASS or FAIL:
+Four requirements, each PASS or FAIL:
 
   loop          the road lanelets form one closed chain by successor relations
                 (the next lanelet starts on the same two nodes the previous ends on)
   clockwise     the loop's centreline, seen from above (z up), has negative signed area
   speed limits  every lanelet has speed_limit set, above 0 and at most 10 km/h
+  start boundary  a lanelet boundary BOUNDARY_MIN..BOUNDARY_MAX m behind the map origin
+                (the start mark: the mapping recording began there), along the loop
 
-then a hint that never fails the check: the map origin is where the mapping recording
-began, roughly the start mark, so it says how far behind the origin the nearest
-lanelet boundary lies along the loop. The run's single goal, about 1.0 m behind the
-start, must fall in the lanelet BEFORE the start's (autosdv_launch
-config/planning_rc/README.md), so a boundary just behind the start mark is what makes
-the one-goal lap possible.
+The run's single goal, about 1.0 m behind the start, must fall in the lanelet BEFORE the
+start's: with goal and start in one lanelet Autoware routes the 1 m behind the car, and
+with the boundary too close behind the car the planner's look-behind finds the goal and
+cuts the path there (the TA simulation: 0.14 and 0.25 m past did not move, 0.62 m did).
+So the boundary goes about 0.5 m behind the start mark and the goal about 1.0 m behind
+it, about 0.5 m into the previous lanelet. A hint below the table says where the boundary
+and the goal fall.
 
 Unless --no-sim, a lap in the planning simulator follows (lab3_sim_lap): the car
 starts at the origin projected onto the loop and drives to one goal --goal-behind m
@@ -38,6 +41,7 @@ HINT_WITHIN = 1.5     # m: a boundary this close behind the origin counts as "ju
 # 0.5 m past it drove; 0.2 m before it did not move)
 GOAL_CLEAR = 0.5
 ORIGIN_OFF_LOOP = 1.0  # m from the centreline: the recording did not start on the loop
+BOUNDARY_MIN, BOUNDARY_MAX = 0.4, 0.8   # m behind the origin: the start boundary
 
 
 @dataclass
@@ -90,7 +94,23 @@ def checks(map_dir: str):
     res.append(Result('speed limits', ok, value,
                       reason + ('; set each lanelet\'s speed limit in Vector Map Builder'
                                 if reason else '')))
+    res.append(boundary_check(loop))
     return res, loop
+
+
+def boundary_check(loop: Optional[Loop], origin=(0.0, 0.0)) -> Result:
+    """The start boundary: a lanelet boundary BOUNDARY_MIN..BOUNDARY_MAX m behind the origin."""
+    if loop is None:
+        return Result('start boundary', None, '', 'needs the closed loop')
+    h = start_hint(loop, origin)
+    if h.off_loop > ORIGIN_OFF_LOOP:
+        return Result('start boundary', False, f'origin {h.off_loop:.1f} m off the loop',
+                      'the map origin is the start mark: the mapping recording must start with '
+                      'the car on the start mark, on the loop')
+    ok = BOUNDARY_MIN <= h.behind <= BOUNDARY_MAX
+    return Result('start boundary', ok, f'{h.behind:.2f} m behind the origin',
+                  '' if ok else f'split the lanelet so that one begins about 0.5 m behind the '
+                  f'start mark (the map origin), {BOUNDARY_MIN:g}-{BOUNDARY_MAX:g} m')
 
 
 def static_checks(map_dir: str) -> List[Result]:
