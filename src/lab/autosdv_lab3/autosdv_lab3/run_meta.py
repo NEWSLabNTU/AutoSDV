@@ -3,7 +3,8 @@
 Publishes one latched /lab3/run_meta (std_msgs/String, JSON) at launch:
 
     {"lab": "lab3", "kind": "stack", "launch_time": <ROS time, s>, "map_dir": ...,
-     "map_hash": ..., "vehicle_id": ..., "autosdv": <git rev>}
+     "map_hash": ..., "speed_limits": {lanelet id: km/h}, "vehicle_id": ...,
+     "autosdv": <git rev>}
 
 Transient local, so a recorder started later still receives it. The grader reads
 launch_time for the board-initialization time limit and map_hash for which map the
@@ -19,9 +20,20 @@ from autosdv_lab3 import mapdir
 TOPIC = '/lab3/run_meta'
 
 
+def speed_limits(map_dir: str) -> dict:
+    """{lanelet id: speed_limit tag} of the loaded lanelet file; {} when it is unreadable."""
+    from autosdv_lab3.route import MapError, read_lanelets
+    try:
+        lanelets = read_lanelets(os.path.join(map_dir, mapdir.LANELET))
+    except MapError:
+        return {}
+    return {str(lid): ll.tags.get('speed_limit') for lid, ll in sorted(lanelets.items())}
+
+
 def build(map_dir: str, vehicle_id: str, launch_time: float) -> dict:
     return {'lab': 'lab3', 'kind': 'stack', 'launch_time': launch_time,
             'map_dir': os.path.abspath(map_dir), 'map_hash': mapdir.folder_hash(map_dir),
+            'speed_limits': speed_limits(map_dir),
             'vehicle_id': vehicle_id, 'autosdv': mapdir.git_rev()}
 
 
