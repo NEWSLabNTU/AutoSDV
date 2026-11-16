@@ -53,11 +53,12 @@ ros2 run autosdv_lab3 lab3_check_bag ~/lab3/bags/rosbag2_2026_11_20-10_15_00
 
 ### Week 1: the map (anywhere with GLIM; stop the mapping launch first)
 
-GLIM, headless, with the ready config for the car that recorded the bag (`car_b`, `car_c`;
-`car_b_cpu`, `car_c_cpu` on a computer without an NVIDIA GPU):
+GLIM, headless, with the ready config of the Lab 3 cars (`robin_w_ready`, one for cars B
+and C, which carry the same sensor set; `robin_w_ready_cpu` on a computer without an
+NVIDIA GPU):
 
 ```bash
-ros2 run glim_ros glim_rosbag ~/lab3/bags/rosbag2_2026_11_20-10_15_00 --ros-args -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/car_b -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
+ros2 run glim_ros glim_rosbag ~/lab3/bags/rosbag2_2026_11_20-10_15_00 --ros-args -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/robin_w_ready -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
 ```
 
 It plays the bag (about 1.4x real time on a workstation GPU), optimizes, writes the dump
@@ -273,7 +274,7 @@ just behind the start mark leaves the most room for the goal.
 
 Headless on a workstation (RTX GPU), ROS_DOMAIN_ID 87, 2026-11-16/17:
 
-- **GLIM**: the exact `glim_rosbag` command with `config/glim/car_b` (log_dir pointed into
+- **GLIM**: the exact `glim_rosbag` command with `config/glim/robin_w_ready` (log_dir pointed into
   the repository's tmp, the only change) on the TA simulation's 196 s Robin-W mapping bag:
   exit 0 in 155 s, 11 submaps dumped. The first IMU pose is (-0.005, -0.007, -0.006) with
   yaw 180 deg: the origin and axes stated above.

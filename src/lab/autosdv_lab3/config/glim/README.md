@@ -2,11 +2,11 @@
 
 ## Ready directories, for GLIM's own commands
 
-`car_b/`, `car_c/` (GLIM's GPU modules) and `car_b_cpu/`, `car_c_cpu/` (its CPU modules)
+`robin_w_ready/` (GLIM's GPU modules) and `robin_w_ready_cpu/` (its CPU modules), one config for cars B and C, which carry the same sensor set on the same mount,
 are complete config directories for
 
     ros2 run glim_ros glim_rosbag BAG --ros-args \
-        -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/car_b \
+        -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/robin_w_ready \
         -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
 
 and GLIM's offline_viewer reads the copy glim_rosbag saves into the dump. Each is what

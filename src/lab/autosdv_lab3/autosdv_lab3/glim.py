@@ -405,8 +405,10 @@ def generate_config(out_dir: str, family: str, lidar_topic: str, imu_topic: str,
 
 # The ready config directories under config/glim/ for the students' own
 # `ros2 run glim_ros glim_rosbag BAG --ros-args -p config_path:=...`: what generate_config
-# writes for that car's topics and LiDAR -> IMU transform, with GLIM's GPU modules
-# (car_b/) or its CPU ones (car_b_cpu/).
+# writes for the Lab 3 cars' topics and LiDAR -> IMU transform, with GLIM's GPU modules
+# (robin_w_ready/) or its CPU ones (robin_w_ready_cpu/). Cars B and C carry the same
+# sensor set on the same mount, so one config serves both; it is chained from car B's
+# calibration, which car C's equals.
 #
 # T_lidar_imu is the IMU pose in the robin_w frame, chained the way the car's TF tree
 # chains it: robin_w and zedxm_camera_link from the car's individual_params
@@ -418,15 +420,13 @@ def generate_config(out_dir: str, family: str, lidar_topic: str, imu_topic: str,
 #
 # THE LIDAR ORIGIN IS A PLACEHOLDER: robin_w sits at sensor_kit_base_link (0, 0, 0) in
 # the calibration files; only its rotation (the Robin-W's x up, y right, z forward axes)
-# is right. When the mount is measured, edit robin_w's x/y/z in that car's
-# sensor_kit_calibration.yaml -- the one edit -- and regenerate (test_glim.py fails until
-# then):
+# is right. When the mount is measured, edit robin_w's x/y/z in the cars'
+# sensor_kit_calibration.yaml (car_b and car_c alike) and regenerate (test_glim.py fails
+# until then):
 #   python3 -c "from autosdv_lab3 import glim; glim.write_ready_configs('config/glim')"
 READY = {
-    'car_b': dict(car='car_b', cpu=False),
-    'car_b_cpu': dict(car='car_b', cpu=True),
-    'car_c': dict(car='car_c', cpu=False),
-    'car_c_cpu': dict(car='car_c', cpu=True),
+    'robin_w_ready': dict(car='car_b', cpu=False),
+    'robin_w_ready_cpu': dict(car='car_b', cpu=True),
 }
 READY_TOPICS = ('/sensing/lidar/iv_points', '/sensing/camera/zedxm/imu/data')
 READY_LOG_DIR = '/tmp'   # GLIM's own default; a JSON file cannot name the user's home

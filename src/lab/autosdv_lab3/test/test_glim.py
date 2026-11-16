@@ -414,3 +414,13 @@ def test_ready_t_lidar_imu_follows_the_car_calibration():
             shipped = json.load(f)['sensors']['T_lidar_imu']
         assert np.allclose(glim.make_T(shipped[:3], shipped[3:]),
                            glim.car_T_lidar_imu(spec['car']), atol=1e-6), name
+
+
+def test_cars_b_and_c_have_the_same_sensor_mounts():
+    # one ready GLIM config serves both cars: their sensor kits must agree
+    import yaml
+    if not os.path.isfile(glim.calibration_file('car_b')):
+        pytest.skip('individual_params not available')
+    kit = {c: yaml.safe_load(open(glim.calibration_file(c)))['sensor_kit_base_link']
+           for c in ('car_b', 'car_c')}
+    assert kit['car_b'] == kit['car_c']
