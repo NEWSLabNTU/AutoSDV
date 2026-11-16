@@ -39,7 +39,7 @@ WALL_DESKS = [(0.3, 0.9, -5.0, -3.0), (0.3, 0.9, 3.0, 5.0), (7.1, 7.7, -1.0, 1.0
 DESK_HEIGHT = 0.75
 LOOP_CENTRE = (4.0, 0.0)
 LOOP_HALF = (2.0, 4.0)                # half extents in x and y of the centreline
-SPEED_LIMIT_KMH = 5.0                 # what a student sets in VMB for the RC car
+SPEED_LIMIT_KMH = 10.0                # the lanelet speed limit a team sets in VMB (the upper bound)
 
 VARIANTS = {
     'good': dict(),

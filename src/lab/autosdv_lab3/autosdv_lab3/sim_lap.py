@@ -34,7 +34,7 @@ from typing import Optional
 
 import yaml
 
-from autosdv_lab3 import mapdir
+from autosdv_lab3 import mapdir, speed_limit
 from autosdv_lab3.route import AdApi, MapError, load_loop, loop_route
 
 WEB_ADDR = '127.0.0.1:8095'
@@ -99,7 +99,8 @@ def stop_group(proc: subprocess.Popen) -> None:
 
 
 def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = False,
-            web_addr: str = WEB_ADDR, log=print, start=None) -> LapResult:
+            web_addr: str = WEB_ADDR, log=print, start=None,
+            speed_kmh: float = speed_limit.DEFAULT_KMH) -> LapResult:
     t_wall = time.monotonic()
     try:
         loop = load_loop(map_dir)
@@ -120,7 +121,7 @@ def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = Fals
         stack = subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT,
                                  start_new_session=True)   # its own process group
     try:
-        res = _drive(loop, route, stack, lap_timeout, log)
+        res = _drive(loop, route, stack, lap_timeout, log, speed_kmh)
     except Exception as e:   # noqa: BLE001 - reported as the lap's failure, the stack still stops
         res = LapResult(False, 'error', f'{type(e).__name__}: {e}')
     finally:
@@ -133,7 +134,7 @@ def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = Fals
     return res
 
 
-def _drive(loop, route, stack, lap_timeout, log) -> LapResult:
+def _drive(loop, route, stack, lap_timeout, log, speed_kmh=speed_limit.DEFAULT_KMH) -> LapResult:
     import rclpy
     t0 = time.monotonic()
     step = lambda what: log(f'  {time.monotonic() - t0:6.1f} s  {what}')  # noqa: E731
@@ -141,6 +142,13 @@ def _drive(loop, route, stack, lap_timeout, log) -> LapResult:
     rclpy.init()
     node = Node('lab3_sim_lap')
     api = AdApi(node)
+    # the lap runs at the stack's default speed limit, as the car does until a team raises it
+    from autoware_internal_planning_msgs.msg import VelocityLimit
+    from rclpy.qos import DurabilityPolicy as _Dur, QoSProfile as _QoS
+    limit_pub = node.create_publisher(VelocityLimit, speed_limit.TOPIC,
+                                      _QoS(depth=1, durability=_Dur.TRANSIENT_LOCAL))
+    node.create_timer(speed_limit.REPEAT_S,   # repeated: the selector may start after us
+                      lambda: limit_pub.publish(speed_limit.velocity_limit(speed_kmh)))
     from autoware_planning_msgs.msg import Trajectory
     traj = {}
     node.create_subscription(Trajectory, '/planning/scenario_planning/trajectory',
@@ -273,11 +281,14 @@ def main(argv=None) -> int:
     ap.add_argument('--timeout', type=float, default=None,
                     help=f'wall s from engage to arrival (default {LAP_MARGIN:g} + length / {LAP_SPEED:g} m/s)')
     ap.add_argument('--keep-log', action='store_true', help='keep the run directory after a pass')
+    ap.add_argument('--speed', type=float, default=speed_limit.DEFAULT_KMH,
+                    help=f'speed limit for the lap, km/h (default {speed_limit.DEFAULT_KMH:g})')
     ap.add_argument('--web-addr', default=WEB_ADDR, help="play_launch's web UI address")
     args = ap.parse_args(argv)
     if os.environ.get('ROS_DOMAIN_ID', '0') == '0':
         print('note: ROS_DOMAIN_ID is 0; set another when other ROS work shares the host', file=sys.stderr)
-    res = run_lap(args.map_dir, args.timeout, args.keep_log, args.web_addr)
+    res = run_lap(args.map_dir, args.timeout, args.keep_log, args.web_addr,
+                  speed_kmh=args.speed)
     print(f"{'PASS' if res.ok else 'FAIL'}  {res.reason}: {res.value} "
           f"(wall {res.wall_s:.0f} s{', log ' + res.run_dir if res.run_dir else ''})")
     return 0 if res.ok else 1

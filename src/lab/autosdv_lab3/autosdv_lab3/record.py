@@ -44,6 +44,7 @@ RUN_EXTRA = [
     '/lab3/run_meta',                     # launch time and map hash (lab3_run_meta)
     '/lab3/route_events',                 # the legs lab3_route set
     '/api/planning/velocity_factors',     # why planning slows or holds the car
+    '/planning/scenario_planning/max_velocity',   # the speed limit in force (lab3_speed_limit, RViz)
     '/api/planning/steering_factors',
 ]
 

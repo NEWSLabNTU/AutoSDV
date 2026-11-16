@@ -58,6 +58,13 @@
     <arg name="rviz" value="$(var rviz)"/>
   </include>
 
+  <!-- the speed limit: 3 km/h until the team raises it (`just lab3 speed KMH`, at most the
+       lanelets' 10 km/h); latched on /planning/scenario_planning/max_velocity_default -->
+  <arg name="max_speed_kmh" default="3.0" description="the starting speed limit, km/h (at most 10)"/>
+  <node pkg="autosdv_lab3" exec="lab3_speed_limit" name="lab3_speed_limit" output="log">
+    <param name="max_speed_kmh" value="$(var max_speed_kmh)"/>
+  </node>
+
   <!-- latched /lab3/run_meta: launch time and the hash of the map loaded, for grading -->
   <node pkg="autosdv_lab3" exec="lab3_run_meta" name="lab3_run_meta" output="log">
     <param name="map_path" value="$(var map_path)"/>

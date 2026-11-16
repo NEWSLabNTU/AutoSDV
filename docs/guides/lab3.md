@@ -20,12 +20,23 @@ anywhere         just lab3 anchor BAG_glim/raw_map.pcd MAP --car car_b
 week 2, hall     just lab3 record --car car_b --team 3 --kind run --map MAP   terminal 2, FIRST
                  just lab3 run car_b MAP                     terminal 1
                  just lab3 route MAP --engage --laps 2
+                 just lab3 speed [KMH]                       the speed limit (3 km/h until raised)
 TA               just lab3 grade --map MAP --run RUN_BAG --checkpoints CP_BAG \
                      --marks marks.yaml --sheet sheet.yaml [--fallback-map DIR]
 ```
 
 The run bag is started before the stack: the board pose that initializes it is not
 latched, so a bag that begins after INITIALIZED cannot show the board did it.
+
+**Speed.** The lanelets carry 10 km/h (`fixtures.SPEED_LIMIT_KMH`), an upper bound. The
+week-2 stack drives at 3 km/h until a team raises it: `lab3_speed_limit`
+(`lab3_run.launch.xml`, `max_speed_kmh:=`) publishes Autoware's default velocity limit on
+`/planning/scenario_planning/max_velocity_default`, once a second because the selector
+subscribes without durability, and `just lab3 speed KMH` changes its parameter, refused
+above 10. RViz's Set Velocity Limit writes the same topic. The run bag records the
+selected limit (`/planning/scenario_planning/max_velocity`). The `check-lanelet`
+simulator lap also runs at 3 km/h (`lab3_sim_lap --speed`); on the 98 m example loop it
+averaged 0.74 m/s, against 1.73 m/s at the lanelets' 10 km/h.
 
 ## Week-2 grading (`lab3_grade`)
 
