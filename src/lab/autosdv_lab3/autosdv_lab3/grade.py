@@ -1,205 +1,95 @@
-"""`just lab3 grade`: the week-2 field marks from the team's bags, on fixed lines.
+"""Lab 3 week 2: grade one autonomous lap from its bag alone.
 
-    lab3_grade --map TEAM_MAP --run RUN_BAG [--checkpoints CP_BAG --marks MARKS]
-               [--sheet SHEET] [--fallback-map DIR ...] [-o REPORT]
+    lab3_grader --team N [--out-dir ~/lab3/bags]   record a dated bag; Ctrl-C grades it
+    lab3_grade BAG [-o REPORT]                     grade a recorded bag again
 
-No TA reference run: every line below is a fixed number, and the checkpoint marks
-are measured once from the board, whose frame every map shares.
+The team launches the stack and drives the lap the standard Autoware way (initial
+pose, goal, Auto in RViz). The grader runs beside it: started after the launch, it
+records the run topics into ~/lab3/bags/team<N>_run_<date>_<time>; Ctrl-C after the
+lap stops the recording and grades the bag. Grading reads nothing but the bag, so
+`lab3_grade BAG` on another machine gives the same result.
 
-| Item | Marks | Read from |
-|---|---|---|
-| Board initialization | 5 | run bag: INITIALIZED within INIT_LIMIT of launch, no RViz pose, |
-|  |  | the first NDT pose where the board put the car |
-| Checkpoint accuracy | 15 | checkpoint bag: the mean pose of each stop of >= STILL_MIN against its mark |
-| Autonomous laps | 15 | run bag: the first four legs lab3_route set, 3.75 each |
-| Staying localized | 10 | run bag over the graded legs: four checks, 2.5 each |
-| Fallback map | -10 | run bag: the map hash the stack loaded |
+What the bag supplies:
 
-A leg counts when the car arrives at its goal under autonomous control, with no
-route set by hand in between and no takeover on the TA's sheet. The transmitter's
-manual switch is hardware and leaves no trace in a bag; the TA notes it.
+- the loop: the lanelet2 file the stack loaded, carried in /lab3/run_meta
+  (lab3_run_meta, latched and repeated);
+- the car's path: /localization/kinematic_state, Autoware's own pose estimate;
+- who drove: /api/operation_mode/state.
 
-MARKS (YAML), measured in the board frame:
+The lap. The TA places the car on the start mark before the run. The map's origin is
+wherever the car stood when the team's mapping bag began, so the mark is not at the
+origin and no coordinate of it is assumed: the start is where the car stands when it
+first moves under autonomous control, and the lap ends where it last comes to rest.
 
-    marks:
-      - {id: A, x: 2.00, y: -1.50, yaw_deg: 90}
+| Measure | How |
+|---|---|
+| travel time | first autonomous motion to the final stop |
+| travel distance | the path's length over that window |
+| every segment | each lanelet of the loop holds at least one pose of the path |
+| the end | at most END_BEHIND m behind the start along the loop, and not ahead of it |
+| one lap | progress round the loop (unwrapped arc length) within END_BEHIND of a lap |
+| autonomous | the distance driven in any other operation mode (a transmitter takeover |
+|  | leaves no trace in the bag: the TA notes it) |
 
-SHEET (YAML, the TA's run sheet; every key optional):
-
-    team: 3
-    takeovers: [2]          # graded legs 1-4 that ended in a transmitter takeover
-    fallback_maps: [DIR]    # the TA's fallback map folders (also --fallback-map)
-
-Every number here is provisional until the TA dry run.
+The marks from these are the TA's to set; the report gives the measurements and
+which rules the lap met.
 """
 
 import argparse
 import json
-import math
 import os
+import signal
+import subprocess
 import sys
+import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import yaml
 
-from autosdv_lab3 import cars, mapdir
-
-# board initialization
-INIT_LIMIT = 30.0            # s from launch to INITIALIZED
-INIT_POS_TOL = 0.5           # m: first NDT pose after INITIALIZED against the board's pose
-INIT_YAW_TOL = math.radians(10.0)
-# checkpoints
-STILL_RADIUS = 0.05          # m the pose may wander and still be one stop
-STILL_MIN = 3.0              # s
-MATCH_RADIUS = 1.0           # m: a stop farther than this from a mark is not at it
-POS_FULL, POS_ZERO = 0.10, 0.40                       # m
-HEAD_FULL, HEAD_ZERO = math.radians(3.0), math.radians(15.0)
-# laps
-GRADED_LEGS = 4
-LEG_MARKS = 3.75
-ARRIVE_TOL = 2.5             # m: the mission planner arrives within 2 m of the goal
-AUTO_SHARE = 0.9             # of the leg, from when the car starts moving to arrival
-MOVING = 0.05                # m/s: the car has started the leg
-ROUTE_MATCH = 0.3            # m: a route whose goal is this close to the leg's is the script's
-ROUTE_LEAD = 5.0             # s: the route appears before the script announces the leg
-# staying localized
-JUMP = 0.3                   # m beyond what the speed explains, between NDT poses
-NVTL_SHARE = 0.95
-RESIDUAL_MAX = 0.10          # m, median scan-to-map distance
-RESIDUAL_CAP = 1.0           # m: farther points are people and moved chairs, not error
-SCAN_PERIOD = 1.0            # s between the scans the residual samples
-SCAN_POINTS = 3000
-NVTL_DEFAULT = 1.3           # ndt_indoor.param.yaml, when it cannot be read
-FALLBACK_PENALTY = -10.0
+from autosdv_lab3 import route
 
 ODOM = '/localization/kinematic_state'
-NDT_POSE = '/localization/pose_estimator/pose_with_covariance'
-NVTL = '/localization/pose_estimator/nearest_voxel_transformation_likelihood'
-INIT_STATE = '/api/localization/initialization_state'
-ROUTE_STATE = '/api/routing/state'
 OP_MODE = '/api/operation_mode/state'
-ROUTE = '/planning/mission_planning/route'
-INITIALPOSE = '/initialpose'
 RUN_META = '/lab3/run_meta'
-EVENTS = '/lab3/route_events'
-RECORD_META = '/lab3/record_meta'
+NVTL = '/localization/pose_estimator/nearest_voxel_transformation_likelihood'
 
-INITIALIZED = 3              # LocalizationInitializationState
-ARRIVED = 3                  # RouteState
-AUTONOMOUS = 2               # OperationModeState
+AUTONOMOUS = 2           # autoware_adapi_v1_msgs/OperationModeState.AUTONOMOUS
+MOVING = 0.05            # m/s: faster than this the car is moving
+REST_S = 1.0             # s below MOVING that count as having stopped
+END_BEHIND = 1.0         # m: the lap ends at most this far behind the start
+OFF_LANE_TOL = 0.15      # m: a pose this close outside a lanelet still counts as on it
+REPORT = 'grade.yaml'
 
-
-def yaw_of(q) -> float:
-    return math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
-
-
-def wrap(a):
-    return (np.asarray(a) + math.pi) % (2.0 * math.pi) - math.pi
+RUN_TOPICS_FILE = 'run_topics.txt'
 
 
-def ramp(err: float, full: float, zero: float) -> float:
-    """1 at or under `full`, 0 at or over `zero`, linear between."""
-    return float(np.clip((zero - err) / (zero - full), 0.0, 1.0))
-
-
-# ------------------------------------------------------------------ the bag, as arrays
+# ------------------------------------------------------------------ the bag
 
 @dataclass
 class Run:
-    """What grading reads from one bag. Times are bag receive times, in seconds,
-    except the stamps the AD API and lab3_run_meta carry (both on the stack's clock)."""
+    odom: np.ndarray = field(default_factory=lambda: np.zeros((0, 4)))   # t x y v
+    op: List[Tuple[float, int]] = field(default_factory=list)
+    run_meta: dict = field(default_factory=dict)
+    nvtl: np.ndarray = field(default_factory=lambda: np.zeros((0, 2)))
     start: float = 0.0
     end: float = 0.0
-    record_meta: dict = field(default_factory=dict)
-    run_meta: dict = field(default_factory=dict)
-    odom: np.ndarray = field(default_factory=lambda: np.zeros((0, 5)))   # t x y yaw v
-    # the same poses by their header stamp, yaw unwrapped: for placing a scan's points at
-    # their own times (the scan's stamp and per-point offsets are on the stack's clock)
-    odom_stamped: np.ndarray = field(default_factory=lambda: np.zeros((0, 5)))  # stamp x y yaw z
-    ndt: np.ndarray = field(default_factory=lambda: np.zeros((0, 4)))    # t x y yaw
-    nvtl: np.ndarray = field(default_factory=lambda: np.zeros((0, 2)))   # t value
-    init_states: List[Tuple[float, float, int]] = field(default_factory=list)  # t, stamp, state
-    board: List[Tuple[float, float, float, float]] = field(default_factory=list)  # t x y yaw
-    initialposes: List[float] = field(default_factory=list)
-    op: List[Tuple[float, int]] = field(default_factory=list)
-    route_state: List[Tuple[float, int]] = field(default_factory=list)
-    routes: List[Tuple[float, float, float]] = field(default_factory=list)  # t, goal x, y
-    events: List[Tuple[float, dict]] = field(default_factory=list)
-    lidar_topic: Optional[str] = None
-    tf_static: List[tuple] = field(default_factory=list)  # (parent, child, 4x4)
-
-    def moving_from(self, t0: float, t1: float) -> Optional[float]:
-        """The first time in [t0, t1] the car moves faster than MOVING."""
-        o = self.odom
-        if not len(o):
-            return None
-        sel = (o[:, 0] >= t0) & (o[:, 0] <= t1) & (np.abs(o[:, 4]) > MOVING)
-        return float(o[sel, 0][0]) if sel.any() else None
-
-    def pose_at(self, t: float) -> Optional[Tuple[float, float, float]]:
-        if len(self.odom) == 0 or t < self.odom[0, 0] - 0.5 or t > self.odom[-1, 0] + 0.5:
-            return None
-        o = self.odom
-        i = int(np.clip(np.searchsorted(o[:, 0], t), 0, len(o) - 1))
-        return (float(np.interp(t, o[:, 0], o[:, 1])), float(np.interp(t, o[:, 0], o[:, 2])),
-                float(o[i, 3]))
-
-
-def _matrix(tr) -> np.ndarray:
-    q, p = tr.rotation, tr.translation
-    x, y, z, w = q.x, q.y, q.z, q.w
-    m = np.eye(4)
-    m[:3, :3] = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
-                 [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
-                 [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
-    m[:3, 3] = [p.x, p.y, p.z]
-    return m
-
-
-def chain(edges, root: str, leaf: str) -> Optional[np.ndarray]:
-    """T(root <- leaf) through the static tree, walking parent to child."""
-    children: Dict[str, list] = {}
-    for parent, child, m in edges:
-        children.setdefault(parent, []).append((child, m))
-    stack = [(root, np.eye(4))]
-    seen = set()
-    while stack:
-        frame, m = stack.pop()
-        if frame == leaf:
-            return m
-        if frame in seen:
-            continue
-        seen.add(frame)
-        stack.extend((c, m @ cm) for c, cm in children.get(frame, []))
-    return None
-
-
-def _open(path):
-    import rosbag2_py
-    reader = rosbag2_py.SequentialReader()
-    reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
-                rosbag2_py.ConverterOptions('', ''))
-    return reader
 
 
 def read_run(path: str) -> Run:
-    """Every small topic grading needs; the LiDAR is left to scans()."""
+    import rosbag2_py
     from rclpy.serialization import deserialize_message
     from rosidl_runtime_py.utilities import get_message
 
-    reader = _open(path)
+    reader = rosbag2_py.SequentialReader()
+    reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
+                rosbag2_py.ConverterOptions('', ''))
     topics = {t.name: t.type for t in reader.get_all_topics_and_types()}
+    types = {t: get_message(topics[t]) for t in (ODOM, OP_MODE, RUN_META, NVTL) if t in topics}
+    reader.set_filter(rosbag2_py.StorageFilter(topics=list(types)))
     r = Run()
-    for topic in cars.LIDAR_TOPIC.values():
-        if topic in topics:
-            r.lidar_topic = topic
-    wanted = {ODOM, NDT_POSE, NVTL, INIT_STATE, ROUTE_STATE, OP_MODE, ROUTE, INITIALPOSE,
-              RUN_META, EVENTS, RECORD_META, '/tf_static', cars.BOARD_POSE_RUN}
-    types = {t: get_message(topics[t]) for t in wanted if t in topics}
-    odom, ndt, nvtl, stamped = [], [], [], []
-    first = None
+    odom, nvtl, first = [], [], None
     while reader.has_next():
         topic, raw, stamp = reader.read_next()
         t = stamp * 1e-9
@@ -209,482 +99,221 @@ def read_run(path: str) -> Run:
             continue
         m = deserialize_message(raw, types[topic])
         if topic == ODOM:
-            p = m.pose.pose
-            odom.append((t, p.position.x, p.position.y, yaw_of(p.orientation),
-                         m.twist.twist.linear.x))
-            hs = m.header.stamp
-            stamped.append((hs.sec + hs.nanosec * 1e-9, p.position.x, p.position.y,
-                            yaw_of(p.orientation), p.position.z))
-        elif topic == NDT_POSE:
-            p = m.pose.pose
-            ndt.append((t, p.position.x, p.position.y, yaw_of(p.orientation)))
-        elif topic == NVTL:
-            nvtl.append((t, m.data))
-        elif topic == INIT_STATE:
-            r.init_states.append((t, m.stamp.sec + m.stamp.nanosec * 1e-9, m.state))
-        elif topic == cars.BOARD_POSE_RUN:
-            p = m.pose.pose
-            r.board.append((t, p.position.x, p.position.y, yaw_of(p.orientation)))
-        elif topic == INITIALPOSE:
-            r.initialposes.append(t)
+            p = m.pose.pose.position
+            odom.append((t, p.x, p.y, m.twist.twist.linear.x))
         elif topic == OP_MODE:
             r.op.append((t, m.mode))
-        elif topic == ROUTE_STATE:
-            r.route_state.append((t, m.state))
-        elif topic == ROUTE:
-            if len(m.segments):
-                r.routes.append((t, m.goal_pose.position.x, m.goal_pose.position.y))
-        elif topic == EVENTS:
-            r.events.append((t, json.loads(m.data)))
         elif topic == RUN_META:
             r.run_meta = json.loads(m.data)
-        elif topic == RECORD_META:
-            r.record_meta = json.loads(m.data)
-        elif topic == '/tf_static':
-            for tr in m.transforms:
-                r.tf_static.append((tr.header.frame_id, tr.child_frame_id,
-                                    _matrix(tr.transform)))
+        elif topic == NVTL:
+            nvtl.append((t, m.data))
     r.start = first or 0.0
-    sidecar = os.path.join(path, 'lab3_meta.json')
-    if not r.record_meta and os.path.isfile(sidecar):
-        with open(sidecar) as f:
-            r.record_meta = json.load(f)
-    r.odom = np.array(odom, float).reshape(-1, 5)
-    st = np.array(sorted(stamped), float).reshape(-1, 5)
-    if len(st):
-        st[:, 3] = np.unwrap(st[:, 3])
-    r.odom_stamped = st
-    r.ndt = np.array(ndt, float).reshape(-1, 4)
+    r.odom = np.array(odom, float).reshape(-1, 4)
     r.nvtl = np.array(nvtl, float).reshape(-1, 2)
     return r
 
 
-def point_times(m, pts) -> np.ndarray:
-    """Each point's time after the scan's header stamp, seconds: the Nebula / Seyond
-    `time_stamp` (uint32 ns), or a float `time`; zeros when the cloud has neither."""
-    names = pts.dtype.names or ()
-    if 'time_stamp' in names:
-        return np.asarray(pts['time_stamp'], float) * 1e-9
-    if 'time' in names:
-        return np.asarray(pts['time'], float)
-    return np.zeros(len(pts))
+# ------------------------------------------------------------------ the measures
 
-
-def scans(path: str, topic: str, t0: float, t1: float, period: float = SCAN_PERIOD):
-    """(t, frame, Nx3 points, header stamp, per-point offsets [s]) for one LiDAR scan per
-    `period` inside [t0, t1]."""
-    from rclpy.serialization import deserialize_message
-    from rosidl_runtime_py.utilities import get_message
-    from sensor_msgs_py import point_cloud2
-
-    reader = _open(path)
-    cloud_type = get_message('sensor_msgs/msg/PointCloud2')
-    last = -1e18
-    while reader.has_next():
-        name, raw, stamp = reader.read_next()
-        t = stamp * 1e-9
-        if name != topic or t < t0 or t - last < period:
-            continue
-        if t > t1:
+def mode_at(op: List[Tuple[float, int]], t: float) -> Optional[int]:
+    mode = None
+    for ts, m in op:
+        if ts > t:
             break
-        last = t
-        m = deserialize_message(raw, cloud_type)
-        names = [f.name for f in m.fields]
-        want = ['x', 'y', 'z'] + [n for n in ('time_stamp', 'time') if n in names][:1]
-        pts = point_cloud2.read_points(m, field_names=want, skip_nans=True)
-        xyz = np.stack([pts['x'], pts['y'], pts['z']], axis=1).astype(float)
-        stamp_s = m.header.stamp.sec + m.header.stamp.nanosec * 1e-9
-        yield t, m.header.frame_id, xyz, stamp_s, point_times(m, pts)
+        mode = m
+    return mode
 
 
-# ------------------------------------------------------------------ the items
-
-def grade_init(r: Run) -> dict:
-    out = {'item': 'board initialization', 'max': 5.0, 'score': 0.0}
-    init = next(((t, s) for t, s, st in r.init_states if st == INITIALIZED), None)
-    launch = r.run_meta.get('launch_time')
-    checks = {}
-    if init is None:
-        out['reason'] = 'never INITIALIZED in this bag'
-        return out
-    t_init, stamp = init
-    before = [b for b in r.board if b[0] <= t_init + 1.0]
-    if not before and t_init - r.start < 1.0:
-        # the latched INITIALIZED came in with the recorder's first moment: the board
-        # pose that started it, which is not latched, happened before the bag began
-        out.update(score=None, reason='recording started after INITIALIZED; start the '
-                   'recorder before the stack. TA decides')
-        return out
-    if launch is None:
-        checks['time'] = {'ok': None, 'note': 'no /lab3/run_meta: launch time unknown'}
-    elif not 0.0 <= stamp - launch <= 3600.0:
-        checks['time'] = {'ok': None, 'note': 'the stack and lab3_run_meta disagree on the '
-                          'clock (sim time against wall time?)'}
-    else:
-        dt = stamp - launch
-        checks['time'] = {'ok': dt <= INIT_LIMIT, 'seconds': round(dt, 1), 'limit': INIT_LIMIT}
-    manual = [t for t in r.initialposes if t <= t_init + 1.0]
-    checks['no_rviz_pose'] = {'ok': not manual, 'count': len(manual)}
-    after = r.ndt[r.ndt[:, 0] >= t_init] if len(r.ndt) else r.ndt
-    if not before or not len(after):
-        checks['from_board'] = {'ok': False, 'note': 'no board pose before INITIALIZED'
-                                if not before else 'no NDT pose after INITIALIZED'}
-    else:
-        b, n = before[-1], after[0]
-        d = math.hypot(n[1] - b[1], n[2] - b[2])
-        dyaw = abs(float(wrap(n[3] - b[3])))
-        checks['from_board'] = {'ok': d <= INIT_POS_TOL and dyaw <= INIT_YAW_TOL,
-                                'distance_m': round(d, 3), 'yaw_deg': round(math.degrees(dyaw), 1)}
-    out['checks'] = checks
-    oks = [c['ok'] for c in checks.values()]
-    if None in oks:
-        out['score'] = None
-        out['reason'] = 'not measurable from the bag; TA decides'
-    else:
-        out['score'] = 5.0 if all(oks) else 0.0
-    return out
+def lap_window(odom: np.ndarray, op) -> Tuple[Optional[int], Optional[int], str]:
+    """(first index, last index) of the lap in odom, or (None, None, why)."""
+    moving = np.abs(odom[:, 3]) > MOVING if len(odom) else np.zeros(0, bool)
+    auto = np.array([mode_at(op, t) == AUTONOMOUS for t in odom[:, 0]], bool)
+    go = np.flatnonzero(moving & auto)
+    if not len(go):
+        return None, None, ('the car never moved under autonomous control'
+                            if moving.any() else 'the car never moved')
+    i0 = int(go[0])
+    last = int(np.flatnonzero(moving)[-1])
+    # the stop after the last motion: the first sample that has been still for REST_S
+    t_last = odom[last, 0]
+    rest = np.flatnonzero((odom[:, 0] >= t_last + REST_S) & ~moving)
+    if not len(rest):
+        return i0, None, 'the car had not come to rest when the recording stopped'
+    i1 = last + 1 if last + 1 < len(odom) else last
+    return i0, i1, ''
 
 
-def stops(odom: np.ndarray, radius: float = STILL_RADIUS, min_s: float = STILL_MIN):
-    """Each stretch of at least min_s in which the pose stays within radius of where it
-    started: (t0, t1, mean x, mean y, mean yaw)."""
-    out, i, n = [], 0, len(odom)
-    while i < n:
-        j = i
-        while j + 1 < n and math.hypot(odom[j + 1, 1] - odom[i, 1],
-                                       odom[j + 1, 2] - odom[i, 2]) <= radius:
-            j += 1
-        if odom[j, 0] - odom[i, 0] >= min_s:
-            seg = odom[i:j + 1]
-            yaw = math.atan2(np.sin(seg[:, 3]).mean(), np.cos(seg[:, 3]).mean())
-            out.append((seg[0, 0], seg[-1, 0], seg[:, 1].mean(), seg[:, 2].mean(), yaw))
-            i = j + 1
-        else:
-            i += 1
-    return out
+def path_length(xy: np.ndarray) -> float:
+    return float(np.sum(np.hypot(*np.diff(xy, axis=0).T))) if len(xy) > 1 else 0.0
 
 
-def grade_checkpoints(r: Optional[Run], marks: List[dict]) -> dict:
-    out = {'item': 'checkpoint accuracy', 'max': 15.0, 'score': 0.0, 'marks': []}
-    if r is None or not marks:
-        out['score'] = None
-        out['reason'] = 'no checkpoint bag or no marks file'
-        return out
-    found = stops(r.odom)
-    total = 0.0
-    for mk in marks:
-        mx, my, myaw = float(mk['x']), float(mk['y']), math.radians(float(mk['yaw_deg']))
-        # the first stop at the mark, not the best of several: no picking
-        near = [s for s in found if math.hypot(s[2] - mx, s[3] - my) <= MATCH_RADIUS]
-        row = {'id': mk.get('id')}
-        if not near:
-            row.update(score=0.0, note=f'no stop of {STILL_MIN:g} s within {MATCH_RADIUS:g} m')
-        else:
-            s = near[0]
-            pos = math.hypot(s[2] - mx, s[3] - my)
-            head = abs(float(wrap(s[4] - myaw)))
-            sc = 0.5 * ramp(pos, POS_FULL, POS_ZERO) + 0.5 * ramp(head, HEAD_FULL, HEAD_ZERO)
-            row.update(position_m=round(pos, 3), heading_deg=round(math.degrees(head), 1),
-                       still_s=round(s[1] - s[0], 1), score=round(sc, 3))
-        total += row['score']
-        out['marks'].append(row)
-    out['score'] = round(15.0 * total / len(marks), 2)
-    return out
+def progress(loop: route.Loop, xy: np.ndarray) -> np.ndarray:
+    """Arc length round the loop of each pose, unwrapped: a lap adds loop.length."""
+    s = np.array([loop.project(x, y) for x, y in xy])
+    d = np.diff(s)
+    half = loop.length / 2
+    d[d > half] -= loop.length
+    d[d < -half] += loop.length
+    return np.concatenate([[0.0], np.cumsum(d)])
 
 
-def legs(r: Run) -> List[dict]:
-    """The legs lab3_route set, in time order, each with its window and outcome."""
-    sets = [(t, e) for t, e in r.events if e.get('event') == 'leg_set']
-    out = []
-    for k, (t, e) in enumerate(sets):
-        t_end = sets[k + 1][0] if k + 1 < len(sets) else r.end
-        gx, gy = e['goal'][0], e['goal'][1]
-        leg = {'run': e.get('run'), 'lap': e.get('lap'), 'leg': e.get('leg'),
-               't_set': t, 't_end': t_end, 'goal': [gx, gy]}
-        t_arr = next((ts for ts, st in r.route_state if t < ts <= t_end and st == ARRIVED), None)
-        problems = []
-        if t_arr is None:
-            problems.append('did not arrive')
-        else:
-            leg['t_arrived'] = t_arr
-            p = r.pose_at(t_arr)
-            if p is None or math.hypot(p[0] - gx, p[1] - gy) > ARRIVE_TOL:
-                problems.append('arrived away from the goal')
-            t_move = r.moving_from(t, t_arr)
-            share = None if t_move is None else autonomous_share(r.op, t_move, t_arr)
-            leg['autonomous_share'] = None if share is None else round(share, 3)
-            if share is None or share < AUTO_SHARE:
-                problems.append('not under autonomous control')
-        lo, hi = t - ROUTE_LEAD, leg.get('t_arrived', t_end)
-        hand = [rt for rt in r.routes if lo <= rt[0] <= hi
-                and math.hypot(rt[1] - gx, rt[2] - gy) > ROUTE_MATCH]
-        if hand:
-            problems.append('a route set by hand')
-        leg['problems'] = problems
-        leg['t_close'] = leg.get('t_arrived', t_end)
-        out.append(leg)
-    return out
+def lanelet_of(loop: route.Loop, x: float, y: float) -> Optional[int]:
+    for lid, ll in loop.lanelets.items():
+        if route.point_in_polygon(x, y, ll.polygon):
+            return lid
+    best, lid_best = None, None
+    for lid, ll in loop.lanelets.items():
+        d = route.point_polyline_distance(np.array([[x, y]]),
+                                          np.vstack([ll.polygon, ll.polygon[:1]]))[0]
+        if best is None or d < best:
+            best, lid_best = d, lid
+    return lid_best if best is not None and best <= OFF_LANE_TOL else None
 
 
-def autonomous_share(op: List[Tuple[float, int]], t0: float, t1: float) -> Optional[float]:
-    """Of [first autonomous moment after t0, t1], the share spent autonomous.
-
-    legs() starts t0 when the car starts moving: between legs the mode sits in STOP
-    for seconds before the script's engage takes (5 s measured in the RC simulator),
-    and that wait is not the team's. A disengage once moving stops the car, and counts."""
-    if t1 <= t0:
-        return None
-    mode, segs = None, []
-    for t, m in op:
-        if t <= t0:
-            mode = m
-            continue
-        if t >= t1:
-            break
-        segs.append((t, m))
-    edges = [(t0, mode)] + segs + [(t1, None)]
-    auto = span = 0.0
-    started = False
-    for (ta, ma), (tb, _) in zip(edges, edges[1:]):
-        started = started or ma == AUTONOMOUS
-        if started:
-            span += tb - ta
-            auto += (tb - ta) if ma == AUTONOMOUS else 0.0
-    return auto / span if span > 0 else None
-
-
-def grade_laps(r: Run, takeovers: List[int]) -> Tuple[dict, List[dict]]:
-    out = {'item': 'autonomous laps', 'max': GRADED_LEGS * LEG_MARKS, 'score': 0.0, 'legs': []}
-    graded = legs(r)[:GRADED_LEGS]
-    for k, leg in enumerate(graded, start=1):
-        problems = list(leg['problems'])
-        if k in takeovers:
-            problems.append('takeover (TA sheet)')
-        ok = not problems
-        out['legs'].append({'graded_leg': k, 'lap': leg['lap'], 'leg': leg['leg'],
-                            'run': leg['run'], 'ok': ok, 'problems': problems,
-                            'autonomous_share': leg.get('autonomous_share')})
-        out['score'] += LEG_MARKS if ok else 0.0
-    if len(graded) < GRADED_LEGS:
-        out['note'] = f'{len(graded)} of {GRADED_LEGS} legs set by lab3_route in this bag'
-    return out, graded
-
-
-def residuals(run_bag: str, r: Run, map_points: np.ndarray, t0: float, t1: float,
-              rng=None) -> List[float]:
-    """Median nearest-map-point distance of each sampled scan, placed by the localization."""
-    from scipy.spatial import cKDTree
-    rng = rng or np.random.default_rng(0)
-    tree = cKDTree(map_points)
-    out = []
-    o = r.odom_stamped
-    for t, frame, xyz, stamp, offsets in scans(run_bag, r.lidar_topic, t0, t1):
-        pose = r.pose_at(t)
-        base_lidar = chain(r.tf_static, 'base_link', frame)
-        if pose is None or base_lidar is None or not len(xyz):
-            continue
-        if len(xyz) > SCAN_POINTS:
-            keep = rng.choice(len(xyz), SCAN_POINTS, replace=False)
-            xyz, offsets = xyz[keep], offsets[keep]
-        in_base = (base_lidar @ np.c_[xyz, np.ones(len(xyz))].T).T[:, :3]
-        times = stamp + offsets
-        if (stamp > 0 and len(o) > 1 and o[-1, 0] > o[0, 0]
-                and o[0, 0] <= times.min() and times.max() <= o[-1, 0]):
-            # Deskewed, and at the localized height. Each point is placed with the pose at
-            # its own time: a scan is swept over 0.1 s, and one pose for a turning car's
-            # whole sweep misplaced it. And base_link is where localization put it, not on
-            # the floor: AutoSDV's cars carry the LiDAR AT base_link, 0.30 m up
-            # (lab3_robin_w.yaml base_link_height_above_ground), and NDT localizes it
-            # there, so a floor-level base_link sank every scan 0.3 m. Both together read
-            # 0.15 m on a run localized within 3 cm (lab3 TA simulation, 2026-10-27).
-            x = np.interp(times, o[:, 0], o[:, 1])
-            y = np.interp(times, o[:, 0], o[:, 2])
-            yaw = np.interp(times, o[:, 0], o[:, 3])
-            z = np.interp(times, o[:, 0], o[:, 4])
-            c, s = np.cos(yaw), np.sin(yaw)
-            pts = np.stack([c * in_base[:, 0] - s * in_base[:, 1] + x,
-                            s * in_base[:, 0] + c * in_base[:, 1] + y, in_base[:, 2] + z],
-                           axis=1)
-        else:
-            # base_link on the floor in the map's plane: z from the map's own floor at 0
-            c, s = math.cos(pose[2]), math.sin(pose[2])
-            pts = np.stack([c * in_base[:, 0] - s * in_base[:, 1] + pose[0],
-                            s * in_base[:, 0] + c * in_base[:, 1] + pose[1], in_base[:, 2]],
-                           axis=1)
-        d, _ = tree.query(pts, distance_upper_bound=RESIDUAL_CAP)
-        d = d[np.isfinite(d)]
-        if len(d):
-            out.append(float(np.median(d)))
-    return out
-
-
-def grade_localized(r: Run, graded: List[dict], nvtl_threshold: float,
-                    residual_median: Optional[float]) -> dict:
-    out = {'item': 'staying localized', 'max': 10.0, 'score': 0.0}
-    if not graded:
-        out['reason'] = 'no graded legs: nothing to measure over'
-        return out
-    t0, t1 = graded[0]['t_set'], graded[-1]['t_close']
-    checks = {}
-    reinit = [st for t, _, st in r.init_states if t0 <= t <= t1 and st != INITIALIZED]
-    checks['no_reinitialization'] = {'ok': not reinit, 'count': len(reinit)}
-    n = r.ndt[(r.ndt[:, 0] >= t0) & (r.ndt[:, 0] <= t1)] if len(r.ndt) else r.ndt
-    jumps = 0
-    worst = 0.0
-    for a, b in zip(n, n[1:]):
-        v = abs(float(np.interp(b[0], r.odom[:, 0], r.odom[:, 4]))) if len(r.odom) else 0.0
-        excess = math.hypot(b[1] - a[1], b[2] - a[2]) - v * (b[0] - a[0])
-        worst = max(worst, excess)
-        jumps += excess > JUMP
-    checks['no_pose_jump'] = {'ok': len(n) > 1 and jumps == 0, 'jumps': int(jumps),
-                              'worst_m': round(worst, 3), 'ndt_poses': int(len(n))}
-    v = r.nvtl[(r.nvtl[:, 0] >= t0) & (r.nvtl[:, 0] <= t1), 1] if len(r.nvtl) else np.zeros(0)
-    share = float((v >= nvtl_threshold).mean()) if len(v) else None
-    checks['nvtl'] = {'ok': share is not None and share >= NVTL_SHARE,
-                      'share': None if share is None else round(share, 3),
-                      'threshold': nvtl_threshold, 'samples': int(len(v))}
-    checks['residual'] = {'ok': None if residual_median is None else residual_median <= RESIDUAL_MAX,
-                          'median_m': None if residual_median is None else round(residual_median, 3),
-                          'limit_m': RESIDUAL_MAX}
-    out['checks'] = checks
-    out['window_s'] = round(t1 - t0, 1)
-    for c in checks.values():
-        out['score'] += 2.5 if c['ok'] else 0.0
-    if checks['residual']['ok'] is None:
-        out['note'] = 'residual not measured (no map or no LiDAR in the bag): 2.5 withheld'
-    return out
-
-
-def grade_map(r: Run, team_map: str, fallback_maps: List[str]) -> dict:
-    out = {'item': 'fallback map', 'max': 0.0, 'score': 0.0}
-    loaded = r.run_meta.get('map_hash') or r.record_meta.get('map_hash')
-    out['loaded_hash'] = loaded
-    team = mapdir.folder_hash(team_map) if team_map else None
-    falls = {mapdir.folder_hash(d): d for d in fallback_maps}
-    if loaded is None:
-        out.update(score=None, reason='the bag names no map hash; TA decides')
-    elif loaded == team:
-        out['map'] = 'team'
-    elif loaded in falls:
-        out.update(map='fallback', fallback_dir=falls[loaded], score=FALLBACK_PENALTY)
-    else:
-        out.update(map='unknown', score=None,
-                   reason='neither the handed-in map nor a fallback map: changed after the freeze?')
-    return out
-
-
-def nvtl_from_config() -> float:
+def grade_run(r: Run) -> dict:
+    rep = {'ok': False, 'reasons': [], 'map_hash': r.run_meta.get('map_hash'),
+           'vehicle_id': r.run_meta.get('vehicle_id'), 'autosdv': r.run_meta.get('autosdv')}
+    text = r.run_meta.get('lanelet2_map')
+    if not text:
+        rep['reasons'].append('the bag has no /lab3/run_meta with the lanelet2 map: was the '
+                              'stack launched with lab3_run.launch.xml before the grader?')
+        return rep
     try:
-        from ament_index_python.packages import get_package_share_directory
-        path = os.path.join(get_package_share_directory('autosdv_lab3'), 'config',
-                            'ndt_indoor.param.yaml')
-        with open(path) as f:
-            doc = yaml.safe_load(f)
-    except Exception:
-        return NVTL_DEFAULT
+        loop = route.loop_from_lanelets(route.lanelets_from_text(text))
+    except route.MapError as e:
+        rep['reasons'].append(f'the lanelet2 map in the bag is not a loop: {e}')
+        return rep
+    rep['loop_length_m'] = round(loop.length, 2)
+    rep['lanelets'] = len(loop.order)
+    if not len(r.odom):
+        rep['reasons'].append(f'the bag has no {ODOM}')
+        return rep
+    i0, i1, why = lap_window(r.odom, r.op)
+    if i0 is None or i1 is None:
+        rep['reasons'].append(why)
+        return rep
+    o = r.odom[i0:i1 + 1]
+    xy = o[:, 1:3]
+    t0, t1 = float(o[0, 0]), float(o[-1, 0])
+    rep['travel_time_s'] = round(t1 - t0, 2)
+    rep['travel_distance_m'] = round(path_length(xy), 2)
+    rep['start'] = [round(float(v), 3) for v in xy[0]]
+    rep['end'] = [round(float(v), 3) for v in xy[-1]]
 
-    def find(d):
-        if isinstance(d, dict):
-            for k, v in d.items():
-                if k == 'converged_param_nearest_voxel_transformation_likelihood':
-                    return float(v)
-                got = find(v)
-                if got is not None:
-                    return got
-        return None
-    return find(doc) or NVTL_DEFAULT
+    prog = progress(loop, xy)
+    behind = loop.length - prog[-1]          # > 0: short of a full lap, i.e. behind
+    rep['end_behind_start_m'] = round(float(behind), 2)
+    rep['laps'] = round(float(prog[-1] / loop.length), 3)
 
+    seen = {lanelet_of(loop, x, y) for x, y in xy}
+    missed = [lid for lid in loop.order if lid not in seen]
+    rep['segments_visited'] = f'{len(loop.order) - len(missed)} of {len(loop.order)}'
+    rep['segments_missed'] = missed
 
-# ------------------------------------------------------------------ CLI
+    steps = np.hypot(*np.diff(xy, axis=0).T)
+    manual = [d for d, t in zip(steps, o[1:, 0]) if mode_at(r.op, t) != AUTONOMOUS]
+    rep['distance_not_autonomous_m'] = round(float(sum(manual)), 2)
+    if len(r.nvtl):
+        sel = (r.nvtl[:, 0] >= t0) & (r.nvtl[:, 0] <= t1)
+        if sel.any():
+            rep['nvtl_min'] = round(float(r.nvtl[sel, 1].min()), 3)
 
-def grade(args) -> dict:
-    sheet = {}
-    if args.sheet:
-        with open(args.sheet) as f:
-            sheet = yaml.safe_load(f) or {}
-    marks = []
-    if args.marks:
-        with open(args.marks) as f:
-            marks = (yaml.safe_load(f) or {}).get('marks', [])
-    fallback_maps = list(args.fallback_map or []) + [os.path.expanduser(d) for d in
-                                                     sheet.get('fallback_maps', [])]
-    run = read_run(args.run)
-    cp = read_run(args.checkpoints) if args.checkpoints else None
-
-    items = [grade_init(run), grade_checkpoints(cp, marks)]
-    laps, graded = grade_laps(run, [int(k) for k in sheet.get('takeovers', [])])
-    items.append(laps)
-    mapped = grade_map(run, args.map, fallback_maps)
-
-    resid = None
-    map_dir = mapped.get('fallback_dir', args.map)
-    pcd = os.path.join(map_dir, mapdir.PCD) if map_dir else None
-    if graded and run.lidar_topic and pcd and os.path.isfile(pcd) and not args.no_residual:
-        from reflective_pose_core.pointcloud_io import read_cloud
-        per_scan = residuals(args.run, run, np.asarray(read_cloud(pcd).points, float),
-                             graded[0]['t_set'], graded[-1]['t_close'])
-        resid = float(np.median(per_scan)) if per_scan else None
-    threshold = args.nvtl_threshold if args.nvtl_threshold is not None else nvtl_from_config()
-    items.append(grade_localized(run, graded, threshold, resid))
-    items.append(mapped)
-
-    scores = [i['score'] for i in items]
-    total = None if None in scores else round(sum(scores), 2)
-    return {'lab': 'lab3', 'part': 'week 2 field', 'team': sheet.get('team'),
-            'run_bag': os.path.abspath(args.run),
-            'checkpoint_bag': os.path.abspath(args.checkpoints) if args.checkpoints else None,
-            'items': items, 'total': total, 'max': 45.0,
-            'provisional': 'every line is provisional until the TA dry run'}
+    checks = {
+        'every segment': (not missed, f'lanelets {missed} not driven'),
+        'one lap': (0.0 <= behind <= END_BEHIND,
+                    f'the car stopped {behind:.2f} m behind the start (at most {END_BEHIND:g})'
+                    if behind > 0 else
+                    f'the car stopped {-behind:.2f} m past the start (it must stop behind it)'),
+        'autonomous': (rep['distance_not_autonomous_m'] < 0.1,
+                       f'{rep["distance_not_autonomous_m"]:.2f} m driven outside autonomous mode'),
+    }
+    rep['checks'] = {k: bool(ok) for k, (ok, _) in checks.items()}
+    rep['reasons'] = [msg for ok, msg in checks.values() if not ok]
+    rep['ok'] = all(rep['checks'].values())
+    return rep
 
 
-def print_report(rep: dict):
-    for i in rep['items']:
-        sc = '  —  ' if i['score'] is None else f'{i["score"]:5.2f}'
-        mx = f'/ {i["max"]:g}' if i['max'] else '(penalty)'
-        print(f'{i["item"]:<22} {sc} {mx}' + (f'   {i["reason"]}' if i.get('reason') else ''))
-        for leg in i.get('legs', []):
-            print(f'    leg {leg["graded_leg"]} (lap {leg["lap"]} leg {leg["leg"]}): '
-                  + ('ok' if leg['ok'] else ', '.join(leg['problems'])))
-        for mk in i.get('marks', []):
-            print(f'    mark {mk["id"]}: ' + ', '.join(f'{k} {v}' for k, v in mk.items() if k != 'id'))
-        for name, c in (i.get('checks') or {}).items():
-            state = '—' if c['ok'] is None else ('ok' if c['ok'] else 'FAIL')
-            rest = ', '.join(f'{k} {v}' for k, v in c.items() if k != 'ok')
-            print(f'    {name}: {state}  {rest}')
-    tot = '—' if rep['total'] is None else f'{rep["total"]:.2f}'
-    print(f'{"total":<22} {tot} / {rep["max"]:g}   ({rep["provisional"]})')
+def print_report(rep: dict, bag: str):
+    print(f'\nLab 3 lap: {bag}')
+    for key in ('loop_length_m', 'travel_time_s', 'travel_distance_m', 'end_behind_start_m',
+                'laps', 'segments_visited', 'distance_not_autonomous_m', 'nvtl_min'):
+        if key in rep:
+            print(f'  {key:28s} {rep[key]}')
+    for k, ok in rep.get('checks', {}).items():
+        print(f'  {"PASS" if ok else "FAIL"}  {k}')
+    for why in rep['reasons']:
+        print(f'  - {why}')
+    print('  LAP ' + ('ACCEPTED' if rep['ok'] else 'NOT ACCEPTED'))
+
+
+def grade_bag(bag: str, out: Optional[str] = None) -> int:
+    rep = grade_run(read_run(bag))
+    rep['bag'] = os.path.abspath(bag)
+    print_report(rep, bag)
+    out = out or os.path.join(bag, REPORT)
+    rep.pop('lanelet2_map', None)
+    with open(out, 'w') as f:
+        yaml.safe_dump(rep, f, sort_keys=False)
+    print(f'  report: {out}')
+    return 0 if rep['ok'] else 1
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog='lab3_grade', description='Lab 3 week-2 field marks.')
-    ap.add_argument('--map', required=True, help="the team's handed-in map folder")
-    ap.add_argument('--run', required=True, help='the laps bag (just lab3 record --kind run)')
-    ap.add_argument('--checkpoints', help='the checkpoint bag')
-    ap.add_argument('--marks', help='the checkpoint marks, YAML in the board frame')
-    ap.add_argument('--sheet', help="the TA's run sheet, YAML")
-    ap.add_argument('--fallback-map', action='append', help="a TA fallback map folder")
-    ap.add_argument('--nvtl-threshold', type=float,
-                    help='default: ndt_indoor.param.yaml, the value the stack ran with')
-    ap.add_argument('--no-residual', action='store_true', help='skip the scan-to-map residual')
-    ap.add_argument('-o', '--output', help='write the report as YAML')
+    ap = argparse.ArgumentParser(prog='lab3_grade', description='Grade a Lab 3 run bag.')
+    ap.add_argument('bag')
+    ap.add_argument('-o', '--out', help=f'report path (default BAG/{REPORT})')
     args = ap.parse_args(argv)
-    rep = grade(args)
-    print_report(rep)
-    if args.output:
-        with open(args.output, 'w') as f:
-            yaml.safe_dump(plain(rep), f, sort_keys=False)
-    return 0
+    if not os.path.isdir(args.bag):
+        print(f'lab3_grade: {args.bag} is not a bag folder', file=sys.stderr)
+        return 2
+    return grade_bag(args.bag, args.out)
 
 
-def plain(v):
-    """The report with numpy scalars as Python ones: safe_dump rejects a numpy bool."""
-    if isinstance(v, dict):
-        return {k: plain(x) for k, x in v.items()}
-    if isinstance(v, (list, tuple)):
-        return [plain(x) for x in v]
-    if isinstance(v, np.generic):
-        return v.item()
-    return v
+# ------------------------------------------------------------------ the recorder
+
+def run_topics() -> List[str]:
+    from ament_index_python.packages import get_package_share_directory
+    path = os.path.join(get_package_share_directory('autosdv_lab3'), 'config', 'record',
+                        RUN_TOPICS_FILE)
+    with open(path) as f:
+        return [line.strip() for line in f if line.strip()]
+
+
+def _strip_ros_args(argv: List[str]) -> List[str]:
+    return argv[:argv.index('--ros-args')] if '--ros-args' in argv else argv
+
+
+def grader_main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog='lab3_grader',
+                                 description='Record a Lab 3 graded run; Ctrl-C grades it.')
+    ap.add_argument('--team', required=True, help='team number')
+    ap.add_argument('--out-dir', default=os.path.expanduser('~/lab3/bags'))
+    # launched as a node: ignore the --ros-args launch appends
+    args, _ = ap.parse_known_args(_strip_ros_args(sys.argv[1:] if argv is None else argv))
+    out = os.path.join(args.out_dir, f'team{args.team}_run_{time.strftime("%Y%m%d_%H%M%S")}')
+    os.makedirs(args.out_dir, exist_ok=True)
+    cmd = ['ros2', 'bag', 'record', '-o', out, *run_topics()]
+    print(f'lab3_grader: recording -> {out}\n'
+          'Drive the lap in RViz (2D Goal Pose, Auto). Press Ctrl-C once the car has stopped.')
+    # its own session: Ctrl-C reaches this process only, which then stops the recorder
+    # and grades
+    proc = subprocess.Popen(cmd, start_new_session=True)
+    stop = {'now': False}
+    signal.signal(signal.SIGINT, lambda *_: stop.update(now=True))
+    signal.signal(signal.SIGTERM, lambda *_: stop.update(now=True))
+    while proc.poll() is None and not stop['now']:
+        time.sleep(0.2)
+    if proc.poll() is None:
+        os.killpg(proc.pid, signal.SIGINT)
+        try:
+            proc.wait(30)
+        except subprocess.TimeoutExpired:
+            os.killpg(proc.pid, signal.SIGKILL)
+    if not os.path.isdir(out):
+        print('lab3_grader: nothing was recorded', file=sys.stderr)
+        return 1
+    grade_bag(out)
+    return 0   # the verdict is printed; a non-zero exit only makes launch report a crash
 
 
 if __name__ == '__main__':

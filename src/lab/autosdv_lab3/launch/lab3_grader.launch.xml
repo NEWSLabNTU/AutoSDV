@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<!--
+  Lab 3, week 2: the grader of one autonomous lap.
+
+      ros2 launch autosdv_lab3 lab3_grader.launch.xml team:=3
+
+  Start it after the stack (lab3_run.launch.xml) and before setting the goal. It records
+  the run topics (config/record/run_topics.txt) into ~/lab3/bags/team<N>_run_<date>_<time>;
+  Ctrl-C after the car has stopped ends the recording, grades the bag and prints the
+  result, also written to grade.yaml in the bag. The grade reads only the bag:
+  `ros2 run autosdv_lab3 lab3_grade BAG` repeats it anywhere.
+-->
+<launch>
+  <arg name="team" description="REQUIRED: the team number"/>
+  <arg name="out_dir" default="$(env HOME)/lab3/bags" description="where the dated bag goes"/>
+  <!-- room to stop the recorder and grade after Ctrl-C before launch escalates to SIGTERM -->
+  <let name="sigterm_timeout" value="120"/>
+  <node pkg="autosdv_lab3" exec="lab3_grader" name="lab3_grader" output="screen"
+        args="--team $(var team) --out-dir $(var out_dir)"/>
+</launch>

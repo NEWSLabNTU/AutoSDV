@@ -164,6 +164,26 @@ def read_lanelets(osm_path: str) -> Dict[int, Lanelet]:
         root = ET.parse(osm_path).getroot()
     except (ET.ParseError, OSError) as e:
         raise MapError(f'cannot read {osm_path}: {e}') from e
+    return _lanelets(root, osm_path)
+
+
+def lanelets_from_text(text: str, name: str = 'the lanelet2 map') -> Dict[int, Lanelet]:
+    """read_lanelets for the file's contents (as a run bag carries them)."""
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as e:
+        raise MapError(f'cannot read {name}: {e}') from e
+    return _lanelets(root, name)
+
+
+def loop_from_lanelets(lanelets: Dict[int, Lanelet]) -> 'Loop':
+    order, problem = find_chain(lanelets)
+    if problem:
+        raise MapError(problem)
+    return Loop.from_chain(lanelets, order)
+
+
+def _lanelets(root, osm_path: str) -> Dict[int, Lanelet]:
     nodes = {}
     for n in root.findall('node'):
         tags = {t.get('k'): t.get('v') for t in n.findall('tag')}
@@ -291,11 +311,7 @@ class Loop:
 
 
 def load_loop(map_dir: str) -> Loop:
-    lanelets = read_lanelets(os.path.join(map_dir, mapdir.LANELET))
-    order, problem = find_chain(lanelets)
-    if problem:
-        raise MapError(problem)
-    return Loop.from_chain(lanelets, order)
+    return loop_from_lanelets(read_lanelets(os.path.join(map_dir, mapdir.LANELET)))
 
 
 # ------------------------------------------------------------------ the route
