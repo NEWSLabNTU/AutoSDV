@@ -103,7 +103,7 @@ Draw the loop in Vector Map Builder on `pointcloud_map.pcd` and export
 ```
 
 Draw the loop with a lanelet boundary **just behind the start mark** (the origin): in
-week 2 the one goal goes about 0.7 m behind the start and must fall in the lanelet before
+week 2 the one goal goes about 1.0 m behind the start and must fall in the lanelet before
 the start's (see "The one-goal lap").
 
 ### Week 1: check the loop
@@ -116,8 +116,8 @@ Three requirements, PASS or FAIL: the road lanelets form **one closed loop** by 
 relations, it runs **clockwise** seen from above, and every lanelet has a **speed limit**
 above 0 and at most 10 km/h. Then a hint that never fails the check: how far behind the
 origin the nearest lanelet boundary lies, whether that is within 1.5 m, and where a goal
-0.7 m behind the start falls. Then, unless `--no-sim`, one lap in the planning simulator
-with the field procedure: start at the origin projected onto the loop, one goal 0.7 m
+1.0 m behind the start falls. Then, unless `--no-sim`, one lap in the planning simulator
+with the field procedure: start at the origin projected onto the loop, one goal 1.0 m
 behind it (`--goal-behind` to change). Set `ROS_DOMAIN_ID` first when the computer is
 shared.
 
@@ -160,7 +160,7 @@ ros2 launch autosdv_lab3 lab3_grader.launch.xml team:=3
 1. Place the car on the start mark.
 2. **2D Pose Estimate**: click the start, drag the way the car faces. Wait for NDT to
    settle (the car's model sits on the map, the scan on the walls).
-3. **2D Goal Pose**: click about 0.7 m behind the start on the loop, in the lanelet
+3. **2D Goal Pose**: click about 1.0 m behind the start on the loop (0.3 m further back if the car does not move after Auto), in the lanelet
    before the start's, drag the way of travel.
 4. In the **AutowareStatePanel** (left), press **Auto**. The car drives the whole loop
    and stops at the goal.

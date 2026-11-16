@@ -1,6 +1,6 @@
 """`ros2 run autosdv_lab3 lab3_check_lanelet MAP_DIR`: is the lanelet2 loop drivable?
 
-    lab3_check_lanelet MAP_DIR [--no-sim] [--goal-behind 0.7] [--timeout S] [--keep-log]
+    lab3_check_lanelet MAP_DIR [--no-sim] [--goal-behind 1.0] [--timeout S] [--keep-log]
 
 Three requirements, each PASS or FAIL:
 
@@ -11,7 +11,7 @@ Three requirements, each PASS or FAIL:
 
 then a hint that never fails the check: the map origin is where the mapping recording
 began, roughly the start mark, so it says how far behind the origin the nearest
-lanelet boundary lies along the loop. The run's single goal, about 0.7 m behind the
+lanelet boundary lies along the loop. The run's single goal, about 1.0 m behind the
 start, must fall in the lanelet BEFORE the start's (autosdv_launch
 config/planning_rc/README.md), so a boundary just behind the start mark is what makes
 the one-goal lap possible.
@@ -32,7 +32,7 @@ from typing import List, Optional
 from autosdv_lab3 import lanelet_speed, mapdir
 from autosdv_lab3.route import Loop, MapError, find_chain, read_lanelets
 
-GOAL_BEHIND = 0.7     # m: the run's 2D Goal Pose behind the start
+GOAL_BEHIND = 1.0     # m: the run's 2D Goal Pose behind the start (0.7 m was unreliable)
 HINT_WITHIN = 1.5     # m: a boundary this close behind the origin counts as "just behind"
 # m: the goal this far before the boundary, at least (measured: 1.0 m behind a start
 # 0.5 m past it drove; 0.2 m before it did not move)
