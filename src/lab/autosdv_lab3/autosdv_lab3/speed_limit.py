@@ -17,6 +17,7 @@ limit (/planning/scenario_planning/max_velocity) either way.
 """
 
 import argparse
+import json
 import sys
 from typing import Optional
 
@@ -26,7 +27,25 @@ NODE = 'lab3_speed_limit'
 PARAM = 'max_speed_kmh'
 TOPIC = '/planning/scenario_planning/max_velocity_default'
 SELECTED_TOPIC = '/planning/scenario_planning/max_velocity'
+EVENTS_TOPIC = '/lab3/route_events'   # lab3_route's legs and arrivals (route.EVENTS_TOPIC)
 REPEAT_S = 1.0                 # s between repeats of the current limit
+
+
+LAP1_RULE = (f'the first lap runs at {DEFAULT_KMH:g} km/h: raise the speed once '
+             f'just lab3 route has printed "lap 1: arrived"')
+
+
+def lap_refusal(kmh: float, lap1_done: bool) -> Optional[str]:
+    """Why `kmh` may not be set yet: above the default before the first lap is complete."""
+    if not lap1_done and kmh > DEFAULT_KMH:
+        return LAP1_RULE
+    return None
+
+
+def completes_lap1(event: dict) -> bool:
+    """True for lab3_route's announcement that the last leg of lap 1 arrived."""
+    return (event.get('event') == 'arrived' and event.get('lap') == 1
+            and event.get('leg') is not None and event.get('leg') == event.get('legs'))
 
 
 def kmh_to_mps(kmh: float) -> float:
@@ -82,6 +101,7 @@ def main(argv=None) -> int:
     pub = node.create_publisher(VelocityLimit, TOPIC, latched)
 
     current = {'kmh': kmh}
+    state = {'lap1_done': False}
 
     def publish(value: float):
         current['kmh'] = value
@@ -96,7 +116,7 @@ def main(argv=None) -> int:
         for p in params:
             if p.name != PARAM:
                 continue
-            why = refusal(p.value)
+            why = refusal(p.value) or lap_refusal(float(p.value), state['lap1_done'])
             if why:
                 return SetParametersResult(successful=False, reason=why)
         for p in params:
@@ -114,12 +134,29 @@ def main(argv=None) -> int:
         value = adopted_kmh(msg.max_velocity)
         if value is None:
             return
+        if lap_refusal(value, state['lap1_done']):
+            node.get_logger().warning(LAP1_RULE + f'; {value:g} km/h held at {DEFAULT_KMH:g}')
+            value = DEFAULT_KMH
         node.get_logger().info(f'limit from {msg.sender or "another node"}: '
                                f'{msg.max_velocity * 3.6:.1f} km/h')
         from rclpy.parameter import Parameter
         node.set_parameters([Parameter(PARAM, Parameter.Type.DOUBLE, value)])
 
     node.create_subscription(VelocityLimit, TOPIC, on_other, 10)
+
+    def on_event(msg):
+        try:
+            event = json.loads(msg.data)
+        except ValueError:
+            return
+        if not state['lap1_done'] and completes_lap1(event):
+            state['lap1_done'] = True
+            node.get_logger().info('lap 1 arrived: the speed limit may now be raised')
+
+    from std_msgs.msg import String
+    node.create_subscription(String, EVENTS_TOPIC, on_event, QoSProfile(
+        depth=100, reliability=ReliabilityPolicy.RELIABLE,
+        durability=DurabilityPolicy.TRANSIENT_LOCAL))
     publish(kmh)
     from rclpy.executors import ExternalShutdownException
     try:

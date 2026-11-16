@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import glob
+import math
 import os
 import subprocess
 import sys
@@ -134,7 +135,14 @@ def parse_lanelet2_osm(path: Path):
         lon = node.get("lon")
         if lat is None or lon is None:
             continue
-        latlon.append((float(lat), float(lon)))
+        # Vector Map Builder's Local-projector export writes lat="" lon="": the node is
+        # in local_x/local_y only. Keep it (NaN), so Local maps count every node.
+        try:
+            latlon.append((float(lat), float(lon)))
+        except ValueError:
+            if lat.strip() or lon.strip():
+                raise CheckError(f"node {node.get('id')}: lat={lat!r} lon={lon!r} is not a number")
+            latlon.append((float("nan"), float("nan")))
         tags = {t.get("k"): t.get("v") for t in node.findall("tag")}
         if "local_x" in tags and "local_y" in tags:
             try:
@@ -492,6 +500,10 @@ def run_check(map_dir: Path, pose_source: str, grid_yaml_name: str,
                 lbbox = bbox_from_points(local_tags.values())
                 path_desc = "local_x/local_y tags (projector_type: Local)"
             else:
+                if any(math.isnan(p[0]) for p in latlon_points):
+                    raise CheckError(
+                        f"projector_type is {ptype} but lanelet2 nodes carry empty lat/lon "
+                        "(a Local export) -> set projector_type: Local")
                 try:
                     resolved_type, projected = project_latlon(
                         proj_path, latlon_points, autoware_setup)

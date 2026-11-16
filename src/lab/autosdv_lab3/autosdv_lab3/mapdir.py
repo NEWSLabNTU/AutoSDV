@@ -17,6 +17,7 @@ and which voxel size made it, and at which AutoSDV commit.
 """
 
 import hashlib
+import re
 import os
 import subprocess
 import time
@@ -74,11 +75,28 @@ def record_step(map_dir: str, step: str, data: dict) -> dict:
     return meta
 
 
+_SPEED_TAG_RE = re.compile(r'[ \t]*<tag\s+k="speed_limit"\s+v="[^"]*"\s*/>[ \t]*\r?\n?')
+
+
+def normalized_osm(text: str) -> str:
+    """The lanelet2 file with every speed_limit tag removed: what the map hash covers,
+    so a team may retune the segment speeds after hand-in (lanelet_speed)."""
+    return _SPEED_TAG_RE.sub('', text)
+
+
 def folder_hash(map_dir: str) -> str:
-    """One hash over the files that define the map, for the week-2 bag's metadata."""
+    """One hash over the files that define the map, for the week-2 bag's metadata. The
+    lanelet file is hashed without its speed_limit tags, the one part a team may change."""
     h = hashlib.sha256()
     for name in (PCD, LANELET, PROJECTOR):
         path = os.path.join(map_dir, name)
         h.update(name.encode())
-        h.update(sha256(path).encode() if os.path.isfile(path) else b'missing')
+        if not os.path.isfile(path):
+            h.update(b'missing')
+        elif name == LANELET:
+            with open(path, encoding='utf-8', errors='surrogateescape') as f:
+                h.update(hashlib.sha256(normalized_osm(f.read()).encode(
+                    'utf-8', errors='surrogateescape')).hexdigest().encode())
+        else:
+            h.update(sha256(path).encode())
     return h.hexdigest()

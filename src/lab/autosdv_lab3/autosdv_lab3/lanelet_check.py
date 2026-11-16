@@ -31,7 +31,7 @@ from typing import List, Optional
 import numpy as np
 import yaml
 
-from autosdv_lab3 import mapdir
+from autosdv_lab3 import lanelet_speed, mapdir
 from autosdv_lab3.route import Loop, MapError, find_chain, point_polyline_distance, read_lanelets
 
 DEFAULTS = dict(min_length=15.0, width=(0.6, 1.2), clearance=0.25, band=(0.05, 0.8))
@@ -181,9 +181,14 @@ def static_checks(map_dir: str, min_length=DEFAULTS['min_length'], width=DEFAULT
     try:
         lanelets = read_lanelets(os.path.join(map_dir, mapdir.LANELET))
     except MapError as e:
+        res.append(Result('1 speed limits', None, '', 'needs a readable map'))
         res.append(Result('2 closed chain', False, '', str(e)))
         return res + [Result(n, None, '', 'needs a readable map') for n in
                       ('3 clockwise', '4 lane width', '5 clearance', '6 loop length', '6 turn radius')]
+    ok, value, reason = lanelet_speed.check(lanelets)
+    res.append(Result('1 speed limits', ok, value,
+                      reason + ('; set each lanelet\'s speed limit in Vector Map Builder, or with '
+                                'just lab3 lanelet-speed' if reason else '')))
     order, problem = find_chain(lanelets)
     if problem:
         res.append(Result('2 closed chain', False, f'{len(order)} of {len(lanelets)} chained', problem))

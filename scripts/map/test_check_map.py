@@ -394,3 +394,23 @@ def test_run_check_reports_a_valid_sidecar(tmp_path):
     line = next(l for l in lines if l.name == "autosdv_map.yaml")
     assert line.status == "ok"
     assert "scan_accumulation" in line.message
+
+
+def test_parse_lanelet2_osm_local_export_with_empty_latlon(tmp_path):
+    # Vector Map Builder's Local-projector export: lat="" lon="", local_x/local_y tags
+    osm = tmp_path / "lanelet2_map.osm"
+    osm.write_text(
+        '<?xml version="1.0"?>\n<osm>\n'
+        '  <node id="1" lat="" lon=""><tag k="local_x" v="1.0"/><tag k="local_y" v="2.0"/></node>\n'
+        '  <node id="2" lat="" lon=""><tag k="local_x" v="3.0"/><tag k="local_y" v="4.0"/></node>\n'
+        '</osm>\n')
+    latlon, local_tags = parse_lanelet2_osm(osm)
+    assert len(latlon) == 2
+    assert local_tags == {"1": (1.0, 2.0), "2": (3.0, 4.0)}
+
+
+def test_parse_lanelet2_osm_rejects_a_non_numeric_lat(tmp_path):
+    osm = tmp_path / "lanelet2_map.osm"
+    osm.write_text('<osm><node id="1" lat="north" lon="1.0"/></osm>')
+    with pytest.raises(CheckError):
+        parse_lanelet2_osm(osm)

@@ -38,6 +38,16 @@ selected limit (`/planning/scenario_planning/max_velocity`). The `check-lanelet`
 simulator lap also runs at 3 km/h (`lab3_sim_lap --speed`); on the 98 m example loop it
 averaged 0.74 m/s, against 1.73 m/s at the lanelets' 10 km/h.
 
+The first lap of every launch runs at 3 km/h: `lab3_speed_limit` refuses a raise (and
+holds an RViz value at 3) until `lab3_route` announces lap 1's last leg arrived on
+`/lab3/route_events`. Segment speeds are the lanelets' `speed_limit` tags:
+`check-lanelet` row "1 speed limits" requires one on every lanelet, above 0 and at most
+10, and `just lab3 lanelet-speed MAP [--corners K] [--straights K] [--lanelet ID=K]`
+edits them in place in week 2. `mapdir.folder_hash` hashes the lanelet file without its
+speed tags, so a retuned map still matches the handed-in one; any other edit does not.
+Autoware loads the map at launch, so a segment change needs a restart (and its first lap
+is again at 3 km/h).
+
 ## Week-2 grading (`lab3_grade`)
 
 The marks of the course plan's week-2 table, from the bags, on fixed lines (no TA
