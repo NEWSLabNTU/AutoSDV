@@ -58,7 +58,7 @@ NVTL = '/localization/pose_estimator/nearest_voxel_transformation_likelihood'
 AUTONOMOUS = 2           # autoware_adapi_v1_msgs/OperationModeState.AUTONOMOUS
 MOVING = 0.05            # m/s: faster than this the car is moving
 REST_S = 1.0             # s below MOVING that count as having stopped
-END_BEHIND = 1.0         # m: the lap ends at most this far behind the start
+END_BEHIND = 1.5         # m: the lap ends at most this far behind the start (the car stops ~0.3 m short of a goal set ~0.7 m behind)
 OFF_LANE_TOL = 0.15      # m: a pose this close outside a lanelet still counts as on it
 REPORT = 'grade.yaml'
 
