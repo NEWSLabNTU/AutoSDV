@@ -45,6 +45,7 @@ RUN_EXTRA = [
     '/api/planning/velocity_factors',     # why planning slows or holds the car
     '/planning/scenario_planning/max_velocity',   # the speed limit in force (lab3_speed_limit, RViz)
     '/api/planning/steering_factors',
+    '/map/pointcloud_map',                # the team's map, for the scan-to-map grade
 ]
 
 

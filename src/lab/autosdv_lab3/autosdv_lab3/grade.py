@@ -38,6 +38,7 @@ which rules the lap met.
 """
 
 import argparse
+import math
 import json
 import os
 import signal
@@ -63,6 +64,13 @@ REST_S = 1.0             # s below MOVING that count as having stopped
 END_BEHIND = 2.0         # m: a lap reaches at least this close behind the start; an overshoot is fine
 OFF_LANE_TOL = 0.15      # m: a pose this close outside a lanelet still counts as on it
 REPORT = 'grade.yaml'
+VELOCITY = '/vehicle/status/velocity_status'
+
+# ---- localization and speed measures (the rubric's thresholds are set after the TA dry run) ----
+NVTL_GATE = 1.3          # the Lab 3 indoor NDT gate (ndt_indoor_robin_w.param.yaml)
+NVTL_BIN = 0.5           # s: the lap in bins; a bin is localized when NDT scored >= the gate
+SPEED_MAX_KMH = 10.0     # above this for SPEEDING_HOLD_S, the lap does not count as complete
+SPEEDING_HOLD_S = 0.3    # one bad hall-sensor edge must not cancel a lap
 
 RUN_TOPICS_FILE = 'run_topics.txt'
 
@@ -75,6 +83,8 @@ class Run:
     op: List[Tuple[float, int]] = field(default_factory=list)
     run_meta: dict = field(default_factory=dict)
     nvtl: np.ndarray = field(default_factory=lambda: np.zeros((0, 2)))
+    speed: np.ndarray = field(default_factory=lambda: np.zeros((0, 2)))   # t, measured m/s
+    lidar_topic: Optional[str] = None
     start: float = 0.0
     end: float = 0.0
 
@@ -88,10 +98,13 @@ def read_run(path: str) -> Run:
     reader.open(rosbag2_py.StorageOptions(uri=path, storage_id=''),
                 rosbag2_py.ConverterOptions('', ''))
     topics = {t.name: t.type for t in reader.get_all_topics_and_types()}
-    types = {t: get_message(topics[t]) for t in (ODOM, OP_MODE, RUN_META, NVTL) if t in topics}
+    types = {t: get_message(topics[t]) for t in (ODOM, OP_MODE, RUN_META, NVTL, VELOCITY)
+             if t in topics}
     reader.set_filter(rosbag2_py.StorageFilter(topics=list(types)))
     r = Run()
-    odom, nvtl, first = [], [], None
+    r.lidar_topic = next((t for t in ('/sensing/lidar/iv_points', '/sensing/lidar/velodyne_points')
+                          if t in topics), None)
+    odom, nvtl, speed, first = [], [], [], None
     while reader.has_next():
         topic, raw, stamp = reader.read_next()
         t = stamp * 1e-9
@@ -109,9 +122,12 @@ def read_run(path: str) -> Run:
             r.run_meta = json.loads(m.data)
         elif topic == NVTL:
             nvtl.append((t, m.data))
+        elif topic == VELOCITY:
+            speed.append((t, m.longitudinal_velocity))
     r.start = first or 0.0
     r.odom = np.array(odom, float).reshape(-1, 4)
     r.nvtl = np.array(nvtl, float).reshape(-1, 2)
+    r.speed = np.array(speed, float).reshape(-1, 2)
     return r
 
 
@@ -218,16 +234,25 @@ def grade_run(r: Run) -> dict:
     steps = np.hypot(*np.diff(xy, axis=0).T)
     manual = [d for d, t in zip(steps, o[1:, 0]) if mode_at(r.op, t) != AUTONOMOUS]
     rep['distance_not_autonomous_m'] = round(float(sum(manual)), 2)
+    rep['window'] = [t0, t1]
+    rep['localized_share'] = localized_share(r.nvtl, t0, t1)
     if len(r.nvtl):
         sel = (r.nvtl[:, 0] >= t0) & (r.nvtl[:, 0] <= t1)
         if sel.any():
             rep['nvtl_min'] = round(float(r.nvtl[sel, 1].min()), 3)
+            rep['nvtl_median'] = round(float(np.median(r.nvtl[sel, 1])), 3)
+    sp = speeding(r.speed, t0, t1)
+    rep['max_speed_kmh'] = sp['max_kmh']
+    rep['speeding'] = sp['speeding']
 
     checks = {
         'every segment': (not missed, f'lanelets {missed} not driven'),
         'one lap': (behind <= END_BEHIND,
                     f'the car stopped {behind:.2f} m behind the start: the lap is not complete '
                     f'(it must come within {END_BEHIND:g} m of the start, or pass it)'),
+        'speed limit': (not rep.get('speeding'),
+                        f'the measured speed exceeded {SPEED_MAX_KMH:g} km/h for '
+                        f'{SPEEDING_HOLD_S:g} s or longer (max {rep.get("max_speed_kmh")} km/h)'),
         'autonomous': (rep['distance_not_autonomous_m'] < 0.1,
                        f'{rep["distance_not_autonomous_m"]:.2f} m driven outside autonomous mode'),
     }
@@ -237,23 +262,63 @@ def grade_run(r: Run) -> dict:
     return rep
 
 
+def localized_share(nvtl: np.ndarray, t0: float, t1: float) -> float:
+    """Share of NVTL_BIN bins of [t0, t1] in which NDT scored at or above the gate. A bin
+    with no NDT output at all counts as not localized."""
+    n = max(1, int(math.ceil((t1 - t0) / NVTL_BIN)))
+    ok = np.zeros(n, bool)
+    if len(nvtl):
+        sel = (nvtl[:, 0] >= t0) & (nvtl[:, 0] < t0 + n * NVTL_BIN) & (nvtl[:, 1] >= NVTL_GATE)
+        ok[((nvtl[sel, 0] - t0) // NVTL_BIN).astype(int)] = True
+    return round(float(ok.mean()), 4)
+
+
+def speeding(speed: np.ndarray, t0: float, t1: float) -> dict:
+    """The measured speed's maximum in [t0, t1] and whether it stayed above SPEED_MAX_KMH
+    for SPEEDING_HOLD_S or longer."""
+    sel = (speed[:, 0] >= t0) & (speed[:, 0] <= t1) if len(speed) else np.zeros(0, bool)
+    s = speed[sel] if len(speed) else speed
+    if not len(s):
+        return {'max_kmh': None, 'speeding': False}
+    over = np.abs(s[:, 1]) * 3.6 > SPEED_MAX_KMH
+    run_start, longest = None, 0.0
+    for (t, _), o in zip(s, over):
+        if o and run_start is None:
+            run_start = t
+        if not o:
+            run_start = None
+        if run_start is not None:
+            longest = max(longest, t - run_start)
+    return {'max_kmh': round(float(np.abs(s[:, 1]).max() * 3.6), 2),
+            'speeding': bool(over.any() and longest >= SPEEDING_HOLD_S)}
+
+
 def print_report(rep: dict, bag: str):
     print(f'\nLab 3 lap: {bag}')
     for key in ('loop_length_m', 'travel_time_s', 'travel_distance_m', 'end_gap_m',
                 'distance_plus_gap_m', 'end_behind_start_m',
-                'laps', 'segments_visited', 'distance_not_autonomous_m', 'nvtl_min'):
+                'laps', 'segments_visited', 'distance_not_autonomous_m', 'localized_share',
+                'nvtl_median', 'nvtl_min', 'max_speed_kmh', 'speeding'):
         if key in rep:
             print(f'  {key:28s} {rep[key]}')
     for k, ok in rep.get('checks', {}).items():
         print(f'  {"PASS" if ok else "FAIL"}  {k}')
     for why in rep['reasons']:
         print(f'  - {why}')
+    al = rep.get('alignment')
+    if al:
+        print(f'  {"scan_to_map":28s} {al}')
     print('  LAP ' + ('ACCEPTED' if rep['ok'] else 'NOT ACCEPTED'))
 
 
+
 def grade_bag(bag: str, out: Optional[str] = None) -> int:
-    rep = grade_run(read_run(bag))
+    r = read_run(bag)
+    rep = grade_run(r)
     rep['bag'] = os.path.abspath(bag)
+    if 'window' in rep and r.lidar_topic:
+        from autosdv_lab3 import alignment
+        rep['alignment'] = alignment.read_alignment(bag, r.lidar_topic, *rep['window'], ODOM)
     print_report(rep, bag)
     out = out or os.path.join(bag, REPORT)
     rep.pop('lanelet2_map', None)
