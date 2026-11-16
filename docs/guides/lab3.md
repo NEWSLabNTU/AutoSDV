@@ -1,189 +1,342 @@
 # Lab 3: indoor map building and NDT localization
 
-The AutoSDV side of Lab 3: a team drives a car around the classroom, builds a
-point-cloud map with GLIM, moves it into the reflective board's frame, draws a
-clockwise lanelet2 loop in Vector Map Builder, and in week 2 drives that loop
-autonomously on NDT, started from the board. Package `src/lab/autosdv_lab3`,
-recipes `just lab3` (`just/lab3.just`). The lab's plan and the design behind this
-package are in the course repository, `2026/labs/Lab3/`.
+The AutoSDV side of Lab 3: a team drives car B or C (Seyond Robin-W + ZED X Mini IMU)
+around the classroom, builds a point-cloud map with GLIM, draws a clockwise lanelet2 loop
+in Vector Map Builder, and in week 2 drives that loop autonomously on NDT, started and
+sent round the loop from RViz the standard Autoware way. Package `src/lab/autosdv_lab3`.
+Students use stock ROS commands (below); `just lab3` (`just/lab3.just`) holds the TA's
+shortcuts. The lab's plan is in the course repository, `2026/labs/Lab3/`.
 
-## The path
+**The map frame is GLIM's.** There is no anchor: the map's origin is where the car stood
+when the mapping recording began, so the team starts that recording with the car on the
+taped start mark, and the origin is roughly the mark. Each team's origin differs a
+little, and nothing assumes a fixed one. Measured on the TA simulation's mapping bag:
+the origin is the IMU's position at the first scans, z is up (gravity), and the
+horizontal axes are the LiDAR's own at that moment. The Robin-W's frame is x up, y right,
+z forward, so the map's **+x points backward** from the car's starting heading and +y to
+its right; the floor lies about the IMU's height below z = 0. This matters only for
+reading coordinates: the start is set in RViz, and the loop's direction is checked with z
+up.
+
+## Student commands
+
+Every command below was run as written (see "Verified" for how), except that the two
+on-car launches (mapping, run) and the grader were only resolved (`play_launch dump`), not
+run on a car; `team3`, `car_b` and the bag names are examples. Each terminal first sources the AutoSDV workspace
+(`source ~/repos/AutoSDV/scripts/env.sh`, or wherever the car's checkout is). The topic
+lists live in the installed package; a team may copy them, e.g. into `~/lab3/team3/`, and
+`cat` its copy instead.
+
+### Week 1: the mapping drive (on the car)
+
+Terminal 1, the sensors (LiDAR, ZED IMU, wheel speed, TF; the actuator never drives:
+steer with the transmitter):
+
+```bash
+ros2 launch autosdv_lab3 lab3_mapping.launch.xml vehicle_id:=car_b
+```
+
+Terminal 2, the recording. Put the car on the start mark first: where the recording
+begins is the map's origin. Keep it still 10 s, drive the room at no more than 0.8 m/s
+closing the loop twice, stop, keep it still 10 s, then Ctrl-C:
+
+```bash
+mkdir -p ~/lab3/bags && cd ~/lab3/bags && ros2 bag record $(cat $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/record/map_topics.txt)
+```
+
+The bag is `~/lab3/bags/rosbag2_YYYY_MM_DD-HH_MM_SS`. Check it before leaving the hall
+(LiDAR fields, IMU rate, TF, duration, speed, standing still at both ends):
+
+```bash
+ros2 run autosdv_lab3 lab3_check_bag ~/lab3/bags/rosbag2_2026_11_20-10_15_00
+```
+
+### Week 1: the map (anywhere with GLIM; stop the mapping launch first)
+
+GLIM, headless, with the ready config for the car that recorded the bag (`car_b`, `car_c`;
+`car_b_cpu`, `car_c_cpu` on a computer without an NVIDIA GPU):
+
+```bash
+ros2 run glim_ros glim_rosbag ~/lab3/bags/rosbag2_2026_11_20-10_15_00 --ros-args -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/car_b -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
+```
+
+It plays the bag (about 1.4x real time on a workstation GPU), optimizes, writes the dump
+directory `~/lab3/team3_glim` and quits.
+
+Export the points with GLIM's viewer:
+
+```bash
+ros2 run glim_ros offline_viewer
+```
+
+1. **File > Open New Map**; in the folder dialog type the dump path
+   (`~/lab3/team3_glim`, Ctrl+L opens the path field) and press **OK**.
+2. "Do optimization?": **No** (the dump is already optimized). The map appears.
+3. **File > Save > Export Points**. The **Name** field starts as `.`: clear it, type
+   `team3_map.ply`, pick the folder `~/lab3`, **OK**. (Typing over the pre-selected part
+   leaves the `.` and writes `team3_map.ply.`.) The viewer logs "exporting points"; the
+   file is binary PLY with x y z intensity.
+4. **File > Quit**.
+
+On a VNC desktop whose OpenGL does not reach the GPU, start it as
+`vglrun -d egl ros2 run glim_ros offline_viewer`.
+
+To an Autoware map, downsampled to 0.1 m (stock PCL; the last step writes plain binary,
+since `pcl_voxel_grid` writes `binary_compressed`):
+
+```bash
+mkdir -p ~/lab3/team3_map
+pcl_ply2pcd ~/lab3/team3_map.ply ~/lab3/team3_raw.pcd
+pcl_voxel_grid ~/lab3/team3_raw.pcd ~/lab3/team3_voxel.pcd -leaf 0.1,0.1,0.1
+pcl_convert_pcd_ascii_binary ~/lab3/team3_voxel.pcd ~/lab3/team3_map/pointcloud_map.pcd 1
+echo "projector_type: Local" > ~/lab3/team3_map/map_projector_info.yaml
+```
+
+Draw the loop in Vector Map Builder on `pointcloud_map.pcd` and export
+`lanelet2_map.osm` into the same folder. The folder is then:
 
 ```
-week 1, hall     just lab3 stack car_b                       terminal 1
-                 just lab3 record --car car_b --team 3       terminal 2; checked on Ctrl-C
-week 1, Orin     just lab3 map BAG                           GLIM -> BAG_glim/raw_map.pcd
-anywhere         just lab3 anchor BAG_glim/raw_map.pcd MAP --car car_b
-                 just lab3 downsample MAP --voxel 0.1
-                 (Vector Map Builder -> MAP/lanelet2_map.osm)
-                 just lab3 check-lanelet MAP                 requirements + simulator lap
-week 2, hall     just lab3 record --car car_b --team 3 --kind run --map MAP   terminal 2, FIRST
-                 just lab3 run car_b MAP                     terminal 1
-                 just lab3 route MAP --engage --laps 2
-                 (config/speed_limit.yaml)                   the overall speed limit, 3 km/h; edit to raise
-TA               just lab3 grade --map MAP --run RUN_BAG --checkpoints CP_BAG \
-                     --marks marks.yaml --sheet sheet.yaml [--fallback-map DIR]
+~/lab3/team3_map/
+    pointcloud_map.pcd          GLIM's map, 0.1 m voxels
+    lanelet2_map.osm            the clockwise loop (Local projector: local_x/local_y tags)
+    map_projector_info.yaml     projector_type: Local
 ```
 
-**Initialization.** With `pose_initializer:=board` (the default), the board pose
-initializer tries once after launch and RViz's **Initialize with GNSS** button re-runs
-it: `lab3_run.launch.xml` sets `adapi_initialize_by_board`, which remaps default_adapi's
-`/api/localization/initialize` to `/api/localization/initialize_default` in the API group
-only, and the initializer (`config/board/initializer.param.yaml`, `adapi_*`) serves the
-button's name, waits up to 30 s for a still car and the board, and forwards requests that
-carry a pose. As in the golf cart (reflector-pose-init 394c661).
+Draw the loop with a lanelet boundary **just behind the start mark** (the origin): in
+week 2 the one goal goes about 0.7 m behind the start and must fall in the lanelet before
+the start's (see "The one-goal lap").
 
-The run bag is started before the stack: the board pose that initializes it is not
-latched, so a bag that begins after INITIALIZED cannot show the board did it.
+### Week 1: check the loop
 
-**Speed.** Two limits, and Autoware drives at the lower on each lanelet. The lanelets'
-`speed_limit` tags are the segment limits: `check-lanelet` row "1 speed limits" fails a
-lanelet with no limit, or one not above 0 or above 10 km/h. The overall limit is
-`src/lab/autosdv_lab3/config/speed_limit.yaml` (`max_speed_kmh: 3.0` as shipped;
-`lab3_run.launch.xml speed_limit_config:=` for another file). `lab3_speed_limit` publishes
-it as Autoware's external velocity limit on `/planning/scenario_planning/max_velocity_default`,
-once a second because the selector subscribes without durability, and re-reads the file
-when it changes, so an edit applies within a second without a restart; a value above 10
-is refused and the previous one kept. RViz's Set Velocity Limit writes the same topic and
-is taken over (clamped to 10) until the file next changes. The run bag records the
-selected limit (`/planning/scenario_planning/max_velocity`) and `/lab3/run_meta` the
-segment limits loaded. The `check-lanelet` simulator lap runs at 3 km/h
-(`lab3_sim_lap --speed`); on the 98 m example loop it averaged 0.74 m/s, against
-1.73 m/s at the lanelets' 10 km/h.
+```bash
+ros2 run autosdv_lab3 lab3_check_lanelet ~/lab3/team3_map
+```
 
-`just lab3 lanelet-speed MAP [--corners K] [--straights K] [--lanelet ID=K]` edits the
-segment tags in place, as an alternative to Vector Map Builder. `mapdir.folder_hash`
-hashes the lanelet file without its speed tags, so a retuned map still matches the
-handed-in one; any other edit does not. Autoware loads the map at launch, so a segment
-change needs a restart.
+Three requirements, PASS or FAIL: the road lanelets form **one closed loop** by successor
+relations, it runs **clockwise** seen from above, and every lanelet has a **speed limit**
+above 0 and at most 10 km/h. Then a hint that never fails the check: how far behind the
+origin the nearest lanelet boundary lies, whether that is within 1.5 m, and where a goal
+0.7 m behind the start falls. Then, unless `--no-sim`, one lap in the planning simulator
+with the field procedure: start at the origin projected onto the loop, one goal 0.7 m
+behind it (`--goal-behind` to change). Set `ROS_DOMAIN_ID` first when the computer is
+shared.
 
-## Week-2 grading (`lab3_grade`)
+### Practise: the planning simulator (anywhere)
 
-The marks of the course plan's week-2 table, from the bags, on fixed lines (no TA
-reference run). The module docstring of `autosdv_lab3/grade.py` holds every line.
+```bash
+ros2 launch autosdv_lab3 lab3_planning_sim.launch.xml map_path:=$HOME/lab3/team3_map
+```
 
-| item | marks | from |
-|---|---|---|
-| board initialization | 5 | INITIALIZED <= 30 s after `/lab3/run_meta`'s launch time; no `/initialpose`; the first NDT pose within 0.5 m and 10 deg of the board's |
-| checkpoint accuracy | 15 | each mark's first stop of >= 3 s within 1 m: half position (0.10 m full, 0.40 m zero), half heading (3 deg full, 15 deg zero) |
-| autonomous laps | 15 | the first four legs `/lab3/route_events` announces, 3.75 each: arrived within 2.5 m of the goal, autonomous >= 90 % of the leg, no route set by hand, no takeover on the TA's sheet |
-| staying localized | 10 | over the graded legs, 2.5 each: no re-initialization; no NDT pose jump > 0.3 m beyond what the speed explains; NVTL >= the indoor gate >= 95 % of the time; median scan-to-map residual <= 0.10 m |
-| fallback map | -10 | `/lab3/run_meta`'s map hash is a `--fallback-map` folder's |
+AutoSDV's RC simulator on the team's map with the car's planning settings
+(`planning_profile:=rc`; Autoware's stock `planning_simulator.launch.xml` uses the stock
+planning files, with which a one-goal lap does not drive). RViz opens; the car appears at
+the origin facing the map's +x (backward, see above). Then the RViz sequence below. The
+overall speed limit is the same file as on the car (`speed_limit_config:=` to use a
+team's copy).
 
-What the stack adds to the bag for this: `lab3_run_meta` (in `lab3_run.launch.xml`)
-latches the launch time and the loaded map's hash; `lab3_route` announces each leg it
-sets and each arrival. The transmitter's manual switch is hardware and leaves no trace,
-so the TA's sheet lists those takeovers. An item the bag cannot decide (no run meta, a
-map hash that is neither map, a recorder started late) reads `—` and the total is left
-to the TA.
+### Week 2: the laps (on the car)
 
-The residual places each sampled scan (one a second, 3000 points) by the localization
-pose, `base_link` on the map's floor (z 0), and measures the nearest map point, capped
-at 1 m; a coarse voxel raises it, which is the trade the team chose.
+Terminal 1, the stack (no RViz: the ZED must not see a display, so the launch removes
+`DISPLAY` from its own environment):
 
-## The map folder
+```bash
+ros2 launch autosdv_lab3 lab3_run.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+```
 
-| file | written by | what |
-|---|---|---|
-| `anchored_full.pcd` | anchor | the GLIM cloud in the board frame, full resolution; not handed in |
-| `pointcloud_map.pcd` | downsample | what NDT and Vector Map Builder load |
-| `board_anchor.yaml` | anchor | T(map <- GLIM) and the board detection |
-| `board_profile.yaml` | anchor | the detector profile used; the week-2 initializer loads this copy |
-| `map_projector_info.yaml` | anchor | `projector_type: Local` |
-| `lanelet2_map.osm` | the team | the clockwise loop |
-| `lab3_map.yaml` | every step | provenance: inputs, hashes, settings, AutoSDV commit |
+Terminal 2, RViz:
 
-The board frame: origin on the floor below the board centre, x out of the wall along
-the board normal, z up. Every team's map shares it.
+```bash
+rviz2 -d $(ros2 pkg prefix autosdv_launch)/share/autosdv_launch/rviz/autosdv.rviz --ros-args --params-file $(ros2 pkg prefix autosdv_vehicle_description)/share/autosdv_vehicle_description/config/vehicle_info.param.yaml
+```
 
-**Anchor before downsampling.** The board is 0.6 m wide; a coarse voxel grid leaves
-it too few points to find. `downsample` refuses a folder without an anchor, and
-always starts from `anchored_full.pcd`.
+Terminal 3, the grader (the TA starts it after the stack is up, before the goal):
 
-## Per car
+```bash
+ros2 launch autosdv_lab3 lab3_grader.launch.xml team:=3
+```
 
-| car | LiDAR | raw topic | frame | board profile |
+**The RViz sequence**, on the car and in the simulator alike:
+
+1. Place the car on the start mark.
+2. **2D Pose Estimate**: click the start, drag the way the car faces. Wait for NDT to
+   settle (the car's model sits on the map, the scan on the walls).
+3. **2D Goal Pose**: click about 0.7 m behind the start on the loop, in the lanelet
+   before the start's, drag the way of travel.
+4. In the **AutowareStatePanel** (left), press **Auto**. The car drives the whole loop
+   and stops at the goal.
+5. Ctrl-C the grader after the car has stopped: it grades the bag and prints the result.
+
+The grade reads only the bag (`ros2 run autosdv_lab3 lab3_grade BAG` repeats it):
+travel time, travel distance, every lanelet driven, and the straight-line gap from the
+start to where the car came to rest (behind or past the start; an overshoot is fine)
+added to the distance. The lap must end no more than 2 m behind the start, or pass it.
+
+**The speed limit.** The overall limit is a YAML file read by `lab3_speed_limit`
+(3 km/h as shipped, at most 10); on each lanelet the car drives at no more than the lower
+of it and the lanelet's own `speed_limit`. Copy it, edit `max_speed_kmh` and save: the
+stack applies the change within a second, no restart:
+
+```bash
+cp $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/speed_limit.yaml ~/lab3/team3/speed_limit.yaml
+ros2 launch autosdv_lab3 lab3_run.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map speed_limit_config:=$HOME/lab3/team3/speed_limit.yaml
+```
+
+Without `speed_limit_config:=` the stack reads the shared file in the workspace.
+
+### At home: replay a lap against the map
+
+The grader's bag (`~/lab3/bags/team3_run_<date>_<time>`) holds the sensors, or a team
+records its own beside the stack:
+
+```bash
+mkdir -p ~/lab3/bags && cd ~/lab3/bags && ros2 bag record $(cat $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/record/run_topics.txt)
+```
+
+At home, terminal 1, the stack with no drivers and no vehicle interface, on the bag's
+clock, RViz included:
+
+```bash
+ros2 launch autosdv_lab3 lab3_replay.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+```
+
+Terminal 2, play only the raw sensor inputs (the stack makes the rest, TF included):
+
+```bash
+ros2 bag play ~/lab3/bags/team3_run_20261127_101500 --clock --topics $(cat $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/record/replay_topics.txt)
+```
+
+After the first 3 s and while the car still stands, **2D Pose Estimate** where it
+stood (Autoware refuses an initial pose unless the wheel speed has been zero for 3 s:
+"The vehicle is not stopped"; once the car moves, restart both terminals), and watch NDT
+follow the drive (`/localization/pose_estimator/nearest_voxel_transformation_likelihood`
+in PlotJuggler or `ros2 topic echo`).
+
+## The one-goal lap
+
+With `planning_profile:=rc` (`autosdv_launch/config/planning_rc/README.md`), one goal just
+behind the start drives the whole loop. The goal must lie in the lanelet **before** the
+start's: with both in one lanelet Autoware routes the few decimetres behind the car and
+never leaves. Measured in the RC simulator (`lab3_sim_lap`):
+
+| loop | start past the boundary | goal behind the start | goal before the boundary | result |
 |---|---|---|---|---|
-| A | VLP-16 | `/sensing/lidar/velodyne_points` | `vlp16` | `config/board/lab3_vlp16.yaml` |
-| B, C | Robin-W | `/sensing/lidar/iv_points` | `robin_w` | `config/board/lab3_robin_w.yaml` |
+| 37 m, GLIM map of the TA corridor | 0.2 m | 0.7 m | 0.5 m | lap, 36.1 m in 48 s |
+| 37 m, same | 0.2 m | 1.0 m | 0.8 m | lap, 35.8 m in 48 s |
+| 98 m example loop | 0.1 m | 0.7 m | 0.6 m | lap, 96.5 m |
+| 98 m | 0.1 m | 0.8 m | 0.7 m | lap |
+| 98 m | 0.5 m | 0.8 m | 0.3 m | lap |
+| 98 m | 0.1 / 0.2 / 0.5 m | 1.0 m | 0.9 / 0.8 / 0.5 m | lap (each) |
+| 98 m | 0.2 m | 0.7 m | 0.5 m | **did not move**, twice: the trajectory stops 0.4 m ahead |
+| 98 m (planning_rc README) | 0.3 m | 0.5 m | 0.2 m | did not move |
+| 21 m test fixture (4 x 8 m) | 0.1-0.5 m | 0.5-1.0 m | | did not start (4 pairs) |
 
-These are what the drivers publish (`pointcloud_preprocessor.launch.py`,
-`LIDAR_TOPICS`); the launch-argument defaults that name other topics are overridden.
-`autosdv_lab3/cars.py` holds the table.
+So the rule is not a single distance: 0.7-1.0 m behind the start, with the boundary
+between them, drove in 9 of 10 cases on real-sized loops. If the car does not move after
+**Auto**, set the goal again about 0.3 m further back. The 21 m fixture is smaller than any
+classroom loop; why it fails is not known.
 
-## Provisional values
+`lab3_check_lanelet`'s hint says where the boundary lies relative to the origin; a boundary
+just behind the start mark leaves the most room for the goal.
 
-None of these has been measured on a car; each says so in its file.
+## Verified
 
-- **Board profiles** (`config/board/lab3_*.yaml`): a board mounted low, centre 0.4 m
-  (bottom edge 0.1 m), so the beams meet it from about 1 m out; at the golf cart's
-  1.3 m the VLP-16 (+15 deg up) would need 4-5 m. Intensity threshold 100 (the
-  Velodyne convention), the sensor height 0.30 m standing in for an unmeasured
-  extrinsic. Measure `pose_in_map`'s height on the mounted board.
-- **Indoor NDT** (`config/ndt_indoor.param.yaml`): resolution 1.0 (outdoor 2.0) and
-  the NVTL gate 1.3 (outdoor 2.0), moved together because NVTL scales with the voxel
-  size; `required_distance` 3.0 (outdoor 10.0), since indoors nothing may be 10 m away
-  and NDT then refuses every scan. Built-in NDT only (`pose_source:=ndt`, the `run` default): the CUDA matcher
-  reads its own file. `ndt_param_file` is a new `autosdv.launch.yaml` argument.
-- **Size limit** 50 MB (`downsample --max-mb`), until Vector Map Builder's upload
-  limit is measured.
-- **Board initializer readiness** (`config/board/initializer.param.yaml`): a board pose
-  is acted on only once the wheel speed and NDT's input cloud are flowing; before that
-  Autoware refuses it and the refusal would spend one of the 5 attempts.
-- **Bag checks** (`check-bag`): 60 s, 0.8 m/s, 100 Hz IMU, 8 s still at each end, the
-  board detected in the first and last 15 s.
+Headless on a workstation (RTX GPU), ROS_DOMAIN_ID 87, 2026-11-16/17:
+
+- **GLIM**: the exact `glim_rosbag` command with `config/glim/car_b` (log_dir pointed into
+  the repository's tmp, the only change) on the TA simulation's 196 s Robin-W mapping bag:
+  exit 0 in 155 s, 11 submaps dumped. The first IMU pose is (-0.005, -0.007, -0.006) with
+  yaw 180 deg: the origin and axes stated above.
+- **offline_viewer** on a private Xvnc display (`vglrun -d egl`), driven with xdotool
+  through the clicks above: Open New Map, No, Export Points. The export is binary PLY,
+  `x y z intensity` float, 1 568 229 points, 25 MB (the header `glk::save_ply_binary`
+  writes). Screenshots: `tmp/lab3_glim_viewer_*.png` in the AutoSDV checkout.
+- **PCL**: the three commands above on that PLY: 1 568 229 -> 48 688 points,
+  `pointcloud_map.pcd` 0.78 MB, `FIELDS x y z intensity`, `DATA binary`.
+- **Autoware loads it**: the map loader in the planning simulator and in the replay read
+  that file (the TA corridor's lanelets moved into GLIM's frame beside it).
+- **lab3_check_lanelet** on that folder: loop 4 lanelets 37.2 m, clockwise
+  (-97.8 m^2), speed limits 5 km/h; hint: origin 3.02 m past lanelet 324's start, so a
+  0.7 m goal falls in the start's own lanelet. The simulator laps in the table above.
+- **lab3_planning_sim.launch.xml**: up headless (`rviz:=false`), localization
+  initialized at the origin; `play_launch dump` resolves all five Lab 3 launches.
+- **lab3_check_bag** on the TA mapping bag: all seven rows PASS (199 Hz IMU, 196 s,
+  0.60 m/s, still 14 s / 12 s).
+- **Replay**: `lab3_replay.launch.xml` with `ros2 launch`, the exact `ros2 bag play`
+  command on the TA run bag (abl2_both; its stamps rewritten to the header times, see
+  below), `/initialpose` as RViz sends it at 8 s while the car stood: localization
+  INITIALIZED; NVTL over 86 s 1.26-1.72 (median 1.66; the indoor file's gate is 1.3, and
+  NVTL scales with the 1.0 m resolution, so the outdoor ~2 does not apply); the EKF path
+  against the path recorded on the run (moved into GLIM's frame): median 0.038 m, p95
+  0.097 m, max 0.33 m; length 72.3 m against 72.5 m.
+- `unset_env` takes DISPLAY and LD_PRELOAD out of `ros2 launch`'s child processes (tested
+  with `printenv`); with `replay:=true` they stay.
+
+## Not verified
+
+- Nothing on a real car: the mapping launch with the ZED and the Robin-W, GLIM on the
+  Orin, a real classroom bag, the run.
+- The TA simulation's bags carry header stamps on the simulation's clock and bag times
+  on the wall clock, so `ros2 bag play --clock` on them publishes a clock the stamps do
+  not match; the replay was verified on a copy with each bag time set to its header
+  stamp. A car's bag has both on the wall clock and plays as is.
+- The GPU `glim_rosbag` needed `CUDA_MPS_PIPE_DIRECTORY` pointed at an empty directory
+  on this workstation, where another user's CUDA MPS daemon refuses clients; a car or a
+  student's computer has none.
+- The RViz clicks themselves (2D Pose Estimate, 2D Goal Pose, Auto) were sent as the
+  messages and service calls they produce, not clicked. The `rviz2` command was run on a
+  private display: it opens `autosdv.rviz` with the AutowareStatePanel and both tools.
+
+## The map folder and `lab3_map.yaml`
+
+The TA tools record what they did in `lab3_map.yaml` inside the folder
+(`lab3_check_lanelet`'s result and hint; `lab3_downsample`'s voxel). Students' folders may
+have none; nothing requires it.
+
+## TA tools
+
+| recipe | what |
+|---|---|
+| `just lab3 stack car_b` | the mapping launch under play_launch, with the camera's display handling |
+| `just lab3 record --car car_b --team 3 [--kind run --map DIR]` | `ros2 bag record` of the same topic lists, plus a metadata topic; a mapping bag is checked on Ctrl-C |
+| `just lab3 map BAG` | GLIM headless with a per-run config from the bag's own TF -> `BAG_glim/raw_map.pcd` |
+| `just lab3 downsample CLOUD MAP --voxel 0.1` | a raw `.pcd` or GLIM's exported `.ply` -> `MAP/pointcloud_map.pcd` (+ `map_projector_info.yaml`) |
+| `just lab3 check-lanelet MAP`, `sim-lap MAP` | the loop check; the simulator lap alone |
+| `just lab3 planning-sim MAP`, `run car_b MAP`, `replay car_b MAP` | the launches above under play_launch |
+| `just lab3 lanelet-speed MAP --corners 4` | edit the lanelets' speed tags in place |
+| `just lab3 grade BAG` | grade a recorded lap again |
+
+`lab3_route` (scripted waypoint legs, the earlier procedure) is still installed for the
+TA; no student step and no recorded topic uses it.
 
 ## Known limits
 
-- **The board needs driving past.** GLIM adds a keyframe every 0.15 m of travel, so a
-  car parked in front of the board contributes one scan to the map. Pass it slowly on
-  every loop.
-- **Autoware sets the corner radius, not the car.** The planning validator rejects
-  curves tighter than 1 m; in the RC simulator 1.2 m corners stalled and 1.6 m ones
-  drove. `check-lanelet` requires 1.5 m (`PLANNER_MIN_RADIUS`, provisional).
-- **A lap is two legs.** The mission planner refuses a route that enters a lanelet
-  twice, so `route.py` drives a lap as two routes with a stop between. Every lap reuses
-  the first lap's goals: re-planning from where the car stopped crept the goals 2.5 m
-  back per lap, into the corners.
-- **Planning runs with `planning_profile:=rc`** (`lab3_run.launch.xml`, the simulator
-  lap). Autoware's stock planning left the car parked at the start of lap 2: from a
-  stop about 10 deg off the lane the start planner either planned a back-out the car
-  cannot drive or, with reversing off, found no forward path and held it. The profile
-  drops the start planner and the reversing manoeuvres, halves the path interval and
-  allows the car's own curvature; `autosdv_launch/config/planning_rc/README.md` lists
-  each change. Measured in the RC simulator: 5 of 5 runs of three laps (15 laps, 30
-  route changes). Before the goal planner's reversing modes were off, one run in three
-  lost the behavior planning container to an rclcpp crash on a route change; not seen
-  since, but not ruled out.
 - **One recorder at a time in week 2.** On Humble every `ros2 bag record` is the node
   `/rosbag2_recorder`; with two running, Autoware's duplicated-node check reports ERROR
-  and autonomous mode never becomes available. `lab3_record` is the only recorder
-  during the laps.
+  and autonomous mode never becomes available. During the graded lap the grader is the
+  recorder.
 - **The field stack needs perception.** Behaviour planning waits for the occupancy grid
-  and the emergency braking for the obstacle cloud, so `launch_perception:=false`
-  drives nowhere. Perception's compare-map filter loads the map whole
+  and emergency braking for the obstacle cloud, so `launch_perception:=false` drives
+  nowhere. Perception's compare-map filter loads the map whole
   (`config/pointcloud_map_filter_indoor.param.yaml`): its dynamic loader, built for city
   maps, crashed the pointcloud container on a Lab 3 map.
-- **A counter-clockwise loop routes but does not drive** in the simulator (validator
-  curvature), even where its clockwise mirror does. The check fails it on requirement
-  3 regardless.
+- **Indoor NDT is provisional** (`config/ndt_indoor*.param.yaml`): resolution 1.0, the
+  NVTL gate 1.3 (it scales with the voxel size), `required_distance` 3.0. Built-in NDT
+  only (`pose_source:=ndt`, the default): the CUDA matcher reads its own file.
+- **GLIM publishes TF** (`map -> odom -> zedxm_imu_link`, `zedxm_imu_link -> robin_w`) while
+  it runs; with the mapping launch still up the frames would have two parents. Stop the
+  launch first.
+- **The Robin-W's position is a placeholder** in every car's calibration (only its
+  rotation is right; the camera is about 13 cm below it on car B), so the ready GLIM
+  configs' `T_lidar_imu` lever arm will change once the mount is measured: edit `robin_w`
+  in the car's `sensor_kit_calibration.yaml` and regenerate
+  (`config/glim/README.md`). Car C's camera position is the kit's placeholder too, and
+  its ZED's factory IMU offset was not read, so its config differs from car B's.
 - **This workstation's DDS.** `cyclonedds.xml` asks for a 10 MB socket buffer; with
   `net.core.rmem_max` at 1 MB no node starts. Raise it (`sudo sysctl -w
-  net.core.rmem_max=10485760`) or point `CYCLONEDDS_URI` at a copy with
-  `min="default"`. Large clouds (a Robin-W scan is about 4 MB) still drop at 1 MB.
+  net.core.rmem_max=10485760`) or point `CYCLONEDDS_URI` at a copy with `min="default"`.
 
 ## TA rehearsal
 
-The whole sequence runs on simulated Robin-W data in the course repository
-(`2026/labs/Lab3/ta/sim/`, `./run_all.sh`), every step checked against the simulated
-truth; its `phases.md` lists what it found. The initializer budget, the indoor
-`required_distance`, the static compare-map loading and the one-recorder rule above
-came from it.
-
-
-## On a car, still to verify
-
-The cars' LiDAR extrinsics (`sensor_kit_calibration.yaml` is zeros), the topics on a
-running stack, GLIM's run time on the Orin, the board profiles on a real scan, the
-indoor NDT, the initializer's first align, and Autoware's planning and control
-driving the loop on a real car.
+The course repository's simulation (`2026/labs/Lab3/ta/sim/`) still drives the earlier
+board-anchored sequence (`lab3_anchor`, the board initializer, `lab3_route`); it needs
+updating to this procedure before its next run.
