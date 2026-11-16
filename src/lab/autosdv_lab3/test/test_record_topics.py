@@ -10,8 +10,10 @@ RECORD = Path(__file__).resolve().parents[1] / 'config' / 'record'
 
 
 def topics(name):
+    # plain topic names, one per line, nothing else: the file is passed with $(cat ...)
     lines = (RECORD / name).read_text().splitlines()
-    return [ln.strip() for ln in lines if ln.strip() and not ln.lstrip().startswith('#')]
+    assert all(ln and ln == ln.strip() and ln.startswith('/') for ln in lines)
+    return lines
 
 
 @pytest.mark.parametrize('name, kind', [('map_topics.txt', 'map'), ('run_topics.txt', 'run')])
