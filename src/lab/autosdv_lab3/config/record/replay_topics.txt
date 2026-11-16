@@ -1,0 +1,3 @@
+/sensing/lidar/iv_points
+/sensing/camera/zedxm/imu/data
+/vehicle/status/velocity_status

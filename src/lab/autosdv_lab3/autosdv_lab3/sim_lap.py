@@ -1,6 +1,6 @@
 """One lap of the team's loop in the planning simulator, headless.
 
-    lab3_sim_lap MAP_DIR [--timeout S] [--keep-log] [--web-addr 127.0.0.1:8095]
+    lab3_sim_lap MAP_DIR [--goal-behind 0.7] [--timeout S] [--keep-log] [--web-addr 127.0.0.1:8095]
 
 Runs AutoSDV's RC simulator (`just sim rc`: Autoware in planning-simulator mode, the
 car's own vehicle interface on simulated hardware, the rc_sim plant, the AutoSDV
@@ -8,12 +8,14 @@ vehicle model) on the team's map, rviz off. The simulator takes its map as
 track_dir and its start pose from track_dir/track.yaml, so the run directory holds
 the team's three map files (symlinked) beside a generated track.yaml.
 
-Then: initial pose at the route start (/api/localization/initialize, which also
-moves the plant through /initialpose3d), the loop route (`route.loop_route`: a goal
-just behind the start, waypoints round the loop, driven as two or more legs:
-route.py says why), engage, and wait for the route state ARRIVED within a timeout
-scaled to the loop length, sampling the simulated pose all the way. A failure names which: no route, never engaged, stuck, off lane,
-timeout, or the launch died; and keeps the play_launch log.
+Then the field procedure: initial pose at the start (/api/localization/initialize,
+which also moves the plant through /initialpose3d), ONE goal --goal-behind m behind
+it with no waypoints (`route.single_goal_route`, what a 2D Goal Pose sets), engage,
+and wait for the route state ARRIVED within a timeout scaled to the loop length,
+sampling the simulated pose all the way. The start is the map origin projected onto
+the loop: GLIM's origin is where the mapping recording began, on the start mark. A
+failure names which: no route, never engaged, stuck, off lane, timeout, or the launch
+died; and keeps the play_launch log.
 
 The stack runs in its own session and is stopped by process group only (SIGINT,
 SIGTERM, SIGKILL), so nothing outlives the lap. Set ROS_DOMAIN_ID when other ROS
@@ -35,7 +37,7 @@ from typing import Optional
 import yaml
 
 from autosdv_lab3 import mapdir, speed_limit
-from autosdv_lab3.route import AdApi, MapError, load_loop, loop_route
+from autosdv_lab3.route import AdApi, MapError, load_loop, single_goal_route
 
 WEB_ADDR = '127.0.0.1:8095'
 STARTUP_TIMEOUT = 300.0    # wall s for Autoware to come up and accept the initial pose
@@ -98,13 +100,19 @@ def stop_group(proc: subprocess.Popen) -> None:
             pass
 
 
+GOAL_BEHIND = 0.7          # m: the field run's 2D Goal Pose behind the start
+
+
 def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = False,
             web_addr: str = WEB_ADDR, log=print, start=None,
-            speed_kmh: float = speed_limit.DEFAULT_KMH) -> LapResult:
+            speed_kmh: float = speed_limit.DEFAULT_KMH,
+            goal_behind: float = GOAL_BEHIND) -> LapResult:
+    """`start`: an (x, y[, yaw]) to project onto the loop; default the map origin."""
     t_wall = time.monotonic()
     try:
         loop = load_loop(map_dir)
-        route = loop_route(loop, start=start)
+        origin = (0.0, 0.0) if start is None else start[:2]
+        route = single_goal_route(loop, loop.project(*origin), goal_behind)
     except MapError as e:
         return LapResult(False, 'no route', str(e))
     lap_timeout = timeout if timeout is not None else LAP_MARGIN + loop.length / LAP_SPEED
@@ -114,8 +122,8 @@ def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = Fals
     cmd = ['play_launch', 'launch', '--web-addr', web_addr, '--log-dir', str(run_dir / 'play_log'),
            'autosdv_rc_sim', 'rc_sim.launch.xml', 'rviz:=false', f'track_dir:={track}',
            'planning_profile:=rc']   # Lab 3 drives with the RC planning profile
-    log(f'sim lap: {loop.length:.1f} m loop, {len(route.legs)} route(s), '
-        f'{len(route.waypoints)} waypoints, lap timeout {lap_timeout:.0f} s; log {log_path}')
+    log(f'sim lap: {loop.length:.1f} m loop, start ({route.start[0]:.2f}, {route.start[1]:.2f}), '
+        f'one goal {goal_behind:g} m behind it, lap timeout {lap_timeout:.0f} s; log {log_path}')
     cwd = _repo_tmp().parent if (_repo_tmp().parent / 'versions.yaml').is_file() else run_dir
     with open(log_path, 'w') as out:
         stack = subprocess.Popen(cmd, cwd=cwd, stdout=out, stderr=subprocess.STDOUT,
@@ -283,12 +291,14 @@ def main(argv=None) -> int:
     ap.add_argument('--keep-log', action='store_true', help='keep the run directory after a pass')
     ap.add_argument('--speed', type=float, default=speed_limit.DEFAULT_KMH,
                     help=f'speed limit for the lap, km/h (default {speed_limit.DEFAULT_KMH:g})')
+    ap.add_argument('--goal-behind', type=float, default=GOAL_BEHIND,
+                    help=f'm from the start back to the one goal (default {GOAL_BEHIND:g})')
     ap.add_argument('--web-addr', default=WEB_ADDR, help="play_launch's web UI address")
     args = ap.parse_args(argv)
     if os.environ.get('ROS_DOMAIN_ID', '0') == '0':
         print('note: ROS_DOMAIN_ID is 0; set another when other ROS work shares the host', file=sys.stderr)
     res = run_lap(args.map_dir, args.timeout, args.keep_log, args.web_addr,
-                  speed_kmh=args.speed)
+                  speed_kmh=args.speed, goal_behind=args.goal_behind)
     print(f"{'PASS' if res.ok else 'FAIL'}  {res.reason}: {res.value} "
           f"(wall {res.wall_s:.0f} s{', log ' + res.run_dir if res.run_dir else ''})")
     return 0 if res.ok else 1

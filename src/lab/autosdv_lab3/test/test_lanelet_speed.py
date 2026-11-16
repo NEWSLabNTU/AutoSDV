@@ -109,7 +109,7 @@ def test_plan_changes_corners_vs_straights():
 def test_check_lanelet_reports_the_speed_row(tmp_path):
     d = fixtures.write_map(str(tmp_path / 'map'))
     rows = {r.requirement: r for r in lanelet_check.static_checks(d)}
-    assert rows['1 speed limits'].ok
+    assert rows['speed limits'].ok
 
 
 def test_run_meta_records_the_segment_limits(tmp_path):

@@ -1,24 +1,34 @@
 <?xml version="1.0"?>
 <!--
-  Lab 3, week 1: the stack for the mapping drive (`just lab3 stack car_b`).
+  Lab 3, week 1: the stack for the mapping drive.
+
+      ros2 launch autosdv_lab3 lab3_mapping.launch.xml vehicle_id:=car_b
 
   The sensors as on any drive (LiDAR, ZED with its IMU, the IMU corrector, wheel
-  speed), the vehicle description's TF, and the board detector, so the recorder in
-  the second terminal can see that the board is detected at the start and the end.
-  No map, no localization, no planning: there is no map yet. The actuator is a dry
-  run (it never writes the PCA9685): drive with the transmitter, the selector switch
-  on the joystick.
+  speed) and the vehicle description's TF, for `ros2 bag record` in a second
+  terminal (config/record/map_topics.txt). No map, no localization, no planning:
+  there is no map yet. The actuator is a dry run (it never writes the PCA9685):
+  drive with the transmitter, the selector switch on the joystick.
 -->
 <launch>
   <arg name="vehicle_id"
        description="REQUIRED: car_a, car_b or car_c (individual_params/config/VEHICLE_ID)"/>
-  <arg name="sensor" default="$(eval &quot;'vlp16' if '$(var vehicle_id)' == 'car_a' else 'robin_w'&quot;)"
-       description="the LiDAR family: vlp16 (car A) or robin_w (cars B and C, and sim)"/>
-  <arg name="board_config" default="$(find-pkg-share autosdv_lab3)/config/board/lab3_$(var sensor).yaml"
-       description="the board profile: board, gates, covariance"/>
+  <!-- Autoware's model tree: autosdv_launch's default is ./data/autoware_data, relative to
+       the working directory, so a launch from anywhere but the checkout's root fails on a
+       missing file. This one resolves from the installed workspace (isolated install:
+       install/autosdv_launch/share/autosdv_launch is four levels below the root). -->
+  <arg name="data_path"
+       default="$(env AUTOSDV_DATA_PATH $(find-pkg-share autosdv_launch)/../../../../data/autoware_data)"
+       description="Autoware's model directory (just setup-autoware-data writes it)"/>
   <arg name="rviz" default="false"/>
 
-  <let name="lidar_topic" value="$(eval &quot;'/sensing/lidar/velodyne_points' if '$(var sensor)' == 'vlp16' else '/sensing/lidar/iv_points'&quot;)"/>
+  <!-- The ZED must never see a DISPLAY, nor VirtualGL's faker in LD_PRELOAD: from a VNC
+       desktop's terminal it would stop at "CAMERA OPENING" (scripts/camera_display.sh says
+       why). Taken out of this launch's environment, so a plain ros2 launch from any
+       terminal opens the camera. -->
+  <unset_env name="DISPLAY"/>
+  <unset_env name="LD_PRELOAD"/>
+
   <let name="launch_vehicle_interface" value="false"/>
   <let name="launch_pointcloud_preprocessor" value="false"/>
   <let name="launch_gyro_bias_estimator" value="false"/>
@@ -27,6 +37,7 @@
     <let name="rviz" value="false"/>
     <include file="$(find-pkg-share autosdv_launch)/launch/autosdv.launch.yaml">
       <arg name="vehicle_id" value="$(var vehicle_id)"/>
+      <arg name="data_path" value="$(var data_path)"/>
       <arg name="use_gnss" value="false"/>
       <arg name="use_ntrip" value="false"/>
       <arg name="launch_map" value="false"/>
@@ -43,7 +54,7 @@
     </include>
   </group>
 
-  <!-- wheel speed (the detector's motion guard and the bag's speed check); the
+  <!-- wheel speed (lab3_check_bag's speed and standing-still checks); the
        actuator as a dry run, never driving -->
   <include file="$(find-pkg-share autosdv_vehicle_launch)/launch/vehicle_interface.launch.xml">
     <arg name="launch_vehicle_interface" value="true"/>
@@ -51,13 +62,4 @@
     <arg name="launch_signal_manager" value="false"/>
     <arg name="vehicle_id" value="$(var vehicle_id)"/>
   </include>
-
-  <group>
-    <push-ros-namespace namespace="lab3"/>
-    <include file="$(find-pkg-share reflective_pose_ros)/launch/board_detector.launch.xml">
-      <arg name="config_file" value="$(var board_config)"/>
-      <arg name="params_file" value="$(find-pkg-share autosdv_lab3)/config/board/detector_$(var sensor).param.yaml"/>
-      <arg name="input_topic" value="$(var lidar_topic)"/>
-    </include>
-  </group>
 </launch>

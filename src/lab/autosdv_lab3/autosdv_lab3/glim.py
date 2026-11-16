@@ -58,8 +58,8 @@ CONFIG_DIR = 'glim_config'
 DUMP_DIR = 'glim_dump'
 LOG = 'glim_run.log'
 
-# The intensity a retroreflector returns above; the board anchor (F4) uses the same
-# order of magnitude, so the report says how much of the map is that bright.
+# The intensity a retroreflector returns above; the report says how much of the map
+# is that bright.
 BRIGHT = 100.0
 
 
@@ -403,6 +403,95 @@ def generate_config(out_dir: str, family: str, lidar_topic: str, imu_topic: str,
     return merged
 
 
+# The ready config directories under config/glim/ for the students' own
+# `ros2 run glim_ros glim_rosbag BAG --ros-args -p config_path:=...`: what generate_config
+# writes for that car's topics and LiDAR -> IMU transform, with GLIM's GPU modules
+# (car_b/) or its CPU ones (car_b_cpu/).
+#
+# T_lidar_imu is the IMU pose in the robin_w frame, chained the way the car's TF tree
+# chains it: robin_w and zedxm_camera_link from the car's individual_params
+# sensor_kit_calibration.yaml (sensor_kit_base_link -> each), zed_wrapper's URDF from the
+# camera link to its left camera frame, and the ZED driver's own left_camera_frame ->
+# zedxm_imu_link, which it publishes on /tf (not /tf_static) from the unit's factory
+# calibration. ZED_IMU_HOP holds that last edge where it was read off a running car;
+# elsewhere it is identity, zed_imu_tf.launch.xml's fallback.
+#
+# THE LIDAR ORIGIN IS A PLACEHOLDER: robin_w sits at sensor_kit_base_link (0, 0, 0) in
+# the calibration files; only its rotation (the Robin-W's x up, y right, z forward axes)
+# is right. When the mount is measured, edit robin_w's x/y/z in that car's
+# sensor_kit_calibration.yaml -- the one edit -- and regenerate (test_glim.py fails until
+# then):
+#   python3 -c "from autosdv_lab3 import glim; glim.write_ready_configs('config/glim')"
+READY = {
+    'car_b': dict(car='car_b', cpu=False),
+    'car_b_cpu': dict(car='car_b', cpu=True),
+    'car_c': dict(car='car_c', cpu=False),
+    'car_c_cpu': dict(car='car_c', cpu=True),
+}
+READY_TOPICS = ('/sensing/lidar/iv_points', '/sensing/camera/zedxm/imu/data')
+READY_LOG_DIR = '/tmp'   # GLIM's own default; a JSON file cannot name the user's home
+ZED_URDF_CHAIN = [((0.0, 0.0, 0.016), (0.0, 0.0, 0.0)),     # camera_link -> camera_center
+                  ((-0.01, 0.025, 0.0), (0.0, 0.0, 0.0))]   # -> left_camera_frame
+# left_camera_frame -> zedxm_imu_link as the ZED driver publishes it, (xyz, quat xyzw).
+# Car B, 2026-11-16, on the running car: TF base_link -> zedxm_imu_link read
+# (0.0621, -0.0186, -0.1284; q 0.0019 0.0017 0.0131 0.9999), less the calibration file's
+# and the URDF's part of the chain.
+ZED_IMU_HOP = {
+    'car_b': ((-0.00001, -0.03446, -0.00438), (0.00091, 0.0017, 0.0071, 0.99997)),
+}
+
+
+def _rpy_T(xyz, rpy) -> np.ndarray:
+    """URDF origin: fixed-axis roll, pitch, yaw (R = Rz Ry Rx)."""
+    r, p, y = rpy
+    cr, sr, cp, sp, cy, sy = np.cos(r), np.sin(r), np.cos(p), np.sin(p), np.cos(y), np.sin(y)
+    T = np.eye(4)
+    T[:3, :3] = np.array([[cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
+                          [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
+                          [-sp, cp * sr, cp * cr]])
+    T[:3, 3] = xyz
+    return T
+
+
+def calibration_file(car: str) -> str:
+    rel = os.path.join('config', car, 'autosdv_sensor_kit', 'sensor_kit_calibration.yaml')
+    try:
+        from ament_index_python.packages import get_package_share_directory
+        path = os.path.join(get_package_share_directory('individual_params'), rel)
+        if os.path.isfile(path):
+            return path
+    except Exception:  # noqa: BLE001 -- not installed: the source tree beside this package
+        pass
+    return os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', 'param',
+                        'autoware_individual_params', 'individual_params', rel)
+
+
+def car_T_lidar_imu(car: str) -> np.ndarray:
+    """T(robin_w <- zedxm_imu_link) for the car, as its TF tree chains it."""
+    with open(calibration_file(car)) as f:
+        kit = yaml.safe_load(f)['sensor_kit_base_link']
+    T = lambda c: _rpy_T((c['x'], c['y'], c['z']), (c['roll'], c['pitch'], c['yaw']))  # noqa: E731
+    out = np.linalg.inv(T(kit['robin_w'])) @ T(kit['zedxm_camera_link'])
+    for xyz, rpy in ZED_URDF_CHAIN:
+        out = out @ _rpy_T(xyz, rpy)
+    if car in ZED_IMU_HOP:
+        xyz, q = ZED_IMU_HOP[car]
+        out = out @ make_T(xyz, q)
+    return out
+
+
+def write_ready_configs(config_glim_dir: str, defaults: Optional[str] = None) -> List[str]:
+    """(Re)write the READY directories under config_glim_dir; returns their paths."""
+    out = []
+    for name, spec in READY.items():
+        d = os.path.join(config_glim_dir, name)
+        generate_config(d, 'robin_w', READY_TOPICS[0], READY_TOPICS[1],
+                        car_T_lidar_imu(spec['car']), spec['cpu'], READY_LOG_DIR,
+                        defaults=defaults, templates=config_glim_dir)
+        out.append(d)
+    return out
+
+
 def gpu_modules_installed() -> bool:
     prefix = os.path.dirname(glim_defaults_dir().rstrip('/'))   # .../share/glim
     lib = os.path.join(os.path.dirname(os.path.dirname(prefix)), 'lib')
@@ -659,9 +748,9 @@ def main(argv=None):
         points, inten, n_sub = export_dump(dump)
         if inten is None:
             warnings.append('GLIM kept no intensities (does the LiDAR topic have an '
-                            '"intensity" field?); the board anchor needs them')
+                            '"intensity" field?)')
             print(f'  WARNING: {warnings[-1]}', file=sys.stderr)
-        from reflective_pose_core.pointcloud_io import PointCloud, write_pcd
+        from autosdv_lab3.pointcloud_io import PointCloud, write_pcd
         write_pcd(os.path.join(out, RAW_MAP), PointCloud(points=points, intensity=inten))
         if not args.keep_dump:
             shutil.rmtree(dump)

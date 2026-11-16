@@ -5,7 +5,7 @@
 #
 # Dynamic loading is for city maps: it fetches the cells within 150 m and re-grids every
 # 10 m driven. A Lab 3 map is one 12 m room of a few MB that fits in memory whole, and
-# on one (the lab3 TA simulation's corridor, in the board frame, part of it at negative
+# on one (the lab3 TA simulation's corridor, in its map frame, part of it at negative
 # x and y) the dynamic loader threw std::out_of_range ("__n (which is 351) >= this->size()
 # (which is 314)") as localization initialized, taking down the pointcloud container
 # and every filter in it: no NDT input, no obstacle cloud, no occupancy grid

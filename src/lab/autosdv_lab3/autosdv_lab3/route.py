@@ -1,7 +1,5 @@
-"""The clockwise loop as a route: shared by the lanelet check, its simulator lap and
-`just lab3 route` on the car.
-
-    lab3_route --map DIR [--engage] [--laps N]
+"""The clockwise loop as Python: shared by the lanelet check, its simulator lap, the
+grader and (TA only) the scripted `lab3_route`.
 
 The map side is pure Python: the lanelet2 file is read the way Autoware's Local
 projector reads it (local_x / local_y / ele node tags), the road lanelets are
@@ -9,30 +7,25 @@ ordered into one chain by their shared end points (lanelet2's own `follows` test
 the next lanelet's bounds start on the very nodes the previous one's end on), and
 a route is cut from it.
 
-A lap is a start, a goal just behind the start, and waypoints spaced around the
-loop between them, so the mission planner cannot take the short way. Two limits
-of Autoware 1.5.0 cut it into legs, each an ordinary route that ends in a stop:
+The field procedure is one route per lap, set in RViz: a 2D Goal Pose just behind the
+start, in the lanelet before the start's. With planning_profile:=rc that single goal
+drives the whole loop (autosdv_launch config/planning_rc/README.md); `single_goal_route`
+is that route, and the simulator lap drives it.
 
-- the mission planner refuses a route that enters any lanelet twice ("Loop
-  detected within route!"), so a leg's start and goal lie in different lanelets;
-- the behavior path planner builds its path from backward_path_length (5 m)
-  behind the car, along the route; a goal inside that stretch ends the path behind
-  the car, the trajectory doubles back, the planning validator flags curvature and
-  relative angle, and the car takes an MRM without moving. So a leg's goal stays
-  more than BACKWARD_CLEAR behind its own start, round the loop.
+`loop_route` and the `lab3_route` CLI are the older scripted procedure, kept for the TA:
+a start, waypoints round the loop and a goal just behind the start, cut into legs for
+Autoware 1.5.0's stock planning files (the mission planner refuses a route entering a
+lanelet twice; the behavior path planner's 5 m backward_path_length ended a short leg
+behind the car). Each leg set and each arrival is announced on /lab3/route_events
+(std_msgs/String, JSON), which no student bag records any more.
 
-A full lap is therefore two legs on a loop under about 2 x (BACKWARD_CLEAR + gap);
-longer loops need more.
+    lab3_route --map DIR [--engage] [--laps N]
 
 The ROS side drives Autoware's AD API (names and types as in
 autoware/adapi_specs of Autoware 1.5.0): /api/routing/clear_route (ClearRoute),
 /api/routing/set_route_points (SetRoutePoints), /api/routing/state (RouteState,
 transient local), /api/operation_mode/change_to_autonomous (ChangeOperationMode),
 /api/operation_mode/state, /api/localization/initialize (InitializeLocalization).
-
-Each leg set, and each arrival, is announced on /lab3/route_events (std_msgs/String,
-JSON: event, run, lap, leg, legs, goal), so the week-2 grader can tell the legs this
-script drove from a route set by hand.
 """
 
 import argparse
@@ -388,6 +381,22 @@ def loop_route(map_dir, start: Optional[Pose2D] = None, gap: float = GOAL_GAP,
                      goal=legs[-1].goal,
                      waypoints=[w for leg in legs for w in leg.waypoints],
                      legs=legs, s_start=s0, length=loop.length)
+
+
+def single_goal_route(map_dir, s_start: float, behind: float) -> LoopRoute:
+    """The field procedure: start at arc length s_start, ONE goal `behind` m behind it,
+    no waypoints (RViz's 2D Goal Pose). Raises MapError when goal and start fall in one
+    lanelet: Autoware then routes the few metres behind the car, not the loop."""
+    loop = map_dir if isinstance(map_dir, Loop) else load_loop(map_dir)
+    s0 = loop.wrap(s_start)
+    s_goal = loop.wrap(s0 - behind)
+    if loop.lane_at(s_goal) == loop.lane_at(s0):
+        raise MapError(f'the goal {behind:g} m behind the start falls in the start\'s own lanelet '
+                       f'{loop.lane_at(s0)}: the start lanelet must begin less than {behind:g} m '
+                       'behind the start')
+    leg = Leg(loop.pose_at(s_goal), [], s_goal, [])
+    return LoopRoute(start=loop.pose_at(s0), goal=leg.goal, waypoints=[], legs=[leg],
+                     s_start=s0, length=loop.length - behind)
 
 
 # ------------------------------------------------------------------ ROS: the AD API

@@ -14,11 +14,9 @@
 /api/routing/state
 /api/operation_mode/state
 /control/command/control_cmd
-/localization/board_detector/board_pose
 /planning/mission_planning/route
 /initialpose
 /lab3/run_meta
-/lab3/route_events
 /api/planning/velocity_factors
 /planning/scenario_planning/max_velocity
 /api/planning/steering_factors

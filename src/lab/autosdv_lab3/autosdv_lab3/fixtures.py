@@ -1,25 +1,28 @@
 """A synthetic classroom map folder, for the lanelet check's tests and the simulator lap.
 
-    python3 -m autosdv_lab3.fixtures OUT [--variant good|ccw|gap|desk|narrow|tight]
+    python3 -m autosdv_lab3.fixtures OUT [--variant good|ccw|gap|far]
 
 Writes OUT/pointcloud_map.pcd (x y z intensity: the walls of a 8 x 12 m room, a desk
-island in the middle and desks along the walls, a sparse floor, the board on the
-x = 0 wall), OUT/map_projector_info.yaml (projector_type: Local) and
+island in the middle and desks along the walls, a sparse floor),
+OUT/map_projector_info.yaml (projector_type: Local) and
 OUT/lanelet2_map.osm in Vector Map Builder's local export: every node carries
 local_x / local_y / ele tags (lat/lon are placeholders Autoware's Local projector
 ignores), each lanelet has its own left and right line_thin ways, and consecutive
 lanelets share their end nodes, which is what makes one the successor of the other.
 
 The loop is a rounded rectangle around the desk island, 1.0 m wide with 1.6 m
-corners, four lanelets joined on the long straights. Tighter corners pass the
-static radius check but not the simulator lap: Autoware 1.5.0's default planning
-(2 m behavior path interval, a 1 m validator radius) could not drive 1.2 m corners.
-Map frame as the anchor makes it: origin on the floor below the board, x the way
-the board faces, z up.
+corners, four lanelets joined on the long straights. Tighter corners did not pass
+the simulator lap with Autoware 1.5.0's default planning (2 m behavior path
+interval, a 1 m validator radius): 1.2 m corners failed.
+
+The map frame is GLIM's: its origin is where the mapping recording started, on the
+start mark, so the origin lies on the loop, ORIGIN_INTO m past the first lanelet's
+start (the room is generated in its own frame, then moved). z up; the floor is at 0
+here, where GLIM's would be about the IMU's height below the origin.
 
 Variants: good (clockwise, passes), ccw (counter-clockwise), gap (one lanelet starts
-0.3 m after the previous ends, on its own nodes), desk (a desk on the lane),
-narrow (0.4 m wide), tight (0.4 m corner radius, below the car's turning radius).
+0.3 m after the previous ends, on its own nodes), far (the origin 2 m past the
+first lanelet's start, so no lanelet boundary lies just behind it).
 """
 
 import argparse
@@ -41,14 +44,22 @@ LOOP_CENTRE = (4.0, 0.0)
 LOOP_HALF = (2.0, 4.0)                # half extents in x and y of the centreline
 SPEED_LIMIT_KMH = 10.0                # the lanelet speed limit a team sets in VMB (the upper bound)
 
+# the start mark, where the mapping recording began and so GLIM's origin: on the
+# first lanelet's centreline, this far past its start
+ORIGIN_INTO = 0.2
+
 VARIANTS = {
     'good': dict(),
     'ccw': dict(clockwise=False),
     'gap': dict(gap=True),
-    'desk': dict(desk_on_lane=True),
-    'narrow': dict(width=0.4),
-    'tight': dict(radius=0.4),
+    'far': dict(origin_into=2.0),
 }
+
+
+def origin_in_room(origin_into: float = ORIGIN_INTO):
+    """The map origin in the room frame: up the loop's x0 side from the first junction
+    (the clockwise direction of travel there is +y)."""
+    return (LOOP_CENTRE[0] - LOOP_HALF[0], LOOP_CENTRE[1] + origin_into)
 
 
 def rounded_rect(cx, cy, hx, hy, r, step=0.25, clockwise=True) -> np.ndarray:
@@ -91,7 +102,8 @@ def offsets(p: np.ndarray, d: float) -> np.ndarray:
 
 
 class _Osm:
-    def __init__(self):
+    def __init__(self, origin=(0.0, 0.0)):
+        self.origin = origin
         self.next_id = 1
         self.nodes: List[str] = []
         self.ways: List[str] = []
@@ -103,6 +115,7 @@ class _Osm:
 
     def node(self, x, y, z=0.0):
         nid = self._id()
+        x, y = x - self.origin[0], y - self.origin[1]
         # VMB writes a lat/lon for every node even on a local map; Local ignores it
         lat, lon = 35.0 + y / 111_000.0, 139.0 + x / 91_000.0
         self.nodes.append(
@@ -135,10 +148,11 @@ class _Osm:
                 + '\n'.join(self.nodes + self.ways + self.relations) + '\n</osm>\n')
 
 
-def lanelet_osm(clockwise=True, width=1.0, radius=1.6, gap=False) -> str:
+def lanelet_osm(clockwise=True, width=1.0, radius=1.6, gap=False,
+                origin_into=ORIGIN_INTO) -> str:
     centre = rounded_rect(*LOOP_CENTRE, *LOOP_HALF, radius, clockwise=clockwise)
     left, right = offsets(centre, width / 2), offsets(centre, -width / 2)
-    osm = _Osm()
+    osm = _Osm(origin_in_room(origin_into))
     m = len(centre)
     lid = [osm.node(*p) for p in left]
     rid = [osm.node(*p) for p in right]
@@ -179,7 +193,7 @@ def _box(x0, x1, y0, y1, z0, z1, step, rng):
     return p + rng.normal(0.0, 0.005, p.shape)
 
 
-def room_cloud(desk_on_lane=False, seed=0):
+def room_cloud(origin=(0.0, 0.0), seed=0):
     rng = np.random.default_rng(seed)
     x0, x1, y0, y1 = ROOM
     parts = []
@@ -193,17 +207,12 @@ def room_cloud(desk_on_lane=False, seed=0):
         parts.append(np.column_stack([X.ravel(), np.full(X.size, y), Z.ravel()]))
     X, Y = np.meshgrid(np.arange(x0, x1, 0.3), np.arange(y0, y1, 0.3))   # sparse floor
     parts.append(np.column_stack([X.ravel(), Y.ravel(), rng.normal(0.0, 0.01, X.size)]))
-    desks = [ISLAND] + WALL_DESKS
-    if desk_on_lane:
-        cx = LOOP_CENTRE[0] - LOOP_HALF[0]          # on the first lanelet's straight
-        desks.append((cx - 0.3, cx + 0.3, 0.5, 1.1))
-    for d in desks:
+    for d in [ISLAND] + WALL_DESKS:
         parts.append(_box(*d, 0.0, DESK_HEIGHT, 0.08, rng))
     p = np.vstack(parts)
     intensity = rng.uniform(10.0, 60.0, len(p))
-    # the reflective board: 0.6 m square on the x = 0 wall, centred above the origin
-    board = (np.abs(p[:, 0] - x0) < 0.01) & (np.abs(p[:, 1]) <= 0.3) & (p[:, 2] >= 0.2) & (p[:, 2] <= 0.8)
-    intensity[board] = 220.0
+    p[:, 0] -= origin[0]
+    p[:, 1] -= origin[1]
     return p, intensity
 
 
@@ -211,10 +220,10 @@ def write_map(out_dir: str, variant: str = 'good') -> str:
     """Write the map folder for `variant`; returns out_dir."""
     if variant not in VARIANTS:
         raise ValueError(f'unknown variant {variant!r}; one of {sorted(VARIANTS)}')
-    from reflective_pose_core.pointcloud_io import PointCloud, write_pcd
+    from autosdv_lab3.pointcloud_io import PointCloud, write_pcd
     opts = dict(VARIANTS[variant])
     os.makedirs(out_dir, exist_ok=True)
-    points, intensity = room_cloud(desk_on_lane=opts.pop('desk_on_lane', False))
+    points, intensity = room_cloud(origin_in_room(opts.get('origin_into', ORIGIN_INTO)))
     write_pcd(os.path.join(out_dir, mapdir.PCD), PointCloud(points, intensity))
     with open(os.path.join(out_dir, mapdir.LANELET), 'w') as f:
         f.write(lanelet_osm(**opts))

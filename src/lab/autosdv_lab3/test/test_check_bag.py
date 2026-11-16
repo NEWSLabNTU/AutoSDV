@@ -21,22 +21,21 @@ def _msgs():
         PointField, TFMessage
 
 
-def write_bag(path, *, duration=70.0, vmax=0.6, board_ends=True, time_field=True,
-              tf_chain=True, imu_hz=200.0, still=10.0):
+def write_bag(path, *, duration=70.0, vmax=0.6, time_field=True,
+              tf_chain=True, imu_hz=200.0, still=10.0, imu_tf_dynamic=False):
     VelocityReport, Pose, TransformStamped, Imu, PointCloud2, PointField, TFMessage = _msgs()
     w = rosbag2_py.SequentialWriter()
     w.open(rosbag2_py.StorageOptions(uri=str(path), storage_id='sqlite3'),
            rosbag2_py.ConverterOptions('cdr', 'cdr'))
     for i, (name, typ) in enumerate([
             (LIDAR, 'sensor_msgs/msg/PointCloud2'), (cars.IMU_RAW, 'sensor_msgs/msg/Imu'),
-            ('/tf_static', 'tf2_msgs/msg/TFMessage'),
-            (cars.VELOCITY, 'autoware_vehicle_msgs/msg/VelocityReport'),
-            (cars.BOARD_POSE_MAPPING, 'geometry_msgs/msg/PoseWithCovarianceStamped')]):
+            ('/tf_static', 'tf2_msgs/msg/TFMessage'), ('/tf', 'tf2_msgs/msg/TFMessage'),
+            (cars.VELOCITY, 'autoware_vehicle_msgs/msg/VelocityReport')]):
         w.create_topic(rosbag2_py.TopicMetadata(name=name, type=typ,
                                                 serialization_format='cdr'))
     ns = lambda t: int((1000.0 + t) * 1e9)  # noqa: E731
 
-    tf = TFMessage()
+    tf, dyn = TFMessage(), TFMessage()
     for parent, child in (('base_link', 'sensor_kit_base_link'),
                           ('sensor_kit_base_link', 'robin_w'),
                           ('sensor_kit_base_link', 'zed_imu_link')):
@@ -44,8 +43,11 @@ def write_bag(path, *, duration=70.0, vmax=0.6, board_ends=True, time_field=True
             continue
         t = TransformStamped()
         t.header.frame_id, t.child_frame_id = parent, child
-        tf.transforms.append(t)
+        # the ZED driver publishes its camera -> IMU edge on /tf
+        (dyn if imu_tf_dynamic and child == 'zed_imu_link' else tf).transforms.append(t)
     w.write('/tf_static', serialize_message(tf), ns(0.0))
+    if dyn.transforms:
+        w.write('/tf', serialize_message(dyn), ns(0.5))
 
     cloud = PointCloud2()
     cloud.header.frame_id = 'robin_w'
@@ -62,9 +64,6 @@ def write_bag(path, *, duration=70.0, vmax=0.6, board_ends=True, time_field=True
             moving = still < t < duration - still
             v.longitudinal_velocity = vmax if moving else 0.0
             w.write(cars.VELOCITY, serialize_message(v), ns(t))
-            near_end = t < 10.0 or t > duration - 10.0
-            if board_ends and near_end and abs(t - round(t)) < 1e-6:
-                w.write(cars.BOARD_POSE_MAPPING, serialize_message(Pose()), ns(t))
         w.write(cars.IMU_RAW, serialize_message(imu), ns(t))
         t = round(t + 1.0 / imu_hz, 6)
     del w
@@ -84,9 +83,8 @@ def test_good_bag_passes(tmp_path):
 
 @pytest.mark.parametrize('kw, failing', [
     (dict(vmax=1.2), 'speed <= 0.8 m/s'),
-    (dict(board_ends=False), 'board detected in the first and last 15 s'),
     (dict(time_field=False), 'LiDAR intensity and per-point time'),
-    (dict(tf_chain=False), '/tf_static links LiDAR and IMU'),
+    (dict(tf_chain=False), 'TF links LiDAR and IMU'),
     (dict(duration=40.0), 'duration >= 60 s'),
     (dict(imu_hz=50.0), 'IMU >= 100 Hz'),
     (dict(still=3.0), 'still >= 8 s at start and end'),
@@ -94,6 +92,11 @@ def test_good_bag_passes(tmp_path):
 def test_each_requirement_fails_alone(tmp_path, kw, failing):
     rows = verdict(write_bag(tmp_path / 'bag', **kw))
     assert [n for n, ok in rows.items() if not ok] == [failing], rows
+
+
+def test_imu_edge_on_tf_counts(tmp_path):
+    rows = verdict(write_bag(tmp_path / 'bag', imu_tf_dynamic=True))
+    assert all(rows.values()), rows
 
 
 def test_connected_either_direction():

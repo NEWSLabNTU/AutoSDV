@@ -20,11 +20,6 @@ IMU = '/sensing/imu/imu_data'
 VELOCITY = '/vehicle/status/velocity_status'
 TWIST = '/sensing/vehicle_velocity_converter/twist_with_covariance'
 
-# the week-1 mapping stack runs the detector under /lab3, the week-2 initializer
-# under /localization (board_pose_initializer.launch.xml's default namespace)
-BOARD_POSE_MAPPING = '/lab3/board_detector/board_pose'
-BOARD_POSE_RUN = '/localization/board_detector/board_pose'
-
 
 def sensor_of(car: str) -> str:
     if car not in CAR_SENSOR:

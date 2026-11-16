@@ -4,10 +4,10 @@
   <name>autosdv_lab3</name>
   <version>0.1.0</version>
   <description>
-    Lab 3, indoor map building and NDT localization: the mapping recorder, GLIM map
-    building and export, the anchor to the reflective board, the downsampler, the
-    lanelet2 loop check with its planning-simulator lap, and the launch files for the
-    mapping drive and the autonomous laps.
+    Lab 3, indoor map building and NDT localization: the launch files for the mapping
+    drive, the autonomous laps, the planning-simulator practice and the replay at home;
+    the topic lists for ros2 bag; ready GLIM configs; the mapping-bag check, the lanelet2
+    loop check with its planning-simulator lap, and the lap grader.
   </description>
   <maintainer email="jerry73204@gmail.com">aeon</maintainer>
   <license>Apache-2.0</license>
@@ -30,11 +30,6 @@
   <!-- the planning-simulator lap -->
   <exec_depend>autosdv_rc_sim</exec_depend>
   <exec_depend>autosdv_vehicle_description</exec_depend>
-  <!-- the board detector, the anchor tool and the board pose initializer -->
-  <exec_depend>reflective_pose_core</exec_depend>
-  <exec_depend>reflective_pose_cli</exec_depend>
-  <exec_depend>reflective_pose_ros</exec_depend>
-  <exec_depend>reflective_pose_autoware</exec_depend>
   <exec_depend>autosdv_launch</exec_depend>
   <!-- GLIM is installed by ./setup.sh (step glim), not by rosdep -->
 

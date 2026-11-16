@@ -1,4 +1,4 @@
-"""`just lab3 check-bag`: can GLIM and the anchor use this mapping bag?
+"""`ros2 run autosdv_lab3 lab3_check_bag BAG`: can GLIM use this mapping bag?
 
     lab3_check_bag BAG [--max-speed 0.8] [--min-duration 60]
 
@@ -20,7 +20,6 @@ TIME_FIELDS = ('time_stamp', 'timestamp', 't', 'time', 'time_offset')
 INTENSITY_FIELDS = ('intensity', 'reflectivity')
 STILL_SPEED = 0.05     # m/s
 STILL_SECONDS = 8.0    # of the 10 s asked for, so a slow Ctrl-C does not fail the bag
-BOARD_WINDOW = 15.0    # s at each end in which the board must be detected
 MIN_IMU_HZ = 100.0
 
 
@@ -37,8 +36,8 @@ class BagScan:
     imu_frame: str = ''
     imu_times: List[float] = field(default_factory=list)
     static_edges: List[tuple] = field(default_factory=list)    # (parent, child)
+    tf_edges: List[tuple] = field(default_factory=list)        # /tf, each edge once
     speeds: List[tuple] = field(default_factory=list)          # (t, speed)
-    board_times: List[float] = field(default_factory=list)
 
     @property
     def duration(self) -> float:
@@ -69,8 +68,7 @@ def scan_bag(path: str) -> BagScan:
         with open(sidecar) as f:
             s.meta = json.load(f)
     s.lidar_topic = _lidar_topic(s.topics, s.meta)
-    wanted = {cars.IMU_RAW, '/tf_static', cars.VELOCITY, cars.BOARD_POSE_MAPPING,
-              '/lab3/record_meta'}
+    wanted = {cars.IMU_RAW, '/tf_static', '/tf', cars.VELOCITY, '/lab3/record_meta'}
     types = {t: get_message(s.topics[t]) for t in wanted | {s.lidar_topic} if t in s.topics}
     first = None
     while reader.has_next():
@@ -91,11 +89,15 @@ def scan_bag(path: str) -> BagScan:
         elif topic == '/tf_static':
             for tf in deserialize_message(raw, types[topic]).transforms:
                 s.static_edges.append((tf.header.frame_id, tf.child_frame_id))
+        elif topic == '/tf' and len(s.tf_edges) < 64:
+            # the ZED driver broadcasts its camera -> IMU extrinsic here, not on /tf_static
+            for tf in deserialize_message(raw, types[topic]).transforms:
+                e = (tf.header.frame_id, tf.child_frame_id)
+                if e not in s.tf_edges:
+                    s.tf_edges.append(e)
         elif topic == cars.VELOCITY:
             msg = deserialize_message(raw, types[topic])
             s.speeds.append((t, abs(msg.longitudinal_velocity)))
-        elif topic == cars.BOARD_POSE_MAPPING:
-            s.board_times.append(t)
         elif topic == '/lab3/record_meta' and not s.meta:
             s.meta = json.loads(deserialize_message(raw, types[topic]).data)
     s.start = first or 0.0
@@ -150,10 +152,10 @@ def check(s: BagScan, max_speed: float, min_duration: float):
     rows.append((f'IMU >= {MIN_IMU_HZ:g} Hz', imu_hz >= MIN_IMU_HZ,
                  f'{cars.IMU_RAW}: {imu_hz:.0f} Hz'))
     chain = bool(s.lidar_frame and s.imu_frame and
-                 connected(s.static_edges, s.lidar_frame, s.imu_frame))
-    rows.append(('/tf_static links LiDAR and IMU', chain,
+                 connected(s.static_edges + s.tf_edges, s.lidar_frame, s.imu_frame))
+    rows.append(('TF links LiDAR and IMU', chain,
                  f'{s.lidar_frame or "?"} <-> {s.imu_frame or "?"}, '
-                 f'{len(s.static_edges)} static transforms'))
+                 f'{len(s.static_edges)} static transforms, {len(s.tf_edges)} on /tf'))
     rows.append((f'duration >= {min_duration:g} s', s.duration >= min_duration,
                  f'{s.duration:.0f} s'))
     vmax = max((v for _, v in s.speeds), default=None)
@@ -163,11 +165,6 @@ def check(s: BagScan, max_speed: float, min_duration: float):
     rows.append((f'still >= {STILL_SECONDS:g} s at start and end',
                  head >= STILL_SECONDS and tail >= STILL_SECONDS,
                  f'start {head:.0f} s, end {tail:.0f} s'))
-    at_start = any(t - s.start <= BOARD_WINDOW for t in s.board_times)
-    at_end = any(s.end - t <= BOARD_WINDOW for t in s.board_times)
-    rows.append((f'board detected in the first and last {BOARD_WINDOW:g} s', at_start and at_end,
-                 f'{len(s.board_times)} detections; start {"yes" if at_start else "no"}, '
-                 f'end {"yes" if at_end else "no"}'))
     return rows
 
 

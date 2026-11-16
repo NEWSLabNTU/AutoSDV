@@ -1,8 +1,8 @@
 """Per-lanelet speed limits of a Lab 3 loop: check them, list them, change them.
 
 The lanelet2 file's `speed_limit` tag (km/h) is Autoware's per-segment speed. Every
-road lanelet of the loop must carry one, above 0 and at most MAX_KMH (the check is part
-of requirement 1 in `check-lanelet`).
+road lanelet of the loop must carry one, above 0 and at most MAX_KMH (the speed-limits
+requirement of `lab3_check_lanelet`).
 
 A team tunes the segment speeds in week 2, after the map is handed in, so the speeds are
 the one part of the lanelet file allowed to change: `normalized_osm` drops every
@@ -53,7 +53,7 @@ def is_corner(tags: dict) -> bool:
 
 
 def check(lanelets) -> Tuple[bool, str, str]:
-    """(ok, value, reason) for requirement 1's speed row: every lanelet's limit in range."""
+    """(ok, value, reason) for the speed-limits row: every lanelet's limit in range."""
     bad = []
     speeds = []
     for lid in sorted(lanelets):

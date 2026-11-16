@@ -5,4 +5,3 @@
 /tf
 /vehicle/status/velocity_status
 /sensing/vehicle_velocity_converter/twist_with_covariance
-/lab3/board_detector/board_pose

@@ -20,7 +20,7 @@
 #                           gate moves with the resolution or it tightens by itself
 #   required_distance 10 -> 3   indoors nothing may be 10 m away: from a corner of
 #                           a 10 m ring corridor the farthest return is ~5 m, and NDT
-#                           refused every scan, so the board pose never aligned
+#                           refused every scan, so the initial pose never aligned
 # Built-in NDT only (pose_source:=ndt): the CUDA matcher reads its own file.
 
 /**:

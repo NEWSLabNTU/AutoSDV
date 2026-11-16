@@ -1,12 +1,13 @@
-"""`just lab3 record`: the mapping bag (week 1) or the run bag (week 2).
+"""`just lab3 record` (TA tool): the mapping bag (week 1) or the run bag (week 2).
 
     lab3_record --car car_b --team 3 [--kind map|run] [--map DIR] [--name NAME]
                 [--out-dir ~/lab3/bags]
 
-Run it in a second terminal while the stack runs in the first (`just lab3 stack` in
-week 1, `just lab3 run` in week 2). Ctrl-C stops the recording; a mapping bag is then
-checked at once (`lab3_check_bag`), so a bag GLIM cannot use is found in the hall, not
-at home.
+Students record with `ros2 bag record -o BAG $(cat .../config/record/map_topics.txt)`
+and the week-2 grader records the run itself; this wraps the same topic lists (the
+test keeps them equal) for the TA simulation. Run it in a second terminal while the
+stack runs in the first. Ctrl-C stops the recording; a mapping bag is then checked at
+once (`lab3_check_bag`), so a bag GLIM cannot use is found in the hall, not at home.
 
 Besides the topics, the bag carries a latched /lab3/record_meta (JSON: kind, car,
 team, LiDAR, AutoSDV commit, and for a run the map folder's hash), also written beside
@@ -27,7 +28,7 @@ META_TOPIC = '/lab3/record_meta'
 SIDECAR = 'lab3_meta.json'
 
 # week 2: what grading reads besides the sensors — the localization, its NDT internals,
-# the initializer, the route and the operation mode
+# the initial pose, the route and the operation mode
 RUN_EXTRA = [
     '/localization/kinematic_state',
     '/localization/pose_estimator/pose_with_covariance',
@@ -38,11 +39,9 @@ RUN_EXTRA = [
     '/api/routing/state',
     '/api/operation_mode/state',
     '/control/command/control_cmd',
-    cars.BOARD_POSE_RUN,
-    '/planning/mission_planning/route',   # each route's goal, to tell scripted from hand-set
+    '/planning/mission_planning/route',   # each route's goal
     '/initialpose',                       # a pose set in RViz
     '/lab3/run_meta',                     # launch time and map hash (lab3_run_meta)
-    '/lab3/route_events',                 # the legs lab3_route set
     '/api/planning/velocity_factors',     # why planning slows or holds the car
     '/planning/scenario_planning/max_velocity',   # the speed limit in force (lab3_speed_limit, RViz)
     '/api/planning/steering_factors',
@@ -53,7 +52,7 @@ def topics_for(kind: str, sensor: str):
     base = [cars.LIDAR_TOPIC[sensor], cars.IMU_RAW, cars.IMU, '/tf_static', '/tf',
             cars.VELOCITY, cars.TWIST]
     if kind == 'map':
-        return base + [cars.BOARD_POSE_MAPPING]
+        return base
     return base + RUN_EXTRA
 
 
@@ -111,16 +110,12 @@ def main(argv=None):
     cmd = ['ros2', 'bag', 'record', '-o', out, *topics_for(args.kind, sensor), META_TOPIC]
     print(f'{args.kind} bag, car {args.car} ({sensor}), team {args.team} -> {out}')
     if args.kind == 'map':
-        # GLIM adds a keyframe per 0.15 m driven, so a parked car contributes one scan
-        # to the map: the board is filled in by driving past it, not by facing it
-        print('drive: 10 s still facing the board, the room at <= 0.8 m/s closing the loop '
-              'twice and passing the board slowly each time, back facing the board, 10 s '
-              'still; then Ctrl-C')
+        # GLIM's map origin is the car's pose when the bag starts
+        print('drive: start on the start mark, 10 s still, the room at <= 0.8 m/s closing '
+              'the loop twice, 10 s still; then Ctrl-C')
     else:
-        # the board pose that initializes the stack is not latched: a recorder started
-        # after INITIALIZED cannot show the board did it
-        print('run: start this before `just lab3 run`, so the bag holds the board '
-              'initialization; then `just lab3 route`; Ctrl-C after the last lap')
+        print('run: start this before the 2D Pose Estimate, so the bag holds the '
+              'initialization; Ctrl-C after the last lap')
     proc = subprocess.Popen(cmd, start_new_session=True)
     stop = {'now': False}
     signal.signal(signal.SIGINT, lambda *_: stop.update(now=True))

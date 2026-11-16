@@ -37,7 +37,6 @@ setup(
             'lab3_record = autosdv_lab3.record:main',
             'lab3_check_bag = autosdv_lab3.check_bag:main',
             'lab3_map = autosdv_lab3.glim:main',
-            'lab3_anchor = autosdv_lab3.anchor:main',
             'lab3_downsample = autosdv_lab3.downsample:main',
             'lab3_check_lanelet = autosdv_lab3.lanelet_check:main',
             'lab3_sim_lap = autosdv_lab3.sim_lap:main',

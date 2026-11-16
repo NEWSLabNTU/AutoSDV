@@ -1,19 +1,14 @@
 """The Lab 3 map folder and its provenance file.
 
     team<N>_map/
-        anchored_full.pcd         the GLIM cloud in the board frame, full resolution
-                                  (kept for re-downsampling, not handed in)
-        pointcloud_map.pcd        anchored_full.pcd downsampled; x y z intensity
+        pointcloud_map.pcd        GLIM's map, exported and downsampled; x y z [intensity],
+                                  in GLIM's frame: origin where the mapping bag began
         lanelet2_map.osm          the clockwise loop, local coordinates
         map_projector_info.yaml   projector_type: Local
-        board_anchor.yaml         T(map <- slam) and the board detection
-        board_profile.yaml        the detector profile the anchor used; the week-2
-                                  board initializer loads the same file
-        lab3_map.yaml             how the folder was made, one section per step
+        lab3_map.yaml             written by the Lab 3 tools: one section per step
 
-Every tool that writes into the folder records its step in lab3_map.yaml with
-`record_step`, so the folder says which bag, which GLIM config, which board profile
-and which voxel size made it, and at which AutoSDV commit.
+The tools that write into the folder (lab3_downsample, lab3_check_lanelet) record their
+step in lab3_map.yaml with `record_step`, at which AutoSDV commit and with which settings.
 """
 
 import hashlib
@@ -27,11 +22,8 @@ import yaml
 
 MAP_META = 'lab3_map.yaml'
 PCD = 'pointcloud_map.pcd'
-FULL = 'anchored_full.pcd'
-BOARD_PROFILE = 'board_profile.yaml'
 LANELET = 'lanelet2_map.osm'
 PROJECTOR = 'map_projector_info.yaml'
-ANCHOR = 'board_anchor.yaml'
 
 
 def sha256(path: str, chunk: int = 1 << 20) -> str:
