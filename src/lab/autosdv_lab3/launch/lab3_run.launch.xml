@@ -7,7 +7,7 @@
   NDT localizes against map_path/pointcloud_map.pcd with the classroom parameters.
   Nothing initializes it automatically: in RViz, 2D Pose Estimate at the start (the
   map origin is where the mapping recording began, so the start mark is near it),
-  one 2D Goal Pose about 0.7 m behind the start, in the lanelet before the start's,
+  one 2D Goal Pose about 1.0 m behind the start, in the lanelet before the start's,
   then Auto. Planning runs with planning_profile:=rc (no reversing pull-outs, a finer
   path, the car's own curvature limit, and the changes that let one goal just behind
   the start drive the whole loop: autosdv_launch config/planning_rc/README.md).
@@ -62,6 +62,9 @@
   <let name="pointcloud_map_filter_param_path"
        value="$(find-pkg-share autosdv_lab3)/config/pointcloud_map_filter_indoor.param.yaml"/>
 
+  <!-- Lab 3 steers with Autoware's stock MPC: pinned here so that an inherited
+       lateral_controller_mode:=... on the command line cannot switch it -->
+  <let name="lateral_controller_mode" value="mpc"/>
   <include file="$(find-pkg-share autosdv_launch)/launch/autosdv.launch.yaml">
     <arg name="vehicle_id" value="$(var vehicle_id)"/>
     <arg name="map_path" value="$(var map_path)"/>
