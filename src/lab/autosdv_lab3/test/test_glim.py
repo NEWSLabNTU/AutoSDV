@@ -3,6 +3,7 @@ and the exporter on a dump written the way GLIM 1.2.2 writes one."""
 
 import json
 import os
+import shutil
 
 import numpy as np
 import pytest
@@ -283,7 +284,7 @@ def test_export_dump_empty(tmp_path):
 
 
 def test_export_writes_pcd_with_intensity(tmp_path):
-    pio = pytest.importorskip('reflective_pose_core.pointcloud_io')
+    pio = pytest.importorskip("autosdv_lab3.pointcloud_io")
     dump = tmp_path / 'dump'
     write_submap(str(dump / '000000'), np.eye(4), [[1, 2, 3], [4, 5, 6]], [7, 250])
     pts, inten, _ = glim.export_dump(str(dump))
@@ -361,3 +362,55 @@ def test_without_the_imu_edge_the_trees_stay_apart(tmp_path):
         str(tmp_path / 'bag'), 'sqlite3', '/cloud', '/imu', True, has_tf=True)
     with pytest.raises(glim.Lab3MapError):
         glim.chain_transform(tfs, lidar, imu)
+
+
+GLIM_CFG = os.path.join(os.path.dirname(__file__), '..', 'config', 'glim')
+
+
+@pytest.mark.skipif(not os.path.isdir(glim.glim_defaults_dir()), reason='GLIM not installed')
+def test_ready_configs_are_what_generate_config_writes(tmp_path):
+    shutil.copytree(os.path.join(GLIM_CFG, 'common'), tmp_path / 'common')
+    shutil.copytree(os.path.join(GLIM_CFG, 'robin_w'), tmp_path / 'robin_w')
+    for d in glim.write_ready_configs(str(tmp_path)):
+        name = os.path.basename(d)
+        shipped = os.path.join(GLIM_CFG, name)
+        assert sorted(os.listdir(shipped)) == sorted(os.listdir(d))
+        for f in os.listdir(d):
+            with open(os.path.join(d, f)) as a, open(os.path.join(shipped, f)) as b:
+                assert json.load(a) == json.load(b), f'{name}/{f}: regenerate (glim.READY)'
+
+
+def test_ready_configs_topics_and_modules():
+    for name, spec in glim.READY.items():
+        d = os.path.join(GLIM_CFG, name)
+        ros = json.load(open(os.path.join(d, 'config_ros.json')))['glim_ros']
+        assert (ros['points_topic'], ros['imu_topic']) == glim.READY_TOPICS
+        assert ros['extension_modules'] == []
+        kind = 'cpu' if spec['cpu'] else 'gpu'
+        assert json.load(open(os.path.join(d, 'config.json')))['global']['config_odometry'] \
+            == f'config_odometry_{kind}.json'
+
+
+def test_ready_t_lidar_imu_follows_the_car_calibration():
+    """The URDF chain robin_w -> zedxm_imu_link, against an independent rotation library."""
+    from scipy.spatial.transform import Rotation
+    for xyz, rpy in [((0.1, -0.2, 0.3), (0.3, -1.2, 2.0)), ((0, 0, 0), (3.14159, -1.5708, 0))]:
+        want = np.eye(4)
+        want[:3, :3] = Rotation.from_euler('xyz', rpy).as_matrix()
+        want[:3, 3] = xyz
+        assert np.allclose(glim._rpy_T(xyz, rpy), want)
+    if not os.path.isfile(glim.calibration_file('car_b')):
+        pytest.skip('individual_params not found')
+    # car B's TF read on the running car (2026-11-16): base_link -> robin_w (0, 0, 0;
+    # q 0.7071 0 0.7071 0, the placeholder origin) and base_link -> zedxm_imu_link
+    # (0.0621, -0.0186, -0.1284; q 0.0019 0.0017 0.0131 0.9999)
+    want = np.linalg.inv(glim.make_T([0, 0, 0], [0.7071, 0, 0.7071, 0])) @ \
+        glim.make_T([0.0621, -0.0186, -0.1284], [0.0019, 0.0017, 0.0131, 0.9999])
+    got = glim.car_T_lidar_imu('car_b')
+    assert np.allclose(got[:3, 3], want[:3, 3], atol=2e-4)
+    assert np.allclose(got[:3, :3], want[:3, :3], atol=2e-4)
+    for name, spec in glim.READY.items():
+        with open(os.path.join(GLIM_CFG, name, 'config_sensors.json')) as f:
+            shipped = json.load(f)['sensors']['T_lidar_imu']
+        assert np.allclose(glim.make_T(shipped[:3], shipped[3:]),
+                           glim.car_T_lidar_imu(spec['car']), atol=1e-6), name

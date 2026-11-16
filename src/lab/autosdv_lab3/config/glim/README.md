@@ -1,4 +1,48 @@
-# GLIM config templates for `just lab3 map`
+# GLIM configs for Lab 3
+
+## Ready directories, for GLIM's own commands
+
+`car_b/`, `car_c/` (GLIM's GPU modules) and `car_b_cpu/`, `car_c_cpu/` (its CPU modules)
+are complete config directories for
+
+    ros2 run glim_ros glim_rosbag BAG --ros-args \
+        -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/car_b \
+        -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
+
+and GLIM's offline_viewer reads the copy glim_rosbag saves into the dump. Each is what
+`generate_config` below writes for that car: the Robin-W topics
+(`/sensing/lidar/iv_points`, `/sensing/camera/zedxm/imu/data`), `T_lidar_imu`
+(`glim.car_T_lidar_imu`), GLIM's own `/tmp` log directory, and no extension modules:
+glim_rosbag runs headless, over ssh or in a desktop alike, and the map is looked at in
+offline_viewer, which a team opens anyway to export it.
+
+`T_lidar_imu` is chained as the car's TF tree chains it: `robin_w` and `zedxm_camera_link`
+from the car's individual_params `sensor_kit_calibration.yaml`, zed_wrapper's URDF to the
+left camera frame, then the ZED driver's left camera -> `zedxm_imu_link` edge, which the
+driver publishes on `/tf`, not `/tf_static` (`glim.ZED_IMU_HOP`: car B's, read on the
+running car on 2026-11-16; identity for car C, unmeasured). For car B this reproduces the
+TF read on the car: base_link -> robin_w (0, 0, 0; q 0.7071 0 0.7071 0) and base_link ->
+zedxm_imu_link (0.0621, -0.0186, -0.1284; q 0.0019 0.0017 0.0131 0.9999).
+
+**The LiDAR origin is a placeholder.** `robin_w` sits at sensor_kit_base_link's origin;
+only its rotation (the Robin-W's axes) is right, and the camera is about 13 cm below the
+LiDAR on the car, so the lever arm will change once the mount is measured. Then edit
+`robin_w`'s x/y/z in the car's `sensor_kit_calibration.yaml` (the one edit) and
+regenerate, from `src/lab/autosdv_lab3` (`test_glim.py` fails until then):
+
+    python3 -c "from autosdv_lab3 import glim; glim.write_ready_configs('config/glim')"
+
+Car C's file also still holds the kit's placeholder camera position, so its `T_lidar_imu`
+differs from car B's.
+
+**GLIM's map frame.** Measured on the TA simulation's mapping bag: the origin is the IMU's
+position at the bag's first scans, z is up (gravity, from the first seconds of data: `initialization_window_size`),
+and the horizontal axes are the LiDAR's own at that moment, not the car's. The Robin-W
+frame is x up, y right, z forward, so the map's +x points BACKWARD from the car's starting
+heading and +y to its RIGHT (the first IMU pose has yaw 180 deg). The floor lies about the
+IMU's height below z = 0.
+
+## Per-run configs for `lab3_map` (TA)
 
 `lab3_map` writes a complete GLIM config directory per run (`<out>/glim_config/`), in
 four layers, later wins, key by key:
@@ -64,8 +108,9 @@ The map's density comes from the submap merge below, not from more points per sc
 
 ## Point density and intensity: what reaches raw_map.pcd
 
-The board anchor (F4) has to find a 0.6 x 0.6 m retroreflective board, intensity above
-~100, in `raw_map.pcd`, so the export keeps the board densely sampled:
+The tuning below was chosen when the map had to show a 0.6 m retroreflective board (an
+anchor since dropped); it is kept because a dense, intensity-preserving map is also what
+NDT and Vector Map Builder want:
 
 - **Per scan**, preprocessing keeps 10000 points by voxel-random sampling
   (`gtsam_points::randomgrid_sampling`, about the same count in every 1 m cell, so the
@@ -78,15 +123,15 @@ The board anchor (F4) has to find a 0.6 x 0.6 m retroreflective board, intensity
   points on the board per submap, and a bright return is not diluted by a dark
   neighbour.
 - **Across submaps**, the exporter concatenates every submap (T_world_origin * p) and
-  does not downsample again; the board appears once per submap that saw it, so the
-  map's spacing on surfaces seen often is finer than 3 cm. `just lab3 downsample` is
-  where the size comes down.
+  does not downsample again; a surface appears once per submap that saw it, so the
+  map's spacing on surfaces seen often is finer than 3 cm. Downsampling (pcl_voxel_grid,
+  or `lab3_downsample`) is where the size comes down.
 
 Measured on `data/rosbags/outdoor_20251226_153115` (VLP-32C, outdoors, parked 116 s
 then ~18 m of driving): 974k points in 3 submaps; median nearest-neighbour spacing
 4.9 cm for points within 5 m of the trajectory, 5.3 cm within 10 m (p90 10 cm), against
 7.0 cm overall (9.1 cm with keyframes every 0.4 m). Intensities come through as the driver's
 0-255 values (max 252). A parked car contributes ONE keyframe however long it stands,
-so the board seen only from the parking spot is one scan's worth; driving past it is
+so a surface seen only from the parking spot is one scan's worth; driving past it is
 what fills it in. Every run writes `median_spacing_m` and the bright-point fraction to
 `glim_report.yaml`.
