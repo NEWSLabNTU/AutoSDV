@@ -61,7 +61,7 @@ NVIDIA GPU):
 ros2 run glim_ros glim_rosbag ~/lab3/bags/rosbag2_2026_11_20-10_15_00 --ros-args -p config_path:=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/glim/robin_w_ready -p dump_path:=$HOME/lab3/team3_glim -p auto_quit:=true
 ```
 
-It plays the bag (about 1.4x real time on a workstation GPU), optimizes, writes the dump
+It plays the bag (a 196 s bag took 155 s on a workstation GPU), optimizes, writes the dump
 directory `~/lab3/team3_glim` and quits.
 
 Export the points with GLIM's viewer:
@@ -113,11 +113,11 @@ the start's (see "The one-goal lap").
 ros2 run autosdv_lab3 lab3_check_lanelet ~/lab3/team3_map
 ```
 
-Three requirements, PASS or FAIL: the road lanelets form **one closed loop** by successor
-relations, it runs **clockwise** seen from above, and every lanelet has a **speed limit**
-above 0 and at most 10 km/h. Then a hint that never fails the check: how far behind the
-origin the nearest lanelet boundary lies, whether that is within 1.5 m, and where a goal
-1.0 m behind the start falls. Then, unless `--no-sim`, one lap in the planning simulator
+Four requirements, PASS or FAIL: the road lanelets form **one closed loop** by successor
+relations, it runs **clockwise** seen from above, every lanelet has a **speed limit**
+above 0 and at most 10 km/h, and a **start boundary**: a lanelet boundary 0.4-0.8 m behind
+the map origin (aim 0.5 m), the origin no more than 1 m off the loop. A hint below the
+table says where the boundary and a goal 1.0 m behind the start fall. Then, unless `--no-sim`, one lap in the planning simulator
 with the field procedure: start at the origin projected onto the loop, one goal 1.0 m
 behind it (`--goal-behind` to change). Set `ROS_DOMAIN_ID` first when the computer is
 shared.
