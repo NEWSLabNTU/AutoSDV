@@ -2,7 +2,7 @@
 <!--
   Lab 3: practise the lap on your own map in the planning simulator, anywhere.
 
-      ros2 launch autosdv_lab3 lab3_planning_sim.launch.xml map_path:=$HOME/lab3/team3_map
+      lab3/psim.sh   (play_launch ... lab3_planning_sim.launch.xml map_path:=$PWD/lab3/map)
 
   AutoSDV's RC simulator (autosdv_rc_sim rc_sim.launch.xml: Autoware in planning-simulator
   mode, the car's own vehicle interface on simulated hardware, the RC car plant) on the
@@ -14,7 +14,7 @@
   The car appears at the map origin facing the map's +x, which is not the way the car
   faced when the mapping began (GLIM's axes follow the LiDAR's: docs/guides/lab3.md).
   Then the field procedure in RViz: 2D Pose Estimate at the start, one 2D Goal Pose
-  about 0.7 m behind it in the lanelet before the start's, Auto. The overall speed limit
+  about 1.0 m behind it in the lanelet before the start's, Auto. The overall speed limit
   is lab3_speed_limit's, as on the car (speed_limit_config, 3 km/h as shipped).
 
   A map folder with a track.yaml (lab3_sim_lap writes one) starts the car at its
