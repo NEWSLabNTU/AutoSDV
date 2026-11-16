@@ -56,6 +56,8 @@
     <arg name="is_simulation" value="$(var is_simulation)"/>
     <arg name="use_sim_time" value="$(var use_sim_time)"/>
     <arg name="rviz" value="$(var rviz)"/>
+    <!-- with the board initializer, RViz's "Initialize with GNSS" button re-runs it -->
+    <arg name="adapi_initialize_by_board" value="$(eval &quot;'$(var pose_initializer)' == 'board'&quot;)"/>
   </include>
 
   <!-- the overall speed limit, from a config file (3 km/h as shipped; at most 10): edit the

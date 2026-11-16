@@ -280,9 +280,17 @@ launch:
 - include:
     file: "$(find-pkg-share autosdv_launch)/config/localization/preset/$(var localization_preset)_preset.yaml"
 
+- arg:
+    name: adapi_initialize_by_board
+    default: "false"
+    description: "true: RViz's Initialize with GNSS button runs the board pose initializer (launch it too)"
+
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
     arg:
+    -
+      name: adapi_initialize_by_board
+      value: $(var adapi_initialize_by_board)
     -
       name: vehicle_id
       value: $(var vehicle_id)

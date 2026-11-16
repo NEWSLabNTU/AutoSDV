@@ -25,6 +25,14 @@ TA               just lab3 grade --map MAP --run RUN_BAG --checkpoints CP_BAG \
                      --marks marks.yaml --sheet sheet.yaml [--fallback-map DIR]
 ```
 
+**Initialization.** With `pose_initializer:=board` (the default), the board pose
+initializer tries once after launch and RViz's **Initialize with GNSS** button re-runs
+it: `lab3_run.launch.xml` sets `adapi_initialize_by_board`, which remaps default_adapi's
+`/api/localization/initialize` to `/api/localization/initialize_default` in the API group
+only, and the initializer (`config/board/initializer.param.yaml`, `adapi_*`) serves the
+button's name, waits up to 30 s for a still car and the board, and forwards requests that
+carry a pose. As in the golf cart (reflector-pose-init 394c661).
+
 The run bag is started before the stack: the board pose that initializes it is not
 latched, so a bag that begins after INITIALIZED cannot show the board did it.
 

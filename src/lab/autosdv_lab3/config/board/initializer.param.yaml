@@ -19,3 +19,11 @@
     ready_pointcloud_topic: /localization/util/downsample/pointcloud
     ready_timeout: 1.0
     stopped_for: 3.0                  # [s] Autoware's stop_check_duration
+    # RViz's "Initialize with GNSS" button re-runs the board initialization: this node
+    # serves the AD API name the button calls, answering once a board pose was taken
+    # or adapi_board_timeout passed; requests that carry a pose (2D Pose Estimate via
+    # the AD API) go on to default_adapi, moved by lab3_run.launch.xml's
+    # adapi_initialize_by_board remap.
+    adapi_initialize_service: /api/localization/initialize
+    adapi_forward_service: /api/localization/initialize_default
+    adapi_board_timeout: 30.0         # [s] the stop check and a few detections

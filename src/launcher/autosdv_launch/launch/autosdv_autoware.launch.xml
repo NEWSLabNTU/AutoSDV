@@ -27,6 +27,8 @@
   <arg name="launch_planning" default="true" description="launch planning"/>
   <arg name="launch_control" default="true" description="launch control"/>
   <arg name="launch_api" default="true" description="launch api"/>
+  <arg name="adapi_initialize_by_board" default="false"
+       description="true: the board pose initializer serves /api/localization/initialize (RViz's Initialize with GNSS button)"/>
   <!-- AutoSDV: the shared pointcloud_container was started unconditionally.
        A stack with no sensing-side preprocessing and no Autoware perception
        (the coach-pursuit lab) leaves it hosting only a glog component. -->
@@ -305,6 +307,16 @@
   <!-- API. AutoSDV: our fork of tier4_autoware_api_component, without the
        vehicle door adapter (the vehicle has no doors). -->
   <group if="$(var launch_api)">
+    <!-- adapi_initialize_by_board: RViz's "Initialize with GNSS" button calls
+         /api/localization/initialize with an empty pose, which on a board map has no
+         GNSS to use. board_pose_initializer serves that name instead
+         (adapi_initialize_service) and re-runs the board initialization; default_adapi
+         moves to /api/localization/initialize_default, where the board node forwards
+         any request that carries a pose. The remap covers this group only, which also
+         holds initial_pose_adaptor, so RViz 2D Pose Estimate still reaches default_adapi
+         directly. As in the golf cart (2026-golf-cart golfcart_autoware.launch.xml). -->
+    <set_remap from="/api/localization/initialize" to="/api/localization/initialize_default"
+               if="$(var adapi_initialize_by_board)"/>
     <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_api_component.launch.xml">
       <arg name="use_sim_time" value="$(var use_sim_time)"/>
       <arg name="vehicle_model" value="$(var vehicle_model)"/>
