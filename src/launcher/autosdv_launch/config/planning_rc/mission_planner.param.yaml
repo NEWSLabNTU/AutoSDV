@@ -1,0 +1,18 @@
+# AutoSDV planning_profile:=rc. A copy of autoware_launch's mission_planner.param.yaml (Autoware 1.5.0);
+# every change is marked `AutoSDV rc:`. See README.md beside this file.
+/**:
+  ros__parameters:
+    map_frame: map
+    arrival_check_angle_deg: 45.0
+    arrival_check_duration: 1.0
+    arrival_check_lateral_distance: 1.0
+    arrival_check_longitudinal_undershoot_distance: 1.0
+    arrival_check_longitudinal_overshoot_distance: 0.2  # AutoSDV rc: 2.0; a lap's goal sits about 0.5 m behind its start
+    goal_angle_threshold_deg: 45.0
+    enable_correct_goal_pose: false
+    reroute_time_threshold: 10.0
+    minimum_reroute_length: 30.0
+    consider_no_drivable_lanes: false # This flag is for considering no_drivable_lanes in planning or not.
+    check_footprint_inside_lanes: true
+    allow_reroute_in_autonomous_mode: true
+    goal_lanelet_transparency: 0.05 # Sets the transparency of the goal lanelet marker in RViz. Higher value makes the marker more visible.

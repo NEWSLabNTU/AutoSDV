@@ -58,7 +58,7 @@
     <arg name="costmap_generator_param_path" value="$(var common_config_path)/costmap_generator.param.yaml"/>
 
     <!-- mission planner -->
-    <arg name="mission_planner_param_path" value="$(find-pkg-share autoware_launch)/config/planning/mission_planning/mission_planner/mission_planner.param.yaml"/>
+    <arg name="mission_planner_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning_rc/mission_planner.param.yaml' if '$(var planning_profile)' == 'rc' else '$(find-pkg-share autoware_launch)/config/planning/mission_planning/mission_planner/mission_planner.param.yaml'&quot;)"/>
 
     <!-- behavior path planner -->
     <arg name="behavior_path_config_path" value="$(find-pkg-share autoware_launch)/config/planning/scenario_planning/lane_driving/behavior_planning/behavior_path_planner"/>
@@ -113,7 +113,7 @@
     <!-- motion -->
     <arg name="motion_config_path" value="$(find-pkg-share autoware_launch)/config/planning/scenario_planning/lane_driving/motion_planning"/>
     <arg name="elastic_band_smoother_param_path" value="$(var motion_config_path)/path_smoother/elastic_band_smoother.param.yaml"/>
-    <arg name="path_optimizer_param_path" value="$(var motion_config_path)/autoware_path_optimizer/path_optimizer.param.yaml"/>
+    <arg name="path_optimizer_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning_rc/path_optimizer.param.yaml' if '$(var planning_profile)' == 'rc' else '$(var motion_config_path)/autoware_path_optimizer/path_optimizer.param.yaml'&quot;)"/>
     <arg name="path_sampler_param_path" value="$(var motion_config_path)/path_sampler/path_sampler.param.yaml"/>
     <arg name="surround_obstacle_checker_param_path" value="$(var motion_config_path)/surround_obstacle_checker/surround_obstacle_checker.param.yaml"/>
     <arg name="motion_velocity_planner_param_path" value="$(var motion_config_path)/motion_velocity_planner/motion_velocity_planner.param.yaml"/>
