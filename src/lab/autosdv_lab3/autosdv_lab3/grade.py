@@ -1,11 +1,11 @@
 """Lab 3 week 2: grade one autonomous lap from its bag alone.
 
-    lab3_grader --team N [--out-dir ~/lab3/bags]   record a dated bag; Ctrl-C grades it
+    lab3_grader [--out-dir ~/lab3/bags]            record a dated bag; Ctrl-C grades it
     lab3_grade BAG [-o REPORT]                     grade a recorded bag again
 
 The team launches the stack and drives the lap the standard Autoware way (initial
 pose, goal, Auto in RViz). The grader runs beside it: started after the launch, it
-records the run topics into ~/lab3/bags/team<N>_run_<date>_<time>; Ctrl-C after the
+records the run topics into <out-dir>/run_<date>_<time>; Ctrl-C after the
 lap stops the recording and grades the bag. Grading reads nothing but the bag, so
 `lab3_grade BAG` on another machine gives the same result.
 
@@ -359,11 +359,10 @@ def _strip_ros_args(argv: List[str]) -> List[str]:
 def grader_main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog='lab3_grader',
                                  description='Record a Lab 3 graded run; Ctrl-C grades it.')
-    ap.add_argument('--team', required=True, help='team number')
     ap.add_argument('--out-dir', default=os.path.expanduser('~/lab3/bags'))
     # launched as a node: ignore the --ros-args launch appends
     args, _ = ap.parse_known_args(_strip_ros_args(sys.argv[1:] if argv is None else argv))
-    out = os.path.join(args.out_dir, f'team{args.team}_run_{time.strftime("%Y%m%d_%H%M%S")}')
+    out = os.path.join(args.out_dir, f'run_{time.strftime("%Y%m%d_%H%M%S")}')
     os.makedirs(args.out_dir, exist_ok=True)
     cmd = ['ros2', 'bag', 'record', '-o', out, *run_topics()]
     print(f'lab3_grader: recording -> {out}\n'

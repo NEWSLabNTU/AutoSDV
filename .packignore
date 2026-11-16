@@ -23,3 +23,6 @@ AutoSDV/src/localization/cuda_ndt_matcher/tests/comparison
 AutoSDV/data/COSS-map-planning/pointcloud_map.pcd
 AutoSDV/data/sample-map-planning/pointcloud_map.pcd
 AutoSDV/docs/reports/assets
+AutoSDV/lab3/bags
+AutoSDV/lab3/glim
+AutoSDV/lab3/*.ply
