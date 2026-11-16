@@ -33,7 +33,7 @@ week-2 stack drives at 3 km/h until a team raises it: `lab3_speed_limit`
 (`lab3_run.launch.xml`, `max_speed_kmh:=`) publishes Autoware's default velocity limit on
 `/planning/scenario_planning/max_velocity_default`, once a second because the selector
 subscribes without durability, and `just lab3 speed KMH` changes its parameter, refused
-above 10. RViz's Set Velocity Limit writes the same topic. The run bag records the
+above 10. RViz's Set Velocity Limit writes the same topic (Autoware's external velocity limit; the AD API has none); the node adopts a value another sender publishes there, clamped to 10, so its repeat does not undo the slider. The run bag records the
 selected limit (`/planning/scenario_planning/max_velocity`). The `check-lanelet`
 simulator lap also runs at 3 km/h (`lab3_sim_lap --speed`); on the 98 m example loop it
 averaged 0.74 m/s, against 1.73 m/s at the lanelets' 10 km/h.

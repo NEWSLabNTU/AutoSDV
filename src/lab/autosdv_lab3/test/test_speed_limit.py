@@ -40,3 +40,9 @@ def test_message_carries_the_limit_in_mps():
 def test_cli_refuses_before_touching_ros(capsys):
     assert speed_limit.cli(['12']) == 2
     assert 'above the 10 km/h maximum' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('mps, kmh', [(5 / 3.6, 5.0), (1.0, 3.6), (20.0, 10.0), (0.0, None),
+                                      (-1.0, None)])
+def test_adopts_another_senders_limit_clamped(mps, kmh):
+    assert speed_limit.adopted_kmh(mps) == kmh

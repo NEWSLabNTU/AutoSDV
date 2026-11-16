@@ -44,6 +44,15 @@ def refusal(kmh) -> Optional[str]:
     return None
 
 
+def adopted_kmh(max_velocity_mps: float) -> Optional[float]:
+    """The limit to take over from another sender's message, km/h: clamped to MAX_KMH;
+    None for a value that is no limit (not above 0)."""
+    kmh = round(max_velocity_mps * 3.6, 2)
+    if not kmh > 0:
+        return None
+    return min(kmh, MAX_KMH)
+
+
 def velocity_limit(kmh: float):
     from autoware_internal_planning_msgs.msg import VelocityLimit
     msg = VelocityLimit()
@@ -96,6 +105,21 @@ def main(argv=None) -> int:
         return SetParametersResult(successful=True)
 
     node.add_on_set_parameters_callback(on_set)
+
+    def on_other(msg):
+        # Another sender on the same topic (RViz's Set Velocity Limit): adopt its value,
+        # clamped to the maximum, so the repeat above does not undo it a second later.
+        if msg.sender == NODE:
+            return
+        value = adopted_kmh(msg.max_velocity)
+        if value is None:
+            return
+        node.get_logger().info(f'limit from {msg.sender or "another node"}: '
+                               f'{msg.max_velocity * 3.6:.1f} km/h')
+        from rclpy.parameter import Parameter
+        node.set_parameters([Parameter(PARAM, Parameter.Type.DOUBLE, value)])
+
+    node.create_subscription(VelocityLimit, TOPIC, on_other, 10)
     publish(kmh)
     from rclpy.executors import ExternalShutdownException
     try:
