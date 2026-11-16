@@ -67,20 +67,18 @@ directory `~/lab3/team3_glim` and quits.
 Export the points with GLIM's viewer:
 
 ```bash
-ros2 run glim_ros offline_viewer
+ros2 run glim_ros offline_viewer --map_path lab3/glim   # in your clone
 ```
 
-1. **File > Open New Map**; in the folder dialog type the dump path
-   (`~/lab3/team3_glim`, Ctrl+L opens the path field) and press **OK**.
-2. "Do optimization?": **No** (the dump is already optimized). The map appears.
-3. **File > Save > Export Points**. The **Name** field starts as `.`: clear it, type
-   `team3_map.ply`, pick the folder `~/lab3`, **OK**. (Typing over the pre-selected part
-   leaves the `.` and writes `team3_map.ply.`.) The viewer logs "exporting points"; the
+1. "Do optimization?": **No** (the dump is already optimized). The map appears.
+2. **File > Save > Export Points**. The **Name** field may start as `.`: clear it, type
+   `map.ply`, pick the folder `lab3` of your clone, **OK**. (Typing over the pre-selected
+   part leaves the `.` and writes `map.ply.`.) The viewer logs "exporting points"; the
    file is binary PLY with x y z intensity.
-4. **File > Quit**.
+3. **File > Quit**.
 
 On a VNC desktop whose OpenGL does not reach the GPU, start it as
-`vglrun -d egl ros2 run glim_ros offline_viewer`.
+`vglrun -d egl ros2 run glim_ros offline_viewer --map_path lab3/glim`.
 
 To an Autoware map, downsampled to 0.1 m (stock PCL; the last step writes plain binary,
 since `pcl_voxel_grid` writes `binary_compressed`):
@@ -279,7 +277,7 @@ Headless on a workstation (RTX GPU), ROS_DOMAIN_ID 87, 2026-11-16/17:
   exit 0 in 155 s, 11 submaps dumped. The first IMU pose is (-0.005, -0.007, -0.006) with
   yaw 180 deg: the origin and axes stated above.
 - **offline_viewer** on a private Xvnc display (`vglrun -d egl`), driven with xdotool
-  through the clicks above: Open New Map, No, Export Points. The export is binary PLY,
+  through the clicks above: No, Export Points (the dump given with `--map_path`). The export is binary PLY,
   `x y z intensity` float, 1 568 229 points, 25 MB (the header `glk::save_ply_binary`
   writes). Screenshots: `tmp/lab3_glim_viewer_*.png` in the AutoSDV checkout.
 - **PCL**: the three commands above on that PLY: 1 568 229 -> 48 688 points,
