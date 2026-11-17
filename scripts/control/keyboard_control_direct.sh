@@ -3,7 +3,7 @@
 # Remaps from /external/selected/* to /control/command/*
 
 cd "$(dirname "$0")/../.."
-source install/setup.bash
+source scripts/env.sh; set +u   # the selected Autoware and its workspace
 
 ros2 run autoware_manual_control keyboard_control \
   --ros-args \

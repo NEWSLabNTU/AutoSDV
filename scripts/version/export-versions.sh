@@ -12,7 +12,11 @@
 #   CUDA_VERSION_ARM64, CUDNN_VERSION_ARM64, TENSORRT_VERSION_ARM64
 #   JETPACK_VERSION, L4T_VERSION
 #   PRE_COMMIT_CLANG_FORMAT_VERSION
-#   CHECKSUM_AUTOWARE_DEB_AMD64, CHECKSUM_AUTOWARE_DEB_ARM64, CHECKSUM_AUTOWARE_DEB_JETPACK60
+#   AUTOWARE_INSTALL_PREFIX
+#   CHECKSUM_AUTOWARE_DEB_AMD64, CHECKSUM_AUTOWARE_DEB_ARM64
+#
+# The AUTOWARE_* and checksum values are the selected version's
+# (scripts/version/autoware-version.sh).
 
 SCRIPT_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 VERSIONS_FILE="${SCRIPT_DIR}/../../versions.yaml"
@@ -22,12 +26,17 @@ if [[ ! -f "$VERSIONS_FILE" ]]; then
     return 1 2>/dev/null || exit 1
 fi
 
+# The selected Autoware version (autoware-version.sh); its entry supplies every
+# AUTOWARE_* and CHECKSUM_AUTOWARE_* value below.
+_autosdv_aw_selected="$("${SCRIPT_DIR}/autoware-version.sh")" || return 1 2>/dev/null || exit 1
+
 # Parse versions.yaml and export environment variables
 eval "$(python3 -c "
 import yaml
 
 with open('$VERSIONS_FILE') as f:
     v = yaml.safe_load(f)
+aw = v['autoware']['versions']['$_autosdv_aw_selected']
 
 exports = [
     # AutoSDV
@@ -36,9 +45,10 @@ exports = [
     ('AUTOSDV_CHANNEL', v['autosdv']['channel']),
 
     # Autoware
-    ('AUTOWARE_VERSION', v['autoware']['version']),
-    ('AUTOWARE_ROSDEBIAN_RELEASE', v['autoware']['rosdebian_release']),
-    ('AUTOWARE_PACKAGE_VERSION', v['autoware']['package_version']),
+    ('AUTOWARE_VERSION', aw['version']),
+    ('AUTOWARE_ROSDEBIAN_RELEASE', aw['rosdebian_release']),
+    ('AUTOWARE_PACKAGE_VERSION', aw['package_version']),
+    ('AUTOWARE_INSTALL_PREFIX', aw['install_prefix']),
 
     # ROS
     ('ROS_DISTRO', v['ros']['distro']),
@@ -61,9 +71,8 @@ exports = [
     ('PRE_COMMIT_CLANG_FORMAT_VERSION', v['tools']['pre_commit_clang_format']),
 
     # Checksums
-    ('CHECKSUM_AUTOWARE_DEB_AMD64', v['checksums']['autoware_deb_amd64']),
-    ('CHECKSUM_AUTOWARE_DEB_ARM64', v['checksums']['autoware_deb_arm64']),
-    ('CHECKSUM_AUTOWARE_DEB_JETPACK60', v['checksums']['autoware_deb_jetpack60']),
+    ('CHECKSUM_AUTOWARE_DEB_AMD64', aw['sha256_amd64']),
+    ('CHECKSUM_AUTOWARE_DEB_ARM64', aw['sha256_jetpack62']),
 ]
 
 for name, value in exports:
@@ -71,3 +80,4 @@ for name, value in exports:
     escaped = str(value).replace(\"'\", \"'\\\"'\\\"'\")
     print(f\"export {name}='{escaped}'\")
 ")"
+unset _autosdv_aw_selected

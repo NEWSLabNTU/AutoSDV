@@ -10,11 +10,14 @@
 # before `just build`, for exactly the packages that need it.
 set -euo pipefail
 root=${1:-.}
-[ -d "$root/build" ] || exit 0
-for dir in "$root"/build/*/; do
+# The workspace's suffix (versions.yaml autoware.workspace_suffix): "" for
+# build/ and install/, "-2.1.0" for build-2.1.0/ and install-2.1.0/.
+suffix=${2:-}
+[ -d "$root/build$suffix" ] || exit 0
+for dir in "$root"/build"$suffix"/*/; do
     pkg=$(basename "$dir")
     if [ -n "$(find "$dir" -maxdepth 4 -xtype l -print -quit 2>/dev/null)" ]; then
-        echo "clearing build/$pkg and install/$pkg: a file it symlinked has moved or gone"
-        rm -rf "$root/build/$pkg" "$root/install/$pkg"
+        echo "clearing build$suffix/$pkg and install$suffix/$pkg: a file it symlinked has moved or gone"
+        rm -rf "$root/build$suffix/$pkg" "$root/install$suffix/$pkg"
     fi
 done

@@ -107,7 +107,7 @@ build-engines:
     set -o pipefail
     just setup-autoware-data
     source /opt/ros/humble/setup.bash
-    source /opt/autoware/1.5.0/setup.bash
+    source "$(scripts/version/get-version.sh autoware.install_prefix)/setup.bash"
     # An engine built by a different patch of TensorRT than these Debians were
     # compiled against is discarded on the next launch, so building without this
     # is worse than not building at all -- it burns the time and caches nothing.
@@ -120,7 +120,7 @@ build-engines:
     # than scraping the build log -- the same warning line also appears on a
     # legitimate rebuild of a plan left by an older TensorRT, and treating the
     # two alike would cry wolf on exactly the run that fixes the problem.
-    TRT_WANT="$(scripts/version/get-version.sh nvidia_amd64.tensorrt_engine_abi 2>/dev/null || true)"
+    TRT_WANT="$(scripts/version/get-version.sh autoware.tensorrt_engine_abi 2>/dev/null || true)"
     TRT_GOT="$(scripts/version/trt-loaded-version.sh 2>/dev/null || true)"
 
     # Each entry: <package> <launch file> [extra args]. `build_only:=true` makes
@@ -376,10 +376,17 @@ build:
     # features so nothing runs `nvcc --version`. Verified by building with
     # nvcc absent from PATH.
     set -e
-    {{justfile_directory()}}/scripts/build/check-python-env.sh
-    {{justfile_directory()}}/scripts/build/clear-stale-builds.sh {{justfile_directory()}}
+    cd {{justfile_directory()}}
+    # One workspace per Autoware version (versions.yaml workspace_suffix: build/
+    # install/log for 1.5.0, build-2.1.0/... for 2.1.0): a workspace built over
+    # one underlay cannot be reused over another.
+    S="$(scripts/version/get-version.sh autoware.workspace_suffix)"
+    scripts/build/check-autoware-env.sh
+    scripts/build/check-python-env.sh
+    scripts/build/clear-stale-builds.sh . "$S"
     source /opt/ros/humble/setup.bash && \
-    colcon build \
+    colcon --log-base "log$S" build \
+        --build-base "build$S" --install-base "install$S" \
         --base-paths src \
         --symlink-install \
         --cmake-args -DCMAKE_BUILD_TYPE=Release \
@@ -388,22 +395,29 @@ build:
 # Run tests for packages in src/ directory
 test:
     #!/usr/bin/env bash
+    cd {{justfile_directory()}}
+    S="$(scripts/version/get-version.sh autoware.workspace_suffix)" || exit 1
+    scripts/build/check-autoware-env.sh || exit 1
     source /opt/ros/humble/setup.bash && \
-    colcon test \
+    colcon --log-base "log$S" test \
+        --build-base "build$S" --install-base "install$S" \
         --base-paths src \
         --return-code-on-test-failure; \
     TEST_EXIT_CODE=$?; \
     echo "" && \
-    colcon test-result --verbose; \
+    colcon test-result --test-result-base "build$S" --verbose; \
     exit $TEST_EXIT_CODE
 
-# Clean up built binaries (requires confirmation)
+# Clean up the selected Autoware version's build (requires confirmation)
 clean:
     #!/usr/bin/env bash
+    cd {{justfile_directory()}}
+    S="$(scripts/version/get-version.sh autoware.workspace_suffix)" || exit 1
+    V="$(scripts/version/autoware-version.sh)" || exit 1
     while true; do \
-        read -p 'Are you sure to clean up? (yes/no) ' yn; \
+        read -p "Remove build$S install$S log$S (Autoware $V)? (yes/no) " yn; \
         case $yn in \
-            yes ) rm -rf build install log; break;; \
+            yes ) rm -rf "build$S" "install$S" "log$S"; break;; \
             no ) break;; \
             * ) echo 'Please enter yes or no.';; \
         esac \

@@ -72,9 +72,10 @@ if [[ ! -f /opt/ros/humble/setup.sh ]]; then
 fi
 """
 
-_REQUIRE_AUTOWARE = """
-if [[ ! -f /opt/autoware/1.5.0/setup.bash ]]; then
-    echo "Autoware 1.5.0 is not installed: /opt/autoware/1.5.0/setup.bash is missing." >&2
+_REQUIRE_AUTOWARE = f"""
+_aw_prefix="$("{REPO_ROOT}/scripts/version/get-version.sh" autoware.install_prefix)" || exit 1
+if [[ ! -f "${{_aw_prefix}}/setup.bash" ]]; then
+    echo "Autoware is not installed: ${{_aw_prefix}}/setup.bash is missing." >&2
     echo "Run the autoware-debian step first, or let a full setup run reach it:" >&2
     echo "    ./setup.sh --only autoware-debian autoware-data" >&2
     exit 1
@@ -372,7 +373,7 @@ STEPS: list[Step] = [
     Step(
         id="autoware-debian",
         label="Autoware Debian packages",
-        why="The 1.5.0 localrepo, about 2-3 GB. Everything in src/ builds "
+        why="The selected version's localrepo (versions.yaml), about 2-3 GB. Everything in src/ builds "
             "against it.",
         group="Autoware",
         run=[_S("install-autoware-debian.sh")],
@@ -499,8 +500,9 @@ STEPS: list[Step] = [
         # real.
         run=_ros_bash(
             _REQUIRE_SUBMODULES +
-            "if [[ -f /opt/autoware/1.5.0/setup.sh ]]; then set +u; "
-            "source /opt/autoware/1.5.0/setup.sh; set -u; fi\n"
+            f'_aw_prefix=$("{REPO_ROOT}/scripts/version/get-version.sh" autoware.install_prefix)\n'
+            "if [[ -f ${_aw_prefix}/setup.sh ]]; then set +u; "
+            "source ${_aw_prefix}/setup.sh; set -u; fi\n"
             f'cd "{REPO_ROOT}"\n'
             "updated=0\n"
             "for attempt in 1 2 3; do\n"
@@ -532,8 +534,9 @@ STEPS: list[Step] = [
         # unresolvable key makes `rosdep check` exit 2 even when everything
         # resolvable is installed. About 2 s when satisfied.
         verify=_ros_bash(
-            "if [[ -f /opt/autoware/1.5.0/setup.sh ]]; then set +u; "
-            "source /opt/autoware/1.5.0/setup.sh; set -u; fi\n"
+            f'_aw_prefix=$("{REPO_ROOT}/scripts/version/get-version.sh" autoware.install_prefix)\n'
+            "if [[ -f ${_aw_prefix}/setup.sh ]]; then set +u; "
+            "source ${_aw_prefix}/setup.sh; set -u; fi\n"
             f'cd "{REPO_ROOT}"\n'
             "rosdep check --from-paths src --ignore-src "
             "--skip-keys blickfeld-scanner >/dev/null 2>&1"

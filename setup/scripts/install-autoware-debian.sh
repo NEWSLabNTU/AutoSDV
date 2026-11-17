@@ -1,32 +1,34 @@
 #!/usr/bin/env bash
 set -e
 
-echo "→ Installing Autoware Localrepo 1.5.0-2..."
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+# Everything below is the selected Autoware version's entry in versions.yaml
+# (scripts/version/autoware-version.sh): AUTOSDV_AUTOWARE_VERSION=2.1.0 installs
+# 2.1.0 beside the default.
+GET="${SCRIPT_DIR}/../../scripts/version/get-version.sh"
+AW_VERSION="$("$GET" autoware.version)"
+REPO_URL_BASE="$("$GET" autoware.localrepo_url_base)"
 
-REPO_URL_BASE="https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-2"
+echo "→ Installing Autoware Localrepo $("$GET" autoware.package_version)..."
+
 DEB_FILE=""
 SHA256SUM=""
-
-# Checksums
-SHA256SUM_UBUNTU2204="f8e2d1d2f43d7a7186b7fbcd391b473783d1ef9cd131a12bfea898255d450acb"
-SHA256SUM_JETPACK62="e3187ca5a7e175aaabd239b5056d7ec1fb6eba92f6c232f8be67ee9958a6a064"
 
 ARCH=$(uname -m)
 
 if [[ "$ARCH" == "x86_64" ]]; then
     echo "  Detected architecture: amd64 (x86_64)"
-    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-2ubuntu2204_all.deb"
-    SHA256SUM="${SHA256SUM_UBUNTU2204}"
+    DEB_FILE="$("$GET" autoware.deb_amd64)"
+    SHA256SUM="$("$GET" autoware.sha256_amd64)"
 elif [[ "$ARCH" == "aarch64" ]]; then
     echo "  Detected architecture: arm64 (aarch64) - JetPack 6.x target (Jetson)"
-    DEB_FILE="autoware-localrepo-1-5-0_1.5.0-2jetpack62_all.deb"
-    SHA256SUM="${SHA256SUM_JETPACK62}"
+    DEB_FILE="$("$GET" autoware.deb_jetpack62)"
+    SHA256SUM="$("$GET" autoware.sha256_jetpack62)"
 else
     echo "Error: Unsupported architecture: $ARCH"
     exit 1
 fi
 
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 DATA_DIR="${DATA_DIR:-${SCRIPT_DIR}/../../data}"
 DEB_DOWNLOAD_DIR="${DATA_DIR}/autoware-debian"
 mkdir -p "${DEB_DOWNLOAD_DIR}"
@@ -238,8 +240,9 @@ if ! apt-cache search --names-only '^time-daemon$' | grep -q 'time-daemon'; then
     sudo apt install -y chrony
 fi
 
-echo "  Installing autoware-full-1-5-0..."
-sudo apt install -y autoware-full-1-5-0
+AW_FULL="autoware-full-${AW_VERSION//./-}"
+echo "  Installing ${AW_FULL}..."
+sudo apt install -y "${AW_FULL}"
 
 echo "✓ Autoware Localrepo 1.5.0-2 and Autoware Full 1.5.0 installed successfully."
 

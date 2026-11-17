@@ -19,7 +19,9 @@ Every change is launch side; the golf cart had none at build time.
 - New required keys: EKF `max_pose_queue_size`, `max_twist_queue_size`,
   `diagnostics_publish_frequency`; NDT `publish_loaded_map`; the CUDA preprocessor's three.
   Selected per version, since 1.5.0 rejects nothing extra but 2.1.0 requires them.
-- Diagnostic graphs: drop `/autoware/debug/tools`. Planning simulator:
+- Diagnostic graphs: drop `/autoware/debug/tools`; `autosdv_rc_sim`'s
+  `rc_sim_diagnostics.yaml` copies 1.5.0's `autoware-main.yaml` (its test compares with the
+  installed one and fails on 2.1.0): one copy per version. Planning simulator:
   `launch_fault_injection`, `perception_simulation.launch.xml`.
 - Nebula 1.2 (car A, VLP16): paths passed as sensor-kit arguments, so one kit serves both.
 

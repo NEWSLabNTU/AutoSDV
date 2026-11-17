@@ -28,24 +28,25 @@ _autosdv_env_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Empty unless the user picked one; restored below.
 _autosdv_env_rmw="${RMW_IMPLEMENTATION:-}"
 
-# The prefix is recorded in versions.yaml so an Autoware upgrade is one edit.
-_autosdv_env_prefix="$(
-    "${_autosdv_env_repo}/scripts/version/get-version.sh" autoware.install_prefix 2>/dev/null
-)"
-: "${_autosdv_env_prefix:=/opt/autoware/1.5.0}"
-
+# Which Autoware, and so which workspace, is the checkout's selection
+# (versions.yaml; scripts/version/select-autoware.sh). It refuses a shell that
+# already holds another version's underlay; then nothing is sourced, and the
+# caller's next command fails visibly rather than running on a mixed one.
 set +u   # ROS setup hooks read variables that are unset
-if [ -f "${_autosdv_env_prefix}/setup.bash" ]; then
-    source "${_autosdv_env_prefix}/setup.bash"
+if ! source "${_autosdv_env_repo}/scripts/version/select-autoware.sh"; then
+    echo "scripts/env.sh: nothing sourced." >&2
+elif [ -f "${AUTOSDV_AUTOWARE_PREFIX}/setup.bash" ]; then
+    source "${AUTOSDV_AUTOWARE_PREFIX}/setup.bash"
+    # local_setup.bash, not setup.bash: setup.bash replays the underlay chain
+    # recorded at build time.
+    if [ -f "${AUTOSDV_WS_INSTALL}/local_setup.bash" ]; then
+        source "${AUTOSDV_WS_INSTALL}/local_setup.bash"
+    fi
 else
     # No Autoware installed: ROS alone, and say so, because every launch that
     # needs an Autoware package is about to fail with a confusing message.
-    echo "scripts/env.sh: ${_autosdv_env_prefix} not found; sourcing ROS only." >&2
+    echo "scripts/env.sh: ${AUTOSDV_AUTOWARE_PREFIX} not found; sourcing ROS only." >&2
     source /opt/ros/humble/setup.bash
-fi
-
-if [ -f "${_autosdv_env_repo}/install/setup.bash" ]; then
-    source "${_autosdv_env_repo}/install/setup.bash"
 fi
 set -u
 
@@ -58,4 +59,4 @@ fi
 # voids every cached .engine. No-op on arm64 and when the prefix is absent.
 source "$(dirname "${BASH_SOURCE[0]}")/trt-runtime-env.sh"
 
-unset _autosdv_env_repo _autosdv_env_prefix _autosdv_env_rmw
+unset _autosdv_env_repo _autosdv_env_rmw

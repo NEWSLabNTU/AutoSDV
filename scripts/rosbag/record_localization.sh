@@ -6,8 +6,7 @@ set -e
 
 OUTPUT_DIR="rosbags/localization_test_$(date +%Y%m%d_%H%M%S)"
 
-source /opt/ros/humble/setup.bash
-source install/setup.bash
+source scripts/env.sh; set +u   # the selected Autoware and its workspace
 
 echo "Recording localization topics to: $OUTPUT_DIR"
 ros2 bag record -o "$OUTPUT_DIR" \

@@ -17,7 +17,7 @@ WORKSPACE_DIR="$( cd "$SCRIPT_DIR/../.." && pwd )"
 echo "Creating tmux session '$SESSION' for outdoor localization testing..."
 
 # Source ROS workspace
-SOURCE_CMD="cd $WORKSPACE_DIR && source install/setup.bash"
+SOURCE_CMD="cd $WORKSPACE_DIR && source scripts/env.sh"
 
 # Create new session with GPS monitor
 tmux new-session -d -s $SESSION -n "GPS" "$SOURCE_CMD && $SCRIPT_DIR/monitor_gps.py"

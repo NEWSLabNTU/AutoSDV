@@ -19,18 +19,65 @@ autosdv:
 # =============================================================================
 # Autoware Base
 #
-# Installed from the autoware-localrepo Debian package, not from source. The
-# filenames and checksums below are what setup/scripts/install-autoware-debian.sh
-# downloads and verifies; keep the two in step.
+# Installed from the autoware-localrepo Debian package, not from source; each
+# version under its own prefix, so several coexist (1.5.0 needs localrepo
+# 1.5.0-3 or later for that: earlier ones ship unversioned files).
+#
+# `default` is what a checkout builds and runs against. A checkout picks another
+# one, first hit wins:
+#
+#     AUTOSDV_AUTOWARE_VERSION=2.1.0 direnv reload    # this shell
+#     echo 2.1.0 > .autoware-version                  # this checkout (gitignored)
+#
+# scripts/version/autoware-version.sh prints the selection, and get-version.sh
+# reads every `autoware.<key>` below from the selected version's entry, so
+# `get-version.sh autoware.install_prefix` follows it.
+#
+# Per version:
+#   workspace_suffix  colcon's build/install/log folders: build<suffix> ... (a
+#                     workspace cannot be shared between underlays)
+#   data_path         the model folder TensorRT writes engines into, relative to
+#                     the repository; launches read it as AUTOSDV_DATA_PATH
+#   models            how `just setup-autoware-data` fills it: "farm" symlinks
+#                     <install_prefix>/data; "download" runs
+#                     autoware-download-models-<v> (2.1.0 ships no models)
+#   deb_*, sha256_*   what setup/scripts/install-autoware-debian.sh downloads and
+#                     verifies
+#   tensorrt_engine_abi  the TensorRT patch this version's Debians were compiled
+#                     against, which scripts/trt-runtime-env.sh puts first on
+#                     amd64 ("" = the host's own; see nvidia_amd64 below)
 # =============================================================================
 autoware:
-  version: "1.5.0"
-  package_version: "1.5.0-2"
-  rosdebian_release: "1.5.0-2"
-  install_prefix: "/opt/autoware/1.5.0"
-  localrepo_url_base: "https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-2"
-  deb_amd64: "autoware-localrepo-1-5-0_1.5.0-2ubuntu2204_all.deb"
-  deb_jetpack62: "autoware-localrepo-1-5-0_1.5.0-2jetpack62_all.deb"
+  default: "1.5.0"
+  versions:
+    "1.5.0":
+      version: "1.5.0"
+      package_version: "1.5.0-3"
+      rosdebian_release: "1.5.0-3"
+      install_prefix: "/opt/autoware/1.5.0"
+      localrepo_url_base: "https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/1.5.0-3"
+      deb_amd64: "autoware-localrepo-1-5-0_1.5.0-3ubuntu2204_all.deb"
+      deb_jetpack62: "autoware-localrepo-1-5-0_1.5.0-3jetpack62_all.deb"
+      sha256_amd64: "e2c951d6dfe1a84622c5c909ec4693f4af9f41422b61cba28e244f0d03c872cb"
+      sha256_jetpack62: "342668ee21cfb1bc9751ecd1faf3504e6614fc31d67a2c62df0dabcfacf10951"
+      workspace_suffix: ""
+      data_path: "data/autoware_data"
+      models: "farm"
+      tensorrt_engine_abi: "10.8.0"   # nvidia_amd64.tensorrt_engine_abi explains it
+    "2.1.0":
+      version: "2.1.0"
+      package_version: "2.1.0-1"
+      rosdebian_release: "2.1.0-1"
+      install_prefix: "/opt/autoware/2.1.0"
+      localrepo_url_base: "https://github.com/NEWSLabNTU/autoware-localrepo/releases/download/2.1.0-1"
+      deb_amd64: "autoware-localrepo-2-1-0_2.1.0-1ubuntu2204_all.deb"
+      deb_jetpack62: "autoware-localrepo-2-1-0_2.1.0-1jetpack62_all.deb"
+      sha256_amd64: "55db8d65917f6adc726a22f05c6f29f96c42030da00bbfd2e1d7e2e5ef7624b0"
+      sha256_jetpack62: "ff095309e3662016d206d11cf90526e51fabc6ca68dc48c79842813a3ef2f902"
+      workspace_suffix: "-2.1.0"
+      data_path: "data/autoware_data-2.1.0"
+      models: "download"
+      tensorrt_engine_abi: ""         # not measured yet (campaign 17, phase 3): host TensorRT
 
 # =============================================================================
 # ROS 2
@@ -251,13 +298,3 @@ race:
 tools:
   pre_commit_clang_format: ""
 
-# =============================================================================
-# Package checksums (SHA256)
-#
-# Mirrors setup/scripts/install-autoware-debian.sh.
-# =============================================================================
-checksums:
-  autoware_deb_amd64: "f8e2d1d2f43d7a7186b7fbcd391b473783d1ef9cd131a12bfea898255d450acb"
-  autoware_deb_jetpack62: "e3187ca5a7e175aaabd239b5056d7ec1fb6eba92f6c232f8be67ee9958a6a064"
-  autoware_deb_arm64: "e3187ca5a7e175aaabd239b5056d7ec1fb6eba92f6c232f8be67ee9958a6a064"
-  autoware_deb_jetpack60: ""

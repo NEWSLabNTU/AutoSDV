@@ -17,7 +17,7 @@ if [ "$(uname -m)" = "x86_64" ]; then
     _autosdv_trt_repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
     _autosdv_trt_version="$(
         "${_autosdv_trt_repo}/scripts/version/get-version.sh" \
-            nvidia_amd64.tensorrt_engine_abi 2>/dev/null
+            autoware.tensorrt_engine_abi 2>/dev/null
     )"
     if [ -n "${_autosdv_trt_version}" ] &&
         [ -f "/opt/tensorrt/${_autosdv_trt_version}/lib/libnvinfer.so.${_autosdv_trt_version}" ]; then

@@ -44,7 +44,7 @@ check:
     diff -r "$t/lidars" {{twin}}/isaac/lidars >/dev/null || { echo "lidars: STALE, run just twin generate"; exit 1; }
     diff -r "$t/body" {{twin}}/isaac/body >/dev/null || { echo "body: STALE, run just twin generate"; exit 1; }
     cmp -s "$t/car_a.dae" {{dae}} || { echo "car_a.dae: STALE, run just twin generate"; exit 1; }
-    set +u; source install/setup.bash >/dev/null 2>&1; set -u
+    set +u; source scripts/env.sh >/dev/null 2>&1; set -u
     python3 -m pytest -q {{twin}}/test
 
 # The environment every twin process runs in: the workspace's DDS profile (TWIN_CYCLONEDDS_URI
@@ -55,7 +55,7 @@ env:
     #!/usr/bin/env bash
     mkdir -p tmp/no-mps
     cat <<EOF
-    export CYCLONEDDS_URI=${TWIN_CYCLONEDDS_URI:-${CYCLONEDDS_URI:-file:///opt/autoware/1.5.0/config/cyclonedds.xml}}
+    export CYCLONEDDS_URI=${TWIN_CYCLONEDDS_URI:-${CYCLONEDDS_URI:-file://$(scripts/version/get-version.sh autoware.install_prefix)/config/cyclonedds.xml}}
     export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     export CUDA_MPS_PIPE_DIRECTORY=$PWD/tmp/no-mps CUDA_MPS_LOG_DIRECTORY=$PWD/tmp/no-mps
     export ISAAC_ROOT={{isaac_root}}
@@ -68,7 +68,7 @@ vehicle-check:
     #!/usr/bin/env bash
     set -eo pipefail
     eval "$(just twin env)"
-    set +u; source install/setup.bash >/dev/null 2>&1
+    set +u; source scripts/env.sh >/dev/null 2>&1; set +u
     out=$PWD/tmp/twin_vc/$(date +%F_%H-%M-%S)
     echo "[twin] vehicle-check on ROS domain $ROS_DOMAIN_ID, report in $out"
     just --justfile {{swb}}/src/autoware_isaac_bridge/justfile vehicle-check \

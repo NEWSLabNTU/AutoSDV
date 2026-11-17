@@ -122,8 +122,7 @@ fi
 
 say "building the report"
 set +u
-source /opt/ros/humble/setup.bash
-source "$REPO/install/setup.bash"
+source "$REPO/scripts/env.sh"   # the selected Autoware and its workspace
 set -u
 python3 "$REPO/scripts/testing/localization/ndt_benchmark_report.py" "$BENCH/runs.tsv" \
     2>/dev/null | tee "$BENCH/report.txt"

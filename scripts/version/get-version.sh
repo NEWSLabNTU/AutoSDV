@@ -34,30 +34,48 @@ fi
 # fails by printing nothing while exiting 0 -- the same silent-empty failure
 # export-versions.sh documents. export-versions.sh already reads this file with
 # PyYAML, so nothing new is required here.
-VALUE=$(python3 -c "
+# autoware.<key> reads the SELECTED version's entry (autoware-version.sh), so a
+# caller asking for autoware.install_prefix follows the checkout's choice;
+# autoware.default and autoware.versions.<v>.<key> are read as written.
+KEY_PATH="$KEY"
+case "$KEY" in
+    autoware.default|autoware.versions|autoware.versions.*) ;;
+    autoware.*)
+        AW_SELECTED="$("${SCRIPT_DIR}/autoware-version.sh")" || exit 1
+        KEY_PATH="autoware.versions.${AW_SELECTED}.${KEY#autoware.}"
+        ;;
+esac
+
+# An empty value is a value (autoware.workspace_suffix is "" for 1.5.0), so
+# only a missing key is an error, told apart by the exit status.
+set +e
+VALUE=$(python3 - "$VERSIONS_FILE" "$KEY_PATH" "$DEFAULT" <<'PY'
 import sys
 import yaml
 
-with open('$VERSIONS_FILE') as f:
-    data = yaml.safe_load(f)
-
-val = data
-for k in '$KEY'.split('.'):
-    try:
-        val = val[k]
-    except (KeyError, TypeError, IndexError):
-        default = '$DEFAULT'
+path, key, default = sys.argv[1:4]
+val = yaml.safe_load(open(path))
+# Version numbers contain dots, so walk greedily: at each level take the
+# longest dotted prefix that is a key.
+parts = key.split('.')
+while parts:
+    for n in range(len(parts), 0, -1):
+        k = '.'.join(parts[:n])
+        if isinstance(val, dict) and k in val:
+            val = val[k]
+            parts = parts[n:]
+            break
+    else:
         if default:
             print(default)
             sys.exit(0)
-        print(\"Error: key '$KEY' not found in $VERSIONS_FILE\", file=sys.stderr)
+        print(f"Error: key '{key}' not found in {path}", file=sys.stderr)
         sys.exit(1)
-print(val)
-")
-
-if [[ -z "$VALUE" ]] && [[ -z "$DEFAULT" ]]; then
-    echo "Error: Key '$KEY' not found in versions.yaml" >&2
-    exit 1
-fi
+print('' if val is None else val)
+PY
+)
+STATUS=$?
+set -e
+[ "$STATUS" -eq 0 ] || exit "$STATUS"
 
 echo "$VALUE"

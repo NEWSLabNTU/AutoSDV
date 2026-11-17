@@ -36,20 +36,39 @@
 set -euo pipefail
 
 AUTOSDV_REPO_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-FARM="${AUTOSDV_DATA_PATH:-${AUTOSDV_REPO_ROOT}/data/autoware_data}"
+GET="${AUTOSDV_REPO_ROOT}/scripts/version/get-version.sh"
 
-# Where the packaged models live. Override for a non-default Autoware install.
-SRC="${AUTOWARE_DATA_SRC:-}"
-if [ -z "${SRC}" ]; then
-    # Prefer whatever /opt/autoware exposes; there is normally one version.
-    for candidate in /opt/autoware/*/data; do
-        [ -d "${candidate}" ] && SRC="${candidate}"
-    done
+# Everything per the selected Autoware version (versions.yaml): its model folder
+# (data_path; AUTOSDV_DATA_PATH overrides), and how that folder is filled.
+AW_VERSION="$("${GET}" autoware.version)"
+FARM="${AUTOSDV_DATA_PATH:-${AUTOSDV_REPO_ROOT}/$("${GET}" autoware.data_path)}"
+MODELS="$("${GET}" autoware.models)"
+
+if [ "${MODELS}" = "download" ]; then
+    # This version's Debians carry no models: its own downloader fetches them
+    # (about 2.4 GB, resumable, sha256-checked) straight into the writable
+    # folder, so no symlink farm is needed and TensorRT writes engines beside them.
+    DL="autoware-download-models-${AW_VERSION//./-}"
+    if ! command -v "${DL}" >/dev/null 2>&1; then
+        echo "ERROR: ${DL} not found; it comes with autoware-full-${AW_VERSION//./-}." >&2
+        exit 1
+    fi
+    echo "models: ${DL} into ${FARM}"
+    mkdir -p "${FARM}"
+    "${DL}" --dir "${FARM}" "$@"
+    engines=$(find "${FARM}" -name '*.engine' -type f 2>/dev/null | wc -l)
+    echo "engines already built: ${engines}"
+    exit 0
 fi
 
-if [ -z "${SRC}" ] || [ ! -d "${SRC}" ]; then
-    echo "ERROR: no Autoware data directory found." >&2
-    echo "  Looked for /opt/autoware/*/data; set AUTOWARE_DATA_SRC to override." >&2
+# "farm": the packaged models of this version's install prefix, unless
+# AUTOWARE_DATA_SRC names another tree. Never a glob over /opt/autoware/*: with
+# two versions installed it picks whichever sorts last.
+SRC="${AUTOWARE_DATA_SRC:-$("${GET}" autoware.install_prefix)/data}"
+
+if [ ! -d "${SRC}" ]; then
+    echo "ERROR: no Autoware data directory at ${SRC}." >&2
+    echo "  Set AUTOWARE_DATA_SRC to override." >&2
     exit 1
 fi
 
