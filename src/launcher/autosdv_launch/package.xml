@@ -8,7 +8,9 @@
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
+  <build_depend>autosdv_cmake</build_depend>
 
+  <exec_depend>autosdv_autoware_stock</exec_depend>
   <exec_depend>rclpy</exec_depend>
 
   <!-- 2D-LiDAR variant: scan synthesis, occupancy grid serving, and the

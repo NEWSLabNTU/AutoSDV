@@ -73,10 +73,10 @@
        description="vehicle_cmd_gate's emergency verdict, which the actuator brakes on. Lab 2 Part 1 (lab2_part1_sim.launch.xml) moves it so lab2_part1_scenario can OR its e-stop into it"/>
 
   <arg name="vehicle_cmd_gate_param_path"
-       default="$(find-pkg-share autoware_launch)/config/control/vehicle_cmd_gate/vehicle_cmd_gate.param.yaml"
+       default="$(find-pkg-share autosdv_autoware_stock)/control/vehicle_cmd_gate/vehicle_cmd_gate.param.yaml"
        description="loaded after autoware_launch's vehicle_cmd_gate.param.yaml, so it need hold only the keys it changes; the default is that file again (no change). Lab 2 Part 1 lifts the longitudinal rate limit (config/part1/vehicle_cmd_gate_part1.param.yaml)"/>
 
-  <let name="cfg" value="$(find-pkg-share autoware_launch)/config/control"/>
+  <let name="cfg" value="$(find-pkg-share autosdv_autoware_stock)/control"/>
   <let name="vehicle_param_file" value="$(find-pkg-share $(var vehicle_model)_description)/config/vehicle_info.param.yaml"/>
 
   <group scoped="false">

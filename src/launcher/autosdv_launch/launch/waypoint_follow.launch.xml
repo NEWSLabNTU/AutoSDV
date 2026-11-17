@@ -133,7 +133,7 @@
   <arg name="path_param_file"
        default="$(find-pkg-share autosdv_waypoint_lab)/config/waypoint_path_publisher.param.yaml"/>
   <arg name="vehicle_cmd_gate_param_path"
-       default="$(find-pkg-share autoware_launch)/config/control/vehicle_cmd_gate/vehicle_cmd_gate.param.yaml"
+       default="$(find-pkg-share autosdv_autoware_stock)/control/vehicle_cmd_gate/vehicle_cmd_gate.param.yaml"
        description="loaded after autoware_launch's; the default is that file again (no change)"/>
   <arg name="output_emergency_cmd" default="/control/command/emergency_cmd"
        description="vehicle_cmd_gate's emergency verdict, which the actuator brakes on"/>

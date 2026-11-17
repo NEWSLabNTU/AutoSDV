@@ -125,6 +125,8 @@
 
   <!-- the simulated vehicle, and the API-driven localization stand-in -->
   <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_simulator_component.launch.xml">
+    <!-- Autoware 2.1.0 requires it (1.5.0 always launched fault injection and ignores it) -->
+    <arg name="launch_fault_injection" value="true"/>
     <arg name="launch_dummy_perception" value="false"/>
     <arg name="launch_dummy_vehicle" value="true"/>
     <arg name="localization_sim_mode" value="api"/>

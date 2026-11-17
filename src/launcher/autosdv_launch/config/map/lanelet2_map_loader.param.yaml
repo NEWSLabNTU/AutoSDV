@@ -4,3 +4,5 @@
     center_line_resolution: 5.0                 # [m]
     use_waypoints: true                         # "centerline" in the Lanelet2 map will be used as a "waypoints" tag.
     lanelet2_map_path: $(var lanelet2_map_path) # The lanelet2 map path
+    enable_selected_map_loading: false          # added for Autoware 2.1.0 (its default)
+    lanelet2_map_metadata_path: ""  # added for Autoware 2.1.0: empty = bboxes from the map points (1.5.0 behaviour); upstream substitutes a launch arg AutoSDV does not declare

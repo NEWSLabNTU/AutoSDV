@@ -155,5 +155,8 @@
       # Dynamic map loading loading radius
       map_radius: 150.0
 
+      # Enabling this will save the dynamic map loaded by NDT in memory.
+      publish_loaded_map: false  # added for Autoware 2.1.0 (its default)
+
       # Radius of input LiDAR range (used for diagnostics of dynamic map loading)
       lidar_radius: 100.0

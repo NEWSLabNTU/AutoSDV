@@ -119,3 +119,5 @@
       validation: # if enable_optimization_validation is true
         max_lat_error: 5.0 # [m]
         max_yaw_error: 1.046 # [rad]
+      use_acados: false # added for Autoware 2.1.0 (its default)
+      use_acados_circle_constraints: true # added for Autoware 2.1.0 (its default)

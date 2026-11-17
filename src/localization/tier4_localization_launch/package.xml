@@ -13,9 +13,11 @@
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
   <buildtool_depend>autoware_cmake</buildtool_depend>
+  <build_depend>autosdv_cmake</build_depend>
 
   <exec_depend>autoware_ar_tag_based_localizer</exec_depend>
-  <exec_depend>autoware_automatic_pose_initializer</exec_depend>
+  <exec_depend condition="$AUTOWARE_VERSION == '1.5.0'">autoware_automatic_pose_initializer</exec_depend>
+  <exec_depend condition="$AUTOWARE_VERSION == '2.1.0'">autoware_pose_initialization_requester</exec_depend>
   <exec_depend>autoware_ekf_localizer</exec_depend>
   <exec_depend>autoware_geo_pose_projector</exec_depend>
   <exec_depend>autoware_gyro_odometer</exec_depend>

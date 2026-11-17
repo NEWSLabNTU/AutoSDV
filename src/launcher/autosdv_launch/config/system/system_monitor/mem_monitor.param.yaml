@@ -1,3 +1,5 @@
 /**:
   ros__parameters:
     available_size: 1024 # MB
+    warning_margin: 0    # added for Autoware 2.1.0 (its default)
+    swap_error_threshold: 1024 # added for Autoware 2.1.0 (its default)

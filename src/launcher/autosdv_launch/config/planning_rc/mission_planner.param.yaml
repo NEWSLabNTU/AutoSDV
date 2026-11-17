@@ -16,3 +16,4 @@
     check_footprint_inside_lanes: true
     allow_reroute_in_autonomous_mode: true
     goal_lanelet_transparency: 0.05 # Sets the transparency of the goal lanelet marker in RViz. Higher value makes the marker more visible.
+    allow_area: false               # added for Autoware 2.1.0 (its default)

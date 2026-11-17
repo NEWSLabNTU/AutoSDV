@@ -8,3 +8,6 @@ ament_auto_package(
   INSTALL_TO_SHARE
     launch
 )
+
+# Version-specific files: autoware/<version>/ (autosdv_cmake).
+autosdv_install_autoware_overlay()

@@ -220,7 +220,7 @@
 
   <!-- Sensing -->
   <group if="$(var launch_sensing)">
-    <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_sensing_component.launch.xml">
+    <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_sensing_component.launch.xml">
       <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
       <arg name="launch_sensing_driver" value="$(var launch_sensing_driver)"/>
       <arg name="sensor_model" value="$(var sensor_model)"/>

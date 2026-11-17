@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- The automatic pose initializer, Autoware 1.5.0: autoware_automatic_pose_initializer.
+     pose_twist_estimator.launch.xml includes this file; each autoware/<version>/
+     has its own. -->
+<launch>
+  <include file="$(find-pkg-share autoware_automatic_pose_initializer)/launch/automatic_pose_initializer.launch.xml"/>
+</launch>

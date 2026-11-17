@@ -35,7 +35,7 @@
   <arg name="ar_tag_param_file" default="$(find-pkg-share autosdv_aruco_localization)/config/ar_tag_based_localizer.param.yaml"/>
   <arg name="ar_tag_container" default=""
        description="load the localizer into this container (the ZED's) instead of its own process; empty: its own process"/>
-  <arg name="ekf_param_file" default="$(find-pkg-share autoware_launch)/config/localization/ekf_localizer.param.yaml"/>
+  <arg name="ekf_param_file" default="$(find-pkg-share autosdv_autoware_stock)/localization/ekf_localizer.param.yaml"/>
   <arg name="use_sim_time" default="false"/>
   <arg name="launch_start_pose_init" default="true"
        description="false: something else seeds the EKF (`just aruco-map align` seeds it from the markers it sees)"/>

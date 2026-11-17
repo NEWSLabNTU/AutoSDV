@@ -33,3 +33,7 @@
     enable_cog_on_centerline: false
     input_path_interval: 0.5  # AutoSDV rc: 2 m is wider than a classroom corner (upstream 2.0)
     output_path_interval: 0.5  # AutoSDV rc: (upstream 2.0)
+    cyclic_timeout: 0.9        # added for Autoware 2.1.0 (its default)
+    enable_traffic_signal_timeout: false # added for Autoware 2.1.0 (its default)
+    turn_signal_path_backward_length: 100.0 # added for Autoware 2.1.0 (its default)
+    allow_area: false          # added for Autoware 2.1.0 (its default)

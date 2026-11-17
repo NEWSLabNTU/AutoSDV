@@ -30,6 +30,7 @@
       # trusted as the global reference
       pose_gate_dist: 10000.0  # Large value to trust pose measurements
 
+      max_pose_queue_size: 5   # added for Autoware 2.1.0 (its default)
     twist_measurement:
       # Twist (velocity) measurement configuration
       # The selected twist estimator provides continuous high-rate velocity
@@ -42,6 +43,7 @@
       # Measurement gate - effectively disabled, so the twist estimator is trusted
       twist_gate_dist: 10000.0  # Large value to trust twist measurements
 
+      max_twist_queue_size: 2   # added for Autoware 2.1.0 (its default)
     process_noise:
       # Process noise defines system dynamics uncertainty
       # These values determine how much the EKF trusts predictions vs measurements
@@ -89,6 +91,7 @@
       error_ellipse_size_lateral_direction: 0.3  # Lateral error threshold
       warn_ellipse_size_lateral_direction: 0.25  # Lateral warning threshold
 
+      diagnostics_publish_frequency: 10.0        # added for Autoware 2.1.0 (its default)
     misc:
       # Miscellaneous configuration
 

@@ -1,7 +1,8 @@
 # 17. Autoware 2.1.0
 
-**Status:** started 2026-11-17 on branch `feature/autoware-2.1.0`. Phases 0 and 1 done on
-the workstation (both versions installed; one checkout builds either); phase 2 next.
+**Status:** started 2026-11-17 on branch `feature/autoware-2.1.0`. Phases 0-2 done on the
+workstation (one checkout builds either version; the launches resolve and the simulators
+start on 2.1.0); phase 3 next.
 
 **Goal:** AutoSDV builds, launches and drives on Autoware 2.1.0, with 1.5.0 still selectable
 until the cars and the labs move, and the default switched only when every phase's exit holds.

@@ -28,6 +28,7 @@
       allow_check_shift_path_lane_departure_override: false
       shift_collision_check_distance_from_end: -10.0
       minimum_shift_pull_out_distance: 0.0
+      minimum_shift_length: 0.5  # added for Autoware 2.1.0 (its default)
       maximum_longitudinal_deviation: 1.0 # Note, should be the same or less than planning validator's "longitudinal_distance_deviation"
       lateral_jerk: 0.5
       lateral_acceleration_sampling_num: 3
@@ -65,6 +66,7 @@
       ignore_distance_from_lane_end: 0.0
       # turns signal
       prepare_time_before_start: 0.0
+      turn_signal_on_centerline_start: "RIGHT"  # added for Autoware 2.1.0 (its default)
       # freespace planner
       freespace_planner:
         enable_freespace_planner: false  # AutoSDV rc: its pull-outs reverse too

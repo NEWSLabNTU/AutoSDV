@@ -82,10 +82,8 @@ units:
       - { type: link, link: /autoware/vehicle }
       - { type: link, link: /autoware/system }
 
-  - path: /autoware/debug/tools
-    type: and
-    list:
-      - { type: link, link: /autoware/system/service_log_checker }
+  # /autoware/debug/tools (service_log_checker) left out: Autoware 2.1.0 removed it, no
+  # mode links to it, and this one file serves 1.5.0 and 2.1.0.
 
   - path: /adapi/mrm_request/delegate
     type: diag

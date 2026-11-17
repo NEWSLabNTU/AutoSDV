@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!-- Sensing, Autoware 2.1.0: the stock component, which includes the sensor kit
+     package's sensing.launch.xml directly (no tier4_sensing_launch). Same file
+     under autoware/1.5.0/ for 1.5.0. -->
+<launch>
+  <arg name="pointcloud_container_name"/>
+  <arg name="launch_sensing_driver" default="true"/>
+  <arg name="sensor_model"/>
+  <arg name="use_sim_time" default="false"/>
+  <arg name="vehicle_model"/>
+  <include file="$(find-pkg-share autoware_launch)/launch/components/component_sensing.launch.xml">
+    <arg name="pointcloud_container_name" value="$(var pointcloud_container_name)"/>
+    <arg name="launch_sensing_driver" value="$(var launch_sensing_driver)"/>
+    <arg name="sensor_model" value="$(var sensor_model)"/>
+    <arg name="use_sim_time" value="$(var use_sim_time)"/>
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+  </include>
+</launch>

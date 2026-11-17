@@ -16,3 +16,6 @@ ament_auto_package(
   rviz
   scripts
 )
+
+# Version-specific files: autoware/<version>/ (autosdv_cmake).
+autosdv_install_autoware_overlay()

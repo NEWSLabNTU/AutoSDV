@@ -87,3 +87,5 @@
     adaptive_trajectory_velocity_th: 1.0
     max_pitch_rad: 0.1
     min_pitch_rad: -0.1
+    ff_scale_min: 0.5 # added for Autoware 2.1.0 (its default)
+    ff_scale_max: 2.0 # added for Autoware 2.1.0 (its default)

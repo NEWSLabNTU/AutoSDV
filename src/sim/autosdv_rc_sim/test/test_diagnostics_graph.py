@@ -43,6 +43,10 @@ def _upstream_dir():
         return None
 
 
+# Units of upstream's graph our copies leave out, on purpose: /autoware/debug/tools is gone
+# from Autoware 2.1.0 and feeds no mode, so one copy serves 1.5.0 and 2.1.0.
+LEFT_OUT = {'/autoware/debug/tools'}
+
 UPSTREAM_OF = {'rc_sim_diagnostics.yaml': 'autoware-main.yaml',
                'localization.yaml': 'localization.yaml', 'planning.yaml': 'planning.yaml'}
 
@@ -56,6 +60,7 @@ def test_copies_match_upstream_but_for_the_timeouts():
     for name, up_name in UPSTREAM_OF.items():
         ours = yaml.safe_load((CONFIG / name).read_text())
         theirs = yaml.safe_load((upstream / up_name).read_text())
+        theirs['units'] = [u for u in theirs['units'] if u['path'] not in LEFT_OUT]
         for unit in ours['units']:
             if UNITS.get(unit['path']) == name:
                 del unit['timeout']
