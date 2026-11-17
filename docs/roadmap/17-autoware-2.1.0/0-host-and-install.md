@@ -14,8 +14,9 @@
 - **1.5.0 broken by the ROS upgrade.** After `apt install --only-upgrade 'ros-humble-*'`
   (`diagnostic_updater` 4.0.7), four 1.5.0 libraries do not load: `undefined symbol:
   _ZTVN18diagnostic_updater7UpdaterE` in `libautoware_lidar_centerpoint_component.so`,
-  `libconcatenate_data.so`, `libcuda_pointcloud_preprocessor{,_lib}.so`. A rebuilt
-  1.5.0-humble-4 (amd64) is announced; until then pin `ros-humble-diagnostic-updater` back.
+  `libconcatenate_data.so`, `libcuda_pointcloud_preprocessor{,_lib}.so`. The golf cart
+  session (golf 243) is fixing the 1.5.0 release (1.5.0-humble-4); re-run the load check
+  after it lands.
   Check the cars before any `ros-humble-*` upgrade there.
 - **Models:** 2.1.0's are not in the Debian. `autoware-download-models-2-1-0` (per user,
   about 2.4 GB) or the `data-2.1.0-1` release; one data folder per version.
