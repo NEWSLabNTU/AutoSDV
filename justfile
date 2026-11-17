@@ -144,14 +144,24 @@ build-engines:
         echo "    (${pkg}: $((SECONDS - start))s)"
     }
 
-    build autoware_lidar_centerpoint lidar_centerpoint.launch.xml model_name:=centerpoint_tiny
-    # use_decompress:=false is required: the decompressor node the launch
-    # otherwise starts has no build_only and never exits, so `ros2 launch`
-    # hangs forever after the engine is written (observed: 3h20m).
-    build autoware_tensorrt_yolox yolox_s_plus_opt.launch.xml use_decompress:=false
-    build autoware_traffic_light_classifier car_traffic_light_classifier.launch.xml
-    build autoware_traffic_light_classifier pedestrian_traffic_light_classifier.launch.xml
-    build autoware_traffic_light_fine_detector traffic_light_fine_detector.launch.xml
+    case "$(scripts/version/get-version.sh autoware.version)" in
+    1.5.0)
+        build autoware_lidar_centerpoint lidar_centerpoint.launch.xml model_name:=centerpoint_tiny
+        # use_decompress:=false is required: the decompressor node the launch
+        # otherwise starts has no build_only and never exits, so `ros2 launch`
+        # hangs forever after the engine is written (observed: 3h20m).
+        build autoware_tensorrt_yolox yolox_s_plus_opt.launch.xml use_decompress:=false
+        build autoware_traffic_light_classifier car_traffic_light_classifier.launch.xml
+        build autoware_traffic_light_classifier pedestrian_traffic_light_classifier.launch.xml
+        build autoware_traffic_light_fine_detector traffic_light_fine_detector.launch.xml
+        ;;
+    *)
+        # Autoware 2.1.0's perception here is LiDAR only (component_perception): the
+        # tiny CenterPoint, which keeps one model folder per variant.
+        build autoware_lidar_centerpoint lidar_centerpoint.launch.xml \
+            model_path:="${DATA}/lidar_centerpoint/tiny"
+        ;;
+    esac
 
     echo
     echo "=== engines in ${DATA}"

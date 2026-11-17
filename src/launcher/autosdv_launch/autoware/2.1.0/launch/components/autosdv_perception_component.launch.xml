@@ -15,11 +15,18 @@
     use_sim_time       set on every node in scope, as in the 1.5.0 fork
     data_path, lidar_detection_model, use_pointcloud_map and the stock switches
 
-  Not carried yet (campaign 17, phase 3): the 1.5.0 fork's own parameter files
-  (pointcloud_map_filter_param_path, the mapless CenterPoint folder of
-  use_mapless_mode, our ground segmentation) need a config package of ours; the
-  camera and fusion modes, detection by tracker, traffic lights and the
-  image-segmentation filter have no 2.1.0 pipeline here.
+  AutoSDV's parameter changes, set below as launch configurations: the nested
+  perception launches declare each path or value as an argument with a default,
+  and a configuration set here takes precedence over those defaults.
+
+    crop_box_margin_max_z               1.0: obstacles up to vehicle_height + 1.0 m
+                                        (1.26 m) stay; the ceiling indoors does not
+    scan_ground_filter_node_param_path  ours: non_ground_height_threshold 0.10
+    centerpoint_common_param_path       use_mapless_mode: densification in base_link
+
+  Not carried: the camera and fusion modes, detection by tracker, traffic lights
+  and the image-segmentation filter (no 2.1.0 pipeline in component_perception),
+  and pointcloud_map_filter_param_path (1.5.0's file format; Lab 3 runs on 1.5.0).
 -->
 <launch>
   <arg name="data_path"/>
@@ -29,9 +36,43 @@
   <arg name="use_mapless_mode" default="false"/>
   <arg name="use_sim_time" default="false"/>
   <arg name="vehicle_model" default="autosdv_vehicle"/>
-  <arg name="lidar_detection_model" default="centerpoint"/>
+  <!-- centerpoint/centerpoint_tiny: the tiny variant (data_path/lidar_centerpoint/tiny), what
+       1.5.0's perception resolved centerpoint to at run time; plain "centerpoint" is base. -->
+  <arg name="lidar_detection_model" default="centerpoint/centerpoint_tiny"/>
+
+  <!-- The presets' switches (config/perception/preset/) arrive as launch configurations
+       from autosdv.launch.yaml; these defaults apply only when nothing set them. What
+       component_perception has no pipeline for stops the launch with the reason, rather
+       than running a stack that silently lacks it. lidar_only and minimal pass. -->
+  <arg name="perception_mode" default="lidar"/>
+  <arg name="use_traffic_light_recognition" default="false"/>
+  <arg name="use_detection_by_tracker" default="false"/>
+  <arg name="use_image_segmentation_based_filter" default="false"/>
+  <arg name="use_multi_channel_tracker_merger" default="false"/>
+  <let name="refuse" value="$(find-pkg-share autosdv_launch)/launch/util/refuse.launch.py"/>
+  <include file="$(var refuse)" if="$(eval &quot;'$(var perception_mode)' != 'lidar'&quot;)">
+    <arg name="reason" value="perception_mode:=$(var perception_mode) has no Autoware 2.1.0 pipeline here (LiDAR only); use perception_preset:=lidar_only, or Autoware 1.5.0"/>
+  </include>
+  <include file="$(var refuse)" if="$(var use_traffic_light_recognition)">
+    <arg name="reason" value="use_traffic_light_recognition:=true is not wired for Autoware 2.1.0 yet; use Autoware 1.5.0"/>
+  </include>
+  <include file="$(var refuse)" if="$(var use_detection_by_tracker)">
+    <arg name="reason" value="use_detection_by_tracker:=true has no Autoware 2.1.0 pipeline here; use Autoware 1.5.0"/>
+  </include>
+  <include file="$(var refuse)" if="$(var use_image_segmentation_based_filter)">
+    <arg name="reason" value="use_image_segmentation_based_filter:=true has no Autoware 2.1.0 pipeline here; use Autoware 1.5.0"/>
+  </include>
+  <include file="$(var refuse)" if="$(var use_multi_channel_tracker_merger)">
+    <arg name="reason" value="use_multi_channel_tracker_merger:=true has no Autoware 2.1.0 pipeline here; use Autoware 1.5.0"/>
+  </include>
 
   <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
+
+  <let name="crop_box_margin_max_z" value="1.0"/>
+  <let name="scan_ground_filter_node_param_path"
+       value="$(find-pkg-share autosdv_launch)/config/perception/obstacle_segmentation/ground_segmentation/scan_ground_filter.param.yaml"/>
+  <let name="centerpoint_common_param_path" if="$(var use_mapless_mode)"
+       value="$(find-pkg-share autosdv_launch)/config/perception/object_recognition/detection/lidar_model_mapless/centerpoint_common.param.yaml"/>
 
   <include file="$(find-pkg-share autoware_launch)/launch/components/component_perception.launch.xml">
     <arg name="data_path" value="$(var data_path)"/>

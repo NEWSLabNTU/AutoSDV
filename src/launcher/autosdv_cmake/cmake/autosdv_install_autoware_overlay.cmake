@@ -10,9 +10,11 @@
 # so the choice is made once, at build time.
 #
 # Fails the configure step when AUTOWARE_VERSION is unset, when the package has
-# no overlay for it, when the version directories hold different files (an
+# no overlay for it, when the version directories hold different launch files (an
 # include would then resolve on one version's workspace and fail on the other's),
-# or when a file is both shared and versioned.
+# or when a file is both shared and versioned. Only launch/ must hold the same files
+# in every version (a shared file includes them by name); a parameter file named
+# only by one version's own launch files need not exist for the other.
 macro(autosdv_install_autoware_overlay)
   set(_aw "$ENV{AUTOWARE_VERSION}")
   if(_aw STREQUAL "")
@@ -25,12 +27,13 @@ macro(autosdv_install_autoware_overlay)
   endif()
   file(GLOB _versions RELATIVE "${_overlays}" "${_overlays}/*")
   file(GLOB_RECURSE _want RELATIVE "${_overlays}/${_aw}" "${_overlays}/${_aw}/*")
-  list(SORT _want)
+  file(GLOB_RECURSE _want_launch RELATIVE "${_overlays}/${_aw}" "${_overlays}/${_aw}/launch/*")
+  list(SORT _want_launch)
   foreach(_v ${_versions})
-    file(GLOB_RECURSE _have RELATIVE "${_overlays}/${_v}" "${_overlays}/${_v}/*")
-    list(SORT _have)
-    if(NOT _have STREQUAL _want)
-      message(FATAL_ERROR "${PROJECT_NAME}: autoware/${_v}/ and autoware/${_aw}/ hold different files")
+    file(GLOB_RECURSE _have_launch RELATIVE "${_overlays}/${_v}" "${_overlays}/${_v}/launch/*")
+    list(SORT _have_launch)
+    if(NOT _have_launch STREQUAL _want_launch)
+      message(FATAL_ERROR "${PROJECT_NAME}: autoware/${_v}/launch/ and autoware/${_aw}/launch/ hold different files")
     endif()
   endforeach()
   foreach(_f ${_want})

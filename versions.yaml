@@ -77,7 +77,7 @@ autoware:
       workspace_suffix: "-2.1.0"
       data_path: "data/autoware_data-2.1.0"
       models: "download"
-      tensorrt_engine_abi: ""         # not measured yet (campaign 17, phase 3): host TensorRT
+      tensorrt_engine_abi: "10.8.0"   # measured 2026-11-18: "Current version: 10.8.0" (CenterPoint build_only)
 
 # =============================================================================
 # ROS 2

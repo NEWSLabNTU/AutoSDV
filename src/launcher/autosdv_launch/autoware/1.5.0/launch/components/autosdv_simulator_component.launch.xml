@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- Simulator, Autoware 1.5.0: the stock tier4_simulator_component, whose simulator.launch.xml
+     also runs dummy perception and the simulated perception modules. The RC and coach
+     simulators include this file; autoware/2.1.0/ has the same arguments. -->
+<launch>
+  <arg name="launch_fault_injection" default="true"/>
+  <arg name="launch_dummy_perception"/>
+  <arg name="launch_dummy_vehicle"/>
+  <arg name="localization_sim_mode"/>
+  <arg name="launch_dummy_doors" default="false"/>
+  <arg name="launch_scenario_simulator_v2_adapter" default="false"/>
+  <arg name="perception/enable_detection_failure" default="false"/>
+  <arg name="perception/enable_object_recognition" default="false"/>
+  <arg name="perception/enable_traffic_light" default="false"/>
+  <arg name="perception/use_base_link_z" default="true"/>
+  <arg name="sensing/visible_range" default="300.0"/>
+  <arg name="vehicle_model"/>
+  <arg name="initial_engage_state" default="true"/>
+  <arg name="vehicle_info_param_file"/>
+  <arg name="raw_vehicle_cmd_converter_param_path"/>
+  <!-- false: no simulated perception modules (occupancy grid, tracking, ...), as the coach sim -->
+  <arg name="launch_simulator_perception_modules" default="true"/>
+
+  <include file="$(find-pkg-share autoware_launch)/launch/components/tier4_simulator_component.launch.xml">
+    <arg name="launch_dummy_perception" value="$(var launch_dummy_perception)"/>
+    <arg name="launch_dummy_vehicle" value="$(var launch_dummy_vehicle)"/>
+    <arg name="localization_sim_mode" value="$(var localization_sim_mode)"/>
+    <arg name="launch_dummy_doors" value="$(var launch_dummy_doors)"/>
+    <arg name="launch_scenario_simulator_v2_adapter" value="$(var launch_scenario_simulator_v2_adapter)"/>
+    <arg name="perception/enable_detection_failure" value="$(var perception/enable_detection_failure)"/>
+    <arg name="perception/enable_object_recognition" value="$(var perception/enable_object_recognition)"/>
+    <arg name="perception/enable_traffic_light" value="$(var perception/enable_traffic_light)"/>
+    <arg name="perception/use_base_link_z" value="$(var perception/use_base_link_z)"/>
+    <arg name="sensing/visible_range" value="$(var sensing/visible_range)"/>
+    <arg name="vehicle_model" value="$(var vehicle_model)"/>
+    <arg name="initial_engage_state" value="$(var initial_engage_state)"/>
+    <arg name="vehicle_info_param_file" value="$(var vehicle_info_param_file)"/>
+    <arg name="raw_vehicle_cmd_converter_param_path" value="$(var raw_vehicle_cmd_converter_param_path)"/>
+  </include>
+</launch>
