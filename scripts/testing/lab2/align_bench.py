@@ -89,7 +89,7 @@ def _maps(d: Path):
     c = course_lib.load_course(str(d))
     (d / 'lanelet2_map.osm').write_text(course_lib.make_osm(c))
     (d / 'ar_tag.param.yaml').write_text(course_lib.make_ar_tag_params(c))
-    (d / 'map_projector_info.yaml').write_text('projector_type: local\n')
+    (d / 'map_projector_info.yaml').write_text('projector_type: Local\n')
 
 
 def compare(out: Path, tol_pos: float, tol_yaw: float) -> bool:

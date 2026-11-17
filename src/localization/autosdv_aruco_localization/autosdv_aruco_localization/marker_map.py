@@ -5,7 +5,7 @@ A marker map is a directory holding
     course.yaml           the boards (below); `just aruco-map survey` writes it
     lanelet2_map.osm      GENERATED from course.yaml (`make_marker_map DIR`)
     ar_tag.param.yaml     GENERATED likewise: the localizer's marker settings
-    map_projector_info.yaml   projector_type: local (metres, no GNSS)
+    map_projector_info.yaml   projector_type: Local (metres, no GNSS)
 
 The file is called course.yaml because a Lab 2 course is a marker map plus a
 route (path, laps, speed); this module reads only the marker part and ignores
@@ -242,7 +242,7 @@ def make_osm(m) -> str:
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + ET.tostring(root, encoding='unicode') + '\n'
 
 
-PROJECTOR_INFO = 'projector_type: local\n'
+PROJECTOR_INFO = 'projector_type: Local\n'
 
 
 def generated_files(m) -> List[Tuple[str, str]]:

@@ -194,6 +194,14 @@ def test_parse_projector_info_local(tmp_path):
     assert info["projector_type"] == "Local"
 
 
+def test_parse_projector_info_lowercase_local_is_refused(tmp_path):
+    # Autoware 1.5.0's map_projection_loader accepted 'local'; 2.1.0 throws on it
+    p = tmp_path / "map_projector_info.yaml"
+    p.write_text("projector_type: local\n")
+    with pytest.raises(CheckError, match="'Local'"):
+        parse_projector_info(p)
+
+
 def test_parse_projector_info_invalid_type(tmp_path):
     p = tmp_path / "map_projector_info.yaml"
     p.write_text("projector_type: Klingon\n")

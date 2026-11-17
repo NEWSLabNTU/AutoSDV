@@ -86,7 +86,7 @@ def test_the_written_map(tmp_path):
     xs = [float(t.get('v')) for t in root.iter('tag') if t.get('k') == 'local_x']
     assert min(xs) == -1.0 and max(xs) == pytest.approx(prof.length, abs=1e-4)
     assert load_track(tmp_path) == prof
-    assert (tmp_path / 'map_projector_info.yaml').read_text() == 'projector_type: local\n'
+    assert (tmp_path / 'map_projector_info.yaml').read_text() == 'projector_type: Local\n'
 
 
 def test_the_committed_default_track_is_current(tmp_path):

@@ -83,8 +83,8 @@ def stop_group(proc, label):
 
 def drive(track, timeout, on_ready, stack):
     import rclpy
-    from autoware_adapi_v1_msgs.msg import LocalizationInitializationState, MrmState, OperationModeState
-    from autoware_adapi_v1_msgs.srv import ChangeOperationMode, SetRoutePoints
+    from autoware_adapi_v1_msgs.msg import LocalizationInitializationState, MrmState, OperationModeState, RouteState
+    from autoware_adapi_v1_msgs.srv import ChangeOperationMode, ClearRoute, SetRoutePoints
     from diagnostic_msgs.msg import DiagnosticArray
     from rclpy.node import Node
     from rclpy.qos import DurabilityPolicy, QoSProfile
@@ -93,7 +93,7 @@ def drive(track, timeout, on_ready, stack):
 
     rclpy.init()
     node = Node('rc_sim_smoke')
-    seen = {'loc': None, 'op': None, 'state': None}
+    seen = {'loc': None, 'op': None, 'state': None, 'route': None}
     # Task 18b: from the engage on, any MRM or loss of autonomous availability is a failure
     flaps = {'armed': False, 'mrm': 0, 'unavailable': 0, 'last_mrm': None,
              'culprits': collections.Counter()}
@@ -144,6 +144,8 @@ def drive(track, timeout, on_ready, stack):
                                   if st.name == LANE_DEPARTURE_DIAG)
 
     node.create_subscription(DiagnosticArray, '/diagnostics', on_diagnostics, 100)
+    node.create_subscription(RouteState, '/api/routing/state',
+                             lambda m: seen.__setitem__('route', m.state), latched)
     deadline = time.monotonic() + timeout
 
     def spin_until(predicate, what):
@@ -159,6 +161,7 @@ def drive(track, timeout, on_ready, stack):
         return False
 
     def call(client, request, what):
+        last = 'no response'
         while time.monotonic() < deadline:
             if stack.poll() is not None:
                 print(f'FAIL  the launch exited ({stack.returncode}) during {what}')
@@ -169,8 +172,13 @@ def drive(track, timeout, on_ready, stack):
                 result = future.result()
                 if result is not None and result.status.success:
                     return True
+                if result is None:
+                    last = 'no response within 10 s'
+                else:
+                    last = f'code {result.status.code}: {result.status.message!r}'
+                print(f'      {what}: {last}', flush=True)
             time.sleep(2.0)
-        print(f'FAIL  {what} never succeeded')
+        print(f'FAIL  {what} never succeeded (last refusal: {last})')
         return False
 
     try:
@@ -178,6 +186,15 @@ def drive(track, timeout, on_ready, stack):
                           'the localization to be initialized (sim_pose_init)'):
             return 1
         on_ready()
+        # Autoware 2.1.0's routing API answers 'The route is already set.' until its state
+        # is UNSET, which it is not yet this soon after the localization initialized; wait
+        # for the state, and clear it when it is anything else (Lab 3's client does the same)
+        if not spin_until(lambda: seen['route'] is not None, 'the routing state'):
+            return 1
+        if seen['route'] != RouteState.UNSET and not call(
+                node.create_client(ClearRoute, '/api/routing/clear_route'),
+                ClearRoute.Request(), 'clear route'):
+            return 1
         route = SetRoutePoints.Request()
         route.header.frame_id = 'map'
         goal = track['goal_pose']

@@ -50,7 +50,7 @@ PROJECTOR_BIN = PROJECTOR_DIR / "install" / "lib" / "map_check_projector" / "pro
 
 VALID_PROJECTOR_TYPES = {
     "MGRS", "LocalCartesian", "LocalCartesianUTM", "TransverseMercator",
-    "Local", "local",
+    "Local",
 }
 
 OCCUPIED, FREE, UNKNOWN = 0, 254, 205
@@ -162,6 +162,11 @@ def parse_projector_info(path: Path) -> dict:
     if not isinstance(data, dict) or "projector_type" not in data:
         raise CheckError("missing 'projector_type' key -> regenerate with map_projector_info format")
     ptype = data["projector_type"]
+    if ptype == "local":
+        raise CheckError(
+            "projector_type 'local' -> write 'Local' (Autoware 1.5.0 accepted the "
+            "lowercase spelling; 2.1.0's map_projection_loader exits on it)"
+        )
     if ptype not in VALID_PROJECTOR_TYPES:
         raise CheckError(
             f"unknown projector_type '{ptype}' -> must be one of "

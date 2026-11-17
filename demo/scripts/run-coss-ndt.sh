@@ -13,6 +13,7 @@
 #   KEEP_UP     true|false, leave the stack running at the end (default true)
 #   RATE        rosbag playback rate (default 1.0)
 #   POSE_SOURCE cuda_ndt (default) or ndt, Autoware's OpenMP CPU matcher
+#   LAUNCH_ARGS extra launch arguments, e.g. "launch_perception:=false" (default none)
 #   NDT_USE_GPU 1 (default) or 0 to run cuda_ndt's own CPU path; exported to
 #               the stack, so the matcher picks it up
 #   NDT_DEBUG_FILE  where cuda_ndt writes per-iteration JSONL, if it was built
@@ -160,7 +161,7 @@ setsid bash -c "play_launch launch --web-addr 0.0.0.0:8081 \
     pose_source:=$POSE_SOURCE \
     map_path:=$MAP \
     use_gnss:=false \
-    rviz:=$RVIZ" > "$OUT/launch.log" 2>&1 &
+    rviz:=$RVIZ ${LAUNCH_ARGS:-}" > "$OUT/launch.log" 2>&1 &
 
 sleep 5
 PLAY_PID=$(pgrep -f "play_launch.*logging_simulation" | head -1)

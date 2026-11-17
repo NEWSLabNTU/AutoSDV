@@ -538,7 +538,7 @@ def prepare_stage1(survey_dir: str) -> str:
             shutil.copy2(p, os.path.join(s1, name))
     if not os.path.isfile(os.path.join(s1, 'map_projector_info.yaml')):
         with open(os.path.join(s1, 'map_projector_info.yaml'), 'w') as f:
-            f.write('projector_type: local\n')
+            f.write('projector_type: Local\n')
     return s1
 
 

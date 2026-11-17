@@ -54,6 +54,9 @@
       <param name="allow_unsupported_version" value="true"/>
       <param name="center_line_resolution" value="5.0"/>
       <param name="use_waypoints" value="true"/>
+      <!-- Autoware 2.1.0 reads these two and exits when either is unset; 1.5.0 ignores them -->
+      <param name="enable_selected_map_loading" value="false"/>
+      <param name="lanelet2_map_metadata_path" value=""/>
       <param name="lanelet2_map_path" value="$(var lanelet2_map_path)"/>
       <remap from="output/lanelet2_map" to="vector_map"/>
     </node>

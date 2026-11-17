@@ -21,7 +21,7 @@ segment carries its own `rate`. The written files:
     course.yaml           the waypoint lab's course header (open, one lap, no markers)
     lanelet2_map.osm      the lane (a lanelet per segment, with its speed limit) and the
                           stop line, for RViz: rc_sim's lanelet writer
-    map_projector_info.yaml   projector_type: local
+    map_projector_info.yaml   projector_type: Local
     track.yaml            the start and goal poses, which rc_sim_plant reads (track_dir)
     part1_profile.yaml    THE CONTRACT with the scenario node and the grader: the holds,
                           every segment's [s0, s1] and speeds, the stop line (and the e-stop
@@ -221,7 +221,7 @@ def write_course(profile, out_dir, header=''):
     with open(os.path.join(out_dir, 'lanelet2_map.osm'), 'w') as f:
         f.write(_osm(profile))
     with open(os.path.join(out_dir, 'map_projector_info.yaml'), 'w') as f:
-        f.write('projector_type: local\n')
+        f.write('projector_type: Local\n')
     track = {
         'start_pose': {'x': 0.0, 'y': 0.0, 'yaw': 0.0},
         'goal_pose': {'x': profile['stop_line_s'], 'y': 0.0, 'yaw': 0.0},

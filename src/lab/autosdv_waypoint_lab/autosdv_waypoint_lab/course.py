@@ -6,7 +6,7 @@ A course is a directory under config/courses/<name>/:
     path.csv              x, y[, v] waypoints in the course frame
     lanelet2_map.osm      GENERATED from course.yaml by `make_course_map`
     ar_tag.param.yaml     GENERATED likewise: the localizer's marker settings
-    map_projector_info.yaml   projector_type: local (hall metres, no GNSS)
+    map_projector_info.yaml   projector_type: Local (hall metres, no GNSS)
 
 course.yaml is a marker map's (autosdv_aruco_localization.marker_map: the
 boards, start_pose, marker_size, dictionary) with the route's keys added:
@@ -112,7 +112,7 @@ def main(argv=None):
         proj = os.path.join(d, 'map_projector_info.yaml')
         if not os.path.exists(proj):
             with open(proj, 'w') as f:
-                f.write('projector_type: local\n')
+                f.write('projector_type: Local\n')
             print(f'wrote {proj}')
     return 1 if stale else 0
 

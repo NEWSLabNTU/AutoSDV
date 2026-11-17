@@ -264,7 +264,7 @@ def write_track(profile: TrackProfile, out_dir) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / 'lanelet2_map.osm').write_text(_osm(profile))
     (out / 'pointcloud_map.pcd').write_text(_pcd(profile))
-    (out / 'map_projector_info.yaml').write_text('projector_type: local\n')
+    (out / 'map_projector_info.yaml').write_text('projector_type: Local\n')
     (out / 'track.yaml').write_text(_track_yaml(profile))
 
 

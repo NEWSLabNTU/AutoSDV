@@ -226,7 +226,7 @@ def files(lay: Layout, directory: str) -> Dict[str, str]:
     c = to_course(lay, directory)
     texts['lanelet2_map.osm'] = course_mod.make_osm(c)
     texts['ar_tag.param.yaml'] = course_mod.make_ar_tag_params(c)
-    texts['map_projector_info.yaml'] = 'projector_type: local\n'
+    texts['map_projector_info.yaml'] = 'projector_type: Local\n'
     return texts
 
 

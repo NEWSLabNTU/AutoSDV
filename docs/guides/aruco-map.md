@@ -70,7 +70,7 @@ check with the car where the scan began.
 | `course.yaml` | the boards, `marker_size`, `dictionary`, `start_pose`, and a `survey` block (origin board, date, frame, keyframes, reprojection RMS). Named after Lab 2's course file, which is this plus a route |
 | `lanelet2_map.osm` | one lanelet2 `pose_marker` polygon per board, what the AR-tag localizer reads |
 | `ar_tag.param.yaml` | the localizer's `dictionary`, `marker_size`, `target_tag_ids` |
-| `map_projector_info.yaml` | `projector_type: local` |
+| `map_projector_info.yaml` | `projector_type: Local` |
 | `survey_report.yaml` | per board: views, reprojection error, 1σ position and yaw, tilt, flags (seen under 3 times, over 5 cm or 1° uncertain, tilted over 10°) |
 | `survey_data.npz` | the recording (keyframes, detections): `solve` works from it |
 
