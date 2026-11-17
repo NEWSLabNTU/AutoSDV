@@ -18,7 +18,7 @@ On the Orin, branch `feature/autoware-2.1.0`, in one sitting:
 ```bash
 cat /etc/nv_tegra_release                      # L4T 36.5 (JetPack 6.2.2+)
 git fetch && git checkout feature/autoware-2.1.0 && git submodule update --init --recursive
-AUTOSDV_AUTOWARE_VERSION=2.1.0 ./setup.sh --run --only autoware --yes   # beside 1.5.0
+AUTOSDV_AUTOWARE_VERSION=2.1.0 ./setup.sh --run --only autoware-debian --yes   # beside 1.5.0
 echo 2.1.0 > .autoware-version                 # this checkout now selects 2.1.0
 just build                                     # into build-2.1.0/ install-2.1.0/
 just setup-autoware-data && just build-engines # engines on the board; second run reuses
