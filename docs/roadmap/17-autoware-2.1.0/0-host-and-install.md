@@ -11,6 +11,14 @@
 
 ## Open
 
+- **Pending localrepo revisions (golf 243, 2026-11-18).** 1.5.0-3 (what `versions.yaml`
+  pins) has the `diagnostic_updater` link bug on every platform (6 libraries do not load):
+  move the 1.5.0 entry to **1.5.0-humble-4** when it is published. 2.1.0-1's model
+  downloader writes to `~/autoware_data` while its launches default `data_path` to
+  `~/autoware_data/ml_models`; **2.1.0-humble-2** moves the downloader's default (AutoSDV
+  passes `--dir` and `data_path`, so it is unaffected, but take the new revision). Update
+  the version, file names and sha256 in `versions.yaml` for both.
+
 - **1.5.0 broken by the ROS upgrade.** After `apt install --only-upgrade 'ros-humble-*'`
   (`diagnostic_updater` 4.0.7), four 1.5.0 libraries do not load: `undefined symbol:
   _ZTVN18diagnostic_updater7UpdaterE` in `libautoware_lidar_centerpoint_component.so`,
