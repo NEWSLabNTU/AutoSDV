@@ -13,8 +13,9 @@ taped start mark, and the origin is roughly the mark. Each team's origin differs
 little, and nothing assumes a fixed one. Measured on the TA simulation's mapping bag:
 the origin is the IMU's position at the first scans, z is up (gravity), and the
 horizontal axes are the LiDAR's own at that moment. The Robin-W's frame is x up, y right,
-z forward, so the map's **+x points backward** from the car's starting heading and +y to
-its right; the floor lies about the IMU's height below z = 0. This matters only for
+z forward, so on that bag the map's **+x pointed backward** from the car's starting heading
+and +y to its right (the 6 Nov example map faces +x instead; the loop check's hint prints
+the direction for each map); the floor lies about the IMU's height below z = 0. This matters only for
 reading coordinates: the start is set in RViz, and the loop's direction is checked with z
 up.
 
@@ -113,9 +114,11 @@ ros2 run autosdv_lab3 lab3_check_lanelet ~/lab3/team3_map
 
 Four requirements, PASS or FAIL: the road lanelets form **one closed loop** by successor
 relations, it runs **clockwise** seen from above, every lanelet has a **speed limit**
-above 0 and at most 10 km/h, and a **start boundary**: a lanelet boundary 0.4-0.8 m behind
-the map origin (aim 0.5 m), the origin no more than 1 m off the loop. A hint below the
-table says where the boundary and a goal 1.0 m behind the start fall. Then, unless `--no-sim`, one lap in the planning simulator
+above 0 and at most 10 km/h, and a **start boundary**: a lanelet boundary 0.4-0.6 m behind
+the map origin (aim 0.5 m; closer, the TA simulation did not move; farther, the 1.0 m goal
+falls within 0.4 m of the boundary, the class that did not move below), the origin no more than 1 m off the loop. A hint
+below the table says where the boundary and a goal 1.0 m behind the start fall, and which
+map axis the loop leaves the start mark along (the direction for 2D Pose Estimate). Then, unless `--no-sim`, one lap in the planning simulator
 with the field procedure: start at the origin projected onto the loop, one goal 1.0 m
 behind it (`--goal-behind` to change). Set `ROS_DOMAIN_ID` first when the computer is
 shared.
@@ -150,8 +153,10 @@ ros2 bag play ~/lab3/bags/<mapping bag> --clock --topics $(cat $SHARE/config/rec
 ```
 
 In RViz, a 2D Pose Estimate at the map origin within the first seconds, while the car
-still stands on the start mark: the mapping recording began there. On the Robin-W cars
-GLIM's map +x points backward from the start heading, so the car faces the map's -x.
+still stands on the start mark: the mapping recording began there. On the TA simulation's
+bag GLIM's map +x pointed backward from the start heading (the car faced -x); the 6 Nov
+example map faces +x. Read the direction from `lab3_check_lanelet`'s hint rather than
+assuming one.
 After the bag ends, Ctrl-C the recorder, then
 
 ```bash

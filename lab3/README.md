@@ -6,7 +6,7 @@ few lines around one standard command; read it before you run it.
 
 | folder | holds | in git |
 |---|---|---|
-| `lab3/map/` | your map: `pointcloud_map.pcd`, `lanelet2_map.osm`, `map_projector_info.yaml` | yes, commit it |
+| `lab3/map/` | your map: `pointcloud_map.pcd`, `lanelet2_map.osm`, `map_projector_info.yaml`, `lab3_map.yaml` | yes, commit it |
 | `lab3/bags/` | recordings (mapping bag, replays, laps) | no |
 | `lab3/glim/` | GLIM's output | no |
 

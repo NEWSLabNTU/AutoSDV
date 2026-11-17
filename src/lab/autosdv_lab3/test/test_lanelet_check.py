@@ -64,7 +64,8 @@ def test_width_corners_and_clearance_are_not_checked(tmp_path):
     fixtures.write_map(d)
     with open(os.path.join(d, mapdir.LANELET), 'w') as f:
         f.write(fixtures.lanelet_osm(width=0.4, radius=0.4))
-    assert all(x.ok for x in rows(d).values())
+    # the tight corners move the origin's projection; the start boundary is not the point
+    assert all(x.ok for k, x in rows(d).items() if k != 'start boundary')
 
 
 def test_main_records_and_exits(maps):
@@ -84,7 +85,7 @@ def test_start_boundary_too_far_fails(maps, capsys):
     assert "the start's own" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize('into, ok', [(0.2, False), (0.5, True), (0.75, True), (1.0, False)])
+@pytest.mark.parametrize('into, ok', [(0.2, False), (0.35, False), (0.45, True), (0.55, True), (0.7, False), (1.0, False)])
 def test_start_boundary_window(into, ok):
     from autosdv_lab3.route import lanelets_from_text, loop_from_lanelets
     loop = loop_from_lanelets(lanelets_from_text(fixtures.lanelet_osm()))
@@ -101,6 +102,9 @@ def test_start_hint_numbers(maps):
     far = lanelet_check.start_hint(load_loop(maps['far']))
     assert far.behind == pytest.approx(2.0, abs=0.03)
     assert not far.near and not far.goal_in_previous
+    # the loop leaves the origin along +x in the fixture, and the hint says so
+    assert near.axis in ('+x', '-x', '+y', '-y')
+    assert near.axis in near.text()
     # a goal far enough back reaches the previous lanelet
     assert lanelet_check.start_hint(load_loop(maps['far']), goal_behind=2.5).goal_in_previous
 
@@ -170,3 +174,18 @@ def test_sim_lap_good(maps):
     res = sim_lap.run_lap(maps['good'])
     print(res.as_dict())
     assert res.ok, res.as_dict()
+
+
+def test_start_hint_heading_axis():
+    from autosdv_lab3.route import lanelets_from_text, loop_from_lanelets
+    loop = loop_from_lanelets(lanelets_from_text(fixtures.lanelet_osm()))
+    s0 = loop.starts[loop.order[0]] + 0.5
+    x, y, _ = loop.pose_at(s0)
+    x1, y1, _ = loop.pose_at(s0 + 0.5)
+    expect = ('+x' if x1 > x else '-x') if abs(x1 - x) >= abs(y1 - y) else ('+y' if y1 > y else '-y')
+    assert lanelet_check.start_hint(loop, (x, y)).axis == expect
+
+
+def test_boundary_outside_window_is_not_called_good(maps):
+    far = lanelet_check.start_hint(load_loop(maps['far']))
+    assert 'good, the start lanelet' not in far.text()

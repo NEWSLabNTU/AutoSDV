@@ -15,9 +15,10 @@ The run's single goal, about 1.0 m behind the start, must fall in the lanelet BE
 start's: with goal and start in one lanelet Autoware routes the 1 m behind the car, and
 with the boundary too close behind the car the planner's look-behind finds the goal and
 cuts the path there (the TA simulation: 0.14 and 0.25 m past did not move, 0.62 m did).
-So the boundary goes about 0.5 m behind the start mark and the goal about 1.0 m behind
-it, about 0.5 m into the previous lanelet. A hint below the table says where the boundary
-and the goal fall.
+So the boundary goes 0.4-0.6 m behind the start mark and the goal about 1.0 m behind
+it, 0.4-0.6 m into the previous lanelet. A hint below the table says where the
+boundary and the goal fall, and which way the loop leaves the start mark (the direction
+to drag for 2D Pose Estimate).
 
 Unless --no-sim, a lap in the planning simulator follows (lab3_sim_lap): the car
 starts at the origin projected onto the loop and drives to one goal --goal-behind m
@@ -26,6 +27,7 @@ lap pass. The result is recorded in the map folder's lab3_map.yaml (lanelet_chec
 """
 
 import argparse
+import math
 import os
 import sys
 from dataclasses import asdict, dataclass
@@ -36,12 +38,14 @@ from autosdv_lab3 import lanelet_speed, mapdir
 from autosdv_lab3.route import Loop, MapError, find_chain, read_lanelets
 
 GOAL_BEHIND = 1.0     # m: the run's 2D Goal Pose behind the start (0.7 m was unreliable)
-HINT_WITHIN = 1.5     # m: a boundary this close behind the origin counts as "just behind"
 # m: the goal this far before the boundary, at least (measured: 1.0 m behind a start
 # 0.5 m past it drove; 0.2 m before it did not move)
 GOAL_CLEAR = 0.5
 ORIGIN_OFF_LOOP = 1.0  # m from the centreline: the recording did not start on the loop
-BOUNDARY_MIN, BOUNDARY_MAX = 0.4, 0.8   # m behind the origin: the start boundary
+# m behind the origin: the start boundary. Below 0.4 the TA simulation did not move (0.14,
+# 0.25 m); above 0.6 the 1.0 m goal falls within 0.4 m of the boundary, the failing class
+# (0.2 m before it did not move).
+BOUNDARY_MIN, BOUNDARY_MAX = 0.4, 0.6
 
 
 @dataclass
@@ -124,9 +128,11 @@ class StartHint:
     lanelet: int             # the lanelet the origin projects into
     behind: float            # m from the nearest boundary behind the origin, along the loop
     previous: int            # the lanelet before it
-    near: bool               # behind <= HINT_WITHIN
+    near: bool               # BOUNDARY_MIN <= behind <= BOUNDARY_MAX
     goal_lanelet: int        # where a goal goal_behind m behind the start falls
     goal_behind: float
+    heading_deg: float = 0.0  # the loop's direction at the origin, from +x, counter-clockwise
+    axis: str = '+x'         # the map axis nearest that direction
 
     @property
     def goal_in_previous(self) -> bool:
@@ -138,11 +144,11 @@ class StartHint:
         if self.off_loop > ORIGIN_OFF_LOOP:
             lines.append(f'the origin is {self.off_loop:.1f} m off the loop: did the mapping '
                          'recording start on the start mark?')
-        lines.append(('within' if self.near else 'NOT within') + f' {HINT_WITHIN:g} m behind '
-                     'the origin: ' + ('good, the start lanelet begins just behind the start'
-                                       if self.near else
-                                       'split the lanelet so that one begins just behind the '
-                                       'start mark'))
+        lines.append(f'the loop leaves the start mark towards the map\'s {self.axis} '
+                     f'(heading {self.heading_deg:.0f} deg): drag that way for 2D Pose Estimate')
+        lines.append(('good, the start lanelet begins ' if self.near else
+                      'NOT good: split the lanelet so that one begins ')
+                     + f'{BOUNDARY_MIN:g}-{BOUNDARY_MAX:g} m behind the start mark')
         least = self.behind + GOAL_CLEAR
         if self.goal_in_previous and self.goal_behind >= least:
             lines.append(f'a goal {self.goal_behind:g} m behind the start falls in lanelet '
@@ -168,9 +174,14 @@ def start_hint(loop: Loop, origin=(0.0, 0.0), goal_behind: float = GOAL_BEHIND) 
     lid = loop.lane_at(s0)
     behind = loop.wrap(s0 - loop.starts[lid])
     previous = loop.order[loop.order.index(lid) - 1]
+    x1, y1, _ = loop.pose_at(s0 + 0.5)
+    dx, dy = x1 - x, y1 - y
+    heading = math.degrees(math.atan2(dy, dx))
+    axis = ('+x' if dx > 0 else '-x') if abs(dx) >= abs(dy) else ('+y' if dy > 0 else '-y')
     return StartHint(s_origin=s0, off_loop=float(((x - origin[0]) ** 2 + (y - origin[1]) ** 2) ** 0.5),
-                     lanelet=lid, behind=behind, previous=previous, near=behind <= HINT_WITHIN,
-                     goal_lanelet=loop.lane_at(s0 - goal_behind), goal_behind=goal_behind)
+                     lanelet=lid, behind=behind, previous=previous, near=BOUNDARY_MIN <= behind <= BOUNDARY_MAX,
+                     goal_lanelet=loop.lane_at(s0 - goal_behind), goal_behind=goal_behind,
+                     heading_deg=heading, axis=axis)
 
 
 def table(results: List[Result]) -> str:

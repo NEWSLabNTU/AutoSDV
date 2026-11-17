@@ -1,6 +1,6 @@
 """One lap of the team's loop in the planning simulator, headless.
 
-    lab3_sim_lap MAP_DIR [--goal-behind 0.7] [--timeout S] [--keep-log] [--web-addr 127.0.0.1:8095]
+    lab3_sim_lap MAP_DIR [--goal-behind 1.0] [--timeout S] [--keep-log] [--web-addr 127.0.0.1:8095]
 
 Runs AutoSDV's RC simulator (`just sim rc`: Autoware in planning-simulator mode, the
 car's own vehicle interface on simulated hardware, the rc_sim plant, the AutoSDV
@@ -100,7 +100,7 @@ def stop_group(proc: subprocess.Popen) -> None:
             pass
 
 
-GOAL_BEHIND = 0.7          # m: the field run's 2D Goal Pose behind the start
+GOAL_BEHIND = 1.0          # m: the field run's 2D Goal Pose behind the start (as lab3_check_lanelet)
 
 
 def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = False,
