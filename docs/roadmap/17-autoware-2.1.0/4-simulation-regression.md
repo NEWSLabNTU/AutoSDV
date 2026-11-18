@@ -60,12 +60,14 @@ host, not localization.
 - **Car A's URDF and `ros2 launch`.** Version-independent, found by play_launch 0.39.0's
   Python parser: `tier4_vehicle_launch` passes `robot_description` untyped, so launch_ros
   reads the xacro output as YAML, and a comment containing a colon and a space failed
-  it for car A. play_launch's Rust parser accepted it. Comment reworded
+  it for car A. play_launch's Rust parser accepted it until 0.40.0 (#0096), which refuses
+  it as `ros2 launch` does (checked against the old comment). Comment reworded
   (`autosdv_vehicle_launch` 131b0b7).
 
-play_launch 0.39.0 (#0095 fixed) and its Python parser now give the same nodes, remaps
-and parameters for car A, car B, the logging simulation and the planning simulator on
-2.1.0, so `--parser python` is no longer needed.
+play_launch 0.40.0 (#0095, #0096 fixed) and its Python parser give the same nodes and
+composable nodes for car A, car B, the logging simulation and the planning simulator on
+2.1.0 (136/137/121/97 nodes, 63/63/57/41 composables), so `--parser python` is no longer
+needed.
 
 Not run here: `just twin` (Isaac Sim) and `pointcloud_backend:=cuda` on a replay, both
 GPU-heavy on a GPU other users share; they move to phase 5's Orin runs, where the CUDA
