@@ -74,11 +74,14 @@ def test_reverse_after_a_pull_and_return():
     run(esc, 370, 0.05, wheel_speed=0.0, t0=50_000_000)
     assert esc.state == EscState.ARMED
     assert run(esc, 360, 0.1, wheel_speed=0.0, t0=100_000_000).mode == 'brake'  # above reverse_start
+    span = p.reverse_stop_pwm - p.reverse_full_pwm               # reverse is proportional over it
     out = run(esc, 355, 0.5, wheel_speed=0.0, t0=200_000_000)
-    assert out.mode == 'reverse' and out.duty == pytest.approx(-0.5)
+    assert out.mode == 'reverse' and out.duty == pytest.approx(-p.reverse_scale * 10 / span)
     out = run(esc, 362, 0.1, wheel_speed=-0.5, t0=700_000_000)     # reversing continues below the stop
-    assert out.mode == 'reverse' and out.duty == pytest.approx(-0.3)
-    assert run(esc, 365, 0.01, wheel_speed=-0.5, t0=800_000_000).mode == 'neutral'
+    assert out.mode == 'reverse' and out.duty == pytest.approx(-p.reverse_scale * 3 / span)
+    out = run(esc, p.reverse_full_pwm - 20, 0.5, wheel_speed=-0.5, t0=800_000_000)
+    assert out.mode == 'reverse' and out.duty == pytest.approx(-p.reverse_scale)   # capped at full
+    assert run(esc, 365, 0.01, wheel_speed=-0.5, t0=1_300_000_000).mode == 'neutral'
     assert esc.state == EscState.ARMED                              # still armed
 
 

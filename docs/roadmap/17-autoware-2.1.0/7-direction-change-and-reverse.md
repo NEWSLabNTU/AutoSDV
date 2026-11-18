@@ -1,7 +1,7 @@
 # Phase 7: direction change and reverse driving
 
-**Status:** started 2026-11-18. Needs phase 2 (launch layer); car checks wait for phase 5's
-car access.
+**Status:** tasks 1-5 done 2026-11-18 (planning simulator and RC simulator pass); task 7, the
+car, waits for phase 5's car access. Results at the end.
 
 **Goal:** a route through lanelets tagged `direction_change=yes` (a three-point turn) drives
 end to end: forward, stop at the cusp, reverse, stop, forward. First in Autoware's planning
@@ -57,3 +57,57 @@ exactly that, so reverse driving is an actuator parameter, `reverse_enabled`, de
 | 7 | On a car (phase 5 access): bench (wheels up) arming and reverse speed; then the map on the floor | car | reverse at the commanded speed, stops at the cusp |
 
 Order: 1 and 2 (superproject) run alongside 3 and 4 (submodule); 5 needs all four.
+
+## Result (2026-11-18)
+
+**Switch** (`use_direction_change_module`, task 1). 2.1.0: the module with
+`autoware/2.1.0/config/planning/direction_change.param.yaml` (`stop_velocity_threshold` 0.05 m/s,
+the hall report's zero, against stock 0.5; `th_stopped_time` 1.0 s against 10), and
+`reverse_enabled` on the actuator, velocity report and gear manager. 1.5.0 refuses it. Default
+graphs unchanged on both versions (car B, logging simulation, RC simulator dumps).
+
+**Map** (task 2). `scripts/map/make_three_point_turn.py` writes
+`src/sim/autosdv_rc_sim/tracks/three_point_turn/`: approach L0, one lanelet T tagged
+`direction_change=yes` whose **custom centerline** folds back twice (the cusps; the module reads
+the route centerline through tagged lanelets), exit L4. T is limited to 0.5 m/s, the actuator's
+reverse cap. What did not work: one lanelet per leg (Lanelet2's loader re-aligns a reversed
+lanelet and the route breaks), an area between lanelets (2.1.0's route handler refuses areas,
+and a segment route through one crashes the mission planner), an exit east of the entry (the
+module trims the tagged centerline at the goal). A 0.6 m tail after the reverse arc keeps the
+car within `cusp_detection_distance_threshold` (1.2 m) of cusp 2 despite loose tracking.
+
+**Reverse in the vehicle interface** (tasks 3, 4; `autosdv_vehicle_launch` bc8e695). Off unless
+`reverse_enabled`; then it needs a target below -0.1 m/s **and** gear_cmd REVERSE, arms the ESC
+per `docs/design/esc-pwm-model.md` (only an ESC its model does not think armed), drives a
+feed-forward + PI loop capped at `reverse_max_speed` 0.5 m/s, coasts (never brakes) while
+armed, and signs the hall speed through the actuator's `drive_direction`. Independently
+reviewed; the three important findings fixed with tests. 320 tests pass on both versions.
+
+**Planning simulator** (2.1.0, Autoware's own vehicle model): forward, reverse to -0.88 m/s,
+forward, arrived in 24 s; gear DRIVE, REVERSE, DRIVE.
+
+**RC simulator** (task 5; our vehicle interface on `hardware:=sim`, 2.1.0,
+`planning_profile:=rc`): 3 of 3 runs arrive, about 36 s from engage. At cusp 1 the gear
+command comes 2.5 s after the stop, the actuator arms (330 for 0.3 s, 370 for 0.3 s) and
+reverses at about 0.5 m/s (PWM median 355); velocity_status reads -0.68 m/s at its lowest
+(the plant -0.75, transient over the cap); cusps are reached within about 0.5 m.
+
+Found and fixed on the way: the RC simulator's ESC reversed at half power for any command
+below `reverse_start_pwm` (its reverse level reused the brake span, 5 counts on `sim`); reverse
+is now proportional below `reverse_stop_pwm` down to `reverse_full_pwm` 270 (a guess: the forward
+span mirrored; the cars' reverse gain is unmeasured). The `sim` instance gained a valid
+`reverse_floor_pwm` (345).
+
+**Open:**
+
+- **Stock planning profile stalls at engage** on this track (8 of 11 runs; the car never
+  moves, motion state PAUSED, trajectory v=0 about a metre ahead). Turning the start planner
+  off as well did not help (2 of 2 still stalled), so the cause is not found. Use
+  `planning_profile:=rc` with the switch.
+- **The car stops 0.8 m short of the goal**: an MRM from
+  `/autoware/planning/topic_rate_check/trajectory` as the route ends, ARRIVED 1.2 s later. The
+  RC smoke test filters the same end-of-route behaviour; it looks generic to 2.1.0.
+- **Task 7, the car**: wheels up first, `wheel_speed_check_enabled:=false`; the arming pull
+  sits 5 counts under each car's measured ARM (±5), the 0.3 s timings and the reverse gains
+  are fitted on the model, and an emergency while reversing coasts (about 0.75 m from 0.5 m/s in
+  the model).

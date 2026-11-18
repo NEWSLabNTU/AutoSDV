@@ -880,6 +880,13 @@ use_mapless_mode:=true           # Indoor operation without localization
 
 # Perception
 enable_zed_object_detection:=true  # ZED camera object detection
+ground_segmentation_backend:=cuda  # Autoware 2.1.0, experimental: needs pointcloud_backend:=cuda,
+                                   #   and removes far less ground than cpu on our data
+
+# Three-point turns (Autoware 2.1.0): lanelets tagged direction_change=yes, and the actuator
+# may reverse (reverse_enabled, default false). Use with planning_profile:=rc.
+# Example: tracks/three_point_turn in the RC simulator. docs/roadmap/17-autoware-2.1.0/7-*.md
+use_direction_change_module:=true
 launch_perception:=false           # Disable entire perception module
 
 # Advanced: Override preset-defined parameters

@@ -59,6 +59,7 @@ class VehicleParams:
     esc_current_limit: float
     esc_regen_current_limit: float
     reverse_scale: float
+    reverse_full_pwm: int
     init_steer: int
     min_steer: int
     max_steer: int

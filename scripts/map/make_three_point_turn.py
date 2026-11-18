@@ -10,18 +10,19 @@ The car drives east in one lane, turns left into a bay and stops facing north (f
 backs out swinging round to face west (reverse), and drives west into the other lane
 (forward). Seen from above (x east, y north, metres, defaults):
 
-     2.6 +-----------------------------+
-         |                bay    .     |   T: one lanelet, direction_change=yes; its
-         |                     .  .    |      custom centerline is the whole manoeuvre:
-     1.2 +---- L4 -----+    .      .   |      (1.0, 0) left arc R=1.2 and north to the
-     0.4 |   <- west   0 <- - - - -    |      cusp (2.2, 2.0); REVERSE on an arc R to the
-         +---- L0 -----------+ .       |      cusp (3.4, 0.8); west to (0, 0.8)
-    -0.4 |   -> east        1.0   T    |
-         +-------------------+---------+
-        -3.5          0     1.0       4.0
+     2.6 +---------------------------------+
+         |                    bay    .     |   T: one lanelet, direction_change=yes; its
+         |                         .  .    |      custom centerline is the whole manoeuvre:
+     1.2 +---- L4 -----+        .      .   |      (2.0, 0) left arc R=1.2 and north to the
+     0.4 |   <- west   0 <- - - - - - -    |      cusp (3.2, 2.0); REVERSE on an arc R and 0.6 m
+         +---- L0 ---------------+ .       |      east to the cusp (5.0, 0.8); west to (0, 0.8)
+    -0.4 |   -> east    S       2.0   T    |
+         +-----------------------+---------+
+        -3.5           0        2.0       5.6
 
-    L0  eastbound approach (prefix, untagged), ends at x = 1.0; the start pose is on it
-    T   the turn, tagged direction_change=yes; entered at x = 1.0 (eastbound lane),
+    L0  eastbound approach (prefix, untagged), ends at x = 2.0; the start pose S is the
+        origin facing +x, as rc_sim.launch.xml's sim_pose_init places every track's car
+    T   the turn, tagged direction_change=yes; entered at x = 2.0 (eastbound lane),
         left at x = 0 (westbound lane)
     L4  westbound exit (suffix, untagged), starts at x = 0; the goal is on it
 
@@ -51,7 +52,7 @@ T's exit east of its entry, a goal on L4 is nearer T's first point, the trimmed 
 is one point long, and the module finds no cusp (tried).
 
 T's shape: its left bound is the short stretch of the centre line between the lanes,
-from (1.0, 0.4) back to (0, 0.4); its right bound runs round the outside of the bay.
+from (2.0, 0.4) back to (0, 0.4); its right bound runs round the outside of the bay.
 Lanelet2's OSM loader reverses a bound whose middle point (the point at index size/2)
 lies on the wrong side of the other bound (geometry::align), so the right bound is
 sampled densely along the bay's far edge to keep its middle point there. T's default
@@ -107,7 +108,7 @@ def _join(*pieces):
     return out
 
 
-def geometry(w=0.8, r=1.2, entry=1.0, approach=3.0, exit_x=-3.5, margin=0.6):
+def geometry(w=0.8, r=1.2, entry=2.0, approach=3.0, exit_x=-3.5, margin=0.6, tail=0.6):
     """Lanelets [(name, left, right, centerline, tagged)] and the two cusps, in metres."""
     h = w / 2.0
     y_west = w                       # the westbound lane's centre
@@ -120,10 +121,13 @@ def geometry(w=0.8, r=1.2, entry=1.0, approach=3.0, exit_x=-3.5, margin=0.6):
     top = y_west + r                                 # where leg 2's arc must start
     leg1 = _join(_arc(c1, r, -q, 0.0), _line((entry + r, r), (entry + r, top)))
     c2 = (entry + 2 * r, top)                        # leg 2: travel south, swinging east
-    leg2 = _arc(c2, r, math.pi, 1.5 * math.pi)       # ends at (entry + 2r, y_west), car facing west
-    leg3 = _line((entry + 2 * r, y_west), (0.0, y_west))
+    # leg 2 ends on a straight (tail): reversing, the car is steered off the arc's end and needs
+    # the straight to settle its heading before cusp 2 (RC simulator, 2026-11-18)
+    x_c2 = entry + 2 * r + tail
+    leg2 = _join(_arc(c2, r, math.pi, 1.5 * math.pi), _line((entry + 2 * r, y_west), (x_c2, y_west)))
+    leg3 = _line((x_c2, y_west), (0.0, y_west))
     centre = _join(leg1, leg2, leg3)
-    x_max = entry + 2 * r + margin
+    x_max = x_c2 + margin
     y_max = top + margin
     t_left = [(entry, h), (0.0, h)]
     # Lanelet2's loader (geometry::align) reverses a bound whose middle point (the point at
@@ -225,7 +229,7 @@ def write(out_dir, w=0.8, r=1.2) -> dict:
         'kind': 'three_point_turn', 'lane_width': w, 'radius': r,
         'tagged': [n for n, *_, t in lls if t],
         'cusps': [{'x': round(x, 4), 'y': round(y, 4)} for x, y in cusps],
-        'start_pose': {'x': -2.0, 'y': 0.0, 'yaw': 0.0},
+        'start_pose': {'x': 0.0, 'y': 0.0, 'yaw': 0.0},
         'goal_pose': {'x': -1.5, 'y': round(w, 4), 'yaw': round(math.pi, 6)},
     }
     (out / 'track.yaml').write_text(

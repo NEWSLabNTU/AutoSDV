@@ -14,8 +14,9 @@ each state. Counts are the sim instance's (individual_params config/sim):
     ARMING   pwm <= reverse_arm_pwm: full brake
     ARMED    any return above reverse_arm_pwm; from rest, pwm <=
              reverse_start_pwm reverses, and it keeps reversing while pwm <
-             reverse_stop_pwm, at reverse_scale of the brake level. Still
-             rolling forward, below reverse_stop_pwm brakes.
+             reverse_stop_pwm, at duty reverse_scale * (reverse_stop_pwm - pwm)
+             / (reverse_stop_pwm - reverse_full_pwm). Still rolling forward,
+             below reverse_stop_pwm brakes.
 
 Brake level = (reverse_stop_pwm - pwm) / (reverse_stop_pwm - min_pwm), so
 min_pwm (360) and anything lower, brake_pwm (340) included, is full brake.
@@ -68,7 +69,8 @@ class Esc:
             self.mode = 'forward'
         elif state == EscState.ARMED and pwm < p.reverse_stop_pwm and (
                 self.reversing or (abs(wheel_speed) < STOP_SPEED and pwm <= p.reverse_start_pwm)):
-            target = -level * p.reverse_scale
+            rev_level = min(1.0, (p.reverse_stop_pwm - pwm) / (p.reverse_stop_pwm - p.reverse_full_pwm))
+            target = -rev_level * p.reverse_scale
             self.mode = 'reverse'
         elif pwm < p.reverse_stop_pwm:
             brake = level

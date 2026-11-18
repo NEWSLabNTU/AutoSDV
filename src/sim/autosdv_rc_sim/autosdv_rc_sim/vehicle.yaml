@@ -57,6 +57,7 @@ vehicle:
   esc_current_limit:  {value: 120.0,  source: guess,      note: "motoring current limit [A]; typical 1/10 sensorless ESC. The motor would draw 185 A at stall"}
   esc_regen_current_limit: {value: 2.5, source: guess,    note: "regeneration limit [A]: forward duty below the back-EMF brakes the car, as a synchronous-rectifying ESC does, lightly, as a hobby ESC with a light drag brake does (unmeasured). 0.115 N m at the rear axle, about 0.3 of brake_torque_max: regen plus road load decelerates 1.6-2.0 m/s^2 at 3-11 m/s on every variant, so slowing harder needs the ESC brake (3.0-3.5 m/s^2). Was 8.65 A (= the brake), which made the brake band redundant above 1 m/s. Refit from car data"}
   reverse_scale:      {value: 0.5,    source: guess}
+  reverse_full_pwm:   {value: 270,    source: guess,      note: "full reverse: armed reverse duty = reverse_scale * (reverse_stop_pwm - pwm) / (reverse_stop_pwm - reverse_full_pwm), the forward span (max_pwm - forward_hold_pwm, 95 counts) mirrored below reverse_stop_pwm. Was min_pwm, the brake span: 5 counts, so every reverse command (at or below reverse_start_pwm 355) was half power and spun the rear wheel to 5 m/s from rest (docs/roadmap/17-autoware-2.1.0/7-direction-change-and-reverse.md). Unmeasured"}
   # --- steering servo
   init_steer:         {value: 489,    source: config, from: "autosdv_vehicle_interface/params/actuator.yaml:init_steer"}
   min_steer:          {value: 439,    source: config, from: "autosdv_vehicle_interface/params/actuator.yaml:min_steer"}
