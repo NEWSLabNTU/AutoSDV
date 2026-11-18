@@ -1,8 +1,9 @@
 # 17. Autoware 2.1.0
 
-**Status:** started 2026-11-17 on branch `feature/autoware-2.1.0`. Phases 0-2 done on the
-workstation (one checkout builds either version; the launches resolve and the simulators
-start on 2.1.0); phase 3 next.
+**Status:** started 2026-11-17 on branch `feature/autoware-2.1.0`. Phases 0-4 done on the
+workstation (one checkout builds either version; perception, the simulators and the lab
+graders match 1.5.0); phase 5 blocked on car access. The SDV course runs Autoware 1.5.0 from
+`develop`, so the default does not switch on `develop` until the course ends (phase 6).
 
 **Goal:** AutoSDV builds, launches and drives on Autoware 2.1.0, with 1.5.0 still selectable
 until the cars and the labs move, and the default switched only when every phase's exit holds.
@@ -22,11 +23,12 @@ lands. Our own survey of the two installs is in [0-host-and-install.md](0-host-a
 | 3 | [Perception and models](3-perception-and-models.md) | 2 | the perception presets run or refuse with a named error; engines built per version |
 | 4 | [Simulation regression](4-simulation-regression.md) | 2, 3 | COSS demo, RC sim, Lab 2 and Lab 3 simulators within 1.5.0's numbers |
 | 5 | [On the cars](5-on-the-cars.md) | 4 | a jetpack62 2.1.0 install on one Orin; localization and a lap on car A or B |
-| 6 | [Switch the default](6-switch-default.md) | 5 | `versions.yaml` defaults to 2.1.0, docs follow, develop merged |
+| 6 | [Switch the default](6-switch-default.md) | 5, course end | develop merged with 1.5.0 still the default; 2.1.0 the default after the course |
 
 ## Global constraints
 
-- **develop stays on 1.5.0** until phase 6. Work lands on `feature/autoware-2.1.0`, rebased
+- **develop stays on 1.5.0** for as long as the SDV course runs: students and TAs use
+  `develop`, not only the lab tags, so its default is the course's Autoware. Work lands on `feature/autoware-2.1.0`, rebased
   onto develop (linear history, no merge commits).
 - **Both versions build from one tree** until phase 6: the version is chosen before
   anything is sourced, never by mixing underlays. Files that differ per version are selected,
