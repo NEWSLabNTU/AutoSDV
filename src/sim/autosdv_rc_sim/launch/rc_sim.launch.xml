@@ -41,6 +41,8 @@
   <!-- tier4_simulator_component reads this from its including scope (planning_simulator declares it) -->
   <arg name="scenario_simulation" default="false"/>
   <arg name="planning_profile" default="stock" description="stock, or rc: autosdv_launch config/planning_rc/ (Lab 3)"/>
+  <arg name="use_direction_change_module" default="false"
+       description="true (Autoware 2.1.0): the direction change module (three-point turns on lanelets tagged direction_change=yes, e.g. tracks/three_point_turn), and the actuator's reverse_enabled"/>
 
   <set_parameter name="use_sim_time" value="true"/>
 
@@ -71,6 +73,7 @@
   <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_planning_component.launch.xml">
     <arg name="common_param_path" value="$(find-pkg-share autosdv_rc_sim)/config/common.param.yaml"/>
     <arg name="planning_profile" value="$(var planning_profile)"/>
+    <arg name="use_direction_change_module" value="$(var use_direction_change_module)"/>
     <arg name="module_preset" value="default"/>
     <arg name="enable_all_modules_auto_mode" value="false"/>
     <arg name="is_simulation" value="true"/>
@@ -102,7 +105,10 @@
          value="$(find-pkg-share autoware_launch)/config/vehicle/raw_vehicle_cmd_converter/raw_vehicle_cmd_converter.param.yaml"/>
   </include>
 
-  <!-- the car's vehicle interface, unchanged, on the simulated hardware -->
+  <!-- the car's vehicle interface, unchanged, on the simulated hardware. A direction change
+       reverses, so it may (reverse_enabled, default false there); only set when true, so an
+       explicit reverse_enabled:=... still reaches it. -->
+  <let name="reverse_enabled" value="true" if="$(var use_direction_change_module)"/>
   <include file="$(find-pkg-share autosdv_vehicle_launch)/launch/vehicle_interface.launch.xml">
     <arg name="hardware" value="sim"/>
     <!-- explicit: play_launch lets autoware.launch.xml's launch_vehicle_interface:=false leak out of its include -->

@@ -10,8 +10,15 @@
          common_param_path   an argument (the RC simulator raises the speed caps with it)
          planning_profile    stock (default): upstream's files, unchanged.
                              rc: config/planning_rc/ for the files the RC car needs
-                             changed, and no start planner module (README.md there) -->
+                             changed, and no start planner module (README.md there)
+         use_direction_change_module
+                             false (default): upstream's preset (module off).
+                             true: the behavior path direction change module, with
+                             AutoSDV's config/planning/direction_change.param.yaml
+                             (stop threshold sized for the car). It reverses on route
+                             lanelets tagged direction_change=yes. -->
   <arg name="planning_profile" default="stock" description="stock or rc (config/planning_rc/)"/>
+  <arg name="use_direction_change_module" default="false" description="true: the behavior path direction change module (lanelets tagged direction_change=yes)"/>
   <let name="stock_config" value="$(find-pkg-share autoware_planning_config)/config"/>
   <arg name="common_param_path" default="$(var stock_config)/scenario_planning/common/common.param.yaml"/>
   <arg name="pointcloud_container_name" default="pointcloud_container"/>
@@ -35,6 +42,9 @@
   <!-- AutoSDV rc: no start planner (see autoware/1.5.0/'s copy). planning.launch.xml
        includes the preset, whose argument default does not override this. -->
   <let name="launch_start_planner_module" value="false" if="$(eval &quot;'$(var planning_profile)' == 'rc'&quot;)"/>
+  <!-- AutoSDV: the direction change module, the same way (the preset's default is false) -->
+  <let name="is_dc" value="$(eval &quot;'$(var use_direction_change_module)'.lower() == 'true'&quot;)"/>
+  <let name="launch_direction_change_module" value="true" if="$(var is_dc)"/>
 
   <let name="rc" value="$(find-pkg-share autosdv_launch)/config/planning_rc"/>
   <let name="is_rc" value="$(eval &quot;'$(var planning_profile)' == 'rc'&quot;)"/>
@@ -53,6 +63,7 @@
     <arg name="behavior_path_planner_common_param_path" value="$(eval &quot;'$(var rc)/behavior_path_planner.param.yaml' if $(var is_rc) else '$(var bpp)/behavior_path_planner.param.yaml'&quot;)"/>
     <arg name="behavior_path_planner_goal_planner_module_param_path" value="$(eval &quot;'$(var rc)/goal_planner.param.yaml' if $(var is_rc) else '$(var bpp)/goal_planner/goal_planner.param.yaml'&quot;)"/>
     <arg name="behavior_path_planner_start_planner_module_param_path" value="$(eval &quot;'$(var rc)/start_planner.param.yaml' if $(var is_rc) else '$(var bpp)/start_planner/start_planner.param.yaml'&quot;)"/>
+    <arg name="behavior_path_planner_direction_change_module_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning/direction_change.param.yaml' if $(var is_dc) else '$(var bpp)/autoware_behavior_path_direction_change_module/direction_change.param.yaml'&quot;)"/>
     <arg name="path_optimizer_param_path" value="$(eval &quot;'$(var rc)/path_optimizer.param.yaml' if $(var is_rc) else '$(var stock_config)/scenario_planning/lane_driving/motion_planning/autoware_path_optimizer/path_optimizer.param.yaml'&quot;)"/>
     <arg name="planning_validator_trajectory_checker_param_path" value="$(eval &quot;'$(var rc)/trajectory_checker.param.yaml' if $(var is_rc) else '$(var stock_config)/scenario_planning/common/planning_validator/trajectory_checker.param.yaml'&quot;)"/>
   </include>

@@ -298,6 +298,11 @@ launch:
     default: "stock"
     description: "stock (autoware_launch's planning files) or rc (config/planning_rc/), as autosdv.launch.yaml takes it; car A's twin runs rc"
 
+- arg:
+    name: use_direction_change_module
+    default: "false"
+    description: "true: Autoware 2.1.0's direction change module drives three-point turns on lanelets tagged direction_change=yes, and the vehicle interface may reverse (reverse_enabled). Autoware 1.5.0 refuses it. Example map: autosdv_rc_sim tracks/three_point_turn"
+
 - include:
     file: "$(find-pkg-share autosdv_launch)/launch/autosdv_autoware.launch.xml"
     arg:
@@ -307,6 +312,9 @@ launch:
     -
       name: planning_profile
       value: $(var planning_profile)
+    -
+      name: use_direction_change_module
+      value: $(var use_direction_change_module)
     -
       name: vehicle_model
       value: $(var vehicle_model)

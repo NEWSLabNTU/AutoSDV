@@ -12,6 +12,11 @@
 
        Re-diff against upstream after an Autoware upgrade. -->
   <arg name="planning_profile" default="stock" description="stock or rc (config/planning_rc/)"/>
+  <!-- AutoSDV: autoware/2.1.0/'s copy takes it too; 1.5.0 has no such module -->
+  <arg name="use_direction_change_module" default="false" description="true: the behavior path direction change module (Autoware 2.1.0 only)"/>
+  <include file="$(find-pkg-share autosdv_launch)/launch/util/refuse.launch.py" if="$(var use_direction_change_module)">
+    <arg name="reason" value="use_direction_change_module:=true needs Autoware 2.1.0: the behavior path direction change module (autoware_behavior_path_direction_change_module) is not in Autoware 1.5.0"/>
+  </include>
   <arg name="common_param_path" default="$(find-pkg-share autoware_launch)/config/planning/scenario_planning/common/common.param.yaml"/>
   <!-- upstream declares this in autoware.launch.xml and the component inherits it by scope -->
   <arg name="pointcloud_container_name" default="pointcloud_container"/>
