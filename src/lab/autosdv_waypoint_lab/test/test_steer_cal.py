@@ -145,7 +145,12 @@ def test_cli_fit_exit_codes(capsys):
     assert 'tire_angle_to_steer_ratio' in out and 'individual_params/config/car_b/autosdv_vehicle/actuator.param.yaml' in out
     assert 'init_steer 400' in out
     assert sc.main(['fit', '--vehicle-id', 'car_b', '10:3', '20:2']) == 2
-    assert sc.main(['fit', '--vehicle-id', 'car_b', '-50:+0.9', '-25:+1.7', '25:-1.7']) == 2
+    # an offset past the car's servo window is dropped, leaving two circles: too few.
+    # Derive it from the profile; car B's window has been widened before (-50 was once outside)
+    from autosdv_vehicle_interface import car_profile
+    p = car_profile.load('car_b')
+    outside = int(p['min_steer']) - int(p['init_steer']) - 10
+    assert sc.main(['fit', '--vehicle-id', 'car_b', f'{outside}:+0.9', '-25:+1.7', '25:-1.7']) == 2
 
 
 def test_cli_fit_needs_a_car():
