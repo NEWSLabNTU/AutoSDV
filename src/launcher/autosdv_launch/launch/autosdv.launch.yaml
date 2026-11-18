@@ -180,6 +180,10 @@ launch:
     name: localization_pointcloud_backend
     default: "cpu"
     description: "cpu or cuda: the NDT input chain (crop box, voxel grid, random downsample). Correctness verified, speed not yet measured"
+- arg:
+    name: ground_segmentation_backend
+    default: "cpu"
+    description: "cpu or cuda: perception's ground removal. cuda is experimental: Autoware 2.1.0 only (1.5.0 refuses it), needs pointcloud_backend:=cuda, and removes far less ground than cpu on this car's data (docs/roadmap/17-autoware-2.1.0/3-perception-and-models.md)"
 
 # Resolve 'auto' into a concrete package name. Without this, pose_source_package
 # defaulted to cuda_ndt_matcher_launch regardless of pose_source, and because the
@@ -396,6 +400,9 @@ launch:
     -
       name: pointcloud_backend
       value: $(var pointcloud_backend)
+    -
+      name: ground_segmentation_backend
+      value: $(var ground_segmentation_backend)
     -
       name: twist_source
       value: $(var twist_source)

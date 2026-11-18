@@ -58,3 +58,30 @@ includes both on 2.1.0 and the stock component on 1.5.0.
 
 **Exit met** on amd64: each preset runs or refuses by name; the engines build once and
 are reused.
+
+## CUDA ground segmentation (added 2026-11-18, experimental)
+
+`ground_segmentation_backend:=cuda` (default `cpu`; 2.1.0 only, 1.5.0 refuses it) loads
+`autoware_ground_segmentation_cuda`'s one node in place of the crop box and the scan ground
+filter, with AutoSDV's own parameters (`non_ground_height_threshold` 0.10, `max_z` 1.262:
+the CPU path's vehicle_height + 1.0 m, written out because the CUDA node takes fixed limits).
+
+- It reads **PointXYZIRC only** and skips any other cloud with an error on every frame. The
+  CPU sensing chain publishes PointXYZIRCAEDT (32 bytes), so it needs
+  `pointcloud_backend:=cuda`, and the launch refuses it without.
+- COSS bag replay, both runs with `pointcloud_backend:=cuda` (shared workstation GPU):
+
+  | ground filter | obstacle cloud | points per frame (median) |
+  |---|---|---|
+  | CPU (scan ground filter, ours) | 9.6 Hz | 1597 |
+  | CUDA, upstream parameters | 9.6 Hz | 20611 |
+  | CUDA, ours | 1.5 Hz (GPU at 82 % from other users) | 23743 |
+
+  On this car's data the CUDA filter removes far less ground: about 13 times the obstacle
+  points. Its sector-based ground model is tuned for a full-size car's LiDAR height; ours is
+  about 0.3 m. Not investigated further; keep `cpu` until an Orin run (phase 5) says otherwise.
+- Its output cloud carries a `row_step` larger than `width * point_step` (upstream);
+  downstream filters warn about it.
+- The zero-copy hand-off needs perception to read the CUDA chain's own topic: today the
+  CUDA preprocessor publishes `/sensing/lidar/preprocessed/pointcloud(/cuda)` and perception
+  reads `/sensing/lidar/concatenated/pointcloud`, so the filter gets a host copy.

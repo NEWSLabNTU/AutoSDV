@@ -34,6 +34,14 @@
   <set_parameter name="use_sim_time" value="$(var use_sim_time)"/>
   <arg name="vehicle_model" default="sample_vehicle"/>
 
+  <!-- AutoSDV: same argument as autoware/2.1.0/'s copy. 1.5.0 ships no CUDA ground
+       filter (autoware_ground_segmentation_cuda is new in 2.1.0), so cuda stops the
+       launch with the reason rather than running the CPU filter unasked. -->
+  <arg name="ground_segmentation_backend" default="cpu" description="cpu (cuda needs Autoware 2.1.0)"/>
+  <include file="$(find-pkg-share autosdv_launch)/launch/util/refuse.launch.py" if="$(eval &quot;'$(var ground_segmentation_backend)' != 'cpu'&quot;)">
+    <arg name="reason" value="ground_segmentation_backend:=$(var ground_segmentation_backend): Autoware 1.5.0 has only the CPU ground filter; the CUDA one needs Autoware 2.1.0"/>
+  </include>
+
   <!-- Pointcloud container -->
   <group if="$(var launch_pointcloud_container)">
     <include file="$(find-pkg-share autoware_launch)/launch/pointcloud_container.launch.py">
