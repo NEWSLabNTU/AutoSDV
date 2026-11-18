@@ -24,6 +24,7 @@ lands. Our own survey of the two installs is in [0-host-and-install.md](0-host-a
 | 4 | [Simulation regression](4-simulation-regression.md) | 2, 3 | COSS demo, RC sim, Lab 2 and Lab 3 simulators within 1.5.0's numbers |
 | 5 | [On the cars](5-on-the-cars.md) | 4 | a jetpack62 2.1.0 install on one Orin; localization and a lap on car A or B |
 | 6 | [Switch the default](6-switch-default.md) | 5, course end | develop merged with 1.5.0 still the default; 2.1.0 the default after the course |
+| 7 | [Direction change and reverse](7-direction-change-and-reverse.md) | 2; car checks 5 | a tagged three-point turn drives in the planning sim, the RC sim and on a car; reverse off by default |
 
 ## Global constraints
 
