@@ -193,9 +193,13 @@ indoors, measured on car B's 16 Nov run bag (2026-11-23):
   after cropping), and with that fixed, resolution 2.0 on the stock 200-point input still
   scores NVTL 0 and drifts 13 m. Built-in NDT with the indoor file: NVTL median 1.66,
   minimum 1.26, all 0.5 s bins above the 1.3 gate, path within 0.043 m (median) of the
-  recorded one. **CUDA NDT is not used for Lab 3 yet**: with the same file and input it
-  scores NVTL 0 on every scan (no correspondences), a matcher defect still to be fixed in
-  `cuda_ndt_matcher`; `pose_source:=cuda_ndt` returns once it is.
+  recorded one. **CUDA NDT is not used for Lab 3 yet.** With the same file and
+  input it scored NVTL 0 on every scan: its initial-pose search picked a particle sampled
+  outside the room (an off-map particle scored 5.0 against NVTL ~1.35 for aligned ones).
+  Fixed on `cuda_ndt_matcher` main, 92bdce0, which ranks particles by NVTL as Autoware
+  does: NVTL median 1.661 against built-in's 1.662, path median 0.048 m against 0.043, on
+  this bag. develop still pins the matcher before the fix (the bump also brings the
+  Autoware-version build change), so Lab 3 keeps `pose_source:=ndt` until it moves.
 - `pointcloud_map_filter_param_path`: the stock dynamic map loader throws
   `std::out_of_range` in `VoxelGridDynamicMapLoader::request_update_map` as localization
   initializes, on this real map as on the TA corridor, and takes the pointcloud container
