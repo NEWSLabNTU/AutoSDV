@@ -377,7 +377,20 @@ def test_ready_configs_are_what_generate_config_writes(tmp_path):
         assert sorted(os.listdir(shipped)) == sorted(os.listdir(d))
         for f in os.listdir(d):
             with open(os.path.join(d, f)) as a, open(os.path.join(shipped, f)) as b:
-                assert json.load(a) == json.load(b), f'{name}/{f}: regenerate (glim.READY)'
+                # approx: the transforms are computed, and aarch64 and x86 can differ
+                # in the last bit (-0.1283991713491402 against ...4022 on car B)
+                assert _same(json.load(a), json.load(b)), f'{name}/{f}: regenerate (glim.READY)'
+
+
+def _same(a, b) -> bool:
+    """JSON equality, with floats compared to 1e-12."""
+    if isinstance(a, dict):
+        return isinstance(b, dict) and a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
+    if isinstance(a, list):
+        return isinstance(b, list) and len(a) == len(b) and all(map(_same, a, b))
+    if isinstance(a, float) or isinstance(b, float):
+        return a == pytest.approx(b, rel=1e-12, abs=1e-12)
+    return a == b
 
 
 def test_ready_configs_topics_and_modules():
