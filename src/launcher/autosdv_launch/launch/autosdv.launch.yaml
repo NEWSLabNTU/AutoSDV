@@ -172,7 +172,12 @@ launch:
 - arg:
     name: ndt_param_file
     default: "$(find-pkg-share autosdv_launch)/config/localization/ndt_scan_matcher/ndt_scan_matcher.param.yaml"
-    description: "Built-in NDT's parameter file (pose_source:=ndt); the CUDA matcher reads its own. Lab 3 passes autosdv_lab3's ndt_indoor.param.yaml"
+    description: "Built-in NDT's parameter file (pose_source:=ndt); the CUDA matcher reads cuda_ndt_param_file. Lab 3 passes autosdv_lab3's ndt_indoor_robin_w.param.yaml"
+
+- arg:
+    name: cuda_ndt_param_file
+    default: ""
+    description: "CUDA NDT's parameter file (pose_source:=cuda_ndt); empty keeps cuda_ndt_matcher_launch's cuda_scan_matcher.param.yaml. An Autoware-format NDT file works (Lab 3 passes ndt_indoor_robin_w.param.yaml)"
 
 - arg:
     name: pose_source_package
@@ -400,6 +405,9 @@ launch:
     -
       name: ndt_param_file
       value: $(var ndt_param_file)
+    -
+      name: cuda_ndt_param_file
+      value: $(var cuda_ndt_param_file)
     -
       name: planning_profile
       value: $(var planning_profile)

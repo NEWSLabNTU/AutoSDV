@@ -116,7 +116,7 @@ run VEHICLE_ID MAP_DIR *ARGS:
     cfg=$PWD/src/lab/autosdv_lab3/config
     cmd=(play_launch launch --web-addr '{{ web_addr }}' autosdv_launch autosdv.launch.yaml
          "vehicle_id:=$vid" "map_path:=$(realpath "$map")" use_gnss:=false use_ntrip:=false
-         pose_source:=ndt "ndt_param_file:=$cfg/ndt_indoor_robin_w.param.yaml"
+         pose_source:=cuda_ndt "cuda_ndt_param_file:=$cfg/ndt_indoor_robin_w.param.yaml"
          "ndt_voxel_grid_param_file:=$cfg/localization/voxel_grid_robin_w.param.yaml"
          "ndt_random_downsample_param_file:=$cfg/localization/random_downsample_robin_w.param.yaml"
          "pointcloud_map_filter_param_path:=$cfg/pointcloud_map_filter_indoor.param.yaml"

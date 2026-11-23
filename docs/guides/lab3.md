@@ -179,7 +179,7 @@ container drops `DISPLAY` and `LD_PRELOAD` itself.
 ```bash
 play_launch launch autosdv_launch autosdv.launch.yaml \
     vehicle_id:=car_b map_path:=$PWD/lab3/map use_gnss:=false use_ntrip:=false \
-    pose_source:=ndt ndt_param_file:=.../ndt_indoor_robin_w.param.yaml \
+    pose_source:=cuda_ndt cuda_ndt_param_file:=.../ndt_indoor_robin_w.param.yaml \
     ndt_voxel_grid_param_file:=... ndt_random_downsample_param_file:=... \
     pointcloud_map_filter_param_path:=.../pointcloud_map_filter_indoor.param.yaml \
     planning_profile:=rc use_speed_limit:=true speed_limit_config:=... rviz:=... rviz_respawn:=true
@@ -188,18 +188,23 @@ play_launch launch autosdv_launch autosdv.launch.yaml \
 Each argument beyond the map and the car is there because the stock setting fails
 indoors, measured on car B's 16 Nov run bag (2026-11-23):
 
-- `pose_source:=ndt` with the indoor NDT file and the denser Robin-W input: stock
+- `pose_source:=cuda_ndt` with the indoor NDT file and the denser Robin-W input: stock
   `required_distance` 10 m skips every scan (the classroom's farthest point is 4.9 m
   after cropping), and with that fixed, resolution 2.0 on the stock 200-point input still
   scores NVTL 0 and drifts 13 m. Built-in NDT with the indoor file: NVTL median 1.66,
   minimum 1.26, all 0.5 s bins above the 1.3 gate, path within 0.043 m (median) of the
-  recorded one. **CUDA NDT is not used for Lab 3 yet.** With the same file and
-  input it scored NVTL 0 on every scan: its initial-pose search picked a particle sampled
-  outside the room (an off-map particle scored 5.0 against NVTL ~1.35 for aligned ones).
-  Fixed on `cuda_ndt_matcher` main, 92bdce0, which ranks particles by NVTL as Autoware
-  does: NVTL median 1.661 against built-in's 1.662, path median 0.048 m against 0.043, on
-  this bag. develop still pins the matcher before the fix (the bump also brings the
-  Autoware-version build change), so Lab 3 keeps `pose_source:=ndt` until it moves.
+  recorded one. CUDA NDT before `cuda_ndt_matcher` 92bdce0 scored NVTL 0 on every scan
+  with the same file and input: its initial-pose search picked a particle sampled outside
+  the room (an off-map particle scored 5.0 against NVTL ~1.35 for aligned ones). 92bdce0
+  ranks particles by NVTL as Autoware does, and develop pins it. `run.sh`'s settings
+  replayed twice on the bag (2026-11-23): NVTL median 1.66, every bin above 1.3, path
+  median 0.049 / 0.048 m; one run clean (p95 0.108 m, max 0.17 m), the other held a stale
+  pose for 2 s as the car pulled away along the corridor (x the weak axis, NVTL still
+  1.66) and was 1.4 m behind before it snapped back (p95 0.34 m, max 4.6 m). Not yet
+  repeated with built-in NDT, which was replayed once. `cuda_ndt_param_file:=` hands the matcher the same
+  Autoware-format file; without it the matcher reads its own outdoor file
+  (`required_distance` 10). Back to built-in: `pose_source:=ndt` and
+  `ndt_param_file:=` in place of `cuda_ndt_param_file:=`.
 - `pointcloud_map_filter_param_path`: the stock dynamic map loader throws
   `std::out_of_range` in `VoxelGridDynamicMapLoader::request_update_map` as localization
   initializes, on this real map as on the TA corridor, and takes the pointcloud container
@@ -238,6 +243,14 @@ The grade reads only the bag (`ros2 run autosdv_lab3 lab3_grade BAG` repeats it)
 travel time, travel distance, every lanelet driven, and the straight-line gap from the
 start to where the car came to rest (behind or past the start; an overshoot is fine)
 added to the distance. The lap must end no more than 2 m behind the start, or pass it.
+
+**The score** (`grade.py`, `SCORE_LEVELS`; the spec's Part 2 rubric). A complete lap
+(every lanelet driven, ended within 2 m of the start or past it, autonomous, not speeding)
+scores 60. The average speed, travel distance over travel time with every stop counted
+(`avg_speed_kmh`), raises it linearly between the levels 1 km/h 60, 3 km/h 80, 5 km/h 90
+and 8 km/h 100; below 1 km/h a complete lap still scores 60, above 8 km/h 100. An
+incomplete lap scores 0, and so does a collision, which the TA checks on the spot (the
+bag cannot show it). The report prints `avg_speed_kmh` and a `SCORE` line.
 
 **The speed limit.** `autosdv.launch.yaml` starts `autosdv_speed_limit`
 (`src/planning/autosdv_speed_limit`) unless `use_speed_limit:=false`: it reads
@@ -379,8 +392,8 @@ TA; no student step and no recorded topic uses it.
   (`config/pointcloud_map_filter_indoor.param.yaml`): its dynamic loader, built for city
   maps, crashed the pointcloud container on a Lab 3 map.
 - **Indoor NDT is provisional** (`config/ndt_indoor*.param.yaml`): resolution 1.0, the
-  NVTL gate 1.3 (it scales with the voxel size), `required_distance` 3.0. Built-in NDT
-  only (`pose_source:=ndt`, the default): the CUDA matcher reads its own file.
+  NVTL gate 1.3 (it scales with the voxel size), `required_distance` 3.0. Either matcher:
+  `ndt_param_file:=` for built-in NDT, `cuda_ndt_param_file:=` for the CUDA one.
 - **GLIM publishes TF** (`map -> odom -> zedxm_imu_link`, `zedxm_imu_link -> robin_w`) while
   it runs; with the mapping launch still up the frames would have two parents. Stop the
   launch first.
