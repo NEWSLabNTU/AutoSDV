@@ -209,7 +209,8 @@ indoors, measured on car B's 16 Nov run bag (2026-11-23):
   `std::out_of_range` in `VoxelGridDynamicMapLoader::request_update_map` as localization
   initializes, on this real map as on the TA corridor, and takes the pointcloud container
   down (NDT input stops 12 s in).
-- `planning_profile:=rc`: with the stock files one goal behind the start counts as arrived
+- `planning_profile:=rc` (also selects `control_profile:=rc`; the seven copies a team may tune,
+  unchanged from Autoware, are listed in `docs/guides/lab3-tuning.md`): with the stock files one goal behind the start counts as arrived
   at once (0.0 m driven, car B, the team map); with the goal 6.5 m back it drives 89 m and
   stalls on a curve.
 - `use_speed_limit` / `speed_limit_config`: the overall limit (below), on by default.

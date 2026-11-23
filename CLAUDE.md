@@ -866,6 +866,12 @@ pose_source:=cuda_ndt  # Default: CUDA-accelerated NDT (1.3-1.6x faster, 57% les
 pose_source:=ndt       # Autoware NDT (OpenMP CPU, fallback)
 ndt_param_file:=FILE   # built-in NDT's parameters
 cuda_ndt_param_file:=FILE  # CUDA NDT's (empty: cuda_scan_matcher.param.yaml); an Autoware-format file works
+```
+
+#### Planning and control profiles
+```bash
+planning_profile:=rc   # config/planning_rc/: the RC car's planning changes, plus Lab 3's tunable copies
+control_profile:=rc    # config/control_rc/ (MPC, AEB, control validator, lane departure); follows planning_profile
 # pose_source_package defaults to "auto" and is derived from pose_source
 # (cuda_ndt -> cuda_ndt_matcher_launch, otherwise built-in NDT). Set it
 # explicitly only to plug in a third-party estimator. See

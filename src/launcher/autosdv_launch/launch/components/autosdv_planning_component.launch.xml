@@ -8,7 +8,8 @@
          planning_profile    stock (default): upstream's files, unchanged.
                              rc: config/planning_rc/ for the files the RC car needs
                              changed, and no start planner module (README.md there
-                             says what and why)
+                             says what and why), and the copies Lab 3 teams tune
+                             (obstacle stop and slow-down, the velocity smoother)
 
        Re-diff against upstream after an Autoware upgrade. -->
   <arg name="planning_profile" default="stock" description="stock or rc (config/planning_rc/)"/>
@@ -117,8 +118,8 @@
     <arg name="path_sampler_param_path" value="$(var motion_config_path)/path_sampler/path_sampler.param.yaml"/>
     <arg name="surround_obstacle_checker_param_path" value="$(var motion_config_path)/surround_obstacle_checker/surround_obstacle_checker.param.yaml"/>
     <arg name="motion_velocity_planner_param_path" value="$(var motion_config_path)/motion_velocity_planner/motion_velocity_planner.param.yaml"/>
-    <arg name="motion_velocity_planner_obstacle_stop_module_param_path" value="$(var motion_config_path)/motion_velocity_planner/obstacle_stop.param.yaml"/>
-    <arg name="motion_velocity_planner_obstacle_slow_down_module_param_path" value="$(var motion_config_path)/motion_velocity_planner/obstacle_slow_down.param.yaml"/>
+    <arg name="motion_velocity_planner_obstacle_stop_module_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning_rc/obstacle_stop.param.yaml' if '$(var planning_profile)' == 'rc' else '$(var motion_config_path)/motion_velocity_planner/obstacle_stop.param.yaml'&quot;)"/>
+    <arg name="motion_velocity_planner_obstacle_slow_down_module_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning_rc/obstacle_slow_down.param.yaml' if '$(var planning_profile)' == 'rc' else '$(var motion_config_path)/motion_velocity_planner/obstacle_slow_down.param.yaml'&quot;)"/>
     <arg name="motion_velocity_planner_obstacle_cruise_module_param_path" value="$(var motion_config_path)/motion_velocity_planner/obstacle_cruise.param.yaml"/>
     <arg name="motion_velocity_planner_dynamic_obstacle_stop_module_param_path" value="$(var motion_config_path)/motion_velocity_planner/dynamic_obstacle_stop.param.yaml"/>
     <arg name="motion_velocity_planner_out_of_lane_module_param_path" value="$(var motion_config_path)/motion_velocity_planner/out_of_lane.param.yaml"/>
@@ -132,7 +133,7 @@
     />
 
     <!-- motion velocity smoother -->
-    <arg name="velocity_smoother_param_path" value="$(var common_config_path)/autoware_velocity_smoother/velocity_smoother.param.yaml"/>
+    <arg name="velocity_smoother_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/planning_rc/velocity_smoother.param.yaml' if '$(var planning_profile)' == 'rc' else '$(var common_config_path)/autoware_velocity_smoother/velocity_smoother.param.yaml'&quot;)"/>
     <arg name="velocity_smoother_type_param_path" value="$(var common_config_path)/autoware_velocity_smoother/$(var velocity_smoother_type).param.yaml"/>
 
     <!-- planning validator -->

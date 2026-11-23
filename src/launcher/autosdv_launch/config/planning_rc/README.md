@@ -17,6 +17,13 @@ Each file here is a copy of upstream's (Autoware 1.5.0) with the changed lines m
 | `path_optimizer.param.yaml` | `enable_outside_drivable_area_stop` true -> false | a lap's path wraps round the loop; the drivable-area check misjudges it and holds the car at 0 m/s at the start. The lanes, the speed limit and the transmitter remain |
 | `trajectory_checker.param.yaml` | curvature 1.0 -> 1.2 | the car turns at 0.88 m radius (curvature 1.14); 1.0 rejects curves it can drive |
 
+**Copies to tune, unchanged.** `obstacle_stop.param.yaml`, `obstacle_slow_down.param.yaml`
+and `velocity_smoother.param.yaml` are byte-for-byte copies of upstream's (Autoware 1.5.0,
+2026-11-23), here so a Lab 3 team can tune them in its fork; the stack reads `/opt`
+otherwise, which is root-owned. Their values are upstream's on purpose: nothing was
+pre-tuned. `docs/guides/lab3-tuning.md` says what each parameter does. Control's four
+are in `../control_rc/`.
+
 Used by Lab 3 (`lab3/run.sh`, `lab3_sim_lap`).
 
 **One goal per lap.** With these, a single 2D Goal Pose just behind the start drives the whole

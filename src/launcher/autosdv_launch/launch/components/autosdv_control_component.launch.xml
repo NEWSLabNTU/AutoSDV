@@ -4,8 +4,11 @@
   tier4_control_component.launch.xml (Autoware 1.5.0), for one reason: the
   longitudinal controller's parameter file is an argument, defaulting to
   config/control/autoware/longitudinal/pid.param.yaml (Autoware's, with
-  enable_keep_stopped_until_steer_convergence off; the file says why). Every other
-  path is still autoware_launch's. Re-fork when the Autoware version changes.
+  enable_keep_stopped_until_steer_convergence off; the file says why). With
+  control_profile:=rc (Lab 3; config/control_rc/README.md) four more come from
+  config/control_rc/: MPC, emergency braking, the control validator and the lane
+  departure checker, copies a team may tune. Every other path is still
+  autoware_launch's. Re-fork when the Autoware version changes.
 -->
 <launch>
   <!-- optional parameters are written here -->
@@ -15,6 +18,7 @@
   <arg name="lateral_controller_mode" default="mpc"/>
   <arg name="longitudinal_controller_mode" default="pid"/>
   <arg name="use_individual_control_param" default="false"/>
+  <arg name="control_profile" default="stock" description="stock (autoware_launch's files) or rc (config/control_rc/: copies Lab 3 teams tune)"/>
   <arg name="lon_controller_param_path"
        default="$(find-pkg-share autosdv_launch)/config/control/autoware/longitudinal/$(var longitudinal_controller_mode).param.yaml"/>
   <arg name="use_aeb_autoware_state_check" default="true"/>
@@ -48,7 +52,7 @@
     <arg name="trajectory_follower_node_param_path" value="$(find-pkg-share autoware_launch)/config/control/trajectory_follower/trajectory_follower_node.param.yaml"/>
     <arg
       name="lat_controller_param_path"
-      value="$(find-pkg-share autoware_launch)/config/control/trajectory_follower/$(var latlon_controller_param_path_dir)/lateral/$(var lateral_controller_mode).param.yaml"
+      value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/control_rc/$(var lateral_controller_mode).param.yaml' if '$(var control_profile)' == 'rc' else '$(find-pkg-share autoware_launch)/config/control/trajectory_follower/$(var latlon_controller_param_path_dir)/lateral/$(var lateral_controller_mode).param.yaml'&quot;)"
     />
     <arg name="lon_controller_param_path" value="$(var lon_controller_param_path)"/>
     <arg name="lateral_controller_mode" value="$(var lateral_controller_mode)"/>
@@ -61,13 +65,13 @@
     <!-- package param path -->
     <arg name="vehicle_cmd_gate_param_path" value="$(find-pkg-share autoware_launch)/config/control/vehicle_cmd_gate/vehicle_cmd_gate.param.yaml"/>
     <arg name="control_command_gate_param_path" value="$(find-pkg-share autoware_launch)/config/control/control_command_gate/control_command_gate.param.yaml"/>
-    <arg name="lane_departure_checker_param_path" value="$(find-pkg-share autoware_launch)/config/control/lane_departure_checker/lane_departure_checker.param.yaml"/>
-    <arg name="control_validator_param_path" value="$(find-pkg-share autoware_launch)/config/control/control_validator/control_validator.param.yaml"/>
+    <arg name="lane_departure_checker_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/control_rc/lane_departure_checker.param.yaml' if '$(var control_profile)' == 'rc' else '$(find-pkg-share autoware_launch)/config/control/lane_departure_checker/lane_departure_checker.param.yaml'&quot;)"/>
+    <arg name="control_validator_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/control_rc/control_validator.param.yaml' if '$(var control_profile)' == 'rc' else '$(find-pkg-share autoware_launch)/config/control/control_validator/control_validator.param.yaml'&quot;)"/>
     <arg name="operation_mode_transition_manager_param_path" value="$(find-pkg-share autoware_launch)/config/control/operation_mode_transition_manager/operation_mode_transition_manager.param.yaml"/>
     <arg name="shift_decider_param_path" value="$(find-pkg-share autoware_launch)/config/control/shift_decider/shift_decider.param.yaml"/>
     <arg name="obstacle_collision_checker_param_path" value="$(find-pkg-share autoware_launch)/config/control/obstacle_collision_checker/obstacle_collision_checker.param.yaml"/>
     <arg name="external_cmd_selector_param_path" value="$(find-pkg-share autoware_launch)/config/control/external_cmd_selector/external_cmd_selector.param.yaml"/>
-    <arg name="aeb_param_path" value="$(find-pkg-share autoware_launch)/config/control/autoware_autonomous_emergency_braking/autonomous_emergency_braking.param.yaml"/>
+    <arg name="aeb_param_path" value="$(eval &quot;'$(find-pkg-share autosdv_launch)/config/control_rc/autonomous_emergency_braking.param.yaml' if '$(var control_profile)' == 'rc' else '$(find-pkg-share autoware_launch)/config/control/autoware_autonomous_emergency_braking/autonomous_emergency_braking.param.yaml'&quot;)"/>
     <arg name="collision_detector_param_path" value="$(find-pkg-share autoware_launch)/config/control/autoware_collision_detector/collision_detector.param.yaml"/>
     <arg name="use_aeb_autoware_state_check" value="$(var use_aeb_autoware_state_check)"/>
     <arg name="predicted_path_checker_param_path" value="$(find-pkg-share autoware_launch)/config/control/predicted_path_checker/predicted_path_checker.param.yaml"/>

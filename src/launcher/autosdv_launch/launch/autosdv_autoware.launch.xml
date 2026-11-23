@@ -51,6 +51,7 @@
   <arg name="pointcloud_backend" default="cpu" description="cpu or cuda: sensing-side point cloud preprocessing"/>
   <arg name="localization_pointcloud_backend" default="cpu" description="cpu or cuda: the NDT input preprocessing chain"/>
   <arg name="planning_profile" default="stock" description="stock (autoware_launch's planning files) or rc (config/planning_rc/: no reversing pull-outs, finer path, the car's curvature)"/>
+  <arg name="control_profile" default="$(var planning_profile)" description="stock or rc (config/control_rc/: copies of MPC, AEB, the control validator and the lane departure checker that Lab 3 teams tune); follows planning_profile"/>
   <arg name="ndt_param_file" default="$(find-pkg-share autosdv_launch)/config/localization/ndt_scan_matcher/ndt_scan_matcher.param.yaml" description="built-in NDT's parameter file (pose_source:=ndt)"/>
   <arg name="cuda_ndt_param_file" default="" description="CUDA NDT's parameter file (pose_source:=cuda_ndt); empty keeps the matcher's own"/>
 
@@ -301,6 +302,7 @@
          controller's parameters (config/control/autoware/longitudinal). -->
     <include file="$(find-pkg-share autosdv_launch)/launch/components/autosdv_control_component.launch.xml">
       <arg name="module_preset" value="$(var control_module_preset)"/>
+      <arg name="control_profile" value="$(var control_profile)"/>
       <arg name="use_sim_time" value="$(var use_sim_time)"/>
       <arg name="vehicle_model" value="$(var vehicle_model)"/>
     </include>
