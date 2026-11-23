@@ -205,9 +205,19 @@ indoors, measured on car B's 16 Nov run bag (2026-11-23):
   stalls on a curve.
 - `use_speed_limit` / `speed_limit_config`: the overall limit (below), on by default.
 
-Terminal 2, the grader (after the stack is up, before the goal): `lab3/grader.sh`, which
-also starts `lab3_run_meta` on `lab3/map`, putting the lanelet2 file and the map's hash
-into the bag.
+Terminal 2, the lap recording (after the stack is up, before the goal):
+`lab3/record_lap.sh`, a plain `ros2 bag record` of `config/record/run_topics.txt` (the
+car's path `/localization/kinematic_state`, NDT's NVTL and pose, the operation mode, the
+speed limit in force, the sensors) into `lab3/bags/`; Ctrl-C after the car has stopped.
+That bag is what is graded, afterwards and anywhere:
+
+```bash
+lab3/grade.sh lab3/bags/<bag>      # ros2 run autosdv_lab3 lab3_grade BAG --map lab3/map
+```
+
+The loop and the map's hash come from the map folder (`--map`), so the recording needs
+no Lab 3 node beside the stack. Checked 2026-11-23: a simulator lap on the example map
+recorded this way and graded with `--map` (96.0 m in 120 s, max 3.1 km/h).
 
 **The RViz sequence**, on the car and in the simulator alike:
 
@@ -218,7 +228,7 @@ into the bag.
    before the start's, drag the way of travel.
 4. In the **AutowareStatePanel** (left), press **Auto**. The car drives the whole loop
    and stops at the goal.
-5. Ctrl-C the grader after the car has stopped: it grades the bag and prints the result.
+5. Ctrl-C `record_lap.sh` after the car has stopped, then `lab3/grade.sh` on the bag.
 
 The grade reads only the bag (`ros2 run autosdv_lab3 lab3_grade BAG` repeats it):
 travel time, travel distance, every lanelet driven, and the straight-line gap from the
@@ -236,12 +246,7 @@ only Lab 3's.
 
 ### At home: replay a lap against the map
 
-The grader's bag (`~/lab3/bags/team3_run_<date>_<time>`) holds the sensors, or a team
-records its own beside the stack:
-
-```bash
-mkdir -p ~/lab3/bags && cd ~/lab3/bags && ros2 bag record $(cat $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/record/run_topics.txt)
-```
+The lap bag from `lab3/record_lap.sh` (`lab3/bags/rosbag2_<date>-<time>`) holds the sensors.
 
 At home, terminal 1, the stack with no drivers and no vehicle interface, on the bag's
 clock, RViz included:
@@ -363,8 +368,7 @@ TA; no student step and no recorded topic uses it.
 
 - **One recorder at a time in week 2.** On Humble every `ros2 bag record` is the node
   `/rosbag2_recorder`; with two running, Autoware's duplicated-node check reports ERROR
-  and autonomous mode never becomes available. During the graded lap the grader is the
-  recorder.
+  and autonomous mode never becomes available. During a lap `record_lap.sh` is the recorder.
 - **The field stack needs perception.** Behaviour planning waits for the occupancy grid
   and emergency braking for the obstacle cloud, so `launch_perception:=false` drives
   nowhere. Perception's compare-map filter loads the map whole

@@ -1,18 +1,17 @@
 """Lab 3 week 2: grade one autonomous lap from its bag alone.
 
-    lab3_grader [--out-dir ~/lab3/bags]            record a dated bag; Ctrl-C grades it
-    lab3_grade BAG [-o REPORT]                     grade a recorded bag again
+    lab3_grade BAG --map MAP_DIR [-o REPORT]      grade a recorded lap
 
-The team launches the stack and drives the lap the standard Autoware way (initial
-pose, goal, Auto in RViz). The grader runs beside it: started after the launch, it
-records the run topics into <out-dir>/run_<date>_<time>; Ctrl-C after the
-lap stops the recording and grades the bag. Grading reads nothing but the bag, so
-`lab3_grade BAG` on another machine gives the same result.
+The team launches the stack (lab3/run.sh) and drives the lap the standard Autoware way
+(initial pose, goal, Auto in RViz), with lab3/record_lap.sh recording the run topics
+(config/record/run_topics.txt) beside it: a plain ros2 bag record, started before the
+goal and stopped with Ctrl-C after the car has stopped. The bag is graded afterwards,
+anywhere, against the team's map folder (lab3/grade.sh).
 
-What the bag supplies:
+What the grade reads:
 
-- the loop: the lanelet2 file the stack loaded, carried in /lab3/run_meta
-  (lab3_run_meta, latched and repeated);
+- the loop: MAP_DIR's lanelet2_map.osm, and the map folder's hash (an older bag that
+  carries /lab3/run_meta supplies both itself when --map is not given);
 - the car's path: /localization/kinematic_state, Autoware's own pose estimate;
 - who drove: /api/operation_mode/state.
 
@@ -41,10 +40,7 @@ import argparse
 import math
 import json
 import os
-import signal
-import subprocess
 import sys
-import time
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
@@ -73,7 +69,6 @@ NVTL_BIN = 0.5           # s: the lap in bins; a bin is localized when NDT score
 SPEED_MAX_KMH = 10.0     # above this for SPEEDING_HOLD_S, the lap does not count as complete
 SPEEDING_HOLD_S = 0.3    # one bad hall-sensor edge must not cancel a lap
 
-RUN_TOPICS_FILE = 'run_topics.txt'
 
 
 # ------------------------------------------------------------------ the bag
@@ -191,13 +186,20 @@ def lanelet_of(loop: route.Loop, x: float, y: float) -> Optional[int]:
     return lid_best if best is not None and best <= OFF_LANE_TOL else None
 
 
+def use_map_folder(r: Run, map_dir: str) -> None:
+    """Grade against the team's map folder: its lanelet2 file and hash replace run_meta."""
+    from autosdv_lab3 import run_meta
+    r.run_meta = run_meta.build(map_dir, r.run_meta.get('vehicle_id', ''), 0.0)
+
+
 def grade_run(r: Run) -> dict:
     rep = {'ok': False, 'reasons': [], 'map_hash': r.run_meta.get('map_hash'),
+           'map_dir': r.run_meta.get('map_dir'),
            'vehicle_id': r.run_meta.get('vehicle_id'), 'autosdv': r.run_meta.get('autosdv')}
     text = r.run_meta.get('lanelet2_map')
     if not text:
-        rep['reasons'].append('the bag has no /lab3/run_meta with the lanelet2 map: was the '
-                              'grader started with lab3/grader.sh (map_path:=...)?')
+        rep['reasons'].append('no lanelet2 map: pass the team\'s map folder, lab3_grade BAG '
+                              '--map lab3/map (lab3/grade.sh does)')
         return rep
     try:
         loop = route.loop_from_lanelets(route.lanelets_from_text(text))
@@ -315,8 +317,10 @@ def print_report(rep: dict, bag: str):
 
 
 
-def grade_bag(bag: str, out: Optional[str] = None) -> int:
+def grade_bag(bag: str, out: Optional[str] = None, map_dir: Optional[str] = None) -> int:
     r = read_run(bag)
+    if map_dir:
+        use_map_folder(r, map_dir)
     rep = grade_run(r)
     rep['bag'] = os.path.abspath(bag)
     if 'window' in rep and r.lidar_topic:
@@ -334,58 +338,16 @@ def grade_bag(bag: str, out: Optional[str] = None) -> int:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog='lab3_grade', description='Grade a Lab 3 run bag.')
     ap.add_argument('bag')
+    ap.add_argument('--map', dest='map_dir', help="the team's map folder (lab3/map): the loop")
     ap.add_argument('-o', '--out', help=f'report path (default BAG/{REPORT})')
     args = ap.parse_args(argv)
     if not os.path.isdir(args.bag):
         print(f'lab3_grade: {args.bag} is not a bag folder', file=sys.stderr)
         return 2
-    return grade_bag(args.bag, args.out)
-
-
-# ------------------------------------------------------------------ the recorder
-
-def run_topics() -> List[str]:
-    from ament_index_python.packages import get_package_share_directory
-    path = os.path.join(get_package_share_directory('autosdv_lab3'), 'config', 'record',
-                        RUN_TOPICS_FILE)
-    with open(path) as f:
-        return [line.strip() for line in f if line.strip()]
-
-
-def _strip_ros_args(argv: List[str]) -> List[str]:
-    return argv[:argv.index('--ros-args')] if '--ros-args' in argv else argv
-
-
-def grader_main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog='lab3_grader',
-                                 description='Record a Lab 3 graded run; Ctrl-C grades it.')
-    ap.add_argument('--out-dir', default=os.path.expanduser('~/lab3/bags'))
-    # launched as a node: ignore the --ros-args launch appends
-    args, _ = ap.parse_known_args(_strip_ros_args(sys.argv[1:] if argv is None else argv))
-    out = os.path.join(args.out_dir, f'run_{time.strftime("%Y%m%d_%H%M%S")}')
-    os.makedirs(args.out_dir, exist_ok=True)
-    cmd = ['ros2', 'bag', 'record', '-o', out, *run_topics()]
-    print(f'lab3_grader: recording -> {out}\n'
-          'Drive the lap in RViz (2D Goal Pose, Auto). Press Ctrl-C once the car has stopped.')
-    # its own session: Ctrl-C reaches this process only, which then stops the recorder
-    # and grades
-    proc = subprocess.Popen(cmd, start_new_session=True)
-    stop = {'now': False}
-    signal.signal(signal.SIGINT, lambda *_: stop.update(now=True))
-    signal.signal(signal.SIGTERM, lambda *_: stop.update(now=True))
-    while proc.poll() is None and not stop['now']:
-        time.sleep(0.2)
-    if proc.poll() is None:
-        os.killpg(proc.pid, signal.SIGINT)
-        try:
-            proc.wait(30)
-        except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-    if not os.path.isdir(out):
-        print('lab3_grader: nothing was recorded', file=sys.stderr)
-        return 1
-    grade_bag(out)
-    return 0   # the verdict is printed; a non-zero exit only makes launch report a crash
+    if args.map_dir and not os.path.isfile(os.path.join(args.map_dir, 'lanelet2_map.osm')):
+        print(f'lab3_grade: {args.map_dir} has no lanelet2_map.osm', file=sys.stderr)
+        return 2
+    return grade_bag(args.bag, args.out, args.map_dir)
 
 
 if __name__ == '__main__':

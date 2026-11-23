@@ -81,7 +81,20 @@ def test_no_run_meta_is_reported():
     r = drive(2.0, 20.0, lp)
     r.run_meta = {}
     rep = grade.grade_run(r)
-    assert not rep['ok'] and 'run_meta' in rep['reasons'][0]
+    assert not rep['ok'] and '--map' in rep['reasons'][0]
+
+
+def test_map_folder_supplies_the_loop(tmp_path):
+    """A plain ros2 bag record (lab3/record_lap.sh) carries no run_meta: the team's map
+    folder, given to lab3_grade --map, supplies the loop and the map hash."""
+    (tmp_path / 'lanelet2_map.osm').write_text(fixtures.lanelet_osm())
+    lp = loop()
+    r = drive(2.0, 2.0 + lp.length - 0.6, lp)
+    r.run_meta = {}
+    grade.use_map_folder(r, str(tmp_path))
+    rep = grade.grade_run(r)
+    assert rep['ok'], rep['reasons']
+    assert rep['map_hash'] and rep['map_dir'] == str(tmp_path)
 
 
 def test_never_engaged():

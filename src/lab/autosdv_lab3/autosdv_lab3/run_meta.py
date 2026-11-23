@@ -1,25 +1,19 @@
-"""The week-2 record of the map, for grading: `lab3_run_meta` (started by lab3_grader.launch.xml).
+"""The map a lap is graded against: `build` reads the team's map folder.
 
-Publishes a latched /lab3/run_meta (std_msgs/String, JSON) at launch, repeated every 5 s:
+    {"lab": "lab3", "kind": "stack", "launch_time": ..., "map_dir": ..., "map_hash": ...,
+     "speed_limits": {lanelet id: km/h}, "vehicle_id": ..., "autosdv": <git rev>,
+     "lanelet2_map": <the lanelet2 file's text>}
 
-    {"lab": "lab3", "kind": "stack", "launch_time": <ROS time, s>, "map_dir": ...,
-     "map_hash": ..., "speed_limits": {lanelet id: km/h}, "vehicle_id": ...,
-     "autosdv": <git rev>, "lanelet2_map": <the lanelet2 file's text>}
-
-Transient local, so a recorder started later still receives it. The grader reads
-the lanelet2 map from it, so that a run bag alone grades the lap (lab3_grade): the loop
-and its lanelets come from the file the stack loaded, not from a folder on the grading
-machine; map_hash says which map that was.
+lab3_grade --map MAP_DIR grades a lap bag against it (the loop and its lanelets from the
+file, map_hash naming the folder). Bags recorded before the grader took --map carried the
+same record on /lab3/run_meta, which the grade still reads when --map is not given.
 """
 
-import json
 import os
-import sys
 
 from autosdv_lab3 import mapdir
 
 TOPIC = '/lab3/run_meta'
-REPEAT_S = 5.0
 
 
 def speed_limits(map_dir: str) -> dict:
@@ -46,40 +40,3 @@ def build(map_dir: str, vehicle_id: str, launch_time: float) -> dict:
             'speed_limits': speed_limits(map_dir),
             'vehicle_id': vehicle_id, 'autosdv': mapdir.git_rev(),
             'lanelet2_map': lanelet_text(map_dir)}
-
-
-def main(argv=None) -> int:
-    import rclpy
-    from rclpy.node import Node
-    from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-    from std_msgs.msg import String
-
-    rclpy.init(args=argv)
-    node = Node('lab3_run_meta')
-    map_dir = node.declare_parameter('map_path', '').value
-    vehicle_id = node.declare_parameter('vehicle_id', '').value
-    if not map_dir or not os.path.isdir(map_dir):
-        node.get_logger().error(f'map_path {map_dir!r} is not a folder')
-        return 2
-    latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
-                         durability=DurabilityPolicy.TRANSIENT_LOCAL)
-    pub = node.create_publisher(String, TOPIC, latched)
-    meta = build(map_dir, vehicle_id, node.get_clock().now().nanoseconds * 1e-9)
-    msg = String(data=json.dumps(meta))
-    pub.publish(msg)
-    # latched for a recorder that matches the durability, and repeated for one that does
-    # not: the grader is started after the stack, and its bag must still hold this
-    node.create_timer(REPEAT_S, lambda: pub.publish(msg))
-    node.get_logger().info(f'map_hash {meta["map_hash"][:12]} ({meta["map_dir"]})')
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
-    return 0
-
-
-if __name__ == '__main__':
-    sys.exit(main())
