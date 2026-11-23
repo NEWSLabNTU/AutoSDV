@@ -41,7 +41,7 @@ from autosdv_lab3.route import Loop, MapError, find_chain, read_lanelets
 GOAL_BEHIND = 1.0     # m: the run's 2D Goal Pose behind the start (0.7 m was unreliable)
 # m: the goal this far before the boundary, at least (measured: 1.0 m behind a start
 # 0.5 m past it drove; 0.2 m before it did not move)
-GOAL_CLEAR = 0.5
+GOAL_CLEAR = 0.4  # the spec: a 0.4-0.6 m boundary with the goal 1.0 m behind
 ORIGIN_OFF_LOOP = 1.0  # m from the centreline: the recording did not start on the loop
 # m behind the origin: the start boundary. Below 0.4 the TA simulation did not move (0.14,
 # 0.25 m); above 0.6 the 1.0 m goal falls within 0.4 m of the boundary, the failing class
