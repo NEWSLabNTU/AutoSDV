@@ -1,7 +1,7 @@
 #!/bin/bash
-# Part 2: Autoware on your map, on the car. One setting per line: edit the values here
-# (teams 4-6: vehicle_id:=car_c), commit and push. RViz opens, and reopens if closed, when
-# this terminal has a display (the car's VNC desktop).
+# Part 2: Autoware on your map, on the car, one setting per line. Set vehicle_id to your
+# car (teams 4-6: car_c), commit and push; the other lines are the lab's settings. RViz
+# opens, and reopens if closed, when this terminal has a display (the car's VNC desktop).
 cd "$(git rev-parse --show-toplevel)"
 cfg=$PWD/src/lab/autosdv_lab3/config
 if [ -n "$DISPLAY" ]; then rviz=true; else rviz=false; fi
