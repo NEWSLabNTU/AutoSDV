@@ -114,6 +114,16 @@ launch:
     description: "Launch autosdv_system_monitor (measured at up to 25% of a core on Jetson; disable on CPU-constrained vehicles)"
 
 - arg:
+    name: use_speed_limit
+    default: "true"
+    description: "ON BY DEFAULT: autosdv_speed_limit caps the car at speed_limit_config's max_speed_kmh (3 km/h as shipped, at most 10), below the lanelets' limits; false leaves only the map's limits"
+
+- arg:
+    name: speed_limit_config
+    default: "$(find-pkg-share autosdv_speed_limit)/config/speed_limit.yaml"
+    description: "YAML with max_speed_kmh for use_speed_limit, re-read when it changes (edit and save: applied within a second)"
+
+- arg:
     name: use_ntrip
     default: "true"
     description: "Enable NTRIP client for RTK corrections (ublox only)"
@@ -449,6 +459,20 @@ launch:
             remap:
             - from: ~/output/objects
               to: /perception/object_recognition/objects
+
+# The overall speed limit (use_speed_limit, on by default): Autoware's default external
+# velocity limit from speed_limit_config, repeated every second and re-read on change
+- node:
+    pkg: autosdv_speed_limit
+    exec: speed_limit
+    name: autosdv_speed_limit
+    output: log
+    if: $(var use_speed_limit)
+    param:
+    - name: config_file
+      value: $(var speed_limit_config)
+    - name: use_sim_time
+      value: $(var use_sim_time)
 
 # System Monitor. Gated: it was the hottest process in the profiling runs
 # (23-25% of a core, above rviz2 and all three cameras).

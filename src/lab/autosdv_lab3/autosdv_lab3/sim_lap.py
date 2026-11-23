@@ -37,7 +37,8 @@ from typing import Optional
 
 import yaml
 
-from autosdv_lab3 import mapdir, speed_limit
+from autosdv_lab3 import mapdir
+from autosdv_speed_limit import speed_limit
 from autosdv_lab3.route import AdApi, MapError, load_loop, single_goal_route
 
 WEB_ADDR = '127.0.0.1:8095'
@@ -102,7 +103,7 @@ def stop_group(proc: subprocess.Popen) -> None:
 
 
 GOAL_BEHIND = 1.0          # m: the field run's 2D Goal Pose behind the start (as lab3_check_lanelet)
-PLANNING_PROFILE = 'rc'    # autosdv_launch's planning_profile, as lab3_run.launch.xml drives with
+PLANNING_PROFILE = 'rc'    # autosdv_launch's planning_profile, as lab3/run.sh drives with
 
 
 def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = False,

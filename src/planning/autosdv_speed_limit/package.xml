@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>autosdv_speed_limit</name>
+  <version>0.1.0</version>
+  <description>
+    The car's overall speed limit from a config file (3 km/h as shipped, at most 10),
+    published as Autoware's default external velocity limit and re-read when the file
+    changes. autosdv.launch.yaml starts it (use_speed_limit, on by default).
+  </description>
+  <maintainer email="jerry73204@gmail.com">aeon</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>rclpy</depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>autoware_internal_planning_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

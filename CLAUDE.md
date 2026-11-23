@@ -882,6 +882,11 @@ use_mapless_mode:=true           # Indoor operation without localization
 enable_zed_object_detection:=true  # ZED camera object detection
 launch_perception:=false           # Disable entire perception module
 
+# Overall speed limit, ON BY DEFAULT: autosdv_speed_limit (src/planning/) publishes the
+# default external velocity limit from max_speed_kmh (3 km/h as shipped, at most 10)
+use_speed_limit:=false             # turn it off
+speed_limit_config:=FILE.yaml      # another file; edits apply within a second
+
 # Advanced: Override preset-defined parameters
 perception_mode:=lidar                      # Override preset perception mode
 use_traffic_light_recognition:=true        # Override preset setting

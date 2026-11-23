@@ -105,7 +105,7 @@ planning-sim MAP_DIR *ARGS:
     exec "${cmd[@]}"
 
 #   just lab3 run car_b ~/lab3/team3_map
-# Week 2: the full stack on the team's map; set the pose and goal in RViz
+# Week 2: the full stack on the team's map (lab3/run.sh's settings); pose and goal in RViz
 [positional-arguments]
 run VEHICLE_ID MAP_DIR *ARGS:
     #!/usr/bin/env bash
@@ -113,10 +113,14 @@ run VEHICLE_ID MAP_DIR *ARGS:
     case "$vid" in car_a|car_b|car_c|sim) ;; *) echo "usage: just lab3 run VEHICLE_ID MAP_DIR [KEY:=VALUE ...]" >&2; exit 2 ;; esac
     [ -f "$map/pointcloud_map.pcd" ] || { echo "error: $map has no pointcloud_map.pcd" >&2; exit 2; }
     [ -f "$map/lanelet2_map.osm" ] || { echo "error: $map has no lanelet2_map.osm" >&2; exit 2; }
-    source scripts/camera_display.sh
-    camera_display
-    cmd=(play_launch launch --web-addr '{{ web_addr }}' autosdv_lab3 lab3_run.launch.xml
-         "vehicle_id:=$vid" "map_path:=$(realpath "$map")" "$@")
+    cfg=$PWD/src/lab/autosdv_lab3/config
+    cmd=(play_launch launch --web-addr '{{ web_addr }}' autosdv_launch autosdv.launch.yaml
+         "vehicle_id:=$vid" "map_path:=$(realpath "$map")" use_gnss:=false use_ntrip:=false
+         pose_source:=ndt "ndt_param_file:=$cfg/ndt_indoor_robin_w.param.yaml"
+         "ndt_voxel_grid_param_file:=$cfg/localization/voxel_grid_robin_w.param.yaml"
+         "ndt_random_downsample_param_file:=$cfg/localization/random_downsample_robin_w.param.yaml"
+         "pointcloud_map_filter_param_path:=$cfg/pointcloud_map_filter_indoor.param.yaml"
+         planning_profile:=rc "$@")
     printf '\033[2m%s\033[0m\n' "${cmd[*]}"
     source scripts/env.sh
     exec "${cmd[@]}"
@@ -127,11 +131,8 @@ run VEHICLE_ID MAP_DIR *ARGS:
 replay VEHICLE_ID MAP_DIR *ARGS:
     #!/usr/bin/env bash
     vid=$1; map=$2; shift 2
-    cmd=(play_launch launch --web-addr '{{ web_addr }}' autosdv_lab3 lab3_replay.launch.xml
-         "vehicle_id:=$vid" "map_path:=$(realpath "$map")" "$@")
-    printf '\033[2m%s\033[0m\n' "${cmd[*]}"
-    source scripts/env.sh
-    exec "${cmd[@]}"
+    exec just lab3 run "$vid" "$map" launch_sensing_driver:=false launch_vehicle_interface:=false \
+        is_simulation:=true use_sim_time:=true rviz:=true rviz_respawn:=false "$@"
 
 #   just lab3 lanelet-speed ~/lab3/team3_map                  list each lanelet's limit
 #   just lab3 lanelet-speed ~/lab3/team3_map --corners 4 --straights 8

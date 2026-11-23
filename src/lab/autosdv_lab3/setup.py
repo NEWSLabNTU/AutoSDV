@@ -45,7 +45,6 @@ setup(
             'lab3_grade = autosdv_lab3.grade:main',
             'lab3_grader = autosdv_lab3.grade:grader_main',
             'lab3_localization_report = autosdv_lab3.localization_report:main',
-            'lab3_speed_limit = autosdv_lab3.speed_limit:main',
             'lab3_lanelet_speed = autosdv_lab3.lanelet_speed:main',
         ],
     },

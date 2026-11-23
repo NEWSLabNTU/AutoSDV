@@ -24,7 +24,7 @@ def test_topic_file_matches_the_recorder(name, kind):
 
 
 def test_replay_plays_only_sensor_inputs_the_run_bag_holds():
-    # lab3_replay.launch.xml runs the sensing chain itself (LiDAR preprocessing, the
+    # lab3/replay.sh runs the sensing chain itself (LiDAR preprocessing, the
     # IMU corrector, the velocity converter, the sensor kit's TF): replaying their
     # outputs, /tf, or anything localization and planning publish would give each
     # topic two publishers

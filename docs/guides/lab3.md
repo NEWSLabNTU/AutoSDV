@@ -144,8 +144,8 @@ localization report. Three terminals, in this order:
 
 ```bash
 SHARE=$(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3
-# 1. the stack, sensors and motor off
-play_launch launch autosdv_lab3 lab3_replay.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+# 1. the stack, sensors and motor off (run.sh's settings, on the bag's clock)
+lab3/replay.sh
 # 2. record the localization output (stops with Ctrl-C after the bag ends)
 mkdir -p ~/lab3/bags && cd ~/lab3/bags && ros2 bag record $(cat $SHARE/config/record/localization_topics.txt)
 # 3. play the mapping bag's sensor inputs
@@ -171,24 +171,43 @@ points on the map). `--map PCD` supplies the map when a recording lacks
 
 ### Week 2: the laps (on the car)
 
-Terminal 1, the stack (no RViz: the ZED must not see a display, so the launch removes
-`DISPLAY` from its own environment):
+Terminal 1, the stack: `lab3/run.sh`, AutoSDV's own `autosdv.launch.yaml` with one
+setting per line, so a team edits the values in the file (teams 4-6: `vehicle_id:=car_c`).
+RViz opens with it (and reopens if closed) when the terminal has a display; the ZED
+container drops `DISPLAY` and `LD_PRELOAD` itself.
 
 ```bash
-ros2 launch autosdv_lab3 lab3_run.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+play_launch launch autosdv_launch autosdv.launch.yaml \
+    vehicle_id:=car_b map_path:=$PWD/lab3/map use_gnss:=false use_ntrip:=false \
+    pose_source:=ndt ndt_param_file:=.../ndt_indoor_robin_w.param.yaml \
+    ndt_voxel_grid_param_file:=... ndt_random_downsample_param_file:=... \
+    pointcloud_map_filter_param_path:=.../pointcloud_map_filter_indoor.param.yaml \
+    planning_profile:=rc use_speed_limit:=true speed_limit_config:=... rviz:=... rviz_respawn:=true
 ```
 
-Terminal 2, RViz:
+Each argument beyond the map and the car is there because the stock setting fails
+indoors, measured on car B's 16 Nov run bag (2026-11-23):
 
-```bash
-rviz2 -d $(ros2 pkg prefix autosdv_launch)/share/autosdv_launch/rviz/autosdv.rviz --ros-args --params-file $(ros2 pkg prefix autosdv_vehicle_description)/share/autosdv_vehicle_description/config/vehicle_info.param.yaml
-```
+- `pose_source:=ndt` with the indoor NDT file and the denser Robin-W input: stock
+  `required_distance` 10 m skips every scan (the classroom's farthest point is 4.9 m
+  after cropping), and with that fixed, resolution 2.0 on the stock 200-point input still
+  scores NVTL 0 and drifts 13 m. Built-in NDT with the indoor file: NVTL median 1.66,
+  minimum 1.26, all 0.5 s bins above the 1.3 gate, path within 0.043 m (median) of the
+  recorded one. **CUDA NDT is not used for Lab 3 yet**: with the same file and input it
+  scores NVTL 0 on every scan (no correspondences), a matcher defect still to be fixed in
+  `cuda_ndt_matcher`; `pose_source:=cuda_ndt` returns once it is.
+- `pointcloud_map_filter_param_path`: the stock dynamic map loader throws
+  `std::out_of_range` in `VoxelGridDynamicMapLoader::request_update_map` as localization
+  initializes, on this real map as on the TA corridor, and takes the pointcloud container
+  down (NDT input stops 12 s in).
+- `planning_profile:=rc`: with the stock files one goal behind the start counts as arrived
+  at once (0.0 m driven, car B, the team map); with the goal 6.5 m back it drives 89 m and
+  stalls on a curve.
+- `use_speed_limit` / `speed_limit_config`: the overall limit (below), on by default.
 
-Terminal 3, the grader (the TA starts it after the stack is up, before the goal):
-
-```bash
-ros2 launch autosdv_lab3 lab3_grader.launch.xml team:=3
-```
+Terminal 2, the grader (after the stack is up, before the goal): `lab3/grader.sh`, which
+also starts `lab3_run_meta` on `lab3/map`, putting the lanelet2 file and the map's hash
+into the bag.
 
 **The RViz sequence**, on the car and in the simulator alike:
 
@@ -206,17 +225,14 @@ travel time, travel distance, every lanelet driven, and the straight-line gap fr
 start to where the car came to rest (behind or past the start; an overshoot is fine)
 added to the distance. The lap must end no more than 2 m behind the start, or pass it.
 
-**The speed limit.** The overall limit is a YAML file read by `lab3_speed_limit`
-(3 km/h as shipped, at most 10); on each lanelet the car drives at no more than the lower
-of it and the lanelet's own `speed_limit`. Copy it, edit `max_speed_kmh` and save: the
-stack applies the change within a second, no restart:
-
-```bash
-cp $(ros2 pkg prefix autosdv_lab3)/share/autosdv_lab3/config/speed_limit.yaml ~/lab3/team3/speed_limit.yaml
-ros2 launch autosdv_lab3 lab3_run.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map speed_limit_config:=$HOME/lab3/team3/speed_limit.yaml
-```
-
-Without `speed_limit_config:=` the stack reads the shared file in the workspace.
+**The speed limit.** `autosdv.launch.yaml` starts `autosdv_speed_limit`
+(`src/planning/autosdv_speed_limit`) unless `use_speed_limit:=false`: it reads
+`max_speed_kmh` from `speed_limit_config` (default the package's
+`config/speed_limit.yaml`, 3 km/h as shipped, at most 10) and publishes Autoware's default
+external velocity limit; on each lanelet the car drives at no more than the lower of it
+and the lanelet's own `speed_limit`. Edit `max_speed_kmh` and save: the stack applies the
+change within a second, no restart. It is on for every `autosdv.launch.yaml` run, not
+only Lab 3's.
 
 ### At home: replay a lap against the map
 
@@ -231,7 +247,7 @@ At home, terminal 1, the stack with no drivers and no vehicle interface, on the 
 clock, RViz included:
 
 ```bash
-ros2 launch autosdv_lab3 lab3_replay.launch.xml vehicle_id:=car_b map_path:=$HOME/lab3/team3_map
+lab3/replay.sh
 ```
 
 Terminal 2, play only the raw sensor inputs (the stack makes the rest, TF included):

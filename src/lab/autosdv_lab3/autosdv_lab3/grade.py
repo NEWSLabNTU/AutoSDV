@@ -197,7 +197,7 @@ def grade_run(r: Run) -> dict:
     text = r.run_meta.get('lanelet2_map')
     if not text:
         rep['reasons'].append('the bag has no /lab3/run_meta with the lanelet2 map: was the '
-                              'stack launched with lab3_run.launch.xml before the grader?')
+                              'grader started with lab3/grader.sh (map_path:=...)?')
         return rep
     try:
         loop = route.loop_from_lanelets(route.lanelets_from_text(text))

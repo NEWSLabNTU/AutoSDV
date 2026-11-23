@@ -31,6 +31,7 @@
   <exec_depend>autosdv_rc_sim</exec_depend>
   <exec_depend>autosdv_vehicle_description</exec_depend>
   <exec_depend>autosdv_launch</exec_depend>
+  <exec_depend>autosdv_speed_limit</exec_depend>
   <!-- GLIM is installed by ./setup.sh (step glim), not by rosdep -->
 
   <test_depend>python3-pytest</test_depend>

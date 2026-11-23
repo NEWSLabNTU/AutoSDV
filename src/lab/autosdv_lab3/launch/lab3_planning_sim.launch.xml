@@ -15,7 +15,7 @@
   faced when the mapping began (GLIM's axes follow the LiDAR's: docs/guides/lab3.md).
   Then the field procedure in RViz: 2D Pose Estimate at the start, one 2D Goal Pose
   about 1.0 m behind it in the lanelet before the start's, Auto. The overall speed limit
-  is lab3_speed_limit's, as on the car (speed_limit_config, 3 km/h as shipped).
+  is autosdv_speed_limit's, as on the car (speed_limit_config, 3 km/h as shipped).
 
   A map folder with a track.yaml (lab3_sim_lap writes one) starts the car at its
   start_pose instead.
@@ -23,7 +23,7 @@
 <launch>
   <arg name="map_path" description="REQUIRED: the team's map folder"/>
   <arg name="rviz" default="true"/>
-  <arg name="speed_limit_config" default="$(find-pkg-share autosdv_lab3)/config/speed_limit.yaml"
+  <arg name="speed_limit_config" default="$(find-pkg-share autosdv_speed_limit)/config/speed_limit.yaml"
        description="YAML with max_speed_kmh, re-read on change"/>
 
   <include file="$(find-pkg-share autosdv_rc_sim)/launch/rc_sim.launch.xml">
@@ -32,7 +32,7 @@
     <arg name="rviz" value="$(var rviz)"/>
   </include>
 
-  <node pkg="autosdv_lab3" exec="lab3_speed_limit" name="lab3_speed_limit" output="log">
+  <node pkg="autosdv_speed_limit" exec="speed_limit" name="autosdv_speed_limit" output="log">
     <param name="config_file" value="$(var speed_limit_config)"/>
     <param name="use_sim_time" value="true"/>
   </node>

@@ -1,7 +1,8 @@
-"""The Lab 3 overall speed limit, set in a config file: 3 km/h as shipped.
+"""The overall speed limit of the car, set in a config file: 3 km/h as shipped.
 
-    lab3_speed_limit   the node lab3_run.launch.xml starts (parameter config_file,
-                       default config/speed_limit.yaml of this package). It publishes
+    speed_limit        the node autosdv.launch.yaml starts (use_speed_limit, default
+                       true; parameter config_file, default config/speed_limit.yaml of
+                       this package, autosdv.launch.yaml's speed_limit_config). It publishes
                        Autoware's external velocity limit on
                        /planning/scenario_planning/max_velocity_default from the file's
                        max_speed_kmh, and re-reads the file whenever it changes, so an
@@ -9,9 +10,9 @@
                        above 0 or above 10 km/h is refused and the previous one kept.
 
 The file is the one place the overall limit is set: 3 km/h at the start, raised later by
-editing it. The lanelets carry the per-segment limits (at most 10 km/h); Autoware drives
-at the lower of the two. RViz's Set Velocity Limit publishes on the same topic; the node
-takes such a value over (clamped to 10) until the file next changes. The run recording
+editing it, never above 10 km/h (the RC car; Lab 3's lanelet maximum too). The lanelets
+carry the per-segment limits; Autoware drives at the lower of the two. RViz's Set Velocity Limit publishes on the same topic; the node
+takes such a value over (clamped to 10) until the file next changes. Lab 3's run recording
 keeps the limit in force (/planning/scenario_planning/max_velocity).
 """
 
@@ -20,8 +21,8 @@ import sys
 from typing import Optional, Tuple
 
 DEFAULT_KMH = 3.0              # the shipped config/speed_limit.yaml
-MAX_KMH = 10.0                 # the lanelets' speed limit; never raise the car above it
-NODE = 'lab3_speed_limit'
+MAX_KMH = 10.0                 # never raise the RC car above it (Lab 3: the lanelets' maximum)
+NODE = 'autosdv_speed_limit'
 KEY = 'max_speed_kmh'
 TOPIC = '/planning/scenario_planning/max_velocity_default'
 SELECTED_TOPIC = '/planning/scenario_planning/max_velocity'
@@ -80,7 +81,7 @@ def velocity_limit(kmh: float):
 
 def default_config() -> str:
     from ament_index_python.packages import get_package_share_directory
-    return os.path.join(get_package_share_directory('autosdv_lab3'), 'config', 'speed_limit.yaml')
+    return os.path.join(get_package_share_directory('autosdv_speed_limit'), 'config', 'speed_limit.yaml')
 
 
 def _mtime(path: str) -> Optional[float]:

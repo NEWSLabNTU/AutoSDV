@@ -1,10 +1,10 @@
-"""The Lab 3 overall speed limit: 3 km/h from the shipped config file, at most 10."""
+"""The overall speed limit: 3 km/h from the shipped config file, at most 10."""
 
 from pathlib import Path
 
 import pytest
 
-from autosdv_lab3 import fixtures, speed_limit
+from autosdv_speed_limit import speed_limit
 
 SHIPPED = Path(__file__).resolve().parents[1] / 'config' / 'speed_limit.yaml'
 
@@ -14,9 +14,9 @@ def test_shipped_config_is_3_kmh():
     assert speed_limit.DEFAULT_KMH == 3.0
 
 
-def test_default_is_below_the_lanelet_limit():
+def test_default_is_below_the_maximum():
     assert speed_limit.MAX_KMH == 10.0
-    assert speed_limit.DEFAULT_KMH < fixtures.SPEED_LIMIT_KMH == speed_limit.MAX_KMH
+    assert speed_limit.DEFAULT_KMH < speed_limit.MAX_KMH
 
 
 @pytest.mark.parametrize('text, kmh', [('max_speed_kmh: 5\n', 5.0), ('max_speed_kmh: 10.0\n', 10.0),
@@ -54,7 +54,7 @@ def test_message_carries_the_limit_in_mps():
     msg = speed_limit.velocity_limit(3.0)
     assert msg.max_velocity == pytest.approx(3.0 / 3.6)
     assert msg.use_constraints is False
-    assert msg.sender == 'lab3_speed_limit'
+    assert msg.sender == 'autosdv_speed_limit'
 
 
 @pytest.mark.parametrize('mps, kmh', [(5 / 3.6, 5.0), (1.0, 3.6), (20.0, 10.0), (0.0, None),

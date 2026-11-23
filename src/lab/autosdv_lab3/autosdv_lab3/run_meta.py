@@ -1,4 +1,4 @@
-"""The week-2 stack's own record of itself, for grading: `lab3_run_meta`.
+"""The week-2 record of the map, for grading: `lab3_run_meta` (started by lab3_grader.launch.xml).
 
 Publishes a latched /lab3/run_meta (std_msgs/String, JSON) at launch, repeated every 5 s:
 

@@ -17,7 +17,7 @@ Each file here is a copy of upstream's (Autoware 1.5.0) with the changed lines m
 | `path_optimizer.param.yaml` | `enable_outside_drivable_area_stop` true -> false | a lap's path wraps round the loop; the drivable-area check misjudges it and holds the car at 0 m/s at the start. The lanes, the speed limit and the transmitter remain |
 | `trajectory_checker.param.yaml` | curvature 1.0 -> 1.2 | the car turns at 0.88 m radius (curvature 1.14); 1.0 rejects curves it can drive |
 
-Used by Lab 3 (`lab3_run.launch.xml`, `lab3_sim_lap`).
+Used by Lab 3 (`lab3/run.sh`, `lab3_sim_lap`).
 
 **One goal per lap.** With these, a single 2D Goal Pose just behind the start drives the whole
 loop (RC simulator, 2026-11-16: 96.2 m in 122 s). The goal must lie in the lanelet *before* the

@@ -24,7 +24,7 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 from autosdv_lab3 import mapdir
-from autosdv_lab3.speed_limit import MAX_KMH
+from autosdv_speed_limit.speed_limit import MAX_KMH
 
 TAG = 'speed_limit'
 normalized_osm = mapdir.normalized_osm

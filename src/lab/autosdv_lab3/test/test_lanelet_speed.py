@@ -117,3 +117,11 @@ def test_run_meta_records_the_segment_limits(tmp_path):
     d = fixtures.write_map(str(tmp_path / 'map'))
     meta = run_meta.build(d, 'car_b', 0.0)
     assert meta['speed_limits'] and set(meta['speed_limits'].values()) == {'10'}
+
+
+def test_overall_limit_ceiling_is_the_lanelet_maximum():
+    """autosdv_speed_limit's 10 km/h ceiling is Lab 3's lanelet maximum, and its 3 km/h
+    default lies below it."""
+    from autosdv_speed_limit import speed_limit
+    from autosdv_lab3 import fixtures
+    assert speed_limit.DEFAULT_KMH < fixtures.SPEED_LIMIT_KMH == speed_limit.MAX_KMH
