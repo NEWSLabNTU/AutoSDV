@@ -215,9 +215,14 @@ indoors, measured on car B's 16 Nov run bag (2026-11-23):
 - `use_speed_limit` / `speed_limit_config`: the overall limit (below), on by default.
 
 Terminal 2, the lap recording (after the stack is up, before the goal):
-`lab3/record_lap.sh`, a plain `ros2 bag record` of `config/record/run_topics.txt` (the
-car's path `/localization/kinematic_state`, NDT's NVTL and pose, the operation mode, the
-speed limit in force, the sensors) into `lab3/bags/`; Ctrl-C after the car has stopped.
+`lab3/record_lap.sh`, a plain `ros2 bag record` of `config/record/run_topics.txt` into
+`lab3/bags/`: the sensors (LiDAR, IMUs, TF), the speed (`velocity_status`, the converted
+twist), the control output (`/control/command/control_cmd`, `steering_status`), NDT
+(pose, NVTL, transform probability, iterations, its input scan), the car's path
+`/localization/kinematic_state`, the plan (route, trajectory, velocity and steering
+factors, the speed limit in force), the operation mode and the emergency-stop state
+(`/api/fail_safe/mrm_state`). Once the car has stopped, Ctrl-C the recording first and
+then `run.sh`: stopping the stack first ends the lap's topics before the bag closes.
 That bag is what is graded, afterwards and anywhere:
 
 ```bash
@@ -237,7 +242,8 @@ recorded this way and graded with `--map` (96.0 m in 120 s, max 3.1 km/h).
    before the start's, drag the way of travel.
 4. In the **AutowareStatePanel** (left), press **Auto**. The car drives the whole loop
    and stops at the goal.
-5. Ctrl-C `record_lap.sh` after the car has stopped, then `lab3/grade.sh` on the bag.
+5. Ctrl-C `record_lap.sh` after the car has stopped, before `run.sh`; then
+   `lab3/grade.sh` on the bag.
 
 The grade reads only the bag (`ros2 run autosdv_lab3 lab3_grade BAG` repeats it):
 travel time, travel distance, every lanelet driven, and the straight-line gap from the

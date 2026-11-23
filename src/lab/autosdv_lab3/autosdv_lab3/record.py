@@ -28,7 +28,7 @@ META_TOPIC = '/lab3/record_meta'
 SIDECAR = 'lab3_meta.json'
 
 # week 2: what grading reads besides the sensors — the localization, its NDT internals,
-# the initial pose, the route and the operation mode
+# the initial pose, the route, the operation mode, the control output and the plan
 RUN_EXTRA = [
     '/localization/kinematic_state',
     '/localization/pose_estimator/pose_with_covariance',
@@ -38,7 +38,10 @@ RUN_EXTRA = [
     '/api/localization/initialization_state',
     '/api/routing/state',
     '/api/operation_mode/state',
-    '/control/command/control_cmd',
+    '/control/command/control_cmd',      # the control output: speed, acceleration, steering
+    '/vehicle/status/steering_status',
+    '/planning/scenario_planning/trajectory',   # the plan the controller follows
+    '/api/fail_safe/mrm_state',           # an emergency stop and its reason
     '/planning/mission_planning/route',   # each route's goal
     '/initialpose',                       # a pose set in RViz
     '/api/planning/velocity_factors',     # why planning slows or holds the car

@@ -14,6 +14,9 @@
 /api/routing/state
 /api/operation_mode/state
 /control/command/control_cmd
+/vehicle/status/steering_status
+/planning/scenario_planning/trajectory
+/api/fail_safe/mrm_state
 /planning/mission_planning/route
 /initialpose
 /api/planning/velocity_factors
