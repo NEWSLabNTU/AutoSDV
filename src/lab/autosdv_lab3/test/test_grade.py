@@ -107,3 +107,26 @@ def test_still_moving_when_the_recording_stopped():
     lp = loop()
     rep = grade.grade_run(drive(2.0, 20.0, lp, rest=0.0))
     assert not rep['ok'] and 'come to rest' in rep['reasons'][0]
+
+
+@pytest.mark.parametrize('kmh,points', [
+    (0.5, 60.0), (1.0, 60.0), (2.0, 70.0), (3.0, 80.0), (4.0, 85.0),
+    (5.0, 90.0), (6.5, 95.0), (8.0, 100.0), (9.5, 100.0)])
+def test_lap_score_levels(kmh, points):
+    assert grade.lap_score(kmh) == pytest.approx(points)
+
+
+def test_complete_lap_is_scored_by_average_speed():
+    lp = loop()
+    rep = grade.grade_run(drive(2.0, 2.0 + lp.length - 0.6, lp, v=0.8))
+    assert rep['ok'], rep['reasons']
+    assert rep['avg_speed_kmh'] == pytest.approx(rep['travel_distance_m']
+                                                 / rep['travel_time_s'] * 3.6, abs=0.01)
+    assert rep['score'] == pytest.approx(grade.lap_score(rep['avg_speed_kmh']))
+
+
+def test_an_incomplete_lap_scores_zero():
+    lp = loop()
+    rep = grade.grade_run(drive(2.0, 2.0 + lp.length - 5.0, lp))
+    assert not rep['ok']
+    assert rep['score'] == 0.0

@@ -69,6 +69,11 @@ NVTL_BIN = 0.5           # s: the lap in bins; a bin is localized when NDT score
 SPEED_MAX_KMH = 10.0     # above this for SPEEDING_HOLD_S, the lap does not count as complete
 SPEEDING_HOLD_S = 0.3    # one bad hall-sensor edge must not cancel a lap
 
+# ---- the lap's score (course spec, Part 2): a complete lap scores 60, and the average
+# speed, travel distance over travel time with every stop counted, raises it linearly
+# between these levels (km/h, points); 100 at the top level or faster
+SCORE_LEVELS = ((1.0, 60.0), (3.0, 80.0), (5.0, 90.0), (8.0, 100.0))
+
 
 
 # ------------------------------------------------------------------ the bag
@@ -264,7 +269,25 @@ def grade_run(r: Run) -> dict:
     rep['checks'] = {k: bool(ok) for k, (ok, _) in checks.items()}
     rep['reasons'] = [msg for ok, msg in checks.values() if not ok]
     rep['ok'] = all(rep['checks'].values())
+    rep['avg_speed_kmh'] = round(avg_speed_kmh(rep['travel_distance_m'], rep['travel_time_s']), 2)
+    rep['score'] = lap_score(rep['avg_speed_kmh']) if rep['ok'] else 0.0
     return rep
+
+
+def avg_speed_kmh(distance_m: float, time_s: float) -> float:
+    """The lap's average speed: distance over the whole travel time, stops included."""
+    return distance_m / time_s * 3.6 if time_s > 0 else 0.0
+
+
+def lap_score(kmh: float) -> float:
+    """Points of a complete lap at average speed ``kmh`` (SCORE_LEVELS, linear between)."""
+    v0, p0 = SCORE_LEVELS[0]
+    if kmh <= v0:
+        return p0
+    for (va, pa), (vb, pb) in zip(SCORE_LEVELS, SCORE_LEVELS[1:]):
+        if kmh <= vb:
+            return round(pa + (pb - pa) * (kmh - va) / (vb - va), 1)
+    return SCORE_LEVELS[-1][1]
 
 
 def localized_share(nvtl: np.ndarray, t0: float, t1: float) -> float:
@@ -303,7 +326,7 @@ def print_report(rep: dict, bag: str):
     for key in ('loop_length_m', 'travel_time_s', 'travel_distance_m', 'end_gap_m',
                 'distance_plus_gap_m', 'end_behind_start_m',
                 'laps', 'segments_visited', 'distance_not_autonomous_m', 'localized_share',
-                'nvtl_median', 'nvtl_min', 'max_speed_kmh', 'speeding'):
+                'nvtl_median', 'nvtl_min', 'max_speed_kmh', 'speeding', 'avg_speed_kmh'):
         if key in rep:
             print(f'  {key:28s} {rep[key]}')
     for k, ok in rep.get('checks', {}).items():
@@ -314,6 +337,8 @@ def print_report(rep: dict, bag: str):
     if al:
         print(f'  {"scan_to_map":28s} {al}')
     print('  LAP ' + ('ACCEPTED' if rep['ok'] else 'NOT ACCEPTED'))
+    if 'score' in rep:
+        print(f'  SCORE {rep["score"]:g} of 100 (a collision, checked by the TA, scores 0)')
 
 
 
