@@ -189,3 +189,15 @@ def test_start_hint_heading_axis():
 def test_boundary_outside_window_is_not_called_good(maps):
     far = lanelet_check.start_hint(load_loop(maps['far']))
     assert 'good, the start lanelet' not in far.text()
+
+
+def test_misnamed_lanelet_file_names_the_rename(maps, tmp_path):
+    """A zip from the map editor shipped lanelet2_maps.osm: say which file to rename."""
+    import shutil
+    d = tmp_path / 'misnamed'
+    shutil.copytree(maps['good'], d)
+    os.rename(d / mapdir.LANELET, d / 'lanelet2_maps.osm')
+    results, loop = lanelet_check.checks(str(d))
+    assert loop is None
+    assert results[0].ok is False
+    assert 'lanelet2_maps.osm' in results[0].reason and mapdir.LANELET in results[0].reason

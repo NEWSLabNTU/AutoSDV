@@ -1,6 +1,7 @@
 """`ros2 run autosdv_lab3 lab3_check_lanelet MAP_DIR`: is the lanelet2 loop drivable?
 
     lab3_check_lanelet MAP_DIR [--no-sim] [--goal-behind 1.0] [--timeout S] [--keep-log]
+                       [--planning-profile stock|rc]
 
 Four requirements, each PASS or FAIL:
 
@@ -74,7 +75,13 @@ def checks(map_dir: str):
     try:
         lanelets = read_lanelets(os.path.join(map_dir, mapdir.LANELET))
     except MapError as e:
-        return [Result('loop', False, '', str(e)),
+        msg = str(e)
+        others = sorted(f for f in os.listdir(map_dir) if f.endswith('.osm') and f != mapdir.LANELET) \
+            if not os.path.isfile(os.path.join(map_dir, mapdir.LANELET)) else []
+        if others:   # a map editor's export under another name (lanelet2_maps.osm, seen)
+            msg = (f'no {mapdir.LANELET}, but {", ".join(others)}: rename it to {mapdir.LANELET} '
+                   '(Autoware loads that name only)')
+        return [Result('loop', False, '', msg),
                 Result('clockwise', None, '', 'needs a readable map'),
                 Result('speed limits', None, '', 'needs a readable map')], None
     if not lanelets:
@@ -200,6 +207,8 @@ def main(argv=None) -> int:
                     help=f'm from the start back to the one goal (default {GOAL_BEHIND:g})')
     ap.add_argument('--timeout', type=float, default=None, help='simulator lap timeout, s')
     ap.add_argument('--keep-log', action='store_true', help="keep the simulator's run directory")
+    ap.add_argument('--planning-profile', default=None, choices=('stock', 'rc'),
+                    help="autosdv_launch planning_profile for the lap (default: lab3_sim_lap's)")
     args = ap.parse_args(argv)
     if not os.path.isdir(args.map_dir):
         print(f'error: {args.map_dir} is not a directory', file=sys.stderr)
@@ -223,7 +232,8 @@ def main(argv=None) -> int:
         print('\nrequirements pass; driving a lap in the planning simulator ...', flush=True)
         from autosdv_lab3 import sim_lap
         sim = sim_lap.run_lap(args.map_dir, timeout=args.timeout, keep_log=args.keep_log,
-                              goal_behind=args.goal_behind)
+                              goal_behind=args.goal_behind,
+                              planning_profile=args.planning_profile or sim_lap.PLANNING_PROFILE)
         results.append(Result('sim lap', sim.ok, sim.value if sim.ok else sim.reason,
                               '' if sim.ok else sim.value))
     print(table(results))

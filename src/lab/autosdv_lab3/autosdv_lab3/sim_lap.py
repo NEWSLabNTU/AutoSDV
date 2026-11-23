@@ -1,6 +1,7 @@
 """One lap of the team's loop in the planning simulator, headless.
 
     lab3_sim_lap MAP_DIR [--goal-behind 1.0] [--timeout S] [--keep-log] [--web-addr 127.0.0.1:8095]
+                 [--planning-profile stock|rc]
 
 Runs AutoSDV's RC simulator (`just sim rc`: Autoware in planning-simulator mode, the
 car's own vehicle interface on simulated hardware, the rc_sim plant, the AutoSDV
@@ -101,12 +102,14 @@ def stop_group(proc: subprocess.Popen) -> None:
 
 
 GOAL_BEHIND = 1.0          # m: the field run's 2D Goal Pose behind the start (as lab3_check_lanelet)
+PLANNING_PROFILE = 'rc'    # autosdv_launch's planning_profile, as lab3_run.launch.xml drives with
 
 
 def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = False,
             web_addr: str = WEB_ADDR, log=print, start=None,
             speed_kmh: float = speed_limit.DEFAULT_KMH,
-            goal_behind: float = GOAL_BEHIND) -> LapResult:
+            goal_behind: float = GOAL_BEHIND,
+            planning_profile: str = PLANNING_PROFILE) -> LapResult:
     """`start`: an (x, y[, yaw]) to project onto the loop; default the map origin."""
     t_wall = time.monotonic()
     try:
@@ -121,7 +124,7 @@ def run_lap(map_dir: str, timeout: Optional[float] = None, keep_log: bool = Fals
     log_path = run_dir / 'stack.log'
     cmd = ['play_launch', 'launch', '--web-addr', web_addr, '--log-dir', str(run_dir / 'play_log'),
            'autosdv_rc_sim', 'rc_sim.launch.xml', 'rviz:=false', f'track_dir:={track}',
-           'planning_profile:=rc']   # Lab 3 drives with the RC planning profile
+           f'planning_profile:={planning_profile}']
     log(f'sim lap: {loop.length:.1f} m loop, start ({route.start[0]:.2f}, {route.start[1]:.2f}), '
         f'one goal {goal_behind:g} m behind it, lap timeout {lap_timeout:.0f} s; log {log_path}')
     cwd = _repo_tmp().parent if (_repo_tmp().parent / 'versions.yaml').is_file() else run_dir
@@ -294,11 +297,14 @@ def main(argv=None) -> int:
     ap.add_argument('--goal-behind', type=float, default=GOAL_BEHIND,
                     help=f'm from the start back to the one goal (default {GOAL_BEHIND:g})')
     ap.add_argument('--web-addr', default=WEB_ADDR, help="play_launch's web UI address")
+    ap.add_argument('--planning-profile', default=PLANNING_PROFILE, choices=('stock', 'rc'),
+                    help=f'autosdv_launch planning_profile (default {PLANNING_PROFILE})')
     args = ap.parse_args(argv)
     if os.environ.get('ROS_DOMAIN_ID', '0') == '0':
         print('note: ROS_DOMAIN_ID is 0; set another when other ROS work shares the host', file=sys.stderr)
     res = run_lap(args.map_dir, args.timeout, args.keep_log, args.web_addr,
-                  speed_kmh=args.speed, goal_behind=args.goal_behind)
+                  speed_kmh=args.speed, goal_behind=args.goal_behind,
+                  planning_profile=args.planning_profile)
     print(f"{'PASS' if res.ok else 'FAIL'}  {res.reason}: {res.value} "
           f"(wall {res.wall_s:.0f} s{', log ' + res.run_dir if res.run_dir else ''})")
     return 0 if res.ok else 1
