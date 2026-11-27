@@ -10,7 +10,8 @@ play_launch launch autosdv_launch autosdv.launch.yaml \
     map_path:=$PWD/lab3/map \
     use_gnss:=false \
     use_ntrip:=false \
-    pose_source:=cuda_ndt \
+    pose_source:=ndt \
+    ndt_param_file:=$cfg/ndt_indoor_builtin.param.yaml \
     cuda_ndt_param_file:=$cfg/ndt_indoor_robin_w.param.yaml \
     ndt_voxel_grid_param_file:=$cfg/localization/voxel_grid_robin_w.param.yaml \
     ndt_random_downsample_param_file:=$cfg/localization/random_downsample_robin_w.param.yaml \
